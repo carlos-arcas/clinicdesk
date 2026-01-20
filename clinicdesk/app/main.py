@@ -1,0 +1,1 @@
+print("ClinicDesk arrancando correctamente") 
