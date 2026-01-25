@@ -1,1 +1,0 @@
-print("ClinicDesk arrancando correctamente")
