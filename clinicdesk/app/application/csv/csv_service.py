@@ -10,7 +10,8 @@ Diseño:
 Estrategia upsert:
 - Si viene "id" y existe -> update
 - Si no hay id:
-  - Personas: usa documento como clave natural (tabla correspondiente)
+  - Personas: usa (tipo_documento, documento) como clave natural
+  - Médicos: prioriza num_colegiado si existe
   - Medicamentos: (nombre_comercial + nombre_compuesto)
   - Materiales: nombre
   - Salas: nombre
@@ -19,7 +20,8 @@ Estrategia upsert:
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import date, datetime
+from datetime import date
+import sqlite3
 from typing import Any, Dict, List, Optional, Tuple
 
 from clinicdesk.app.container import AppContainer
@@ -128,7 +130,7 @@ class CsvService:
                     self._c.pacientes_repo.create(paciente)
                     created += 1
             except Exception as e:
-                errors.append(CsvRowError(i, str(e), row))
+                errors.append(CsvRowError(i, self._format_row_error(e), row))
 
         return CsvImportResult(created=created, updated=updated, errors=errors)
 
@@ -143,7 +145,7 @@ class CsvService:
         for i, row in enumerate(data.rows, start=2):
             try:
                 medico = self._row_to_medico(row)
-                existing_id = self._resolve_person_id("medicos", row)
+                existing_id = self._resolve_medico_id(row)
 
                 if existing_id:
                     medico.id = existing_id
@@ -153,7 +155,7 @@ class CsvService:
                     self._c.medicos_repo.create(medico)
                     created += 1
             except Exception as e:
-                errors.append(CsvRowError(i, str(e), row))
+                errors.append(CsvRowError(i, self._format_row_error(e), row))
 
         return CsvImportResult(created=created, updated=updated, errors=errors)
 
@@ -178,7 +180,7 @@ class CsvService:
                     self._c.personal_repo.create(personal)
                     created += 1
             except Exception as e:
-                errors.append(CsvRowError(i, str(e), row))
+                errors.append(CsvRowError(i, self._format_row_error(e), row))
 
         return CsvImportResult(created=created, updated=updated, errors=errors)
 
@@ -203,7 +205,7 @@ class CsvService:
                     self._c.medicamentos_repo.create(med)
                     created += 1
             except Exception as e:
-                errors.append(CsvRowError(i, str(e), row))
+                errors.append(CsvRowError(i, self._format_row_error(e), row))
 
         return CsvImportResult(created=created, updated=updated, errors=errors)
 
@@ -228,7 +230,7 @@ class CsvService:
                     self._c.materiales_repo.create(mat)
                     created += 1
             except Exception as e:
-                errors.append(CsvRowError(i, str(e), row))
+                errors.append(CsvRowError(i, self._format_row_error(e), row))
 
         return CsvImportResult(created=created, updated=updated, errors=errors)
 
@@ -253,7 +255,7 @@ class CsvService:
                     self._c.salas_repo.create(sala)
                     created += 1
             except Exception as e:
-                errors.append(CsvRowError(i, str(e), row))
+                errors.append(CsvRowError(i, self._format_row_error(e), row))
 
         return CsvImportResult(created=created, updated=updated, errors=errors)
 
@@ -265,7 +267,7 @@ class CsvService:
         """
         Para pacientes/medicos/personal:
         - Si viene id y existe -> usarlo
-        - Si no, buscar por documento (clave natural)
+        - Si no, buscar por (tipo_documento, documento) (clave natural)
         """
         rid = self._to_int(row.get("id"))
         if rid:
@@ -273,15 +275,35 @@ class CsvService:
             if exists:
                 return rid
 
+        tipo_documento_raw = (row.get("tipo_documento") or "").strip()
         documento = (row.get("documento") or "").strip()
-        if not documento:
+        if not tipo_documento_raw or not documento:
             return None
 
+        tipo_documento = self._parse_tipo_documento(tipo_documento_raw).value
         r = self._c.connection.execute(
-            f"SELECT id FROM {table} WHERE documento = ? LIMIT 1",
-            (documento,),
+            f"SELECT id FROM {table} WHERE tipo_documento = ? AND documento = ? LIMIT 1",
+            (tipo_documento, documento),
         ).fetchone()
         return int(r["id"]) if r else None
+
+    def _resolve_medico_id(self, row: Dict[str, str]) -> Optional[int]:
+        rid = self._to_int(row.get("id"))
+        if rid:
+            exists = self._c.connection.execute("SELECT 1 FROM medicos WHERE id = ? LIMIT 1", (rid,)).fetchone()
+            if exists:
+                return rid
+
+        num_colegiado = (row.get("num_colegiado") or "").strip()
+        if num_colegiado:
+            r = self._c.connection.execute(
+                "SELECT id FROM medicos WHERE num_colegiado = ? LIMIT 1",
+                (num_colegiado,),
+            ).fetchone()
+            if r:
+                return int(r["id"])
+
+        return self._resolve_person_id("medicos", row)
 
     def _resolve_medicamento_id(self, row: Dict[str, str]) -> Optional[int]:
         rid = self._to_int(row.get("id"))
@@ -503,19 +525,29 @@ class CsvService:
         val = (v or "").strip()
         if not val:
             raise ValidationError("tipo_documento obligatorio.")
-        try:
-            return TipoDocumento(val)
-        except Exception as e:
-            raise ValidationError(f"tipo_documento inválido: {val}") from e
+
+        normalized = self._normalize_enum_token(val)
+        mapping = {self._normalize_enum_token(t.value): t for t in TipoDocumento}
+        tipo = mapping.get(normalized)
+        if tipo:
+            return tipo
+
+        opciones = ", ".join(t.value for t in TipoDocumento)
+        raise ValidationError(f"tipo_documento inválido: {val}. Opciones válidas: {opciones}.")
 
     def _parse_tipo_sala(self, v: Optional[str]) -> TipoSala:
         val = (v or "").strip()
         if not val:
             raise ValidationError("tipo (sala) obligatorio.")
-        try:
-            return TipoSala(val)
-        except Exception as e:
-            raise ValidationError(f"tipo de sala inválido: {val}") from e
+
+        normalized = self._normalize_enum_token(val)
+        mapping = {self._normalize_enum_token(t.value): t for t in TipoSala}
+        tipo = mapping.get(normalized)
+        if tipo:
+            return tipo
+
+        opciones = ", ".join(t.value for t in TipoSala)
+        raise ValidationError(f"tipo de sala inválido: {val}. Opciones válidas: {opciones}.")
 
     def _parse_date_optional(self, v: Optional[str]) -> Optional[date]:
         val = (v or "").strip()
@@ -524,7 +556,7 @@ class CsvService:
         try:
             return date.fromisoformat(val)
         except ValueError as e:
-            raise ValidationError(f"fecha_nacimiento inválida: {val}") from e
+            raise ValidationError("fecha_nacimiento: formato inválido (AAAA-MM-DD)") from e
 
     def _parse_bool_default(self, v: Optional[str], *, default: bool) -> bool:
         val = (v or "").strip().lower()
@@ -548,3 +580,23 @@ class CsvService:
     def _none_if_empty(self, v: Optional[str]) -> Optional[str]:
         val = (v or "").strip()
         return val if val else None
+
+    def _normalize_enum_token(self, value: str) -> str:
+        return value.strip().upper().replace(".", "").replace(" ", "")
+
+    def _format_row_error(self, exc: Exception) -> str:
+        if isinstance(exc, ValidationError):
+            return str(exc)
+
+        if isinstance(exc, ValueError) and "isoformat" in str(exc).lower():
+            return "fecha_nacimiento: formato inválido (AAAA-MM-DD)"
+
+        if isinstance(exc, sqlite3.IntegrityError):
+            message = str(exc).lower()
+            if "num_colegiado" in message:
+                return "num_colegiado duplicado"
+            if "tipo_documento" in message and "documento" in message:
+                return "registro duplicado: (tipo_documento, documento) ya existe"
+            return "registro duplicado"
+
+        return "Error inesperado al importar la fila."

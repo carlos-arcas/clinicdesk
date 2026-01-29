@@ -10,6 +10,7 @@ from clinicdesk.app.application.usecases.crear_cita import CrearCitaRequest, Cre
 
 from clinicdesk.app.pages.citas.dialogs.dialog_cita_form import CitaFormDialog
 from clinicdesk.app.pages.dialog_override import OverrideDialog
+from clinicdesk.app.ui.error_presenter import present_error
 
 
 class CitasController:
@@ -72,7 +73,7 @@ class CitasController:
             return True
 
         except Exception as ex:
-            QMessageBox.critical(self._parent, "Citas - Error", str(ex))
+            present_error(self._parent, ex)
             return False
 
     def delete_cita(self, cita_id: int) -> bool:
@@ -91,5 +92,5 @@ class CitasController:
             self._c.citas_repo.delete(cita_id)
             return True
         except Exception as e:
-            QMessageBox.critical(self._parent, "Citas - Error", str(e))
+            present_error(self._parent, e)
             return False
