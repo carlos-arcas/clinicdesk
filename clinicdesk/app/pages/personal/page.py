@@ -119,6 +119,7 @@ class PagePersonal(QWidget):
         except ValidationError as exc:
             QMessageBox.warning(self, "Personal", str(exc))
             return
+        self._reset_filters()
         self._refresh()
 
     def _on_editar(self) -> None:
@@ -167,3 +168,8 @@ class PagePersonal(QWidget):
         if value == "Inactivos":
             return False
         return None
+
+    def _reset_filters(self) -> None:
+        self.txt_buscar.clear()
+        self.txt_puesto.clear()
+        self.cbo_activo.setCurrentText("Todos")
