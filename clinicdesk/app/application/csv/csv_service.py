@@ -21,6 +21,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import date
+import logging
 import sqlite3
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -31,6 +32,7 @@ from clinicdesk.app.domain.modelos import Paciente, Medico, Personal, Medicament
 
 from clinicdesk.app.application.csv.csv_io import CsvRowError, read_csv, write_csv
 
+logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------
 # Resultados
@@ -378,6 +380,8 @@ class CsvService:
             direccion=self._none_if_empty(row.get("direccion")),
             activo=self._parse_bool_default(row.get("activo"), default=True),
             num_historia=self._none_if_empty(row.get("num_historia")),
+            alergias=self._none_if_empty(row.get("alergias")),
+            observaciones=self._none_if_empty(row.get("observaciones")),
         )
 
     def _row_to_medico(self, row: Dict[str, str]) -> Medico:
@@ -585,6 +589,7 @@ class CsvService:
         return value.strip().upper().replace(".", "").replace(" ", "")
 
     def _format_row_error(self, exc: Exception) -> str:
+        logger.exception("Error al importar fila CSV", exc_info=exc)
         if isinstance(exc, ValidationError):
             return str(exc)
 
@@ -598,5 +603,11 @@ class CsvService:
             if "tipo_documento" in message and "documento" in message:
                 return "registro duplicado: (tipo_documento, documento) ya existe"
             return "registro duplicado"
+
+        if isinstance(exc, TypeError) and "unexpected keyword argument" in str(exc).lower():
+            return (
+                "Error interno: modelo Paciente no acepta un campo del CSV "
+                "(revisar num_historia/alergias/observaciones)."
+            )
 
         return "Error inesperado al importar la fila."
