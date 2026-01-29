@@ -236,6 +236,14 @@ class Medicamento:
     def to_dict(self) -> Dict[str, Any]:
         return asdict(self)
 
+    @property
+    def cantidad_en_almacen(self) -> int:
+        return self.cantidad_almacen
+
+    @cantidad_en_almacen.setter
+    def cantidad_en_almacen(self, value: int) -> None:
+        self.cantidad_almacen = value
+
 
 @dataclass(slots=True)
 class Material:
@@ -253,6 +261,14 @@ class Material:
 
     def to_dict(self) -> Dict[str, Any]:
         return asdict(self)
+
+    @property
+    def cantidad_en_almacen(self) -> int:
+        return self.cantidad_almacen
+
+    @cantidad_en_almacen.setter
+    def cantidad_en_almacen(self, value: int) -> None:
+        self.cantidad_almacen = value
 
 
 @dataclass(slots=True)
