@@ -34,8 +34,8 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import List, Optional
 
-from container import AppContainer
-from domain.exceptions import ValidationError
+from clinicdesk.app.container import AppContainer
+from clinicdesk.app.domain.exceptions import ValidationError
 
 
 # ---------------------------------------------------------------------
@@ -157,7 +157,7 @@ class AjustarStockMedicamentoUseCase:
                 raise ValidationError("confirmado_por_personal_id es obligatorio al guardar con override.")
 
         # ---------- Persistencia: movimiento + stock ----------
-        from infrastructure.sqlite.repos_movimientos_medicamentos import MovimientoMedicamento
+        from clinicdesk.app.infrastructure.sqlite.repos_movimientos_medicamentos import MovimientoMedicamento
 
         # Para AJUSTE registramos cantidad como delta (para auditoría más informativa)
         if req.tipo == "AJUSTE":
@@ -186,7 +186,7 @@ class AjustarStockMedicamentoUseCase:
 
         # ---------- Incidencia central (si override) ----------
         if warnings:
-            from infrastructure.sqlite.repos_incidencias import Incidencia
+            from clinicdesk.app.infrastructure.sqlite.repos_incidencias import Incidencia
 
             severidad = self._max_severidad(warnings)
             descripcion = self._build_incidencia_descripcion(req, warnings, fecha_hora, stock_anterior, stock_nuevo, movimiento_id)

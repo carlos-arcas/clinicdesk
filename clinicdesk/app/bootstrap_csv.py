@@ -9,9 +9,9 @@ Crea:
 
 from __future__ import annotations
 
-from app.controllers.csv_controller import CsvController
-from application.usecases.csv.csv_service import CsvService
-from container import AppContainer
+from clinicdesk.app.controllers.csv_controller import CsvController
+from clinicdesk.app.application.csv.csv_service import CsvService
+from clinicdesk.app.container import AppContainer
 
 
 def build_csv_controller(container: AppContainer, parent) -> CsvController:

@@ -34,8 +34,8 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import List, Optional
 
-from domain.exceptions import ValidationError
-from container import AppContainer
+from clinicdesk.app.domain.exceptions import ValidationError
+from clinicdesk.app.container import AppContainer
 
 
 # ---------------------------------------------------------------------
@@ -185,7 +185,7 @@ class DispensarMedicamentoUseCase:
             notas_incidencia = req.nota_override.strip()
 
         # ---------- Insertar dispensación ----------
-        from infrastructure.sqlite.repos_dispensaciones import Dispensacion
+        from clinicdesk.app.infrastructure.sqlite.repos_dispensaciones import Dispensacion
 
         disp = Dispensacion(
             receta_id=req.receta_id,
@@ -203,7 +203,7 @@ class DispensarMedicamentoUseCase:
         self._c.medicamentos_repo.update_stock(medicamento_id, stock_nuevo)
 
         # ---------- Registrar movimiento ----------
-        from infrastructure.sqlite.repos_movimientos_medicamentos import MovimientoMedicamento
+        from clinicdesk.app.infrastructure.sqlite.repos_movimientos_medicamentos import MovimientoMedicamento
 
         mov = MovimientoMedicamento(
             medicamento_id=medicamento_id,
@@ -221,7 +221,7 @@ class DispensarMedicamentoUseCase:
             severidad = self._max_severidad(warnings)
             descripcion = self._build_incidencia_descripcion(req, warnings, fecha_hora, medicamento_id, dispensacion_id)
 
-            from infrastructure.sqlite.repos_incidencias import Incidencia
+            from clinicdesk.app.infrastructure.sqlite.repos_incidencias import Incidencia
 
             inc = Incidencia(
                 tipo="DISPENSACION",

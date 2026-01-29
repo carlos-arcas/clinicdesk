@@ -15,7 +15,7 @@ from PySide6.QtWidgets import (
 )
 
 from clinicdesk.app.container import AppContainer
-from clinicdesk.app.application.queries.citas_queries import CitaRow
+from clinicdesk.app.queries.citas_queries import CitaRow, CitasQueries
 from clinicdesk.app.application.usecases.crear_cita import CrearCitaUseCase
 
 
@@ -23,6 +23,7 @@ class PageCitas(QWidget):
     def __init__(self, container: AppContainer, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
         self._container = container
+        self._queries = CitasQueries(container)
 
         self.calendar = QCalendarWidget()
         self.lbl_date = QLabel("Fecha: —")
@@ -60,7 +61,7 @@ class PageCitas(QWidget):
         date_str = self.calendar.selectedDate().toString("yyyy-MM-dd")
         self.lbl_date.setText(f"Fecha: {date_str}")
 
-        rows: List[CitaRow] = self._container.queries.citas.for_date(date_str)
+        rows: List[CitaRow] = self._queries.list_by_date(date_str)
 
         self.table.setRowCount(0)
         for c in rows:

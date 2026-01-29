@@ -3,10 +3,9 @@ from __future__ import annotations
 
 from typing import Dict
 
-from PySide6.QtWidgets import QStackedWidget
+from PySide6.QtWidgets import QStackedWidget, QWidget
 
-from app.pages.base_page import BasePage
-from app.pages.page_registry import PageRegistry
+from clinicdesk.app.pages.pages_registry import PageRegistry
 
 
 class PageHost(QStackedWidget):
@@ -20,7 +19,7 @@ class PageHost(QStackedWidget):
     def __init__(self, registry: PageRegistry) -> None:
         super().__init__()
         self._registry = registry
-        self._instances: Dict[str, BasePage] = {}
+        self._instances: Dict[str, QWidget] = {}
 
     def show_page(self, page_id: str) -> None:
         if page_id not in self._instances:
@@ -31,4 +30,6 @@ class PageHost(QStackedWidget):
 
         page = self._instances[page_id]
         self.setCurrentWidget(page)
-        page.on_show()
+        on_show = getattr(page, "on_show", None)
+        if callable(on_show):
+            on_show()

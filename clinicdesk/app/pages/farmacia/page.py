@@ -14,16 +14,17 @@ from PySide6.QtWidgets import (
 )
 
 from clinicdesk.app.container import AppContainer
-from clinicdesk.app.ui.dialogs.dialog_dispensar import DialogDispensar
-from clinicdesk.app.ui.dialogs.dialog_override import DialogOverride
+from clinicdesk.app.pages.dialog_dispensar import DispensarDialog
+from clinicdesk.app.pages.dialog_override import OverrideDialog
 from clinicdesk.app.queries.farmacia_queries import (
     RecetaRow,
     RecetaLineaRow,
 )
 from clinicdesk.app.application.usecases.dispensar_medicamento import (
+    DispensarMedicamentoRequest,
     DispensarMedicamentoUseCase,
+    PendingWarningsError,
 )
-from clinicdesk.app.application.warnings import PendingWarningsError
 
 
 class PageFarmacia(QWidget):
@@ -112,22 +113,37 @@ class PageFarmacia(QWidget):
         if not linea_id:
             return
 
-        dialog = DialogDispensar(self._container, linea_id)
-        if not dialog.exec():
+        dialog = DispensarDialog(self)
+        if dialog.exec() != dialog.Accepted:
+            return
+
+        data = dialog.get_data()
+        if not data:
+            return
+
+        receta_id = self._selected_id(self.table_recetas)
+        if not receta_id:
             return
 
         try:
-            DispensarMedicamentoUseCase(self._container).execute(**dialog.result())
-        except PendingWarningsError as w:
-            override = DialogOverride(self._container, w.warnings)
-            if not override.exec():
-                return
-            DispensarMedicamentoUseCase(self._container).execute(
-                **dialog.result(),
-                override=True,
-                nota_override=override.nota,
-                confirmado_por_personal_id=override.confirmador_id,
+            req = DispensarMedicamentoRequest(
+                receta_id=receta_id,
+                receta_linea_id=linea_id,
+                personal_id=data.personal_id,
+                cantidad=data.cantidad,
             )
+            DispensarMedicamentoUseCase(self._container).execute(req)
+        except PendingWarningsError as w:
+            override = OverrideDialog(self, title="Confirmar dispensación con advertencias", warnings=w.warnings)
+            if override.exec() != override.Accepted:
+                return
+            decision = override.get_decision()
+            if not decision.accepted:
+                return
+            req.override = True
+            req.nota_override = decision.nota_override
+            req.confirmado_por_personal_id = decision.confirmado_por_personal_id
+            DispensarMedicamentoUseCase(self._container).execute(req)
 
         self._load_lineas()
 
