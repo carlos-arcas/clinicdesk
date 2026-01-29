@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import List, Optional
 
-from clinicdesk.app.container import AppContainer
+import sqlite3
 
 
 @dataclass(frozen=True, slots=True)
@@ -29,8 +29,8 @@ class IncidenciaRow:
 
 
 class IncidenciasQueries:
-    def __init__(self, container: AppContainer) -> None:
-        self._c = container
+    def __init__(self, connection: sqlite3.Connection) -> None:
+        self._conn = connection
 
     def list(
         self,
@@ -40,6 +40,7 @@ class IncidenciasQueries:
         severidad: Optional[str] = None,
         fecha_desde: Optional[str] = None,  # YYYY-MM-DD
         fecha_hasta: Optional[str] = None,  # YYYY-MM-DD
+        texto: Optional[str] = None,
         limit: int = 500,
     ) -> List[IncidenciaRow]:
         where = []
@@ -60,10 +61,16 @@ class IncidenciasQueries:
         if fecha_hasta:
             where.append("i.fecha_hora <= ?")
             params.append(f"{fecha_hasta} 23:59:59")
+        if texto:
+            like = f"%{texto}%"
+            where.append(
+                "(i.descripcion LIKE ? OR i.nota_override LIKE ? OR cp.nombre LIKE ? OR cp.apellidos LIKE ?)"
+            )
+            params.extend([like, like, like, like])
 
         where_sql = ("WHERE " + " AND ".join(where)) if where else ""
 
-        rows = self._c.connection.execute(
+        rows = self._conn.execute(
             f"""
             SELECT
                 i.id,
@@ -121,7 +128,7 @@ class IncidenciasQueries:
         return out
 
     def get_by_id(self, incidencia_id: int) -> Optional[IncidenciaRow]:
-        row = self._c.connection.execute(
+        row = self._conn.execute(
             """
             SELECT
                 i.id,

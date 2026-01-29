@@ -45,6 +45,6 @@ def register_pages(registry: PageRegistry, container: AppContainer) -> None:
 
 def get_pages(container: AppContainer) -> List[PageDef]:
     """Bootstrap UI: reúne todas las páginas registradas por feature."""
-    reg = PageRegistry()
-    register_pages(reg, container)
-    return reg.list()
+    from clinicdesk.app.ui.bootstrap_ui import get_pages as get_ui_pages
+
+    return get_ui_pages(container)

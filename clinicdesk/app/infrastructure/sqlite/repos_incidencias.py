@@ -167,6 +167,21 @@ class IncidenciasRepository:
         )
         self._con.commit()
 
+    def update_state(self, incidencia_id: int, estado: str) -> None:
+        """
+        Actualiza únicamente el estado de una incidencia.
+        """
+        if incidencia_id <= 0:
+            raise ValidationError("incidencia_id inválido.")
+        if not estado.strip():
+            raise ValidationError("estado obligatorio.")
+
+        self._con.execute(
+            "UPDATE incidencias SET estado = ? WHERE id = ?",
+            (estado, incidencia_id),
+        )
+        self._con.commit()
+
     def delete(self, incidencia_id: int) -> None:
         """
         Borrado físico (registro de auditoría).
