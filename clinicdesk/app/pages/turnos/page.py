@@ -15,6 +15,7 @@ from PySide6.QtWidgets import (
     QTableWidgetItem,
     QVBoxLayout,
     QWidget,
+    QDialog,
 )
 
 from clinicdesk.app.container import AppContainer
@@ -126,7 +127,7 @@ class PageTurnos(QWidget):
 
         turnos = self._container.turnos_repo.list_all(solo_activos=True)
         dialog = BloqueFormDialog(turnos, self)
-        if dialog.exec() != dialog.Accepted:
+        if dialog.exec() != QDialog.Accepted:
             return
         data = dialog.get_data()
         if not data:

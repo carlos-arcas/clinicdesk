@@ -1,0 +1,138 @@
+/* ClinicDesk main theme */
+QMainWindow {
+    background: #f6f7fb;
+}
+
+QMenuBar {
+    background: #ffffff;
+    border-bottom: 1px solid #e3e7ef;
+    padding: 4px 8px;
+}
+
+QMenuBar::item {
+    padding: 6px 10px;
+    border-radius: 6px;
+}
+
+QMenuBar::item:selected {
+    background: #eef2ff;
+    color: #1f2a44;
+}
+
+QMenu {
+    background: #ffffff;
+    border: 1px solid #e3e7ef;
+    padding: 6px;
+}
+
+QMenu::item {
+    padding: 6px 12px;
+    border-radius: 6px;
+}
+
+QMenu::item:selected {
+    background: #e0ecff;
+}
+
+QWidget {
+    font-family: "Segoe UI", "Inter", "Helvetica Neue", Arial, sans-serif;
+    font-size: 13px;
+    color: #1f2a44;
+}
+
+QListWidget {
+    background: #111827;
+    color: #f9fafb;
+    border: none;
+    padding-top: 8px;
+}
+
+QListWidget::item {
+    padding: 10px 16px;
+    margin: 4px 8px;
+    border-radius: 8px;
+}
+
+QListWidget::item:selected {
+    background: #2563eb;
+    color: #ffffff;
+}
+
+QListWidget::item:hover {
+    background: #1f2937;
+}
+
+QLineEdit,
+QComboBox,
+QDateEdit,
+QTextEdit {
+    background: #ffffff;
+    border: 1px solid #d6dbe6;
+    border-radius: 6px;
+    padding: 6px 8px;
+}
+
+QLineEdit:focus,
+QComboBox:focus,
+QDateEdit:focus,
+QTextEdit:focus {
+    border: 1px solid #2563eb;
+}
+
+QPushButton {
+    background: #2563eb;
+    color: #ffffff;
+    border: none;
+    border-radius: 6px;
+    padding: 6px 12px;
+}
+
+QPushButton:hover {
+    background: #1d4ed8;
+}
+
+QPushButton:disabled {
+    background: #cbd5f5;
+    color: #667085;
+}
+
+QTableWidget {
+    background: #ffffff;
+    border: 1px solid #e3e7ef;
+    gridline-color: #edf0f6;
+}
+
+QHeaderView::section {
+    background: #f1f5f9;
+    color: #1f2a44;
+    padding: 6px 8px;
+    border: none;
+    border-bottom: 1px solid #e3e7ef;
+}
+
+QTableWidget::item:selected {
+    background: #e0ecff;
+    color: #1f2a44;
+}
+
+QCheckBox {
+    spacing: 6px;
+}
+
+QScrollBar:vertical {
+    width: 10px;
+    background: #f1f5f9;
+    margin: 2px;
+    border-radius: 5px;
+}
+
+QScrollBar::handle:vertical {
+    background: #cbd5f5;
+    border-radius: 5px;
+    min-height: 20px;
+}
+
+QScrollBar::add-line:vertical,
+QScrollBar::sub-line:vertical {
+    height: 0;
+}

@@ -13,6 +13,7 @@ from PySide6.QtWidgets import (
     QTableWidgetItem,
     QVBoxLayout,
     QWidget,
+    QDialog,
 )
 
 from clinicdesk.app.container import AppContainer
@@ -109,7 +110,7 @@ class PageMedicos(QWidget):
 
     def _on_nuevo(self) -> None:
         dialog = MedicoFormDialog(self)
-        if dialog.exec() != dialog.Accepted:
+        if dialog.exec() != QDialog.Accepted:
             return
         data = dialog.get_data()
         if not data:
@@ -131,7 +132,7 @@ class PageMedicos(QWidget):
             return
         dialog = MedicoFormDialog(self)
         dialog.set_medico(medico)
-        if dialog.exec() != dialog.Accepted:
+        if dialog.exec() != QDialog.Accepted:
             return
         data = dialog.get_data()
         if not data:

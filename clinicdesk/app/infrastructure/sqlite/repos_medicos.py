@@ -21,6 +21,7 @@ from typing import List, Optional
 from clinicdesk.app.domain.modelos import Medico
 from clinicdesk.app.domain.enums import TipoDocumento
 from clinicdesk.app.domain.exceptions import ValidationError
+from clinicdesk.app.infrastructure.sqlite.date_utils import format_iso_date, parse_iso_date
 
 
 # ---------------------------------------------------------------------
@@ -65,7 +66,7 @@ class MedicosRepository:
                 medico.apellidos,
                 medico.telefono,
                 medico.email,
-                medico.fecha_nacimiento.isoformat() if medico.fecha_nacimiento else None,
+                format_iso_date(medico.fecha_nacimiento),
                 medico.direccion,
                 int(medico.activo),
                 medico.num_colegiado,
@@ -107,7 +108,7 @@ class MedicosRepository:
                 medico.apellidos,
                 medico.telefono,
                 medico.email,
-                medico.fecha_nacimiento.isoformat() if medico.fecha_nacimiento else None,
+                format_iso_date(medico.fecha_nacimiento),
                 medico.direccion,
                 int(medico.activo),
                 medico.num_colegiado,
@@ -227,7 +228,7 @@ class MedicosRepository:
             apellidos=row["apellidos"],
             telefono=row["telefono"],
             email=row["email"],
-            fecha_nacimiento=None if row["fecha_nacimiento"] is None else row["fecha_nacimiento"],
+            fecha_nacimiento=parse_iso_date(row["fecha_nacimiento"]),
             direccion=row["direccion"],
             activo=bool(row["activo"]),
             num_colegiado=row["num_colegiado"],

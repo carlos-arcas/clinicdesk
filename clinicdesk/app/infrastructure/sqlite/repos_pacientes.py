@@ -24,6 +24,7 @@ from typing import Iterable, List, Optional
 from clinicdesk.app.domain.modelos import Paciente
 from clinicdesk.app.domain.enums import TipoDocumento
 from clinicdesk.app.domain.exceptions import ValidationError
+from clinicdesk.app.infrastructure.sqlite.date_utils import format_iso_date, parse_iso_date
 
 
 # ---------------------------------------------------------------------
@@ -68,7 +69,7 @@ class PacientesRepository:
                 paciente.apellidos,
                 paciente.telefono,
                 paciente.email,
-                paciente.fecha_nacimiento.isoformat() if paciente.fecha_nacimiento else None,
+                format_iso_date(paciente.fecha_nacimiento),
                 paciente.direccion,
                 int(paciente.activo),
                 paciente.num_historia,
@@ -112,7 +113,7 @@ class PacientesRepository:
                 paciente.apellidos,
                 paciente.telefono,
                 paciente.email,
-                paciente.fecha_nacimiento.isoformat() if paciente.fecha_nacimiento else None,
+                format_iso_date(paciente.fecha_nacimiento),
                 paciente.direccion,
                 int(paciente.activo),
                 paciente.num_historia,
@@ -265,7 +266,7 @@ class PacientesRepository:
                     apellidos=row["apellidos"],
                     telefono=row.get("telefono") or None,
                     email=row.get("email") or None,
-                    fecha_nacimiento=row.get("fecha_nacimiento") or None,
+                    fecha_nacimiento=parse_iso_date(row.get("fecha_nacimiento") or None),
                     direccion=row.get("direccion") or None,
                     activo=bool(int(row.get("activo", "1"))),
                     num_historia=row.get("num_historia") or None,
@@ -294,7 +295,7 @@ class PacientesRepository:
             apellidos=row["apellidos"],
             telefono=row["telefono"],
             email=row["email"],
-            fecha_nacimiento=None if row["fecha_nacimiento"] is None else row["fecha_nacimiento"],
+            fecha_nacimiento=parse_iso_date(row["fecha_nacimiento"]),
             direccion=row["direccion"],
             activo=bool(row["activo"]),
             num_historia=row["num_historia"],

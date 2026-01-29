@@ -13,6 +13,7 @@ from PySide6.QtWidgets import (
     QTableWidgetItem,
     QVBoxLayout,
     QWidget,
+    QDialog,
 )
 
 from clinicdesk.app.container import AppContainer
@@ -147,7 +148,7 @@ class PageMateriales(QWidget):
 
     def _on_nuevo(self) -> None:
         dialog = MaterialFormDialog(self)
-        if dialog.exec() != dialog.Accepted:
+        if dialog.exec() != QDialog.Accepted:
             return
         data = dialog.get_data()
         if not data:
@@ -169,7 +170,7 @@ class PageMateriales(QWidget):
             return
         dialog = MaterialFormDialog(self)
         dialog.set_material(material)
-        if dialog.exec() != dialog.Accepted:
+        if dialog.exec() != QDialog.Accepted:
             return
         data = dialog.get_data()
         if not data:
@@ -195,7 +196,7 @@ class PageMateriales(QWidget):
         if not material_id:
             return
         dialog = AjusteStockDialog(self)
-        if dialog.exec() != dialog.Accepted:
+        if dialog.exec() != QDialog.Accepted:
             return
         data = dialog.get_data()
         if not data:
@@ -213,7 +214,7 @@ class PageMateriales(QWidget):
             AjustarStockMaterialUseCase(self._container).execute(req)
         except PendingWarningsError as warn:
             override = OverrideDialog(self, title="Confirmar ajuste con advertencias", warnings=warn.warnings)
-            if override.exec() != override.Accepted:
+            if override.exec() != QDialog.Accepted:
                 return
             decision = override.get_decision()
             if not decision.accepted:

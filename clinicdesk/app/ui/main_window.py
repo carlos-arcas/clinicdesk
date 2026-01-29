@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Callable, Dict, Optional
 
 from PySide6.QtCore import Qt
+from PySide6.QtGui import QAction
 from PySide6.QtWidgets import (
     QHBoxLayout,
     QListWidget,
@@ -13,6 +14,8 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from clinicdesk.app.application.csv.csv_service import CsvService
+from clinicdesk.app.controllers.csv_controller import CsvController
 from clinicdesk.app.container import AppContainer
 from clinicdesk.app.pages.pages_registry import get_pages
 
@@ -22,12 +25,19 @@ class MainWindow(QMainWindow):
     def __init__(self, container: AppContainer) -> None:
         super().__init__()
         self.container = container
+        self._csv_controller = CsvController(
+            self,
+            CsvService(container),
+            on_import_complete=self._on_csv_imported,
+        )
 
         self.setWindowTitle("ClinicDesk")
         self.resize(1200, 800)
 
         root = QWidget()
         self.setCentralWidget(root)
+
+        self._build_menu()
 
         layout = QHBoxLayout(root)
         layout.setContentsMargins(0, 0, 0, 0)
@@ -56,6 +66,39 @@ class MainWindow(QMainWindow):
         self.sidebar.currentRowChanged.connect(self._on_sidebar_changed)
 
         self.navigate("home")
+
+    def _build_menu(self) -> None:
+        menu_bar = self.menuBar()
+        menu_archivo = menu_bar.addMenu("Archivo")
+
+        action_csv = QAction("Importar/Exportar CSV…", self)
+        action_csv.triggered.connect(self._csv_controller.open_dialog)
+
+        action_exit = QAction("Salir", self)
+        action_exit.triggered.connect(self.close)
+
+        menu_archivo.addAction(action_csv)
+        menu_archivo.addSeparator()
+        menu_archivo.addAction(action_exit)
+
+    def _on_csv_imported(self, entity: str) -> None:
+        key_by_entity = {
+            "Pacientes": "pacientes",
+            "Médicos": "medicos",
+            "Personal": "personal",
+            "Medicamentos": "medicamentos",
+            "Materiales": "materiales",
+            "Salas": "salas",
+        }
+        key = key_by_entity.get(entity)
+        if not key:
+            return
+        index = self._page_index_by_key.get(key)
+        if index is None:
+            return
+        widget = self.stack.widget(index)
+        if widget is not None and hasattr(widget, "on_show"):
+            widget.on_show()
 
     def _ensure_page_created(self, key: str) -> Optional[int]:
         if key in self._page_index_by_key:

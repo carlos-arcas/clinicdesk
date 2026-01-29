@@ -13,6 +13,7 @@ from PySide6.QtWidgets import (
     QTableWidgetItem,
     QVBoxLayout,
     QWidget,
+    QDialog,
 )
 
 from clinicdesk.app.container import AppContainer
@@ -113,7 +114,7 @@ class PageSalas(QWidget):
 
     def _on_nuevo(self) -> None:
         dialog = SalaFormDialog(self)
-        if dialog.exec() != dialog.Accepted:
+        if dialog.exec() != QDialog.Accepted:
             return
         data = dialog.get_data()
         if not data:
@@ -135,7 +136,7 @@ class PageSalas(QWidget):
             return
         dialog = SalaFormDialog(self)
         dialog.set_sala(sala)
-        if dialog.exec() != dialog.Accepted:
+        if dialog.exec() != QDialog.Accepted:
             return
         data = dialog.get_data()
         if not data:

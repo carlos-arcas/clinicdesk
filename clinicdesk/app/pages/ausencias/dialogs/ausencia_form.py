@@ -45,6 +45,8 @@ class AusenciaFormDialog(QDialog):
         form.addRow("Aprobado por (personal id)", self.txt_aprobado_por)
 
         buttons = QDialogButtonBox(QDialogButtonBox.Save | QDialogButtonBox.Cancel)
+        buttons.button(QDialogButtonBox.Save).setText("Guardar")
+        buttons.button(QDialogButtonBox.Cancel).setText("Cancelar")
         buttons.accepted.connect(self.accept)
         buttons.rejected.connect(self.reject)
 
