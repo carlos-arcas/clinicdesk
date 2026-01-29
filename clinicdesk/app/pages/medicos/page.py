@@ -119,6 +119,7 @@ class PageMedicos(QWidget):
         except ValidationError as exc:
             QMessageBox.warning(self, "Médicos", str(exc))
             return
+        self._reset_filters()
         self._refresh()
 
     def _on_editar(self) -> None:
@@ -167,3 +168,8 @@ class PageMedicos(QWidget):
         if value == "Inactivos":
             return False
         return None
+
+    def _reset_filters(self) -> None:
+        self.txt_buscar.clear()
+        self.txt_especialidad.clear()
+        self.cbo_activo.setCurrentText("Todos")

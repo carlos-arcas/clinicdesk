@@ -123,6 +123,7 @@ class PageSalas(QWidget):
         except ValidationError as exc:
             QMessageBox.warning(self, "Salas", str(exc))
             return
+        self._reset_filters()
         self._refresh()
 
     def _on_editar(self) -> None:
@@ -171,3 +172,8 @@ class PageSalas(QWidget):
         if value == "Inactivas":
             return False
         return None
+
+    def _reset_filters(self) -> None:
+        self.txt_buscar.clear()
+        self.cbo_tipo.setCurrentText("Todos")
+        self.cbo_activa.setCurrentText("Todas")
