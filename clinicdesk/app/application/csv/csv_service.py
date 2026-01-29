@@ -63,7 +63,7 @@ class CsvService:
         headers = [
             "id", "tipo_documento", "documento", "nombre", "apellidos",
             "telefono", "email", "fecha_nacimiento", "direccion", "activo",
-            "num_historia"
+            "num_historia", "alergias", "observaciones"
         ]
         pacientes = self._c.pacientes_repo.list_all(solo_activos=False)
         rows = [self._paciente_to_row(p) for p in pacientes]
@@ -460,6 +460,8 @@ class CsvService:
             "direccion": p.direccion or "",
             "activo": 1 if p.activo else 0,
             "num_historia": getattr(p, "num_historia", "") or "",
+            "alergias": getattr(p, "alergias", "") or "",
+            "observaciones": getattr(p, "observaciones", "") or "",
         }
 
     def _medico_to_row(self, m: Medico) -> Dict[str, Any]:
@@ -604,10 +606,9 @@ class CsvService:
                 return "registro duplicado: (tipo_documento, documento) ya existe"
             return "registro duplicado"
 
-        if isinstance(exc, TypeError) and "unexpected keyword argument" in str(exc).lower():
-            return (
-                "Error interno: modelo Paciente no acepta un campo del CSV "
-                "(revisar num_historia/alergias/observaciones)."
-            )
+        if isinstance(exc, TypeError):
+            message = str(exc).lower()
+            if "super(type, obj)" in message or "unexpected keyword argument" in message:
+                return "Error interno del modelo Paciente (revisar definición/validación)."
 
         return "Error inesperado al importar la fila."
