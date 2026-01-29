@@ -24,9 +24,16 @@ from clinicdesk.app.pages.dialog_csv import CsvDialog
 
 
 class CsvController:
-    def __init__(self, parent: QWidget, csv_service: CsvService) -> None:
+    def __init__(
+        self,
+        parent: QWidget,
+        csv_service: CsvService,
+        *,
+        on_import_complete: Optional[Callable[[str], None]] = None,
+    ) -> None:
         self._parent = parent
         self._svc = csv_service
+        self._on_import_complete = on_import_complete
 
         # Mapeo de entidades -> funciones service
         self._exporters: Dict[str, Callable[[str], None]] = {
@@ -97,6 +104,8 @@ class CsvController:
         try:
             res = importer(path)
             dlg.set_result(entity=entity, path=path, result=res)
+            if self._on_import_complete:
+                self._on_import_complete(entity)
 
             # Mensaje resumen
             if res.errors:

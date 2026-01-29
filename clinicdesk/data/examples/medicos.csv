@@ -1,0 +1,11 @@
+tipo_documento,documento,nombre,apellidos,telefono,email,fecha_nacimiento,direccion,activo,num_colegiado,especialidad
+DNI,22334455A,Isabel,García Pardo,910111213,isabel.garcia@example.com,1977-01-12,"C/ Goya 24, Madrid",1,CM-1001,Medicina Familiar
+DNI,33445566B,Javier,Luna Ortega,920121314,javier.luna@example.com,1981-06-18,"C/ Aragón 77, Barcelona",1,CM-1002,Cardiología
+DNI,44556677C,María,Ibáñez Torres,930131415,maria.ibanez@example.com,1974-09-30,"C/ León y Castillo 5, Las Palmas",1,CM-1003,Pediatría
+DNI,55667788D,Pablo,Román Nieto,940141516,pablo.roman@example.com,1986-04-04,"C/ Independencia 10, Zaragoza",1,CM-1004,Traumatología
+DNI,66778899E,Silvia,Morales Conde,950151617,silvia.morales@example.com,1979-12-22,"C/ Castilla 6, Valladolid",1,CM-1005,Dermatología
+DNI,77889900F,Daniel,Rubio Gil,960161718,daniel.rubio@example.com,1983-03-15,"C/ San Bernardo 8, Salamanca",1,CM-1006,Ginecología
+DNI,88990011G,Clara,Montes Peña,970171819,clara.montes@example.com,1990-10-09,"C/ Hernán Cortés 14, Murcia",1,CM-1007,Neurología
+DNI,99001122H,Alberto,Ferrer Costa,980181920,alberto.ferrer@example.com,1972-08-27,"C/ Alameda 3, Alicante",1,CM-1008,Medicina Interna
+DNI,11223344J,Teresa,Crespo Vidal,690191021,teresa.crespo@example.com,1988-02-11,"C/ Falsa 123, Valencia",1,CM-1009,Endocrinología
+DNI,12121212K,Ricardo,Salas Prieto,691202122,ricardo.salas@example.com,1985-05-05,"C/ Torrente 9, Castellón",1,CM-1010,Otorrinolaringología

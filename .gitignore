@@ -3,6 +3,9 @@ __pycache__/
 .venv/ 
 venv/ 
 data/ 
+!clinicdesk/data/ 
+!clinicdesk/data/examples/ 
+!clinicdesk/data/examples/*.csv 
 *.sqlite 
 *.db 
 dist/ 

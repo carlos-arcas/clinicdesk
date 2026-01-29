@@ -15,6 +15,7 @@ from PySide6.QtWidgets import (
     QTableWidgetItem,
     QVBoxLayout,
     QWidget,
+    QDialog,
 )
 
 from clinicdesk.app.container import AppContainer
@@ -124,7 +125,7 @@ class PageAusencias(QWidget):
             return
 
         dialog = AusenciaFormDialog(self)
-        if dialog.exec() != dialog.Accepted:
+        if dialog.exec() != QDialog.Accepted:
             return
         data = dialog.get_data()
         if not data:

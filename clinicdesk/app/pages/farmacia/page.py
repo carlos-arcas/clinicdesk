@@ -11,6 +11,7 @@ from PySide6.QtWidgets import (
     QTableWidget,
     QTableWidgetItem,
     QLineEdit,
+    QDialog,
 )
 
 from clinicdesk.app.container import AppContainer
@@ -114,7 +115,7 @@ class PageFarmacia(QWidget):
             return
 
         dialog = DispensarDialog(self)
-        if dialog.exec() != dialog.Accepted:
+        if dialog.exec() != QDialog.Accepted:
             return
 
         data = dialog.get_data()
@@ -135,7 +136,7 @@ class PageFarmacia(QWidget):
             DispensarMedicamentoUseCase(self._container).execute(req)
         except PendingWarningsError as w:
             override = OverrideDialog(self, title="Confirmar dispensación con advertencias", warnings=w.warnings)
-            if override.exec() != override.Accepted:
+            if override.exec() != QDialog.Accepted:
                 return
             decision = override.get_decision()
             if not decision.accepted:

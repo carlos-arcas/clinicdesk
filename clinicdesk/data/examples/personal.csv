@@ -1,0 +1,13 @@
+tipo_documento,documento,nombre,apellidos,telefono,email,fecha_nacimiento,direccion,activo,puesto,turno
+DNI,14141414A,Lucía,Serrano Mateo,600222333,lucia.serrano@example.com,1989-01-20,"C/ Ronda 12, Sevilla",1,Enfermería,Mañana
+DNI,15151515B,Pedro,Márquez León,611333444,pedro.marquez@example.com,1980-07-14,"C/ Rioja 6, Logroño",1,Auxiliar,Tarde
+DNI,16161616C,Marta,Suárez Gil,622444555,marta.suarez@example.com,1992-11-08,"C/ Mantería 2, Valladolid",1,Administración,Mañana
+DNI,17171717D,José,Acosta Vargas,633555666,jose.acosta@example.com,1976-05-26,"C/ Coruña 45, Lugo",1,Enfermería,Nocturno
+DNI,18181818E,Paula,Nieto Reyes,644666777,paula.nieto@example.com,1987-02-17,"C/ Montevideo 7, Pontevedra",1,Auxiliar,Mañana
+DNI,19191919F,Sergio,Domingo Ortiz,655777888,sergio.domingo@example.com,1991-09-03,"C/ Alameda 22, Cádiz",1,Recepción,Tarde
+DNI,20202020G,Carla,Campos Rivas,666888999,carla.campos@example.com,1983-12-28,"C/ Plaza 1, Burgos",1,Administración,Mañana
+DNI,21212121H,Diego,López Varela,677999000,diego.lopez@example.com,1979-06-10,"C/ Gran Capitán 5, Córdoba",1,Enfermería,Tarde
+DNI,22222222J,Marina,Castillo Sáez,688000111,marina.castillo@example.com,1995-04-09,"C/ Corredera 60, Córdoba",1,Auxiliar,Mañana
+DNI,23232323K,Andrés,Peña Soto,699111222,andres.pena@example.com,1984-08-30,"C/ Príncipe 18, Madrid",1,Recepción,Mañana
+DNI,24242424L,Julia,Ramos Lara,610222333,julia.ramos@example.com,1990-03-12,"C/ Pilar 3, Almería",1,Administración,Tarde
+DNI,25252525M,Rosa,Aguilar Núñez,621333444,rosa.aguilar@example.com,1973-10-21,"C/ Jardines 9, Jaén",1,Enfermería,Mañana

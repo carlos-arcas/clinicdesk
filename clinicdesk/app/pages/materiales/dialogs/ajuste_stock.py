@@ -46,6 +46,8 @@ class AjusteStockDialog(QDialog):
         form.addRow("Motivo", self.txt_motivo)
 
         buttons = QDialogButtonBox(QDialogButtonBox.Save | QDialogButtonBox.Cancel)
+        buttons.button(QDialogButtonBox.Save).setText("Guardar")
+        buttons.button(QDialogButtonBox.Cancel).setText("Cancelar")
         buttons.accepted.connect(self.accept)
         buttons.rejected.connect(self.reject)
 
