@@ -5,7 +5,7 @@ from typing import List, Optional
 from PySide6.QtWidgets import QMessageBox, QWidget
 
 from clinicdesk.app.container import AppContainer
-from clinicdesk.app.application.queries.incidencias_queries import IncidenciaRow, IncidenciasQueries
+from clinicdesk.app.queries.incidencias_queries import IncidenciaRow, IncidenciasQueries
 
 
 class IncidenciasController:

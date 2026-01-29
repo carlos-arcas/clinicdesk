@@ -28,8 +28,8 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from application.usecases.csv.csv_service import CsvImportResult
-from application.csv.csv_io import CsvRowError
+from clinicdesk.app.application.csv.csv_service import CsvImportResult
+from clinicdesk.app.application.csv.csv_io import CsvRowError
 
 
 class CsvDialog(QDialog):

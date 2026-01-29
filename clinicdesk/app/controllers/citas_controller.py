@@ -5,12 +5,11 @@ from typing import List
 from PySide6.QtWidgets import QMessageBox, QWidget
 
 from clinicdesk.app.container import AppContainer
-from clinicdesk.app.application.queries.citas_queries import CitaRow, CitasQueries
-from clinicdesk.app.application.usecases.crear_cita import CrearCitaRequest, CrearCitaUseCase
-from clinicdesk.app.application.common.warnings import PendingWarningsError
+from clinicdesk.app.queries.citas_queries import CitaRow, CitasQueries
+from clinicdesk.app.application.usecases.crear_cita import CrearCitaRequest, CrearCitaUseCase, PendingWarningsError
 
-from clinicdesk.app.ui.dialog_cita_form import CitaFormDialog
-from clinicdesk.app.ui.dialog_override import OverrideDialog
+from clinicdesk.app.pages.citas.dialogs.dialog_cita_form import CitaFormDialog
+from clinicdesk.app.pages.dialog_override import OverrideDialog
 
 
 class CitasController:

@@ -8,8 +8,8 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
 )
 
-from app.pages.page_host import PageHost
-from app.pages.page_registry import PageRegistry
+from clinicdesk.app.pages.page_host import PageHost
+from clinicdesk.app.pages.pages_registry import PageRegistry
 
 
 class PageNavSidebar(QWidget):
@@ -25,10 +25,10 @@ class PageNavSidebar(QWidget):
         self._list = QListWidget()
         self._page_ids: list[str] = []
 
-        for entry in self._registry.list_entries():
+        for entry in self._registry.list():
             item = QListWidgetItem(entry.title)
             self._list.addItem(item)
-            self._page_ids.append(entry.page_id)
+            self._page_ids.append(entry.key)
 
         self._list.currentRowChanged.connect(self._on_row_changed)
 

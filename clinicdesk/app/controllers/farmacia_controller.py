@@ -5,12 +5,15 @@ from typing import List
 from PySide6.QtWidgets import QMessageBox, QWidget
 
 from clinicdesk.app.container import AppContainer
-from clinicdesk.app.application.queries.farmacia_queries import FarmaciaQueries, RecetaRow, RecetaLineaRow
-from clinicdesk.app.application.usecases.dispensar_medicamento import DispensarMedicamentoRequest, DispensarMedicamentoUseCase
-from clinicdesk.app.application.common.warnings import PendingWarningsError
+from clinicdesk.app.queries.farmacia_queries import FarmaciaQueries, RecetaRow, RecetaLineaRow
+from clinicdesk.app.application.usecases.dispensar_medicamento import (
+    DispensarMedicamentoRequest,
+    DispensarMedicamentoUseCase,
+    PendingWarningsError,
+)
 
-from clinicdesk.app.ui.dialog_dispensar import DispensarDialog
-from clinicdesk.app.ui.dialog_override import OverrideDialog
+from clinicdesk.app.pages.dialog_dispensar import DispensarDialog
+from clinicdesk.app.pages.dialog_override import OverrideDialog
 
 
 class FarmaciaController:
@@ -33,7 +36,7 @@ class FarmaciaController:
         return self._q.list_lineas_by_receta(receta_id)
 
     def dispensar_flow(self, paciente_id: int, receta: RecetaRow, linea: RecetaLineaRow) -> bool:
-        dlg = DispensarDialog(self._parent, medicamento_nombre=linea.medicamento_nombre)
+        dlg = DispensarDialog(self._parent)
         if dlg.exec() != dlg.Accepted:
             return False
 
@@ -47,7 +50,6 @@ class FarmaciaController:
             medicamento_id=linea.medicamento_id,
             personal_id=data.personal_id,
             cantidad=data.cantidad,
-            observaciones=data.observaciones,
             override=False,
             nota_override=None,
             confirmado_por_personal_id=None,

@@ -27,10 +27,10 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import List, Optional, Tuple
 
-from domain.modelos import Cita
-from domain.exceptions import ValidationError
+from clinicdesk.app.domain.modelos import Cita
+from clinicdesk.app.domain.exceptions import ValidationError
 
-from container import AppContainer
+from clinicdesk.app.container import AppContainer
 
 
 # ---------------------------------------------------------------------
@@ -170,7 +170,7 @@ class CrearCitaUseCase:
             severidad = self._max_severidad(warnings)
             descripcion = self._build_incidencia_descripcion(req, warnings, medico_id=req.medico_id, sala_id=req.sala_id)
 
-            from infrastructure.sqlite.repos_incidencias import Incidencia  # modelo ligero del repo
+            from clinicdesk.app.infrastructure.sqlite.repos_incidencias import Incidencia  # modelo ligero del repo
 
             inc = Incidencia(
                 tipo="CITA",

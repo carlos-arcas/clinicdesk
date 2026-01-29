@@ -34,8 +34,8 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import List, Optional
 
-from container import AppContainer
-from domain.exceptions import ValidationError
+from clinicdesk.app.container import AppContainer
+from clinicdesk.app.domain.exceptions import ValidationError
 
 
 # ---------------------------------------------------------------------
@@ -154,7 +154,7 @@ class AjustarStockMaterialUseCase:
                 raise ValidationError("confirmado_por_personal_id obligatorio.")
 
         # ---------- Movimiento + stock ----------
-        from infrastructure.sqlite.repos_movimientos_materiales import MovimientoMaterial
+        from clinicdesk.app.infrastructure.sqlite.repos_movimientos_materiales import MovimientoMaterial
 
         if req.tipo == "AJUSTE":
             delta = stock_nuevo - stock_anterior
@@ -181,7 +181,7 @@ class AjustarStockMaterialUseCase:
 
         # ---------- Incidencia (si override) ----------
         if warnings:
-            from infrastructure.sqlite.repos_incidencias import Incidencia
+            from clinicdesk.app.infrastructure.sqlite.repos_incidencias import Incidencia
 
             severidad = self._max_severidad(warnings)
             descripcion = self._build_incidencia_descripcion(

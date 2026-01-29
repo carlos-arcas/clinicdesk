@@ -19,8 +19,8 @@ from typing import Callable, Dict, Optional
 
 from PySide6.QtWidgets import QFileDialog, QMessageBox, QWidget
 
-from application.usecases.csv.csv_service import CsvService, CsvImportResult
-from app.ui.dialog_csv import CsvDialog
+from clinicdesk.app.application.csv.csv_service import CsvService, CsvImportResult
+from clinicdesk.app.pages.dialog_csv import CsvDialog
 
 
 class CsvController:

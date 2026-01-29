@@ -22,12 +22,12 @@ from dataclasses import dataclass
 from datetime import date, datetime
 from typing import Any, Dict, List, Optional, Tuple
 
-from container import AppContainer
-from domain.exceptions import ValidationError
-from domain.enums import TipoDocumento, TipoSala
-from domain.modelos import Paciente, Medico, Personal, Medicamento, Material, Sala
+from clinicdesk.app.container import AppContainer
+from clinicdesk.app.domain.exceptions import ValidationError
+from clinicdesk.app.domain.enums import TipoDocumento, TipoSala
+from clinicdesk.app.domain.modelos import Paciente, Medico, Personal, Medicamento, Material, Sala
 
-from application.csv.csv_io import CsvRowError, read_csv, write_csv
+from clinicdesk.app.application.csv.csv_io import CsvRowError, read_csv, write_csv
 
 
 # ---------------------------------------------------------------------
