@@ -224,7 +224,7 @@ CREATE TABLE IF NOT EXISTS medicamentos (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     nombre_compuesto TEXT NOT NULL,
     nombre_comercial TEXT NOT NULL,
-    cantidad_almacen INTEGER NOT NULL DEFAULT 0,
+    cantidad_en_almacen INTEGER NOT NULL DEFAULT 0,
     activo INTEGER NOT NULL DEFAULT 1
 );
 
@@ -236,7 +236,7 @@ CREATE TABLE IF NOT EXISTS materiales (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     nombre TEXT NOT NULL,
     fungible INTEGER NOT NULL DEFAULT 1,
-    cantidad_almacen INTEGER NOT NULL DEFAULT 0,
+    cantidad_en_almacen INTEGER NOT NULL DEFAULT 0,
     activo INTEGER NOT NULL DEFAULT 1
 );
 

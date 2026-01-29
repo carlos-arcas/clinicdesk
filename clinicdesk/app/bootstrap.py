@@ -69,7 +69,33 @@ def _apply_schema(con: sqlite3.Connection) -> None:
 
     sql = path.read_text(encoding="utf-8")
     con.executescript(sql)
+    _migrate_stock_columns(con)
     con.commit()
+
+
+def _migrate_stock_columns(con: sqlite3.Connection) -> None:
+    """
+    Migra columnas legacy de stock si existen en la base de datos.
+    """
+    _ensure_stock_column(con, table="medicamentos")
+    _ensure_stock_column(con, table="materiales")
+
+
+def _ensure_stock_column(con: sqlite3.Connection, *, table: str) -> None:
+    columns = {
+        row["name"] for row in con.execute(f"PRAGMA table_info({table})").fetchall()
+    }
+    if "cantidad_en_almacen" in columns:
+        return
+    if "cantidad_almacen" not in columns:
+        return
+
+    con.execute(
+        f"ALTER TABLE {table} ADD COLUMN cantidad_en_almacen INTEGER NOT NULL DEFAULT 0"
+    )
+    con.execute(
+        f"UPDATE {table} SET cantidad_en_almacen = cantidad_almacen"
+    )
 
 
 # ---------------------------------------------------------------------
