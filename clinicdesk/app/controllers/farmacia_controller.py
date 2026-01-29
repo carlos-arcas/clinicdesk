@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import List
 
-from PySide6.QtWidgets import QMessageBox, QWidget
+from PySide6.QtWidgets import QWidget
 
 from clinicdesk.app.container import AppContainer
 from clinicdesk.app.queries.farmacia_queries import FarmaciaQueries, RecetaRow, RecetaLineaRow
@@ -14,6 +14,7 @@ from clinicdesk.app.application.usecases.dispensar_medicamento import (
 
 from clinicdesk.app.pages.dialog_dispensar import DispensarDialog
 from clinicdesk.app.pages.dialog_override import OverrideDialog
+from clinicdesk.app.ui.error_presenter import present_error
 
 
 class FarmaciaController:
@@ -76,5 +77,5 @@ class FarmaciaController:
             return True
 
         except Exception as ex:
-            QMessageBox.critical(self._parent, "Farmacia - Error", str(ex))
+            present_error(self._parent, ex)
             return False

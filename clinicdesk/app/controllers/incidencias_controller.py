@@ -2,10 +2,11 @@ from __future__ import annotations
 
 from typing import List, Optional
 
-from PySide6.QtWidgets import QMessageBox, QWidget
+from PySide6.QtWidgets import QWidget
 
 from clinicdesk.app.container import AppContainer
 from clinicdesk.app.queries.incidencias_queries import IncidenciaRow, IncidenciasQueries
+from clinicdesk.app.ui.error_presenter import present_error
 
 
 class IncidenciasController:
@@ -36,12 +37,12 @@ class IncidenciasController:
                 limit=limit,
             )
         except Exception as e:
-            QMessageBox.critical(self._parent, "Incidencias - Error", str(e))
+            present_error(self._parent, e)
             return []
 
     def get_detail(self, incidencia_id: int) -> Optional[IncidenciaRow]:
         try:
             return self._q.get_by_id(incidencia_id)
         except Exception as e:
-            QMessageBox.critical(self._parent, "Incidencias - Error", str(e))
+            present_error(self._parent, e)
             return None

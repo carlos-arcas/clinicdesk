@@ -113,7 +113,7 @@ class CsvController:
             )
             if res.errors:
                 details = "\n".join(
-                    f"Fila {err.row_number}: {err.message} | {err.row_data}"
+                    f"Fila {err.row_number}: {err.message} | {err.raw}"
                     for err in res.errors
                 )
                 msg_box = QMessageBox(self._parent)
