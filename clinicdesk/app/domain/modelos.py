@@ -153,7 +153,7 @@ class Paciente(Persona):
     observaciones: Optional[str] = None
 
     def validar(self) -> None:
-        super().validar()
+        super(Paciente, self).validar()
         self.num_historia = _strip_or_none(self.num_historia)
         self.alergias = _strip_or_none(self.alergias)
         self.observaciones = _strip_or_none(self.observaciones)
@@ -167,7 +167,7 @@ class Medico(Persona):
     especialidad: str = ""
 
     def validar(self) -> None:
-        super().validar()
+        super(Medico, self).validar()
         self.num_colegiado = _require_non_empty(self.num_colegiado, "num_colegiado")
         self.especialidad = _require_non_empty(self.especialidad, "especialidad")
 
@@ -180,7 +180,7 @@ class Personal(Persona):
     turno: Optional[str] = None
 
     def validar(self) -> None:
-        super().validar()
+        super(Personal, self).validar()
         self.puesto = _require_non_empty(self.puesto, "puesto")
         self.turno = _strip_or_none(self.turno)
 
