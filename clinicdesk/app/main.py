@@ -1,14 +1,25 @@
+from __future__ import annotations
+
 import sys
+
 from PySide6.QtWidgets import QApplication
+
+from clinicdesk.app.bootstrap import bootstrap_database
+from clinicdesk.app.container import build_container
 from clinicdesk.app.ui.main_window import MainWindow
 
 
-def main():
+def main() -> int:
     app = QApplication(sys.argv)
-    window = MainWindow()
-    window.show()
-    sys.exit(app.exec())
+
+    con = bootstrap_database(apply_schema=True)
+    container = build_container(con)
+
+    win = MainWindow(container)
+    win.show()
+
+    return app.exec()
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())
