@@ -102,7 +102,8 @@ class CsvDialog(QDialog):
     def set_result(self, *, entity: str, path: str, result: CsvImportResult) -> None:
         self.lbl_path.setText(f"Ruta: {path}")
         self.lbl_summary.setText(
-            f"Resumen: {entity} → creados={result.created} | actualizados={result.updated} | errores={len(result.errors)}"
+            "Resumen: "
+            f"{entity} → Creado: {result.created} | Actualizado: {result.updated} | Errores: {len(result.errors)}"
         )
         self._render_errors(result.errors)
 

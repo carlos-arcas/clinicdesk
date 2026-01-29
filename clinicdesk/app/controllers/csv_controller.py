@@ -108,8 +108,8 @@ class CsvController:
                 self._on_import_complete(entity)
 
             summary = (
-                f"Importación completada: {res.created} creados, "
-                f"{res.updated} actualizados, {len(res.errors)} errores."
+                "Importación completada: "
+                f"Creado: {res.created} | Actualizado: {res.updated} | Errores: {len(res.errors)}"
             )
             if res.errors:
                 details = "\n".join(
