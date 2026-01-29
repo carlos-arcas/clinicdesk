@@ -67,6 +67,9 @@ class MainWindow(QMainWindow):
 
         self.navigate("home")
 
+    def open_csv_dialog(self) -> None:
+        self._csv_controller.open_dialog()
+
     def _build_menu(self) -> None:
         menu_bar = self.menuBar()
         menu_archivo = menu_bar.addMenu("Archivo")

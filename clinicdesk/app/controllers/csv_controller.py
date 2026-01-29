@@ -14,13 +14,13 @@ No contiene:
 
 from __future__ import annotations
 
-from dataclasses import asdict
 from typing import Callable, Dict, Optional
 
 from PySide6.QtWidgets import QFileDialog, QMessageBox, QWidget
 
 from clinicdesk.app.application.csv.csv_service import CsvService, CsvImportResult
 from clinicdesk.app.pages.dialog_csv import CsvDialog
+from clinicdesk.app.ui.error_presenter import present_error
 
 
 class CsvController:
@@ -84,7 +84,7 @@ class CsvController:
             exporter(path)
             QMessageBox.information(self._parent, "CSV", f"Exportación completada:\n{path}")
         except Exception as e:
-            QMessageBox.critical(self._parent, "CSV - Error", str(e))
+            present_error(self._parent, e)
 
     def _import(self, entity: str, dlg: CsvDialog) -> None:
         importer = self._importers.get(entity)
@@ -107,26 +107,24 @@ class CsvController:
             if self._on_import_complete:
                 self._on_import_complete(entity)
 
-            # Mensaje resumen
+            summary = (
+                f"Importación completada: {res.created} creados, "
+                f"{res.updated} actualizados, {len(res.errors)} errores."
+            )
             if res.errors:
-                QMessageBox.warning(
-                    self._parent,
-                    "CSV - Importación con errores",
-                    f"Importación finalizada.\n\n"
-                    f"Creados: {res.created}\n"
-                    f"Actualizados: {res.updated}\n"
-                    f"Errores: {len(res.errors)}\n\n"
-                    f"Revisa la tabla de errores.",
+                details = "\n".join(
+                    f"Fila {err.row_number}: {err.message} | {err.row_data}"
+                    for err in res.errors
                 )
+                msg_box = QMessageBox(self._parent)
+                msg_box.setWindowTitle("CSV - Importación con errores")
+                msg_box.setIcon(QMessageBox.Warning)
+                msg_box.setText(summary)
+                msg_box.setDetailedText(details)
+                msg_box.setStandardButtons(QMessageBox.Ok)
+                msg_box.exec()
             else:
-                QMessageBox.information(
-                    self._parent,
-                    "CSV - Importación OK",
-                    f"Importación completada.\n\n"
-                    f"Creados: {res.created}\n"
-                    f"Actualizados: {res.updated}\n"
-                    f"Ruta: {path}",
-                )
+                QMessageBox.information(self._parent, "CSV - Importación OK", summary)
 
         except Exception as e:
-            QMessageBox.critical(self._parent, "CSV - Error", str(e))
+            present_error(self._parent, e)

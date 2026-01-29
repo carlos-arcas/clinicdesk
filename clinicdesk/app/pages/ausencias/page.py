@@ -183,3 +183,8 @@ class PageAusencias(QWidget):
             return value if value > 0 else None
         except ValueError:
             return None
+
+
+if __name__ == "__main__":
+    print("Este módulo no se ejecuta directamente. Usa: python -m clinicdesk")
+    raise SystemExit(2)

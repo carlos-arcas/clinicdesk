@@ -17,9 +17,9 @@ from PySide6.QtWidgets import (
 )
 
 from clinicdesk.app.container import AppContainer
-from clinicdesk.app.domain.exceptions import ValidationError
 from clinicdesk.app.pages.personal.dialogs.personal_form import PersonalFormDialog
 from clinicdesk.app.queries.personal_queries import PersonalQueries, PersonalRow
+from clinicdesk.app.ui.error_presenter import present_error
 
 
 class PagePersonal(QWidget):
@@ -54,11 +54,13 @@ class PagePersonal(QWidget):
         self.btn_nuevo = QPushButton("Nuevo")
         self.btn_editar = QPushButton("Editar")
         self.btn_desactivar = QPushButton("Desactivar")
+        self.btn_csv = QPushButton("Importar/Exportar CSV…")
         self.btn_editar.setEnabled(False)
         self.btn_desactivar.setEnabled(False)
         actions.addWidget(self.btn_nuevo)
         actions.addWidget(self.btn_editar)
         actions.addWidget(self.btn_desactivar)
+        actions.addWidget(self.btn_csv)
         actions.addStretch(1)
 
         self.table = QTableWidget(0, 6)
@@ -78,11 +80,13 @@ class PagePersonal(QWidget):
         self.btn_nuevo.clicked.connect(self._on_nuevo)
         self.btn_editar.clicked.connect(self._on_editar)
         self.btn_desactivar.clicked.connect(self._on_desactivar)
+        self.btn_csv.clicked.connect(self._open_csv_dialog)
 
     def on_show(self) -> None:
         self._refresh()
 
     def _refresh(self) -> None:
+        selected_id = self._selected_id()
         activo = self._activo_filter()
         rows = self._queries.search(
             texto=self.txt_buscar.text().strip() or None,
@@ -90,6 +94,8 @@ class PagePersonal(QWidget):
             activo=activo,
         )
         self._render(rows)
+        if selected_id is not None:
+            self._select_by_id(selected_id)
 
     def _render(self, rows: list[PersonalRow]) -> None:
         self.table.setRowCount(0)
@@ -117,8 +123,12 @@ class PagePersonal(QWidget):
             return
         try:
             self._container.personal_repo.create(data.personal)
-        except ValidationError as exc:
-            QMessageBox.warning(self, "Personal", str(exc))
+        except Exception as exc:
+            context = (
+                f"Tipo documento: {data.personal.tipo_documento.value}\n"
+                f"Documento: {data.personal.documento}"
+            )
+            present_error(self, exc, context=context)
             return
         self._reset_filters()
         self._refresh()
@@ -139,8 +149,12 @@ class PagePersonal(QWidget):
             return
         try:
             self._container.personal_repo.update(data.personal)
-        except ValidationError as exc:
-            QMessageBox.warning(self, "Personal", str(exc))
+        except Exception as exc:
+            context = (
+                f"Tipo documento: {data.personal.tipo_documento.value}\n"
+                f"Documento: {data.personal.documento}"
+            )
+            present_error(self, exc, context=context)
             return
         self._refresh()
 
@@ -162,6 +176,26 @@ class PagePersonal(QWidget):
         except ValueError:
             return None
 
+    def _select_by_id(self, personal_id: int) -> None:
+        for row in range(self.table.rowCount()):
+            item = self.table.item(row, 0)
+            if item and item.text() == str(personal_id):
+                self.table.setCurrentCell(row, 0)
+                return
+
+    def _open_csv_dialog(self) -> None:
+        window = self.window()
+        open_dialog = getattr(window, "open_csv_dialog", None)
+        if callable(open_dialog):
+            open_dialog()
+            return
+        QMessageBox.information(
+            self,
+            "CSV",
+            "Esta acción está disponible en la ventana principal. "
+            "Ejecuta la aplicación con: python -m clinicdesk",
+        )
+
     def _activo_filter(self) -> Optional[bool]:
         value = self.cbo_activo.currentText()
         if value == "Activos":
@@ -174,3 +208,8 @@ class PagePersonal(QWidget):
         self.txt_buscar.clear()
         self.txt_puesto.clear()
         self.cbo_activo.setCurrentText("Todos")
+
+
+if __name__ == "__main__":
+    print("Este módulo no se ejecuta directamente. Usa: python -m clinicdesk")
+    raise SystemExit(2)
