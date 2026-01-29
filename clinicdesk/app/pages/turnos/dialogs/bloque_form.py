@@ -16,6 +16,7 @@ from PySide6.QtWidgets import (
 
 from clinicdesk.app.domain.exceptions import ValidationError
 from clinicdesk.app.infrastructure.sqlite.repos_turnos import Turno
+from clinicdesk.app.ui.error_presenter import present_error
 
 
 @dataclass(slots=True)
@@ -84,7 +85,7 @@ class BloqueFormDialog(QDialog):
             if turno_id <= 0:
                 raise ValidationError("turno_id inválido.")
         except ValidationError as exc:
-            QMessageBox.warning(self, "Validación", str(exc))
+            present_error(self, exc)
             return None
 
         return BloqueFormData(

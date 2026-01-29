@@ -31,6 +31,7 @@ from clinicdesk.app.application.usecases.ajustar_stock_material import (
     AjustarStockMaterialUseCase,
     PendingWarningsError,
 )
+from clinicdesk.app.ui.error_presenter import present_error
 
 
 class PageMateriales(QWidget):
@@ -156,7 +157,7 @@ class PageMateriales(QWidget):
         try:
             self._container.materiales_repo.create(data.material)
         except ValidationError as exc:
-            QMessageBox.warning(self, "Materiales", str(exc))
+            present_error(self, exc)
             return
         self._reset_filters()
         self._refresh()
@@ -178,7 +179,7 @@ class PageMateriales(QWidget):
         try:
             self._container.materiales_repo.update(data.material)
         except ValidationError as exc:
-            QMessageBox.warning(self, "Materiales", str(exc))
+            present_error(self, exc)
             return
         self._refresh()
 
@@ -224,7 +225,7 @@ class PageMateriales(QWidget):
             req.confirmado_por_personal_id = decision.confirmado_por_personal_id
             AjustarStockMaterialUseCase(self._container).execute(req)
         except ValidationError as exc:
-            QMessageBox.warning(self, "Materiales", str(exc))
+            present_error(self, exc)
             return
 
         self._refresh()
@@ -249,3 +250,8 @@ class PageMateriales(QWidget):
     def _reset_filters(self) -> None:
         self.txt_buscar.clear()
         self.cbo_activo.setCurrentText("Todos")
+
+
+if __name__ == "__main__":
+    print("Este módulo no se ejecuta directamente. Usa: python -m clinicdesk")
+    raise SystemExit(2)

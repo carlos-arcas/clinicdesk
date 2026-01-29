@@ -183,3 +183,8 @@ class PageFarmacia(QWidget):
             return int(table.item(row, 0).text())
         except Exception:
             return None
+
+
+if __name__ == "__main__":
+    print("Este módulo no se ejecuta directamente. Usa: python -m clinicdesk")
+    raise SystemExit(2)

@@ -21,3 +21,8 @@ class PageHome(QWidget):
 
     def on_show(self) -> None:
         pass
+
+
+if __name__ == "__main__":
+    print("Este módulo no se ejecuta directamente. Usa: python -m clinicdesk")
+    raise SystemExit(2)

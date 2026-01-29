@@ -1,17 +1,18 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import date
 from typing import Optional
 
+from PySide6.QtCore import QDate, QTimer
 from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
+    QDateEdit,
     QDialog,
     QDialogButtonBox,
     QFormLayout,
+    QHBoxLayout,
     QLineEdit,
-    QMessageBox,
     QTextEdit,
     QWidget,
 )
@@ -19,6 +20,7 @@ from PySide6.QtWidgets import (
 from clinicdesk.app.domain.enums import TipoDocumento
 from clinicdesk.app.domain.exceptions import ValidationError
 from clinicdesk.app.domain.modelos import Paciente
+from clinicdesk.app.ui.error_presenter import present_error
 
 
 @dataclass(slots=True)
@@ -40,7 +42,14 @@ class PacienteFormDialog(QDialog):
         self.txt_apellidos = QLineEdit()
         self.txt_telefono = QLineEdit()
         self.txt_email = QLineEdit()
-        self.txt_fecha_nacimiento = QLineEdit()
+        self.date_fecha_nacimiento = QDateEdit()
+        self.date_fecha_nacimiento.setDisplayFormat("yyyy-MM-dd")
+        self.date_fecha_nacimiento.setCalendarPopup(True)
+        self.date_fecha_nacimiento.setDate(QDate.currentDate())
+        self.chk_sin_fecha = QCheckBox("Sin fecha")
+        self.chk_sin_fecha.setChecked(True)
+        self.chk_sin_fecha.toggled.connect(self._toggle_fecha_nacimiento)
+        self._toggle_fecha_nacimiento(True)
         self.txt_direccion = QLineEdit()
         self.txt_num_historia = QLineEdit()
         self.txt_alergias = QTextEdit()
@@ -55,7 +64,12 @@ class PacienteFormDialog(QDialog):
         form.addRow("Apellidos", self.txt_apellidos)
         form.addRow("Teléfono", self.txt_telefono)
         form.addRow("Email", self.txt_email)
-        form.addRow("Fecha nacimiento (YYYY-MM-DD)", self.txt_fecha_nacimiento)
+        fecha_layout = QHBoxLayout()
+        fecha_layout.addWidget(self.date_fecha_nacimiento)
+        fecha_layout.addWidget(self.chk_sin_fecha)
+        fecha_widget = QWidget()
+        fecha_widget.setLayout(fecha_layout)
+        form.addRow("Fecha nacimiento", fecha_widget)
         form.addRow("Dirección", self.txt_direccion)
         form.addRow("Nº historia", self.txt_num_historia)
         form.addRow("Alergias", self.txt_alergias)
@@ -80,9 +94,17 @@ class PacienteFormDialog(QDialog):
         self.txt_apellidos.setText(paciente.apellidos)
         self.txt_telefono.setText(paciente.telefono or "")
         self.txt_email.setText(paciente.email or "")
-        self.txt_fecha_nacimiento.setText(
-            paciente.fecha_nacimiento.isoformat() if paciente.fecha_nacimiento else ""
-        )
+        if paciente.fecha_nacimiento:
+            self.date_fecha_nacimiento.setDate(
+                QDate(
+                    paciente.fecha_nacimiento.year,
+                    paciente.fecha_nacimiento.month,
+                    paciente.fecha_nacimiento.day,
+                )
+            )
+            self.chk_sin_fecha.setChecked(False)
+        else:
+            self.chk_sin_fecha.setChecked(True)
         self.txt_direccion.setText(paciente.direccion or "")
         self.txt_num_historia.setText(paciente.num_historia or "")
         self.txt_alergias.setPlainText(paciente.alergias or "")
@@ -91,8 +113,9 @@ class PacienteFormDialog(QDialog):
 
     def get_data(self) -> Optional[PacienteFormData]:
         try:
-            fecha = self.txt_fecha_nacimiento.text().strip()
-            fecha_dt = date.fromisoformat(fecha) if fecha else None
+            fecha_dt = None
+            if not self.chk_sin_fecha.isChecked():
+                fecha_dt = self.date_fecha_nacimiento.date().toPython()
 
             paciente = Paciente(
                 id=self._paciente_id,
@@ -111,7 +134,30 @@ class PacienteFormDialog(QDialog):
             )
             paciente.validar()
         except (ValueError, ValidationError) as exc:
-            QMessageBox.warning(self, "Validación", str(exc))
+            self._highlight_for_error(exc)
+            present_error(self, exc)
             return None
 
         return PacienteFormData(paciente=paciente)
+
+    def _toggle_fecha_nacimiento(self, checked: bool) -> None:
+        self.date_fecha_nacimiento.setEnabled(not checked)
+
+    def _mark_invalid(self, widget: QWidget) -> None:
+        widget.setStyleSheet("border: 1px solid #d9534f;")
+        QTimer.singleShot(2500, lambda: widget.setStyleSheet(""))
+
+    def _highlight_for_error(self, exc: Exception) -> None:
+        message = str(exc).lower()
+        if "documento" in message:
+            self._mark_invalid(self.txt_documento)
+        elif "nombre" in message and "apellidos" not in message:
+            self._mark_invalid(self.txt_nombre)
+        elif "apellidos" in message:
+            self._mark_invalid(self.txt_apellidos)
+        elif "teléfono" in message or "telefono" in message:
+            self._mark_invalid(self.txt_telefono)
+        elif "email" in message:
+            self._mark_invalid(self.txt_email)
+        elif "fecha" in message:
+            self._mark_invalid(self.date_fecha_nacimiento)

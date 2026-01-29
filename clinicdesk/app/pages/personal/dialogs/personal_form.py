@@ -1,23 +1,25 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import date
 from typing import Optional
 
+from PySide6.QtCore import QDate, QTimer
 from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
+    QDateEdit,
     QDialog,
     QDialogButtonBox,
     QFormLayout,
+    QHBoxLayout,
     QLineEdit,
-    QMessageBox,
     QWidget,
 )
 
 from clinicdesk.app.domain.enums import TipoDocumento
 from clinicdesk.app.domain.exceptions import ValidationError
 from clinicdesk.app.domain.modelos import Personal
+from clinicdesk.app.ui.error_presenter import present_error
 
 
 @dataclass(slots=True)
@@ -39,7 +41,14 @@ class PersonalFormDialog(QDialog):
         self.txt_apellidos = QLineEdit()
         self.txt_telefono = QLineEdit()
         self.txt_email = QLineEdit()
-        self.txt_fecha_nacimiento = QLineEdit()
+        self.date_fecha_nacimiento = QDateEdit()
+        self.date_fecha_nacimiento.setDisplayFormat("yyyy-MM-dd")
+        self.date_fecha_nacimiento.setCalendarPopup(True)
+        self.date_fecha_nacimiento.setDate(QDate.currentDate())
+        self.chk_sin_fecha = QCheckBox("Sin fecha")
+        self.chk_sin_fecha.setChecked(True)
+        self.chk_sin_fecha.toggled.connect(self._toggle_fecha_nacimiento)
+        self._toggle_fecha_nacimiento(True)
         self.txt_direccion = QLineEdit()
         self.txt_puesto = QLineEdit()
         self.txt_turno = QLineEdit()
@@ -53,7 +62,12 @@ class PersonalFormDialog(QDialog):
         form.addRow("Apellidos", self.txt_apellidos)
         form.addRow("Teléfono", self.txt_telefono)
         form.addRow("Email", self.txt_email)
-        form.addRow("Fecha nacimiento (YYYY-MM-DD)", self.txt_fecha_nacimiento)
+        fecha_layout = QHBoxLayout()
+        fecha_layout.addWidget(self.date_fecha_nacimiento)
+        fecha_layout.addWidget(self.chk_sin_fecha)
+        fecha_widget = QWidget()
+        fecha_widget.setLayout(fecha_layout)
+        form.addRow("Fecha nacimiento", fecha_widget)
         form.addRow("Dirección", self.txt_direccion)
         form.addRow("Puesto", self.txt_puesto)
         form.addRow("Turno", self.txt_turno)
@@ -77,9 +91,17 @@ class PersonalFormDialog(QDialog):
         self.txt_apellidos.setText(personal.apellidos)
         self.txt_telefono.setText(personal.telefono or "")
         self.txt_email.setText(personal.email or "")
-        self.txt_fecha_nacimiento.setText(
-            personal.fecha_nacimiento.isoformat() if personal.fecha_nacimiento else ""
-        )
+        if personal.fecha_nacimiento:
+            self.date_fecha_nacimiento.setDate(
+                QDate(
+                    personal.fecha_nacimiento.year,
+                    personal.fecha_nacimiento.month,
+                    personal.fecha_nacimiento.day,
+                )
+            )
+            self.chk_sin_fecha.setChecked(False)
+        else:
+            self.chk_sin_fecha.setChecked(True)
         self.txt_direccion.setText(personal.direccion or "")
         self.txt_puesto.setText(personal.puesto)
         self.txt_turno.setText(personal.turno or "")
@@ -87,8 +109,9 @@ class PersonalFormDialog(QDialog):
 
     def get_data(self) -> Optional[PersonalFormData]:
         try:
-            fecha = self.txt_fecha_nacimiento.text().strip()
-            fecha_dt = date.fromisoformat(fecha) if fecha else None
+            fecha_dt = None
+            if not self.chk_sin_fecha.isChecked():
+                fecha_dt = self.date_fecha_nacimiento.date().toPython()
 
             personal = Personal(
                 id=self._personal_id,
@@ -106,7 +129,30 @@ class PersonalFormDialog(QDialog):
             )
             personal.validar()
         except (ValueError, ValidationError) as exc:
-            QMessageBox.warning(self, "Validación", str(exc))
+            self._highlight_for_error(exc)
+            present_error(self, exc)
             return None
 
         return PersonalFormData(personal=personal)
+
+    def _toggle_fecha_nacimiento(self, checked: bool) -> None:
+        self.date_fecha_nacimiento.setEnabled(not checked)
+
+    def _mark_invalid(self, widget: QWidget) -> None:
+        widget.setStyleSheet("border: 1px solid #d9534f;")
+        QTimer.singleShot(2500, lambda: widget.setStyleSheet(""))
+
+    def _highlight_for_error(self, exc: Exception) -> None:
+        message = str(exc).lower()
+        if "documento" in message:
+            self._mark_invalid(self.txt_documento)
+        elif "nombre" in message and "apellidos" not in message:
+            self._mark_invalid(self.txt_nombre)
+        elif "apellidos" in message:
+            self._mark_invalid(self.txt_apellidos)
+        elif "teléfono" in message or "telefono" in message:
+            self._mark_invalid(self.txt_telefono)
+        elif "email" in message:
+            self._mark_invalid(self.txt_email)
+        elif "fecha" in message:
+            self._mark_invalid(self.date_fecha_nacimiento)

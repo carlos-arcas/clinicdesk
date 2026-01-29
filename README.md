@@ -1,6 +1,12 @@
 # ClinicDesk
 Portfolio de aplicación de escritorio para gestión clínica.
 
+## Cómo ejecutar
+1. Desde la raíz del repositorio, ejecuta:
+   - `python -m clinicdesk`
+   - (alternativo) `python -m clinicdesk.app`
+2. **No ejecutes módulos individuales** como `clinicdesk/app/pages/pacientes/page.py`, ya que no cargan el menú ni las acciones globales.
+
 ## Importación/Exportación CSV
 1. Abre la aplicación y ve al menú **Archivo → Importar/Exportar CSV…**.
 2. Selecciona la entidad (Pacientes, Médicos, Personal, etc.).

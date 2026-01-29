@@ -5,7 +5,6 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QLineEdit,
-    QMessageBox,
     QPushButton,
     QTableWidget,
     QTableWidgetItem,
@@ -14,6 +13,7 @@ from PySide6.QtWidgets import (
 )
 
 from clinicdesk.app.application.pacientes_usecases import ListarPacientes, CrearPaciente
+from clinicdesk.app.ui.error_presenter import present_error
 # Importamos casos de uso (application) para que la UI no dependa de infraestructura/SQLite.
 
 
@@ -68,7 +68,7 @@ class PacientesPage(QWidget):
                 self.entrada_telefono.text(),
             )
         except ValueError as e:
-            QMessageBox.warning(self, "Validación", str(e))
+            present_error(self, e)
             return
 
         self.entrada_nombre.clear()

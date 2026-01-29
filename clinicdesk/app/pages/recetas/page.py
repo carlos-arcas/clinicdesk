@@ -147,3 +147,8 @@ class PageRecetas(QWidget):
             return int(value) if value else None
         except ValueError:
             return None
+
+
+if __name__ == "__main__":
+    print("Este módulo no se ejecuta directamente. Usa: python -m clinicdesk")
+    raise SystemExit(2)

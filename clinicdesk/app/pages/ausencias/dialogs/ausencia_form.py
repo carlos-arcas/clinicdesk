@@ -14,6 +14,7 @@ from PySide6.QtWidgets import (
 )
 
 from clinicdesk.app.domain.exceptions import ValidationError
+from clinicdesk.app.ui.error_presenter import present_error
 
 
 @dataclass(slots=True)
@@ -70,7 +71,7 @@ class AusenciaFormDialog(QDialog):
                 if aprobado_por <= 0:
                     raise ValidationError("aprobado_por_personal_id inválido")
             except (ValueError, ValidationError) as exc:
-                QMessageBox.warning(self, "Validación", str(exc))
+                present_error(self, exc)
                 return None
 
         return AusenciaFormData(

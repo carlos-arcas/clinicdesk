@@ -9,12 +9,12 @@ from PySide6.QtWidgets import (
     QDialogButtonBox,
     QFormLayout,
     QLineEdit,
-    QMessageBox,
     QSpinBox,
     QWidget,
 )
 
 from clinicdesk.app.domain.exceptions import ValidationError
+from clinicdesk.app.ui.error_presenter import present_error
 
 
 @dataclass(slots=True)
@@ -61,7 +61,7 @@ class AjusteStockDialog(QDialog):
             if personal_id <= 0:
                 raise ValidationError("personal_id inválido.")
         except (ValueError, ValidationError) as exc:
-            QMessageBox.warning(self, "Validación", str(exc))
+            present_error(self, exc)
             return None
 
         return AjusteStockData(

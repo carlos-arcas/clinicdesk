@@ -9,13 +9,13 @@ from PySide6.QtWidgets import (
     QDialogButtonBox,
     QFormLayout,
     QLineEdit,
-    QMessageBox,
     QSpinBox,
     QWidget,
 )
 
 from clinicdesk.app.domain.exceptions import ValidationError
 from clinicdesk.app.domain.modelos import Material
+from clinicdesk.app.ui.error_presenter import present_error
 
 
 @dataclass(slots=True)
@@ -71,7 +71,7 @@ class MaterialFormDialog(QDialog):
             )
             material.validar()
         except ValidationError as exc:
-            QMessageBox.warning(self, "Validación", str(exc))
+            present_error(self, exc)
             return None
 
         return MaterialFormData(material=material)

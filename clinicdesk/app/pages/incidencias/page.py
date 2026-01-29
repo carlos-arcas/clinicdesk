@@ -22,6 +22,7 @@ from PySide6.QtWidgets import (
 from clinicdesk.app.container import AppContainer
 from clinicdesk.app.domain.enums import EstadoIncidencia, SeveridadIncidencia, TipoIncidencia
 from clinicdesk.app.queries.incidencias_queries import IncidenciasQueries, IncidenciaRow
+from clinicdesk.app.ui.error_presenter import present_error
 
 
 class PageIncidencias(QWidget):
@@ -184,7 +185,7 @@ class PageIncidencias(QWidget):
         try:
             self._container.incidencias_repo.update_state(incidencia_id, nuevo_estado)
         except Exception as exc:
-            QMessageBox.warning(self, "Incidencias", str(exc))
+            present_error(self, exc)
             return
 
         self._refresh()
@@ -202,3 +203,8 @@ class PageIncidencias(QWidget):
     def _combo_value(combo: QComboBox) -> Optional[str]:
         value = combo.currentText()
         return None if value == "Todos" else value
+
+
+if __name__ == "__main__":
+    print("Este módulo no se ejecuta directamente. Usa: python -m clinicdesk")
+    raise SystemExit(2)

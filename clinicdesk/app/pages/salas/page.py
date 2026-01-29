@@ -21,6 +21,7 @@ from clinicdesk.app.domain.enums import TipoSala
 from clinicdesk.app.domain.exceptions import ValidationError
 from clinicdesk.app.pages.salas.dialogs.sala_form import SalaFormDialog
 from clinicdesk.app.queries.salas_queries import SalasQueries, SalaRow
+from clinicdesk.app.ui.error_presenter import present_error
 
 
 class PageSalas(QWidget):
@@ -122,7 +123,7 @@ class PageSalas(QWidget):
         try:
             self._container.salas_repo.create(data.sala)
         except ValidationError as exc:
-            QMessageBox.warning(self, "Salas", str(exc))
+            present_error(self, exc)
             return
         self._reset_filters()
         self._refresh()
@@ -144,7 +145,7 @@ class PageSalas(QWidget):
         try:
             self._container.salas_repo.update(data.sala)
         except ValidationError as exc:
-            QMessageBox.warning(self, "Salas", str(exc))
+            present_error(self, exc)
             return
         self._refresh()
 
@@ -178,3 +179,8 @@ class PageSalas(QWidget):
         self.txt_buscar.clear()
         self.cbo_tipo.setCurrentText("Todos")
         self.cbo_activa.setCurrentText("Todas")
+
+
+if __name__ == "__main__":
+    print("Este módulo no se ejecuta directamente. Usa: python -m clinicdesk")
+    raise SystemExit(2)

@@ -76,3 +76,8 @@ class PageCitas(QWidget):
             self.table.setItem(r, 6, QTableWidgetItem(c.estado))
             self.table.setItem(r, 7, QTableWidgetItem(c.motivo or ""))
             self.table.setItem(r, 8, QTableWidgetItem(str(c.paciente_id)))
+
+
+if __name__ == "__main__":
+    print("Este módulo no se ejecuta directamente. Usa: python -m clinicdesk")
+    raise SystemExit(2)
