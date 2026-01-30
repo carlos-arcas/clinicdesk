@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import List
 
-from PySide6.QtWidgets import QWidget
+from PySide6.QtWidgets import QWidget, QDialog
 
 from clinicdesk.app.container import AppContainer
 from clinicdesk.app.queries.farmacia_queries import FarmaciaQueries, RecetaRow, RecetaLineaRow
@@ -38,7 +38,7 @@ class FarmaciaController:
 
     def dispensar_flow(self, paciente_id: int, receta: RecetaRow, linea: RecetaLineaRow) -> bool:
         dlg = DispensarDialog(self._parent, container=self._c)
-        if dlg.exec() != dlg.Accepted:
+        if dlg.exec() != QDialog.Accepted:
             return False
 
         data = dlg.get_data()
@@ -67,7 +67,7 @@ class FarmaciaController:
                 warnings=e.warnings,
                 container=self._c,
             )
-            if od.exec() != od.Accepted:
+            if od.exec() != QDialog.Accepted:
                 return False
 
             decision = od.get_decision()

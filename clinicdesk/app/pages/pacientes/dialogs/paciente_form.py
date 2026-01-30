@@ -21,6 +21,7 @@ from clinicdesk.app.domain.enums import TipoDocumento
 from clinicdesk.app.domain.exceptions import ValidationError
 from clinicdesk.app.domain.modelos import Paciente
 from clinicdesk.app.ui.error_presenter import present_error
+from clinicdesk.app.ui.label_utils import required_label
 
 
 @dataclass(slots=True)
@@ -33,6 +34,7 @@ class PacienteFormDialog(QDialog):
         super().__init__(parent)
         self.setWindowTitle("Paciente")
         self._paciente_id: Optional[int] = None
+        self._num_historia: Optional[str] = None
 
         self.cbo_tipo_documento = QComboBox()
         self.cbo_tipo_documento.addItems([t.value for t in TipoDocumento])
@@ -52,16 +54,18 @@ class PacienteFormDialog(QDialog):
         self._toggle_fecha_nacimiento(True)
         self.txt_direccion = QLineEdit()
         self.txt_num_historia = QLineEdit()
+        self.txt_num_historia.setReadOnly(True)
+        self.txt_num_historia.setPlaceholderText("Se genera automáticamente")
         self.txt_alergias = QTextEdit()
         self.txt_observaciones = QTextEdit()
         self.chk_activo = QCheckBox("Activo")
         self.chk_activo.setChecked(True)
 
         form = QFormLayout()
-        form.addRow("Tipo documento", self.cbo_tipo_documento)
-        form.addRow("Documento", self.txt_documento)
-        form.addRow("Nombre", self.txt_nombre)
-        form.addRow("Apellidos", self.txt_apellidos)
+        form.addRow(required_label("Tipo documento"), self.cbo_tipo_documento)
+        form.addRow(required_label("Documento"), self.txt_documento)
+        form.addRow(required_label("Nombre"), self.txt_nombre)
+        form.addRow(required_label("Apellidos"), self.txt_apellidos)
         form.addRow("Teléfono", self.txt_telefono)
         form.addRow("Email", self.txt_email)
         fecha_layout = QHBoxLayout()
@@ -88,6 +92,7 @@ class PacienteFormDialog(QDialog):
 
     def set_paciente(self, paciente: Paciente) -> None:
         self._paciente_id = paciente.id
+        self._num_historia = paciente.num_historia
         self.cbo_tipo_documento.setCurrentText(paciente.tipo_documento.value)
         self.txt_documento.setText(paciente.documento)
         self.txt_nombre.setText(paciente.nombre)
@@ -128,7 +133,7 @@ class PacienteFormDialog(QDialog):
                 fecha_nacimiento=fecha_dt,
                 direccion=self.txt_direccion.text().strip() or None,
                 activo=self.chk_activo.isChecked(),
-                num_historia=self.txt_num_historia.text().strip() or None,
+                num_historia=self._num_historia,
                 alergias=self.txt_alergias.toPlainText().strip() or None,
                 observaciones=self.txt_observaciones.toPlainText().strip() or None,
             )

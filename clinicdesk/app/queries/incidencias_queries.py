@@ -6,7 +6,7 @@ from typing import List, Optional
 import logging
 import sqlite3
 
-from clinicdesk.app.common.search_utils import has_search_values, like_value, normalize_search_text
+from clinicdesk.app.common.search_utils import like_value, normalize_search_text
 
 
 logger = logging.getLogger(__name__)
@@ -55,10 +55,6 @@ class IncidenciasQueries:
         fecha_desde = normalize_search_text(fecha_desde)
         fecha_hasta = normalize_search_text(fecha_hasta)
         texto = normalize_search_text(texto)
-
-        if not has_search_values(tipo, estado, severidad, fecha_desde, fecha_hasta, texto):
-            logger.info("IncidenciasQueries.list skipped (filtros vacíos).")
-            return []
 
         where = ["i.activo = 1"]
         params: List[object] = []

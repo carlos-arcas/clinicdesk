@@ -31,6 +31,7 @@ from clinicdesk.app.pages.shared.selector_dialog import (
     select_paciente,
     select_sala,
 )
+from clinicdesk.app.ui.label_utils import required_label
 
 
 @dataclass(slots=True)
@@ -89,11 +90,11 @@ class CitaFormDialog(QDialog):
         self.lbl_error.setStyleSheet("color: #b00020;")
 
         form = QFormLayout()
-        form.addRow("Paciente:", self._build_selector_row(self.ed_paciente, self.btn_paciente))
-        form.addRow("Médico:", self._build_selector_row(self.ed_medico, self.btn_medico))
-        form.addRow("Sala:", self._build_selector_row(self.ed_sala, self.btn_sala))
-        form.addRow("Inicio (YYYY-MM-DD HH:MM:SS):", self.ed_inicio)
-        form.addRow("Fin (YYYY-MM-DD HH:MM:SS):", self.ed_fin)
+        form.addRow(required_label("Paciente"), self._build_selector_row(self.ed_paciente, self.btn_paciente))
+        form.addRow(required_label("Médico"), self._build_selector_row(self.ed_medico, self.btn_medico))
+        form.addRow(required_label("Sala"), self._build_selector_row(self.ed_sala, self.btn_sala))
+        form.addRow(required_label("Inicio (YYYY-MM-DD HH:MM:SS)"), self.ed_inicio)
+        form.addRow(required_label("Fin (YYYY-MM-DD HH:MM:SS)"), self.ed_fin)
         form.addRow("Motivo:", self.ed_motivo)
         form.addRow("Observaciones:", self.ed_obs)
 

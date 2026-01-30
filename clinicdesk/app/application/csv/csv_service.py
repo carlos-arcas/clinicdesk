@@ -379,7 +379,7 @@ class CsvService:
             fecha_nacimiento=self._parse_date_optional(row.get("fecha_nacimiento")),
             direccion=self._none_if_empty(row.get("direccion")),
             activo=self._parse_bool_default(row.get("activo"), default=True),
-            num_historia=self._none_if_empty(row.get("num_historia")),
+            num_historia=None,
             alergias=self._none_if_empty(row.get("alergias")),
             observaciones=self._none_if_empty(row.get("observaciones")),
         )

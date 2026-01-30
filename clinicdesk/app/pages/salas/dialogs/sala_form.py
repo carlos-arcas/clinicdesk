@@ -17,6 +17,7 @@ from clinicdesk.app.domain.enums import TipoSala
 from clinicdesk.app.domain.exceptions import ValidationError
 from clinicdesk.app.domain.modelos import Sala
 from clinicdesk.app.ui.error_presenter import present_error
+from clinicdesk.app.ui.label_utils import required_label
 
 
 @dataclass(slots=True)
@@ -38,8 +39,8 @@ class SalaFormDialog(QDialog):
         self.chk_activa.setChecked(True)
 
         form = QFormLayout()
-        form.addRow("Nombre", self.txt_nombre)
-        form.addRow("Tipo", self.cbo_tipo)
+        form.addRow(required_label("Nombre"), self.txt_nombre)
+        form.addRow(required_label("Tipo"), self.cbo_tipo)
         form.addRow("Ubicación", self.txt_ubicacion)
         form.addRow("", self.chk_activa)
 
