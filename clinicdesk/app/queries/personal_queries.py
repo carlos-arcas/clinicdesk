@@ -3,7 +3,13 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import List, Optional
 
+import logging
 import sqlite3
+
+from clinicdesk.app.common.search_utils import has_search_values, like_value, normalize_search_text
+
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True, slots=True)
@@ -28,26 +34,35 @@ class PersonalQueries:
         activo: Optional[bool] = True,
         limit: int = 500,
     ) -> List[PersonalRow]:
+        texto = normalize_search_text(texto)
+        puesto = normalize_search_text(puesto)
+
+        if not has_search_values(texto, puesto):
+            logger.info("Personal search skipped (filtros vacíos).")
+            return []
+
         clauses = []
         params: List[object] = []
 
         if texto:
-            like = f"%{texto}%"
+            like = like_value(texto)
             clauses.append(
-                "(nombre LIKE ? OR apellidos LIKE ? OR documento LIKE ? OR telefono LIKE ? OR puesto LIKE ?)"
+                "(nombre LIKE ? COLLATE NOCASE OR apellidos LIKE ? COLLATE NOCASE "
+                "OR documento LIKE ? COLLATE NOCASE OR telefono LIKE ? COLLATE NOCASE "
+                "OR puesto LIKE ? COLLATE NOCASE)"
             )
             params.extend([like, like, like, like, like])
 
             cleaned = texto.replace(" ", "").replace("-", "")
             if cleaned:
                 clauses.append(
-                    "REPLACE(REPLACE(telefono, ' ', ''), '-', '') LIKE ?"
+                    "REPLACE(REPLACE(telefono, ' ', ''), '-', '') LIKE ? COLLATE NOCASE"
                 )
-                params.append(f"%{cleaned}%")
+                params.append(like_value(cleaned))
 
         if puesto:
-            clauses.append("puesto = ?")
-            params.append(puesto)
+            clauses.append("puesto LIKE ? COLLATE NOCASE")
+            params.append(like_value(puesto))
 
         if activo is not None:
             clauses.append("activo = ?")
@@ -59,7 +74,11 @@ class PersonalQueries:
         sql += " ORDER BY apellidos, nombre LIMIT ?"
         params.append(int(limit))
 
-        rows = self._conn.execute(sql, params).fetchall()
+        try:
+            rows = self._conn.execute(sql, params).fetchall()
+        except sqlite3.Error as exc:
+            logger.error("Error SQL en PersonalQueries.search: %s", exc)
+            return []
         return [
             PersonalRow(
                 id=row["id"],

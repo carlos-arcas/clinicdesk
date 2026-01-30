@@ -15,11 +15,16 @@ No contiene:
 
 from __future__ import annotations
 
+import logging
 import sqlite3
 from typing import List, Optional
 
 from clinicdesk.app.domain.modelos import Material
+from clinicdesk.app.common.search_utils import has_search_values, like_value, normalize_search_text
 from clinicdesk.app.domain.exceptions import ValidationError
+
+
+logger = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------
@@ -130,7 +135,11 @@ class MaterialesRepository:
 
         sql += " ORDER BY nombre"
 
-        rows = self._con.execute(sql, params).fetchall()
+        try:
+            rows = self._con.execute(sql, params).fetchall()
+        except sqlite3.Error as exc:
+            logger.error("Error SQL en MaterialesRepository.list_all: %s", exc)
+            return []
         return [self._row_to_model(r) for r in rows]
 
     def search(
@@ -148,12 +157,18 @@ class MaterialesRepository:
         - fungible: True / False / None (None = todos)
         - activo: True / False / None (None = todos)
         """
+        texto = normalize_search_text(texto)
+
+        if not has_search_values(texto):
+            logger.info("MaterialesRepository.search skipped (filtros vacíos).")
+            return []
+
         clauses = []
         params = []
 
         if texto:
-            clauses.append("nombre LIKE ?")
-            params.append(f"%{texto}%")
+            clauses.append("nombre LIKE ? COLLATE NOCASE")
+            params.append(like_value(texto))
 
         if fungible is not None:
             clauses.append("fungible = ?")
@@ -169,7 +184,11 @@ class MaterialesRepository:
 
         sql += " ORDER BY nombre"
 
-        rows = self._con.execute(sql, params).fetchall()
+        try:
+            rows = self._con.execute(sql, params).fetchall()
+        except sqlite3.Error as exc:
+            logger.error("Error SQL en MaterialesRepository.search: %s", exc)
+            return []
         return [self._row_to_model(r) for r in rows]
 
     # --------------------------------------------------------------

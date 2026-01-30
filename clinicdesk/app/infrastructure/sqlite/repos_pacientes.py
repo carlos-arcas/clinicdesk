@@ -17,6 +17,7 @@ No contiene:
 from __future__ import annotations
 
 import csv
+import logging
 import sqlite3
 from pathlib import Path
 from typing import Iterable, List, Optional
@@ -24,7 +25,11 @@ from typing import Iterable, List, Optional
 from clinicdesk.app.domain.modelos import Paciente
 from clinicdesk.app.domain.enums import TipoDocumento
 from clinicdesk.app.domain.exceptions import ValidationError
+from clinicdesk.app.common.search_utils import has_search_values, like_value, normalize_search_text
 from clinicdesk.app.infrastructure.sqlite.date_utils import format_iso_date, parse_iso_date
+
+
+logger = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------
@@ -178,7 +183,11 @@ class PacientesRepository:
 
         sql += " ORDER BY apellidos, nombre"
 
-        rows = self._con.execute(sql, params).fetchall()
+        try:
+            rows = self._con.execute(sql, params).fetchall()
+        except sqlite3.Error as exc:
+            logger.error("Error SQL en PacientesRepository.list_all: %s", exc)
+            return []
         return [self._row_to_model(r) for r in rows]
 
     def search(
@@ -198,21 +207,34 @@ class PacientesRepository:
         - documento: documento exacto
         - activo: True / False / None (None = todos)
         """
+        texto = normalize_search_text(texto)
+        documento = normalize_search_text(documento)
+        tipo_documento_value = normalize_search_text(
+            tipo_documento.value if tipo_documento else None
+        )
+
+        if not has_search_values(texto, documento, tipo_documento_value):
+            logger.info("PacientesRepository.search skipped (filtros vacíos).")
+            return []
+
         clauses: list[str] = []
         params: list = []
 
         if texto:
-            clauses.append("(nombre LIKE ? OR apellidos LIKE ? OR documento LIKE ?)")
-            like = f"%{texto}%"
+            clauses.append(
+                "(nombre LIKE ? COLLATE NOCASE OR apellidos LIKE ? COLLATE NOCASE "
+                "OR documento LIKE ? COLLATE NOCASE)"
+            )
+            like = like_value(texto)
             params.extend([like, like, like])
 
-        if tipo_documento:
-            clauses.append("tipo_documento = ?")
-            params.append(tipo_documento.value)
+        if tipo_documento_value:
+            clauses.append("tipo_documento LIKE ? COLLATE NOCASE")
+            params.append(like_value(tipo_documento_value))
 
         if documento:
-            clauses.append("documento = ?")
-            params.append(documento)
+            clauses.append("documento LIKE ? COLLATE NOCASE")
+            params.append(like_value(documento))
 
         if activo is not None:
             clauses.append("activo = ?")
@@ -224,7 +246,11 @@ class PacientesRepository:
 
         sql += " ORDER BY apellidos, nombre"
 
-        rows = self._con.execute(sql, params).fetchall()
+        try:
+            rows = self._con.execute(sql, params).fetchall()
+        except sqlite3.Error as exc:
+            logger.error("Error SQL en PacientesRepository.search: %s", exc)
+            return []
         return [self._row_to_model(r) for r in rows]
 
     # --------------------------------------------------------------

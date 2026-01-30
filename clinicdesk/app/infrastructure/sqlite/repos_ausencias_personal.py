@@ -15,11 +15,15 @@ No contiene:
 
 from __future__ import annotations
 
+import logging
 import sqlite3
 from dataclasses import dataclass
 from typing import List, Optional
 
 from clinicdesk.app.domain.exceptions import ValidationError
+
+
+logger = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------
@@ -143,13 +147,9 @@ class AusenciasPersonalRepository:
 
     def delete(self, ausencia_id: int) -> None:
         """
-        Borrado físico (las ausencias suelen ser registros de auditoría).
-        Si prefieres, se puede convertir a borrado lógico añadiendo columna "activa".
+        Borrado lógico: marca la ausencia como inactiva.
         """
-        self._con.execute(
-            "DELETE FROM ausencias_personal WHERE id = ?",
-            (ausencia_id,),
-        )
+        self._con.execute("UPDATE ausencias_personal SET activo = 0 WHERE id = ?", (ausencia_id,))
         self._con.commit()
 
     def get_by_id(self, ausencia_id: int) -> Optional[AusenciaPersonal]:
@@ -195,10 +195,15 @@ class AusenciasPersonalRepository:
             clauses.append("inicio <= ?")
             params.append(hasta)
 
+        clauses.append("activo = 1")
         sql = "SELECT * FROM ausencias_personal WHERE " + " AND ".join(clauses)
         sql += " ORDER BY inicio"
 
-        rows = self._con.execute(sql, params).fetchall()
+        try:
+            rows = self._con.execute(sql, params).fetchall()
+        except sqlite3.Error as exc:
+            logger.error("Error SQL en AusenciasPersonalRepository.list_by_personal: %s", exc)
+            return []
         return [self._row_to_model(r) for r in rows]
 
     def exists_overlap(
@@ -224,6 +229,7 @@ class AusenciasPersonalRepository:
             WHERE personal_id = ?
               AND inicio <= ?
               AND fin >= ?
+              AND activo = 1
             LIMIT 1
             """,
             (personal_id, fin, inicio),

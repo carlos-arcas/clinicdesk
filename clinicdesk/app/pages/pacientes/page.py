@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from typing import Optional
 
+import logging
+
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QComboBox,
@@ -20,6 +22,7 @@ from PySide6.QtWidgets import (
 
 from clinicdesk.app.container import AppContainer
 from clinicdesk.app.pages.pacientes.dialogs.paciente_form import PacienteFormDialog
+from clinicdesk.app.pages.shared.table_utils import apply_row_style, set_item
 from clinicdesk.app.queries.pacientes_queries import PacientesQueries, PacienteRow
 from clinicdesk.app.ui.error_presenter import present_error
 
@@ -100,11 +103,17 @@ class PagePacientes(QWidget):
         for p in rows:
             row = self.table.rowCount()
             self.table.insertRow(row)
-            self.table.setItem(row, 0, QTableWidgetItem(str(p.id)))
-            self.table.setItem(row, 1, QTableWidgetItem(p.documento))
-            self.table.setItem(row, 2, QTableWidgetItem(p.nombre_completo))
-            self.table.setItem(row, 3, QTableWidgetItem(p.telefono))
-            self.table.setItem(row, 4, QTableWidgetItem("Sí" if p.activo else "No"))
+            set_item(self.table, row, 0, str(p.id))
+            set_item(self.table, row, 1, p.documento)
+            set_item(self.table, row, 2, p.nombre_completo)
+            set_item(self.table, row, 3, p.telefono)
+            set_item(self.table, row, 4, "Sí" if p.activo else "No")
+            tooltip = (
+                f"Documento: {p.documento}\n"
+                f"Teléfono: {p.telefono or '—'}\n"
+                f"Estado: {'Activo' if p.activo else 'Inactivo'}"
+            )
+            apply_row_style(self.table, row, inactive=not p.activo, tooltip=tooltip)
 
     def _on_selection_changed(self) -> None:
         has_selection = self._selected_id() is not None
@@ -226,5 +235,7 @@ class PagePacientes(QWidget):
 
 
 if __name__ == "__main__":
-    print("Este módulo no se ejecuta directamente. Usa: python -m clinicdesk")
+    logging.getLogger(__name__).info(
+        "Este módulo no se ejecuta directamente. Usa: python -m clinicdesk"
+    )
     raise SystemExit(2)

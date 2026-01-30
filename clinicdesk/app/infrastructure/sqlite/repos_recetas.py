@@ -15,11 +15,15 @@ No contiene:
 
 from __future__ import annotations
 
+import logging
 import sqlite3
 from typing import List, Optional
 
 from clinicdesk.app.domain.modelos import Receta, RecetaLinea
 from clinicdesk.app.domain.exceptions import ValidationError
+
+
+logger = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------
@@ -103,10 +107,9 @@ class RecetasRepository:
 
     def delete_receta(self, receta_id: int) -> None:
         """
-        Borrado físico de la receta.
-        Por schema, las líneas se borran en cascada.
+        Borrado lógico de la receta.
         """
-        self._con.execute("DELETE FROM recetas WHERE id = ?", (receta_id,))
+        self._con.execute("UPDATE recetas SET activo = 0 WHERE id = ?", (receta_id,))
         self._con.commit()
 
     # --------------------------------------------------------------
@@ -169,23 +172,27 @@ class RecetasRepository:
 
     def delete_linea(self, linea_id: int) -> None:
         """
-        Borrado físico de una línea.
+        Borrado lógico de una línea.
         """
-        self._con.execute("DELETE FROM receta_lineas WHERE id = ?", (linea_id,))
+        self._con.execute("UPDATE receta_lineas SET activo = 0 WHERE id = ?", (linea_id,))
         self._con.commit()
 
     def list_lineas_by_receta(self, receta_id: int) -> List[RecetaLinea]:
         """
         Lista todas las líneas de una receta.
         """
-        rows = self._con.execute(
-            """
-            SELECT * FROM receta_lineas
-            WHERE receta_id = ?
-            ORDER BY id
-            """,
-            (receta_id,),
-        ).fetchall()
+        try:
+            rows = self._con.execute(
+                """
+                SELECT * FROM receta_lineas
+                WHERE receta_id = ? AND activo = 1
+                ORDER BY id
+                """,
+                (receta_id,),
+            ).fetchall()
+        except sqlite3.Error as exc:
+            logger.error("Error SQL en RecetasRepository.list_lineas_by_receta: %s", exc)
+            return []
 
         return [self._row_to_linea(r) for r in rows]
 
@@ -217,8 +224,13 @@ class RecetasRepository:
             clauses.append("fecha <= ?")
             params.append(hasta)
 
+        clauses.append("activo = 1")
         sql = "SELECT * FROM recetas WHERE " + " AND ".join(clauses) + " ORDER BY fecha DESC"
-        rows = self._con.execute(sql, params).fetchall()
+        try:
+            rows = self._con.execute(sql, params).fetchall()
+        except sqlite3.Error as exc:
+            logger.error("Error SQL en RecetasRepository.list_recetas_by_paciente: %s", exc)
+            return []
         return [self._row_to_receta(r) for r in rows]
 
     def list_recetas_by_medico(
@@ -245,8 +257,13 @@ class RecetasRepository:
             clauses.append("fecha <= ?")
             params.append(hasta)
 
+        clauses.append("activo = 1")
         sql = "SELECT * FROM recetas WHERE " + " AND ".join(clauses) + " ORDER BY fecha DESC"
-        rows = self._con.execute(sql, params).fetchall()
+        try:
+            rows = self._con.execute(sql, params).fetchall()
+        except sqlite3.Error as exc:
+            logger.error("Error SQL en RecetasRepository.list_recetas_by_medico: %s", exc)
+            return []
         return [self._row_to_receta(r) for r in rows]
 
     # --------------------------------------------------------------

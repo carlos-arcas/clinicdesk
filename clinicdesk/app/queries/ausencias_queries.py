@@ -3,7 +3,11 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import List, Optional
 
+import logging
 import sqlite3
+
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True, slots=True)
@@ -41,6 +45,8 @@ class AusenciasQueries:
             clauses.append("a.inicio <= ?")
             params.append(hasta)
 
+        clauses.append("a.activo = 1")
+
         sql = (
             "SELECT a.id, a.inicio, a.fin, a.tipo, a.motivo, a.creado_en, "
             "(ap.nombre || ' ' || ap.apellidos) AS aprobado_por, "
@@ -52,7 +58,11 @@ class AusenciasQueries:
             "ORDER BY a.inicio"
         )
 
-        rows = self._conn.execute(sql, params).fetchall()
+        try:
+            rows = self._conn.execute(sql, params).fetchall()
+        except sqlite3.Error as exc:
+            logger.error("Error SQL en AusenciasQueries.list_medico: %s", exc)
+            return []
         return [
             AusenciaRow(
                 id=row["id"],
@@ -86,6 +96,8 @@ class AusenciasQueries:
             clauses.append("a.inicio <= ?")
             params.append(hasta)
 
+        clauses.append("a.activo = 1")
+
         sql = (
             "SELECT a.id, a.inicio, a.fin, a.tipo, a.motivo, a.creado_en, "
             "(ap.nombre || ' ' || ap.apellidos) AS aprobado_por, "
@@ -97,7 +109,11 @@ class AusenciasQueries:
             "ORDER BY a.inicio"
         )
 
-        rows = self._conn.execute(sql, params).fetchall()
+        try:
+            rows = self._conn.execute(sql, params).fetchall()
+        except sqlite3.Error as exc:
+            logger.error("Error SQL en AusenciasQueries.list_personal: %s", exc)
+            return []
         return [
             AusenciaRow(
                 id=row["id"],

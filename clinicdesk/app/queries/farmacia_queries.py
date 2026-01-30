@@ -3,7 +3,11 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import List
 
+import logging
 import sqlite3
+
+
+logger = logging.getLogger(__name__)
 
 
 # =========================
@@ -44,20 +48,24 @@ class FarmaciaQueries:
     # -------- Recetas --------
 
     def recetas_por_paciente(self, paciente_id: int) -> List[RecetaRow]:
-        cur = self._conn.execute(
-            """
-            SELECT
-                r.id,
-                r.fecha,
-                m.nombre || ' ' || m.apellidos AS medico,
-                r.estado
-            FROM recetas r
-            JOIN medicos m ON m.id = r.medico_id
-            WHERE r.paciente_id = ?
-            ORDER BY r.fecha DESC
-            """,
-            (paciente_id,),
-        )
+        try:
+            cur = self._conn.execute(
+                """
+                SELECT
+                    r.id,
+                    r.fecha,
+                    m.nombre || ' ' || m.apellidos AS medico,
+                    r.estado
+                FROM recetas r
+                JOIN medicos m ON m.id = r.medico_id
+                WHERE r.paciente_id = ? AND r.activo = 1
+                ORDER BY r.fecha DESC
+                """,
+                (paciente_id,),
+            )
+        except sqlite3.Error as exc:
+            logger.error("Error SQL en FarmaciaQueries.recetas_por_paciente: %s", exc)
+            return []
 
         return [
             RecetaRow(
@@ -72,22 +80,26 @@ class FarmaciaQueries:
     # -------- Líneas de receta --------
 
     def lineas_por_receta(self, receta_id: int) -> List[RecetaLineaRow]:
-        cur = self._conn.execute(
-            """
-            SELECT
-                rl.id,
-                med.nombre_comercial AS medicamento,
-                rl.dosis,
-                rl.cantidad,
-                rl.pendiente,
-                rl.estado
-            FROM receta_lineas rl
-            JOIN medicamentos med ON med.id = rl.medicamento_id
-            WHERE rl.receta_id = ?
-            ORDER BY rl.id
-            """,
-            (receta_id,),
-        )
+        try:
+            cur = self._conn.execute(
+                """
+                SELECT
+                    rl.id,
+                    med.nombre_comercial AS medicamento,
+                    rl.dosis,
+                    rl.cantidad,
+                    rl.pendiente,
+                    rl.estado
+                FROM receta_lineas rl
+                JOIN medicamentos med ON med.id = rl.medicamento_id
+                WHERE rl.receta_id = ? AND rl.activo = 1
+                ORDER BY rl.id
+                """,
+                (receta_id,),
+            )
+        except sqlite3.Error as exc:
+            logger.error("Error SQL en FarmaciaQueries.lineas_por_receta: %s", exc)
+            return []
 
         return [
             RecetaLineaRow(

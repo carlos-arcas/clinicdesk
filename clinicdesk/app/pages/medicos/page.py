@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from typing import Optional
 
+import logging
+
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QComboBox,
@@ -20,6 +22,7 @@ from PySide6.QtWidgets import (
 
 from clinicdesk.app.container import AppContainer
 from clinicdesk.app.pages.medicos.dialogs.medico_form import MedicoFormDialog
+from clinicdesk.app.pages.shared.table_utils import apply_row_style, set_item
 from clinicdesk.app.queries.medicos_queries import MedicosQueries, MedicoRow
 from clinicdesk.app.ui.error_presenter import present_error
 
@@ -107,12 +110,19 @@ class PageMedicos(QWidget):
         for m in rows:
             row = self.table.rowCount()
             self.table.insertRow(row)
-            self.table.setItem(row, 0, QTableWidgetItem(str(m.id)))
-            self.table.setItem(row, 1, QTableWidgetItem(m.documento))
-            self.table.setItem(row, 2, QTableWidgetItem(m.nombre_completo))
-            self.table.setItem(row, 3, QTableWidgetItem(m.telefono))
-            self.table.setItem(row, 4, QTableWidgetItem(m.especialidad))
-            self.table.setItem(row, 5, QTableWidgetItem("Sí" if m.activo else "No"))
+            set_item(self.table, row, 0, str(m.id))
+            set_item(self.table, row, 1, m.documento)
+            set_item(self.table, row, 2, m.nombre_completo)
+            set_item(self.table, row, 3, m.telefono)
+            set_item(self.table, row, 4, m.especialidad)
+            set_item(self.table, row, 5, "Sí" if m.activo else "No")
+            tooltip = (
+                f"Documento: {m.documento}\n"
+                f"Teléfono: {m.telefono or '—'}\n"
+                f"Especialidad: {m.especialidad}\n"
+                f"Estado: {'Activo' if m.activo else 'Inactivo'}"
+            )
+            apply_row_style(self.table, row, inactive=not m.activo, tooltip=tooltip)
 
     def _on_selection_changed(self) -> None:
         has_selection = self._selected_id() is not None
@@ -235,5 +245,7 @@ class PageMedicos(QWidget):
 
 
 if __name__ == "__main__":
-    print("Este módulo no se ejecuta directamente. Usa: python -m clinicdesk")
+    logging.getLogger(__name__).info(
+        "Este módulo no se ejecuta directamente. Usa: python -m clinicdesk"
+    )
     raise SystemExit(2)

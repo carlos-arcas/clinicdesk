@@ -15,11 +15,16 @@ No contiene:
 
 from __future__ import annotations
 
+import logging
 import sqlite3
 from typing import List, Optional
 
 from clinicdesk.app.domain.modelos import Medicamento
+from clinicdesk.app.common.search_utils import has_search_values, like_value, normalize_search_text
 from clinicdesk.app.domain.exceptions import ValidationError
+
+
+logger = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------
@@ -118,15 +123,17 @@ class MedicamentosRepository:
         """
         Obtiene el id del medicamento por nombre comercial o compuesto.
         """
+        nombre = normalize_search_text(nombre)
         if not nombre:
             return None
         row = self._con.execute(
             """
             SELECT id FROM medicamentos
-            WHERE nombre_comercial = ? OR nombre_compuesto = ?
+            WHERE nombre_comercial LIKE ? COLLATE NOCASE
+               OR nombre_compuesto LIKE ? COLLATE NOCASE
             ORDER BY nombre_comercial
             """,
-            (nombre, nombre),
+            (like_value(nombre), like_value(nombre)),
         ).fetchone()
         return int(row["id"]) if row else None
 
@@ -146,7 +153,11 @@ class MedicamentosRepository:
 
         sql += " ORDER BY nombre_comercial"
 
-        rows = self._con.execute(sql, params).fetchall()
+        try:
+            rows = self._con.execute(sql, params).fetchall()
+        except sqlite3.Error as exc:
+            logger.error("Error SQL en MedicamentosRepository.list_all: %s", exc)
+            return []
         return [self._row_to_model(r) for r in rows]
 
     def search(
@@ -162,14 +173,20 @@ class MedicamentosRepository:
         - texto: busca en nombre comercial y compuesto
         - activo: True / False / None (None = todos)
         """
+        texto = normalize_search_text(texto)
+
+        if not has_search_values(texto):
+            logger.info("MedicamentosRepository.search skipped (filtros vacíos).")
+            return []
+
         clauses = []
         params = []
 
         if texto:
             clauses.append(
-                "(nombre_comercial LIKE ? OR nombre_compuesto LIKE ?)"
+                "(nombre_comercial LIKE ? COLLATE NOCASE OR nombre_compuesto LIKE ? COLLATE NOCASE)"
             )
-            like = f"%{texto}%"
+            like = like_value(texto)
             params.extend([like, like])
 
         if activo is not None:
@@ -182,7 +199,11 @@ class MedicamentosRepository:
 
         sql += " ORDER BY nombre_comercial"
 
-        rows = self._con.execute(sql, params).fetchall()
+        try:
+            rows = self._con.execute(sql, params).fetchall()
+        except sqlite3.Error as exc:
+            logger.error("Error SQL en MedicamentosRepository.search: %s", exc)
+            return []
         return [self._row_to_model(r) for r in rows]
 
     # --------------------------------------------------------------
