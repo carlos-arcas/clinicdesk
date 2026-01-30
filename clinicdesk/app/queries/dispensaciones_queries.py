@@ -27,9 +27,9 @@ class DispensacionesQueries:
         *,
         fecha_desde: Optional[str] = None,
         fecha_hasta: Optional[str] = None,
-        paciente_id: Optional[int] = None,
-        personal_id: Optional[int] = None,
-        medicamento_id: Optional[int] = None,
+        paciente_texto: Optional[str] = None,
+        personal_texto: Optional[str] = None,
+        medicamento_texto: Optional[str] = None,
         limit: int = 500,
     ) -> List[DispensacionRow]:
         clauses = []
@@ -41,15 +41,22 @@ class DispensacionesQueries:
         if fecha_hasta:
             clauses.append("d.fecha_hora <= ?")
             params.append(f"{fecha_hasta} 23:59:59")
-        if paciente_id:
-            clauses.append("r.paciente_id = ?")
-            params.append(paciente_id)
-        if personal_id:
-            clauses.append("d.personal_id = ?")
-            params.append(personal_id)
-        if medicamento_id:
-            clauses.append("d.medicamento_id = ?")
-            params.append(medicamento_id)
+        if paciente_texto:
+            like = f"%{paciente_texto}%"
+            clauses.append(
+                "(p.nombre LIKE ? OR p.apellidos LIKE ? OR p.documento LIKE ? OR p.telefono LIKE ?)"
+            )
+            params.extend([like, like, like, like])
+        if personal_texto:
+            like = f"%{personal_texto}%"
+            clauses.append(
+                "(per.nombre LIKE ? OR per.apellidos LIKE ? OR per.documento LIKE ? OR per.telefono LIKE ? OR per.puesto LIKE ?)"
+            )
+            params.extend([like, like, like, like, like])
+        if medicamento_texto:
+            like = f"%{medicamento_texto}%"
+            clauses.append("(m.nombre_comercial LIKE ? OR m.nombre_compuesto LIKE ?)")
+            params.extend([like, like])
 
         where_sql = ("WHERE " + " AND ".join(clauses)) if clauses else ""
 

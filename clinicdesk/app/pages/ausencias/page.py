@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Optional
 
-from PySide6.QtCore import QDate
+from PySide6.QtCore import QDate, Qt
 from PySide6.QtWidgets import (
     QComboBox,
     QDateEdit,
@@ -10,6 +10,7 @@ from PySide6.QtWidgets import (
     QLabel,
     QLineEdit,
     QMessageBox,
+    QMenu,
     QPushButton,
     QTableWidget,
     QTableWidgetItem,
@@ -20,6 +21,7 @@ from PySide6.QtWidgets import (
 
 from clinicdesk.app.container import AppContainer
 from clinicdesk.app.pages.ausencias.dialogs.ausencia_form import AusenciaFormDialog
+from clinicdesk.app.pages.shared.selector_dialog import select_medico, select_personal
 from clinicdesk.app.queries.ausencias_queries import AusenciasQueries, AusenciaRow
 from clinicdesk.app.infrastructure.sqlite.repos_ausencias_medico import AusenciaMedico
 from clinicdesk.app.infrastructure.sqlite.repos_ausencias_personal import AusenciaPersonal
@@ -30,6 +32,7 @@ class PageAusencias(QWidget):
         super().__init__(parent)
         self._container = container
         self._queries = AusenciasQueries(container.connection)
+        self._persona_id: Optional[int] = None
 
         self._build_ui()
         self._connect_signals()
@@ -40,7 +43,9 @@ class PageAusencias(QWidget):
         filters = QHBoxLayout()
         self.cbo_tipo = QComboBox()
         self.cbo_tipo.addItems(["Médico", "Personal"])
-        self.txt_persona_id = QLineEdit()
+        self.txt_persona = QLineEdit()
+        self.txt_persona.setReadOnly(True)
+        self.btn_persona = QPushButton("Buscar…")
         self.date_desde = QDateEdit()
         self.date_desde.setCalendarPopup(True)
         self.date_desde.setDate(QDate.currentDate().addMonths(-1))
@@ -51,8 +56,9 @@ class PageAusencias(QWidget):
 
         filters.addWidget(QLabel("Tipo"))
         filters.addWidget(self.cbo_tipo)
-        filters.addWidget(QLabel("ID"))
-        filters.addWidget(self.txt_persona_id)
+        filters.addWidget(QLabel("Persona"))
+        filters.addWidget(self.txt_persona)
+        filters.addWidget(self.btn_persona)
         filters.addWidget(QLabel("Desde"))
         filters.addWidget(self.date_desde)
         filters.addWidget(QLabel("Hasta"))
@@ -71,23 +77,28 @@ class PageAusencias(QWidget):
         self.table.setHorizontalHeaderLabels(
             ["ID", "Inicio", "Fin", "Tipo", "Motivo", "Aprobado por", "Creado en"]
         )
+        self.table.setColumnHidden(0, True)
         self.table.horizontalHeader().setStretchLastSection(True)
+        self.table.setContextMenuPolicy(Qt.CustomContextMenu)
 
         root.addLayout(filters)
         root.addLayout(actions)
         root.addWidget(self.table)
 
     def _connect_signals(self) -> None:
+        self.cbo_tipo.currentTextChanged.connect(self._reset_persona)
+        self.btn_persona.clicked.connect(self._select_persona)
         self.btn_cargar.clicked.connect(self._refresh)
         self.table.itemSelectionChanged.connect(self._on_selection_changed)
         self.btn_nueva.clicked.connect(self._on_nueva)
         self.btn_eliminar.clicked.connect(self._on_eliminar)
+        self.table.customContextMenuRequested.connect(self._open_context_menu)
 
     def on_show(self) -> None:
         self._refresh()
 
     def _refresh(self) -> None:
-        persona_id = self._persona_id()
+        persona_id = self._persona_id
         if persona_id is None:
             self.table.setRowCount(0)
             return
@@ -119,12 +130,12 @@ class PageAusencias(QWidget):
         self.btn_eliminar.setEnabled(self._selected_id() is not None)
 
     def _on_nueva(self) -> None:
-        persona_id = self._persona_id()
+        persona_id = self._persona_id
         if persona_id is None:
-            QMessageBox.warning(self, "Ausencias", "Indica un ID válido.")
+            QMessageBox.warning(self, "Ausencias", "Selecciona una persona.")
             return
 
-        dialog = AusenciaFormDialog(self)
+        dialog = AusenciaFormDialog(self, container=self._container)
         if dialog.exec() != QDialog.Accepted:
             return
         data = dialog.get_data()
@@ -177,12 +188,35 @@ class PageAusencias(QWidget):
         except ValueError:
             return None
 
-    def _persona_id(self) -> Optional[int]:
-        try:
-            value = int(self.txt_persona_id.text().strip())
-            return value if value > 0 else None
-        except ValueError:
-            return None
+    def _select_persona(self) -> None:
+        if self.cbo_tipo.currentText() == "Médico":
+            selection = select_medico(self, self._container.connection)
+        else:
+            selection = select_personal(self, self._container.connection)
+        if not selection:
+            return
+        self._persona_id = selection.entity_id
+        self.txt_persona.setText(selection.display)
+        self._refresh()
+
+    def _reset_persona(self) -> None:
+        self._persona_id = None
+        self.txt_persona.clear()
+        self.table.setRowCount(0)
+
+    def _open_context_menu(self, pos) -> None:
+        row = self.table.rowAt(pos.y())
+        if row >= 0:
+            self.table.setCurrentCell(row, 0)
+        menu = QMenu(self)
+        action_new = menu.addAction("Nueva ausencia")
+        action_delete = menu.addAction("Eliminar")
+        action_delete.setEnabled(self._selected_id() is not None)
+        action = menu.exec(self.table.viewport().mapToGlobal(pos))
+        if action == action_new:
+            self._on_nueva()
+        elif action == action_delete:
+            self._on_eliminar()
 
 
 if __name__ == "__main__":

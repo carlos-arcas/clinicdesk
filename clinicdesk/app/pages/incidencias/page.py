@@ -82,7 +82,7 @@ class PageIncidencias(QWidget):
         self.table.setHorizontalHeaderLabels(
             ["ID", "Fecha", "Tipo", "Severidad", "Estado", "Descripción"]
         )
-        self.table.setColumnHidden(0, False)
+        self.table.setColumnHidden(0, True)
         self.table.horizontalHeader().setStretchLastSection(True)
 
         detail_layout = QFormLayout()
@@ -161,11 +161,11 @@ class PageIncidencias(QWidget):
         self.lbl_confirmado_por.setText(row.confirmado_por_nombre)
         refs = []
         if row.cita_id:
-            refs.append(f"Cita #{row.cita_id}")
+            refs.append("Cita vinculada")
         if row.receta_id:
-            refs.append(f"Receta #{row.receta_id}")
+            refs.append("Receta vinculada")
         if row.dispensacion_id:
-            refs.append(f"Dispensación #{row.dispensacion_id}")
+            refs.append("Dispensación vinculada")
         if row.medico_nombre:
             refs.append(f"Médico: {row.medico_nombre}")
         if row.personal_nombre:

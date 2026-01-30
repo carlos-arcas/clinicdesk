@@ -139,6 +139,38 @@ class PersonalRepository:
 
         return self._row_to_model(row) if row else None
 
+    def get_id_by_documento(
+        self,
+        tipo_documento: TipoDocumento | str,
+        documento: str,
+    ) -> Optional[int]:
+        """
+        Obtiene el id del personal a partir del tipo + documento.
+        """
+        if not documento:
+            return None
+        tipo = tipo_documento.value if isinstance(tipo_documento, TipoDocumento) else str(tipo_documento)
+        row = self._con.execute(
+            "SELECT id FROM personal WHERE tipo_documento = ? AND documento = ?",
+            (tipo, documento),
+        ).fetchone()
+        return int(row["id"]) if row else None
+
+    def get_id_by_nombre(self, nombre: str, apellidos: Optional[str] = None) -> Optional[int]:
+        """
+        Obtiene el id del personal por nombre y apellidos (búsqueda flexible).
+        """
+        if not nombre:
+            return None
+        clauses = ["nombre LIKE ?"]
+        params: list = [f\"%{nombre}%\"]
+        if apellidos:
+            clauses.append("apellidos LIKE ?")
+            params.append(f\"%{apellidos}%\")
+        sql = "SELECT id FROM personal WHERE " + " AND ".join(clauses) + " ORDER BY apellidos, nombre"
+        row = self._con.execute(sql, params).fetchone()
+        return int(row["id"]) if row else None
+
     # --------------------------------------------------------------
     # Listado y búsqueda
     # --------------------------------------------------------------

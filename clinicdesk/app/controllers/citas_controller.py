@@ -26,7 +26,7 @@ class CitasController:
         return self._q.list_by_date(yyyy_mm_dd)
 
     def create_cita_flow(self, default_date: str) -> bool:
-        dlg = CitaFormDialog(self._parent, default_date=default_date)
+        dlg = CitaFormDialog(self._parent, default_date=default_date, container=self._c)
         if dlg.exec() != dlg.Accepted:
             return False
 
@@ -57,6 +57,7 @@ class CitasController:
                 self._parent,
                 title="Confirmar guardado con advertencias",
                 warnings=e.warnings,
+                container=self._c,
             )
             if od.exec() != od.Accepted:
                 return False
@@ -83,7 +84,7 @@ class CitasController:
         res = QMessageBox.question(
             self._parent,
             "Eliminar cita",
-            f"¿Eliminar la cita ID {cita_id}?\nEsta acción es irreversible.",
+            "¿Eliminar la cita seleccionada?\nEsta acción es irreversible.",
         )
         if res != QMessageBox.Yes:
             return False

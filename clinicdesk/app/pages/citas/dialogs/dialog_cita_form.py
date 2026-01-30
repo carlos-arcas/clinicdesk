@@ -3,7 +3,7 @@
 Formulario de cita (crear).
 
 Campos:
-- paciente_id, medico_id, sala_id
+- selección de paciente, médico y sala
 - inicio, fin (ISO)
 - motivo, observaciones
 """
@@ -25,6 +25,13 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from clinicdesk.app.container import AppContainer
+from clinicdesk.app.pages.shared.selector_dialog import (
+    select_medico,
+    select_paciente,
+    select_sala,
+)
+
 
 @dataclass(slots=True)
 class CitaFormData:
@@ -38,15 +45,36 @@ class CitaFormData:
 
 
 class CitaFormDialog(QDialog):
-    def __init__(self, parent: Optional[QWidget] = None, *, default_date: str) -> None:
+    def __init__(
+        self,
+        parent: Optional[QWidget] = None,
+        *,
+        default_date: str,
+        container: AppContainer,
+    ) -> None:
         super().__init__(parent)
         self.setWindowTitle("Nueva cita")
         self.setMinimumWidth(520)
 
-        # Inputs (texto simple para empezar; luego se cambia por combos y datetime widgets)
+        self._container = container
+        self._paciente_id: Optional[int] = None
+        self._medico_id: Optional[int] = None
+        self._sala_id: Optional[int] = None
+
         self.ed_paciente = QLineEdit()
+        self.ed_paciente.setReadOnly(True)
+        self.btn_paciente = QPushButton("Buscar…")
+        self.btn_paciente.clicked.connect(self._select_paciente)
+
         self.ed_medico = QLineEdit()
+        self.ed_medico.setReadOnly(True)
+        self.btn_medico = QPushButton("Buscar…")
+        self.btn_medico.clicked.connect(self._select_medico)
+
         self.ed_sala = QLineEdit()
+        self.ed_sala.setReadOnly(True)
+        self.btn_sala = QPushButton("Buscar…")
+        self.btn_sala.clicked.connect(self._select_sala)
 
         self.ed_inicio = QLineEdit()
         self.ed_fin = QLineEdit()
@@ -61,9 +89,9 @@ class CitaFormDialog(QDialog):
         self.lbl_error.setStyleSheet("color: #b00020;")
 
         form = QFormLayout()
-        form.addRow("Paciente ID:", self.ed_paciente)
-        form.addRow("Médico ID:", self.ed_medico)
-        form.addRow("Sala ID:", self.ed_sala)
+        form.addRow("Paciente:", self._build_selector_row(self.ed_paciente, self.btn_paciente))
+        form.addRow("Médico:", self._build_selector_row(self.ed_medico, self.btn_medico))
+        form.addRow("Sala:", self._build_selector_row(self.ed_sala, self.btn_sala))
         form.addRow("Inicio (YYYY-MM-DD HH:MM:SS):", self.ed_inicio)
         form.addRow("Fin (YYYY-MM-DD HH:MM:SS):", self.ed_fin)
         form.addRow("Motivo:", self.ed_motivo)
@@ -87,14 +115,39 @@ class CitaFormDialog(QDialog):
         self.btn_cancel.clicked.connect(self.reject)
         self.btn_ok.clicked.connect(self._on_ok)
 
+    @staticmethod
+    def _build_selector_row(field: QLineEdit, button: QPushButton) -> QWidget:
+        row = QHBoxLayout()
+        row.addWidget(field, 1)
+        row.addWidget(button)
+        wrapper = QWidget()
+        wrapper.setLayout(row)
+        return wrapper
+
+    def _select_paciente(self) -> None:
+        selection = select_paciente(self, self._container.connection)
+        if not selection:
+            return
+        self._paciente_id = selection.entity_id
+        self.ed_paciente.setText(selection.display)
+
+    def _select_medico(self) -> None:
+        selection = select_medico(self, self._container.connection)
+        if not selection:
+            return
+        self._medico_id = selection.entity_id
+        self.ed_medico.setText(selection.display)
+
+    def _select_sala(self) -> None:
+        selection = select_sala(self, self._container.connection)
+        if not selection:
+            return
+        self._sala_id = selection.entity_id
+        self.ed_sala.setText(selection.display)
+
     def _on_ok(self) -> None:
-        # Validación mínima de UI (lo serio lo hace el usecase)
-        try:
-            int(self.ed_paciente.text().strip())
-            int(self.ed_medico.text().strip())
-            int(self.ed_sala.text().strip())
-        except ValueError:
-            self.lbl_error.setText("Paciente/Médico/Sala deben ser enteros.")
+        if not self._paciente_id or not self._medico_id or not self._sala_id:
+            self.lbl_error.setText("Selecciona paciente, médico y sala.")
             return
 
         if not (self.ed_inicio.text().strip() and self.ed_fin.text().strip()):
@@ -108,9 +161,9 @@ class CitaFormDialog(QDialog):
             return None
 
         return CitaFormData(
-            paciente_id=int(self.ed_paciente.text().strip()),
-            medico_id=int(self.ed_medico.text().strip()),
-            sala_id=int(self.ed_sala.text().strip()),
+            paciente_id=int(self._paciente_id or 0),
+            medico_id=int(self._medico_id or 0),
+            sala_id=int(self._sala_id or 0),
             inicio=self.ed_inicio.text().strip(),
             fin=self.ed_fin.text().strip(),
             motivo=(self.ed_motivo.text() or "").strip() or None,

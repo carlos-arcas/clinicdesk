@@ -37,7 +37,7 @@ class FarmaciaController:
         return self._q.list_lineas_by_receta(receta_id)
 
     def dispensar_flow(self, paciente_id: int, receta: RecetaRow, linea: RecetaLineaRow) -> bool:
-        dlg = DispensarDialog(self._parent)
+        dlg = DispensarDialog(self._parent, container=self._c)
         if dlg.exec() != dlg.Accepted:
             return False
 
@@ -61,7 +61,12 @@ class FarmaciaController:
             return True
 
         except PendingWarningsError as e:
-            od = OverrideDialog(self._parent, title="Confirmar dispensación con advertencias", warnings=e.warnings)
+            od = OverrideDialog(
+                self._parent,
+                title="Confirmar dispensación con advertencias",
+                warnings=e.warnings,
+                container=self._c,
+            )
             if od.exec() != od.Accepted:
                 return False
 

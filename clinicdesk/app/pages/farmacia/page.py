@@ -17,6 +17,7 @@ from PySide6.QtWidgets import (
 from clinicdesk.app.container import AppContainer
 from clinicdesk.app.pages.dialog_dispensar import DispensarDialog
 from clinicdesk.app.pages.dialog_override import OverrideDialog
+from clinicdesk.app.pages.shared.selector_dialog import select_paciente
 from clinicdesk.app.queries.farmacia_queries import (
     RecetaRow,
     RecetaLineaRow,
@@ -33,7 +34,7 @@ class PageFarmacia(QWidget):
     Página de Farmacia.
 
     UI pura:
-    - Introducir paciente_id
+    - Seleccionar paciente
     - Ver recetas
     - Ver líneas de receta
     - Dispensar medicamento
@@ -42,6 +43,7 @@ class PageFarmacia(QWidget):
     def __init__(self, container: AppContainer, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
         self._container = container
+        self._paciente_id: Optional[int] = None
 
         self._build_ui()
         self._connect_signals()
@@ -53,10 +55,13 @@ class PageFarmacia(QWidget):
 
         # Selección paciente
         top = QHBoxLayout()
-        top.addWidget(QLabel("Paciente ID:"))
+        top.addWidget(QLabel("Paciente"))
         self.input_paciente = QLineEdit()
+        self.input_paciente.setReadOnly(True)
+        self.btn_buscar_paciente = QPushButton("Buscar…")
         self.btn_cargar = QPushButton("Cargar recetas")
         top.addWidget(self.input_paciente)
+        top.addWidget(self.btn_buscar_paciente)
         top.addWidget(self.btn_cargar)
 
         # Tablas
@@ -64,11 +69,13 @@ class PageFarmacia(QWidget):
         self.table_recetas.setHorizontalHeaderLabels(
             ["ID", "Fecha", "Médico", "Estado"]
         )
+        self.table_recetas.setColumnHidden(0, True)
 
         self.table_lineas = QTableWidget(0, 6)
         self.table_lineas.setHorizontalHeaderLabels(
             ["ID", "Medicamento", "Dosis", "Cantidad", "Pendiente", "Estado"]
         )
+        self.table_lineas.setColumnHidden(0, True)
 
         self.btn_dispensar = QPushButton("Dispensar")
         self.btn_dispensar.setEnabled(False)
@@ -81,6 +88,7 @@ class PageFarmacia(QWidget):
         root.addWidget(self.btn_dispensar)
 
     def _connect_signals(self) -> None:
+        self.btn_buscar_paciente.clicked.connect(self._select_paciente)
         self.btn_cargar.clicked.connect(self._load_recetas)
         self.table_recetas.itemSelectionChanged.connect(self._load_lineas)
         self.table_lineas.itemSelectionChanged.connect(self._on_linea_selected)
@@ -89,7 +97,7 @@ class PageFarmacia(QWidget):
     # ---------------- Actions ----------------
 
     def _load_recetas(self) -> None:
-        paciente_id = self.input_paciente.text().strip()
+        paciente_id = self._paciente_id
         if not paciente_id:
             return
 
@@ -114,7 +122,7 @@ class PageFarmacia(QWidget):
         if not linea_id:
             return
 
-        dialog = DispensarDialog(self)
+        dialog = DispensarDialog(self, container=self._container)
         if dialog.exec() != QDialog.Accepted:
             return
 
@@ -135,7 +143,12 @@ class PageFarmacia(QWidget):
             )
             DispensarMedicamentoUseCase(self._container).execute(req)
         except PendingWarningsError as w:
-            override = OverrideDialog(self, title="Confirmar dispensación con advertencias", warnings=w.warnings)
+            override = OverrideDialog(
+                self,
+                title="Confirmar dispensación con advertencias",
+                warnings=w.warnings,
+                container=self._container,
+            )
             if override.exec() != QDialog.Accepted:
                 return
             decision = override.get_decision()
@@ -183,6 +196,14 @@ class PageFarmacia(QWidget):
             return int(table.item(row, 0).text())
         except Exception:
             return None
+
+    def _select_paciente(self) -> None:
+        selection = select_paciente(self, self._container.connection)
+        if not selection:
+            return
+        self._paciente_id = selection.entity_id
+        self.input_paciente.setText(selection.display)
+        self._load_recetas()
 
 
 if __name__ == "__main__":

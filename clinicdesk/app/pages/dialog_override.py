@@ -5,7 +5,7 @@ Diálogo genérico de confirmación consciente (override).
 Uso:
 - Se muestra cuando un usecase devuelve warnings o lanza PendingWarningsError.
 - Obliga a introducir nota_override.
-- Obliga a introducir confirmado_por_personal_id.
+ - Obliga a seleccionar quién confirma.
 """
 
 from __future__ import annotations
@@ -13,20 +13,21 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import List, Optional
 
-from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QDialog,
     QHBoxLayout,
     QLabel,
     QLineEdit,
     QPushButton,
-    QSpinBox,
     QTableWidget,
     QTableWidgetItem,
     QTextEdit,
     QVBoxLayout,
     QWidget,
 )
+
+from clinicdesk.app.container import AppContainer
+from clinicdesk.app.pages.shared.selector_dialog import select_personal
 
 
 @dataclass(slots=True)
@@ -37,16 +38,25 @@ class OverrideDecision:
 
 
 class OverrideDialog(QDialog):
-    def __init__(self, parent: Optional[QWidget], *, title: str, warnings: List[object]) -> None:
+    def __init__(
+        self,
+        parent: Optional[QWidget],
+        *,
+        title: str,
+        warnings: List[object],
+        container: Optional[AppContainer] = None,
+    ) -> None:
         super().__init__(parent)
         self.setWindowTitle(title)
         self.setMinimumWidth(720)
 
         self._warnings = warnings
+        self._container = container
+        self._confirmador_id: Optional[int] = None
 
         self.lbl_info = QLabel(
             "Se han detectado advertencias.\n"
-            "Para continuar es obligatorio justificar el motivo y confirmar con un ID de personal."
+            "Para continuar es obligatorio justificar el motivo y confirmar con personal."
         )
 
         self.tbl = QTableWidget(0, 3)
@@ -57,13 +67,15 @@ class OverrideDialog(QDialog):
         self.txt_nota = QTextEdit()
         self.txt_nota.setPlaceholderText("Nota obligatoria… (Ej: 'He cambiado el turno con Clara', 'No está subido el cuadrante aún', etc.)")
 
-        self.spn_confirmador = QSpinBox()
-        self.spn_confirmador.setRange(0, 9999999)
-        self.spn_confirmador.setValue(0)
+        self.txt_confirmador = QLineEdit()
+        self.txt_confirmador.setReadOnly(True)
+        self.btn_confirmador = QPushButton("Buscar personal…")
+        self.btn_confirmador.clicked.connect(self._select_confirmador)
 
         row_confirm = QHBoxLayout()
-        row_confirm.addWidget(QLabel("Confirmado por personal ID:"))
-        row_confirm.addWidget(self.spn_confirmador)
+        row_confirm.addWidget(QLabel("Confirmado por:"))
+        row_confirm.addWidget(self.txt_confirmador, 1)
+        row_confirm.addWidget(self.btn_confirmador)
         row_confirm.addStretch(1)
 
         self.btn_cancel = QPushButton("Cancelar")
@@ -108,13 +120,12 @@ class OverrideDialog(QDialog):
 
     def _on_accept(self) -> None:
         nota = (self.txt_nota.toPlainText() or "").strip()
-        confirmador = int(self.spn_confirmador.value())
 
         if not nota:
             self.lbl_info.setText("Falta la nota obligatoria. No se puede continuar.")
             return
-        if confirmador <= 0:
-            self.lbl_info.setText("Falta el ID del personal que confirma. No se puede continuar.")
+        if not self._confirmador_id:
+            self.lbl_info.setText("Falta seleccionar el personal que confirma. No se puede continuar.")
             return
 
         self.accept()
@@ -126,5 +137,15 @@ class OverrideDialog(QDialog):
         return OverrideDecision(
             accepted=True,
             nota_override=(self.txt_nota.toPlainText() or "").strip(),
-            confirmado_por_personal_id=int(self.spn_confirmador.value()),
+            confirmado_por_personal_id=int(self._confirmador_id or 0),
         )
+
+    def _select_confirmador(self) -> None:
+        if not self._container:
+            self.lbl_info.setText("No hay datos de personal disponibles para seleccionar.")
+            return
+        selection = select_personal(self, self._container.connection)
+        if not selection:
+            return
+        self._confirmador_id = selection.entity_id
+        self.txt_confirmador.setText(selection.display)

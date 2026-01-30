@@ -114,6 +114,22 @@ class MedicamentosRepository:
 
         return self._row_to_model(row) if row else None
 
+    def get_id_by_nombre(self, nombre: str) -> Optional[int]:
+        """
+        Obtiene el id del medicamento por nombre comercial o compuesto.
+        """
+        if not nombre:
+            return None
+        row = self._con.execute(
+            """
+            SELECT id FROM medicamentos
+            WHERE nombre_comercial = ? OR nombre_compuesto = ?
+            ORDER BY nombre_comercial
+            """,
+            (nombre, nombre),
+        ).fetchone()
+        return int(row["id"]) if row else None
+
     # --------------------------------------------------------------
     # Listado y búsqueda
     # --------------------------------------------------------------

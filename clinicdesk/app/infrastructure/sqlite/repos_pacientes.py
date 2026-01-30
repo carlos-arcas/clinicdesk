@@ -145,6 +145,23 @@ class PacientesRepository:
 
         return self._row_to_model(row) if row else None
 
+    def get_id_by_documento(
+        self,
+        tipo_documento: TipoDocumento | str,
+        documento: str,
+    ) -> Optional[int]:
+        """
+        Obtiene el id del paciente a partir del tipo + documento.
+        """
+        if not documento:
+            return None
+        tipo = tipo_documento.value if isinstance(tipo_documento, TipoDocumento) else str(tipo_documento)
+        row = self._con.execute(
+            "SELECT id FROM pacientes WHERE tipo_documento = ? AND documento = ?",
+            (tipo, documento),
+        ).fetchone()
+        return int(row["id"]) if row else None
+
     # --------------------------------------------------------------
     # Listado y búsqueda
     # --------------------------------------------------------------
