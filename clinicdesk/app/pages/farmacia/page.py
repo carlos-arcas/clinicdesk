@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from typing import Optional
 
+import logging
+
 from PySide6.QtWidgets import (
     QWidget,
     QVBoxLayout,
@@ -207,5 +209,7 @@ class PageFarmacia(QWidget):
 
 
 if __name__ == "__main__":
-    print("Este módulo no se ejecuta directamente. Usa: python -m clinicdesk")
+    logging.getLogger(__name__).info(
+        "Este módulo no se ejecuta directamente. Usa: python -m clinicdesk"
+    )
     raise SystemExit(2)

@@ -16,11 +16,15 @@ No contiene:
 
 from __future__ import annotations
 
+import logging
 import sqlite3
 from dataclasses import dataclass
 from typing import List, Optional
 
 from clinicdesk.app.domain.exceptions import ValidationError
+
+
+logger = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------
@@ -131,12 +135,9 @@ class DispensacionesRepository:
 
     def delete(self, dispensacion_id: int) -> None:
         """
-        Borrado físico (registro de auditoría).
+        Borrado lógico: marca la dispensación como inactiva.
         """
-        self._con.execute(
-            "DELETE FROM dispensaciones WHERE id = ?",
-            (dispensacion_id,),
-        )
+        self._con.execute("UPDATE dispensaciones SET activo = 0 WHERE id = ?", (dispensacion_id,))
         self._con.commit()
 
     # --------------------------------------------------------------
@@ -147,14 +148,18 @@ class DispensacionesRepository:
         """
         Lista todas las dispensaciones de una receta.
         """
-        rows = self._con.execute(
-            """
-            SELECT * FROM dispensaciones
-            WHERE receta_id = ?
-            ORDER BY fecha_hora
-            """,
-            (receta_id,),
-        ).fetchall()
+        try:
+            rows = self._con.execute(
+                """
+                SELECT * FROM dispensaciones
+                WHERE receta_id = ? AND activo = 1
+                ORDER BY fecha_hora
+                """,
+                (receta_id,),
+            ).fetchall()
+        except sqlite3.Error as exc:
+            logger.error("Error SQL en DispensacionesRepository.list_by_receta: %s", exc)
+            return []
 
         return [self._row_to_model(r) for r in rows]
 
@@ -182,13 +187,14 @@ class DispensacionesRepository:
             clauses.append("fecha_hora <= ?")
             params.append(hasta)
 
-        sql = (
-            "SELECT * FROM dispensaciones WHERE "
-            + " AND ".join(clauses)
-            + " ORDER BY fecha_hora DESC"
-        )
+        clauses.append("activo = 1")
+        sql = "SELECT * FROM dispensaciones WHERE " + " AND ".join(clauses) + " ORDER BY fecha_hora DESC"
 
-        rows = self._con.execute(sql, params).fetchall()
+        try:
+            rows = self._con.execute(sql, params).fetchall()
+        except sqlite3.Error as exc:
+            logger.error("Error SQL en DispensacionesRepository.list_by_personal: %s", exc)
+            return []
         return [self._row_to_model(r) for r in rows]
 
     def list_con_incidencias(
@@ -211,13 +217,14 @@ class DispensacionesRepository:
             clauses.append("fecha_hora <= ?")
             params.append(hasta)
 
-        sql = (
-            "SELECT * FROM dispensaciones WHERE "
-            + " AND ".join(clauses)
-            + " ORDER BY fecha_hora DESC"
-        )
+        clauses.append("activo = 1")
+        sql = "SELECT * FROM dispensaciones WHERE " + " AND ".join(clauses) + " ORDER BY fecha_hora DESC"
 
-        rows = self._con.execute(sql, params).fetchall()
+        try:
+            rows = self._con.execute(sql, params).fetchall()
+        except sqlite3.Error as exc:
+            logger.error("Error SQL en DispensacionesRepository.list_con_incidencias: %s", exc)
+            return []
         return [self._row_to_model(r) for r in rows]
 
     # --------------------------------------------------------------

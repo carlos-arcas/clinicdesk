@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from typing import Optional
 
+import logging
+
 from PySide6.QtCore import QDate, Qt
 from PySide6.QtWidgets import (
     QComboBox,
@@ -20,6 +22,7 @@ from PySide6.QtWidgets import (
 )
 
 from clinicdesk.app.container import AppContainer
+from clinicdesk.app.pages.shared.table_utils import apply_row_style, set_item
 from clinicdesk.app.pages.turnos.dialogs.bloque_form import BloqueFormDialog
 from clinicdesk.app.pages.shared.selector_dialog import select_medico, select_personal
 from clinicdesk.app.queries.turnos_queries import TurnosQueries, CalendarioRow
@@ -119,13 +122,21 @@ class PageTurnos(QWidget):
         for r in rows:
             row = self.table.rowCount()
             self.table.insertRow(row)
-            self.table.setItem(row, 0, QTableWidgetItem(str(r.id)))
-            self.table.setItem(row, 1, QTableWidgetItem(r.fecha))
-            self.table.setItem(row, 2, QTableWidgetItem(r.turno))
-            self.table.setItem(row, 3, QTableWidgetItem(r.hora_inicio))
-            self.table.setItem(row, 4, QTableWidgetItem(r.hora_fin))
-            self.table.setItem(row, 5, QTableWidgetItem(r.observaciones))
-            self.table.setItem(row, 6, QTableWidgetItem("Sí" if r.activo else "No"))
+            set_item(self.table, row, 0, str(r.id))
+            set_item(self.table, row, 1, r.fecha)
+            set_item(self.table, row, 2, r.turno)
+            set_item(self.table, row, 3, r.hora_inicio)
+            set_item(self.table, row, 4, r.hora_fin)
+            set_item(self.table, row, 5, r.observaciones)
+            set_item(self.table, row, 6, "Sí" if r.activo else "No")
+            tooltip = (
+                f"Fecha: {r.fecha}\n"
+                f"Turno: {r.turno}\n"
+                f"Horario: {r.hora_inicio} - {r.hora_fin}\n"
+                f"Observaciones: {r.observaciones or '—'}\n"
+                f"Estado: {'Activo' if r.activo else 'Inactivo'}"
+            )
+            apply_row_style(self.table, row, inactive=not r.activo, tooltip=tooltip)
 
     def _on_selection_changed(self) -> None:
         self.btn_eliminar.setEnabled(self._selected_id() is not None)
@@ -225,5 +236,7 @@ class PageTurnos(QWidget):
 
 
 if __name__ == "__main__":
-    print("Este módulo no se ejecuta directamente. Usa: python -m clinicdesk")
+    logging.getLogger(__name__).info(
+        "Este módulo no se ejecuta directamente. Usa: python -m clinicdesk"
+    )
     raise SystemExit(2)

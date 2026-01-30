@@ -15,13 +15,18 @@ No contiene:
 
 from __future__ import annotations
 
+import logging
 import sqlite3
 from typing import List, Optional
 
 from clinicdesk.app.domain.modelos import Personal
 from clinicdesk.app.domain.enums import TipoDocumento
 from clinicdesk.app.domain.exceptions import ValidationError
+from clinicdesk.app.common.search_utils import has_search_values, like_value, normalize_search_text
 from clinicdesk.app.infrastructure.sqlite.date_utils import format_iso_date, parse_iso_date
+
+
+logger = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------
@@ -160,13 +165,15 @@ class PersonalRepository:
         """
         Obtiene el id del personal por nombre y apellidos (búsqueda flexible).
         """
+        nombre = normalize_search_text(nombre)
+        apellidos = normalize_search_text(apellidos)
         if not nombre:
             return None
-        clauses = ["nombre LIKE ?"]
-        params: list = [f\"%{nombre}%\"]
+        clauses = ["nombre LIKE ? COLLATE NOCASE"]
+        params: list = [like_value(nombre)]
         if apellidos:
-            clauses.append("apellidos LIKE ?")
-            params.append(f\"%{apellidos}%\")
+            clauses.append("apellidos LIKE ? COLLATE NOCASE")
+            params.append(like_value(apellidos))
         sql = "SELECT id FROM personal WHERE " + " AND ".join(clauses) + " ORDER BY apellidos, nombre"
         row = self._con.execute(sql, params).fetchone()
         return int(row["id"]) if row else None
@@ -187,7 +194,11 @@ class PersonalRepository:
 
         sql += " ORDER BY apellidos, nombre"
 
-        rows = self._con.execute(sql, params).fetchall()
+        try:
+            rows = self._con.execute(sql, params).fetchall()
+        except sqlite3.Error as exc:
+            logger.error("Error SQL en PersonalRepository.list_all: %s", exc)
+            return []
         return [self._row_to_model(r) for r in rows]
 
     def search(
@@ -209,25 +220,39 @@ class PersonalRepository:
         - documento: documento exacto
         - activo: True / False / None (None = todos)
         """
+        texto = normalize_search_text(texto)
+        puesto = normalize_search_text(puesto)
+        documento = normalize_search_text(documento)
+        tipo_documento_value = normalize_search_text(
+            tipo_documento.value if tipo_documento else None
+        )
+
+        if not has_search_values(texto, puesto, documento, tipo_documento_value):
+            logger.info("PersonalRepository.search skipped (filtros vacíos).")
+            return []
+
         clauses: list[str] = []
         params: list = []
 
         if texto:
-            clauses.append("(nombre LIKE ? OR apellidos LIKE ? OR documento LIKE ?)")
-            like = f"%{texto}%"
+            clauses.append(
+                "(nombre LIKE ? COLLATE NOCASE OR apellidos LIKE ? COLLATE NOCASE "
+                "OR documento LIKE ? COLLATE NOCASE)"
+            )
+            like = like_value(texto)
             params.extend([like, like, like])
 
         if puesto:
-            clauses.append("puesto = ?")
-            params.append(puesto)
+            clauses.append("puesto LIKE ? COLLATE NOCASE")
+            params.append(like_value(puesto))
 
-        if tipo_documento:
-            clauses.append("tipo_documento = ?")
-            params.append(tipo_documento.value)
+        if tipo_documento_value:
+            clauses.append("tipo_documento LIKE ? COLLATE NOCASE")
+            params.append(like_value(tipo_documento_value))
 
         if documento:
-            clauses.append("documento = ?")
-            params.append(documento)
+            clauses.append("documento LIKE ? COLLATE NOCASE")
+            params.append(like_value(documento))
 
         if activo is not None:
             clauses.append("activo = ?")
@@ -239,7 +264,11 @@ class PersonalRepository:
 
         sql += " ORDER BY apellidos, nombre"
 
-        rows = self._con.execute(sql, params).fetchall()
+        try:
+            rows = self._con.execute(sql, params).fetchall()
+        except sqlite3.Error as exc:
+            logger.error("Error SQL en PersonalRepository.search: %s", exc)
+            return []
         return [self._row_to_model(r) for r in rows]
 
     # --------------------------------------------------------------

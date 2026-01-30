@@ -26,6 +26,7 @@ CREATE TABLE IF NOT EXISTS pacientes (
 
 CREATE INDEX IF NOT EXISTS idx_pacientes_nombre_apellidos ON pacientes(nombre, apellidos);
 CREATE INDEX IF NOT EXISTS idx_pacientes_documento ON pacientes(documento);
+CREATE INDEX IF NOT EXISTS idx_pacientes_activo ON pacientes(activo);
 
 
 CREATE TABLE IF NOT EXISTS medicos (
@@ -49,6 +50,8 @@ CREATE TABLE IF NOT EXISTS medicos (
 
 CREATE INDEX IF NOT EXISTS idx_medicos_nombre_apellidos ON medicos(nombre, apellidos);
 CREATE INDEX IF NOT EXISTS idx_medicos_especialidad ON medicos(especialidad);
+CREATE INDEX IF NOT EXISTS idx_medicos_documento ON medicos(documento);
+CREATE INDEX IF NOT EXISTS idx_medicos_activo ON medicos(activo);
 
 
 CREATE TABLE IF NOT EXISTS personal (
@@ -71,6 +74,8 @@ CREATE TABLE IF NOT EXISTS personal (
 
 CREATE INDEX IF NOT EXISTS idx_personal_nombre_apellidos ON personal(nombre, apellidos);
 CREATE INDEX IF NOT EXISTS idx_personal_puesto ON personal(puesto);
+CREATE INDEX IF NOT EXISTS idx_personal_documento ON personal(documento);
+CREATE INDEX IF NOT EXISTS idx_personal_activo ON personal(activo);
 
 -- ============================================================
 -- SALAS
@@ -87,6 +92,7 @@ CREATE TABLE IF NOT EXISTS salas (
 );
 
 CREATE INDEX IF NOT EXISTS idx_salas_tipo ON salas(tipo);
+CREATE INDEX IF NOT EXISTS idx_salas_activa ON salas(activa);
 
 -- ============================================================
 -- TURNOS / CUADRANTES (calendarios editables)
@@ -101,6 +107,8 @@ CREATE TABLE IF NOT EXISTS turnos (
 
     UNIQUE (nombre)
 );
+
+CREATE INDEX IF NOT EXISTS idx_turnos_activo ON turnos(activo);
 
 -- Bloques de trabajo por día (médicos)
 CREATE TABLE IF NOT EXISTS calendario_medico (
@@ -156,6 +164,7 @@ CREATE TABLE IF NOT EXISTS ausencias_medico (
     motivo TEXT,
     aprobado_por_personal_id INTEGER,
     creado_en TEXT NOT NULL,
+    activo INTEGER NOT NULL DEFAULT 1,
 
     FOREIGN KEY (medico_id) REFERENCES medicos(id) ON DELETE RESTRICT,
     FOREIGN KEY (aprobado_por_personal_id) REFERENCES personal(id) ON DELETE SET NULL
@@ -163,6 +172,7 @@ CREATE TABLE IF NOT EXISTS ausencias_medico (
 
 CREATE INDEX IF NOT EXISTS idx_aus_med_medico_inicio ON ausencias_medico(medico_id, inicio);
 CREATE INDEX IF NOT EXISTS idx_aus_med_medico_fin ON ausencias_medico(medico_id, fin);
+CREATE INDEX IF NOT EXISTS idx_aus_med_activo ON ausencias_medico(activo);
 
 -- Ausencias (personal)
 CREATE TABLE IF NOT EXISTS ausencias_personal (
@@ -176,6 +186,7 @@ CREATE TABLE IF NOT EXISTS ausencias_personal (
     motivo TEXT,
     aprobado_por_personal_id INTEGER,
     creado_en TEXT NOT NULL,
+    activo INTEGER NOT NULL DEFAULT 1,
 
     FOREIGN KEY (personal_id) REFERENCES personal(id) ON DELETE RESTRICT,
     FOREIGN KEY (aprobado_por_personal_id) REFERENCES personal(id) ON DELETE SET NULL
@@ -183,6 +194,7 @@ CREATE TABLE IF NOT EXISTS ausencias_personal (
 
 CREATE INDEX IF NOT EXISTS idx_aus_per_personal_inicio ON ausencias_personal(personal_id, inicio);
 CREATE INDEX IF NOT EXISTS idx_aus_per_personal_fin ON ausencias_personal(personal_id, fin);
+CREATE INDEX IF NOT EXISTS idx_aus_per_activo ON ausencias_personal(activo);
 
 -- ============================================================
 -- CITAS (con override consciente)
@@ -204,6 +216,7 @@ CREATE TABLE IF NOT EXISTS citas (
     override_nota TEXT,
     override_personal_id INTEGER,
     override_fecha_hora TEXT,
+    activo INTEGER NOT NULL DEFAULT 1,
 
     FOREIGN KEY (paciente_id) REFERENCES pacientes(id) ON DELETE RESTRICT,
     FOREIGN KEY (medico_id) REFERENCES medicos(id) ON DELETE RESTRICT,
@@ -215,6 +228,7 @@ CREATE INDEX IF NOT EXISTS idx_citas_inicio ON citas(inicio);
 CREATE INDEX IF NOT EXISTS idx_citas_medico_inicio ON citas(medico_id, inicio);
 CREATE INDEX IF NOT EXISTS idx_citas_sala_inicio ON citas(sala_id, inicio);
 CREATE INDEX IF NOT EXISTS idx_citas_paciente_inicio ON citas(paciente_id, inicio);
+CREATE INDEX IF NOT EXISTS idx_citas_activo ON citas(activo);
 
 -- ============================================================
 -- INVENTARIO (tablas separadas)
@@ -230,6 +244,7 @@ CREATE TABLE IF NOT EXISTS medicamentos (
 
 CREATE INDEX IF NOT EXISTS idx_meds_compuesto ON medicamentos(nombre_compuesto);
 CREATE INDEX IF NOT EXISTS idx_meds_comercial ON medicamentos(nombre_comercial);
+CREATE INDEX IF NOT EXISTS idx_meds_activo ON medicamentos(activo);
 
 
 CREATE TABLE IF NOT EXISTS materiales (
@@ -241,6 +256,7 @@ CREATE TABLE IF NOT EXISTS materiales (
 );
 
 CREATE INDEX IF NOT EXISTS idx_material_nombre ON materiales(nombre);
+CREATE INDEX IF NOT EXISTS idx_material_activo ON materiales(activo);
 
 -- ============================================================
 -- RECETAS (auditoría)
@@ -252,6 +268,7 @@ CREATE TABLE IF NOT EXISTS recetas (
     medico_id INTEGER NOT NULL,
     fecha TEXT NOT NULL, -- ISO datetime
     observaciones TEXT,
+    activo INTEGER NOT NULL DEFAULT 1,
 
     FOREIGN KEY (paciente_id) REFERENCES pacientes(id) ON DELETE RESTRICT,
     FOREIGN KEY (medico_id) REFERENCES medicos(id) ON DELETE RESTRICT
@@ -259,6 +276,7 @@ CREATE TABLE IF NOT EXISTS recetas (
 
 CREATE INDEX IF NOT EXISTS idx_recetas_paciente_fecha ON recetas(paciente_id, fecha);
 CREATE INDEX IF NOT EXISTS idx_recetas_medico_fecha ON recetas(medico_id, fecha);
+CREATE INDEX IF NOT EXISTS idx_recetas_activo ON recetas(activo);
 
 
 CREATE TABLE IF NOT EXISTS receta_lineas (
@@ -269,6 +287,7 @@ CREATE TABLE IF NOT EXISTS receta_lineas (
     dosis TEXT NOT NULL,
     duracion_dias INTEGER,
     instrucciones TEXT,
+    activo INTEGER NOT NULL DEFAULT 1,
 
     FOREIGN KEY (receta_id) REFERENCES recetas(id) ON DELETE CASCADE,
     FOREIGN KEY (medicamento_id) REFERENCES medicamentos(id) ON DELETE RESTRICT
@@ -276,6 +295,7 @@ CREATE TABLE IF NOT EXISTS receta_lineas (
 
 CREATE INDEX IF NOT EXISTS idx_receta_lineas_receta ON receta_lineas(receta_id);
 CREATE INDEX IF NOT EXISTS idx_receta_lineas_medicamento ON receta_lineas(medicamento_id);
+CREATE INDEX IF NOT EXISTS idx_receta_lineas_activo ON receta_lineas(activo);
 
 -- ============================================================
 -- DISPENSACIONES (auditoría + vínculo a receta)
@@ -293,6 +313,7 @@ CREATE TABLE IF NOT EXISTS dispensaciones (
     fecha_hora TEXT NOT NULL, -- ISO datetime
     cantidad INTEGER NOT NULL,
     observaciones TEXT,
+    activo INTEGER NOT NULL DEFAULT 1,
 
     override_ok INTEGER NOT NULL DEFAULT 0,
     override_nota TEXT,
@@ -309,6 +330,7 @@ CREATE TABLE IF NOT EXISTS dispensaciones (
 CREATE INDEX IF NOT EXISTS idx_disp_receta ON dispensaciones(receta_id);
 CREATE INDEX IF NOT EXISTS idx_disp_personal_fecha ON dispensaciones(personal_id, fecha_hora);
 CREATE INDEX IF NOT EXISTS idx_disp_medicamento_fecha ON dispensaciones(medicamento_id, fecha_hora);
+CREATE INDEX IF NOT EXISTS idx_disp_activo ON dispensaciones(activo);
 
 -- ============================================================
 -- MOVIMIENTOS (auditoría separada)
@@ -322,6 +344,7 @@ CREATE TABLE IF NOT EXISTS movimientos_medicamentos (
     tipo TEXT NOT NULL,       -- ENTRADA / SALIDA / AJUSTE
     cantidad INTEGER NOT NULL,
     motivo TEXT,
+    activo INTEGER NOT NULL DEFAULT 1,
 
     receta_id INTEGER,
     dispensacion_id INTEGER,
@@ -337,6 +360,7 @@ CREATE INDEX IF NOT EXISTS idx_mov_med_medicamento_fecha ON movimientos_medicame
 CREATE INDEX IF NOT EXISTS idx_mov_med_personal_fecha ON movimientos_medicamentos(personal_id, fecha_hora);
 CREATE INDEX IF NOT EXISTS idx_mov_med_receta ON movimientos_medicamentos(receta_id);
 CREATE INDEX IF NOT EXISTS idx_mov_med_disp ON movimientos_medicamentos(dispensacion_id);
+CREATE INDEX IF NOT EXISTS idx_mov_med_activo ON movimientos_medicamentos(activo);
 
 
 CREATE TABLE IF NOT EXISTS movimientos_materiales (
@@ -347,6 +371,7 @@ CREATE TABLE IF NOT EXISTS movimientos_materiales (
     tipo TEXT NOT NULL,
     cantidad INTEGER NOT NULL,
     motivo TEXT,
+    activo INTEGER NOT NULL DEFAULT 1,
 
     personal_id INTEGER,
 
@@ -356,6 +381,7 @@ CREATE TABLE IF NOT EXISTS movimientos_materiales (
 
 CREATE INDEX IF NOT EXISTS idx_mov_mat_material_fecha ON movimientos_materiales(material_id, fecha_hora);
 CREATE INDEX IF NOT EXISTS idx_mov_mat_personal_fecha ON movimientos_materiales(personal_id, fecha_hora);
+CREATE INDEX IF NOT EXISTS idx_mov_mat_activo ON movimientos_materiales(activo);
 
 -- ============================================================
 -- INCIDENCIAS (solo cuando hay override consciente)
@@ -380,6 +406,7 @@ CREATE TABLE IF NOT EXISTS incidencias (
 
     confirmado_por_personal_id INTEGER NOT NULL,
     nota_override TEXT NOT NULL,
+    activo INTEGER NOT NULL DEFAULT 1,
 
     FOREIGN KEY (medico_id) REFERENCES medicos(id) ON DELETE SET NULL,
     FOREIGN KEY (personal_id) REFERENCES personal(id) ON DELETE SET NULL,
@@ -393,3 +420,4 @@ CREATE INDEX IF NOT EXISTS idx_incidencias_fecha ON incidencias(fecha_hora);
 CREATE INDEX IF NOT EXISTS idx_incidencias_tipo_estado ON incidencias(tipo, estado);
 CREATE INDEX IF NOT EXISTS idx_incidencias_medico_fecha ON incidencias(medico_id, fecha_hora);
 CREATE INDEX IF NOT EXISTS idx_incidencias_personal_fecha ON incidencias(personal_id, fecha_hora);
+CREATE INDEX IF NOT EXISTS idx_incidencias_activo ON incidencias(activo);

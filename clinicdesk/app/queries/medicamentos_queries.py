@@ -3,7 +3,13 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import List, Optional
 
+import logging
 import sqlite3
+
+from clinicdesk.app.common.search_utils import has_search_values, like_value, normalize_search_text
+
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True, slots=True)
@@ -37,12 +43,20 @@ class MedicamentosQueries:
         activo: Optional[bool] = True,
         limit: int = 500,
     ) -> List[MedicamentoRow]:
+        texto = normalize_search_text(texto)
+
+        if not has_search_values(texto):
+            logger.info("Medicamentos search skipped (filtros vacíos).")
+            return []
+
         clauses = []
         params: List[object] = []
 
         if texto:
-            like = f"%{texto}%"
-            clauses.append("(nombre_comercial LIKE ? OR nombre_compuesto LIKE ?)")
+            like = like_value(texto)
+            clauses.append(
+                "(nombre_comercial LIKE ? COLLATE NOCASE OR nombre_compuesto LIKE ? COLLATE NOCASE)"
+            )
             params.extend([like, like])
 
         if activo is not None:
@@ -55,7 +69,11 @@ class MedicamentosQueries:
         sql += " ORDER BY nombre_comercial LIMIT ?"
         params.append(int(limit))
 
-        rows = self._conn.execute(sql, params).fetchall()
+        try:
+            rows = self._conn.execute(sql, params).fetchall()
+        except sqlite3.Error as exc:
+            logger.error("Error SQL en MedicamentosQueries.search: %s", exc)
+            return []
         return [
             MedicamentoRow(
                 id=row["id"],
@@ -68,19 +86,23 @@ class MedicamentosQueries:
         ]
 
     def list_movimientos(self, medicamento_id: int, *, limit: int = 200) -> List[MovimientoMedicamentoRow]:
-        rows = self._conn.execute(
-            """
-            SELECT mm.id, mm.fecha_hora, mm.tipo, mm.cantidad,
-                   (p.nombre || ' ' || p.apellidos) AS personal,
-                   mm.motivo, mm.referencia
-            FROM movimientos_medicamentos mm
-            LEFT JOIN personal p ON p.id = mm.personal_id
-            WHERE mm.medicamento_id = ?
-            ORDER BY mm.fecha_hora DESC
-            LIMIT ?
-            """,
-            (medicamento_id, int(limit)),
-        ).fetchall()
+        try:
+            rows = self._conn.execute(
+                """
+                SELECT mm.id, mm.fecha_hora, mm.tipo, mm.cantidad,
+                       (p.nombre || ' ' || p.apellidos) AS personal,
+                       mm.motivo, mm.referencia
+                FROM movimientos_medicamentos mm
+                LEFT JOIN personal p ON p.id = mm.personal_id
+                WHERE mm.medicamento_id = ? AND mm.activo = 1
+                ORDER BY mm.fecha_hora DESC
+                LIMIT ?
+                """,
+                (medicamento_id, int(limit)),
+            ).fetchall()
+        except sqlite3.Error as exc:
+            logger.error("Error SQL en MedicamentosQueries.list_movimientos: %s", exc)
+            return []
 
         return [
             MovimientoMedicamentoRow(

@@ -14,11 +14,16 @@ No contiene:
 
 from __future__ import annotations
 
+import logging
 import sqlite3
 from dataclasses import dataclass
 from typing import List, Optional
 
+from clinicdesk.app.common.search_utils import has_search_values, like_value, normalize_search_text
 from clinicdesk.app.domain.exceptions import ValidationError
+
+
+logger = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------
@@ -184,9 +189,9 @@ class IncidenciasRepository:
 
     def delete(self, incidencia_id: int) -> None:
         """
-        Borrado físico (registro de auditoría).
+        Borrado lógico: marca la incidencia como inactiva.
         """
-        self._con.execute("DELETE FROM incidencias WHERE id = ?", (incidencia_id,))
+        self._con.execute("UPDATE incidencias SET activo = 0 WHERE id = ?", (incidencia_id,))
         self._con.commit()
 
     def get_by_id(self, incidencia_id: int) -> Optional[Incidencia]:
@@ -221,20 +226,33 @@ class IncidenciasRepository:
         """
         Búsqueda flexible de incidencias para auditoría.
         """
+        tipo = normalize_search_text(tipo)
+        estado = normalize_search_text(estado)
+        severidad = normalize_search_text(severidad)
+        desde = normalize_search_text(desde)
+        hasta = normalize_search_text(hasta)
+
+        if not has_search_values(tipo, estado, severidad, desde, hasta) and all(
+            value is None
+            for value in (medico_id, personal_id, cita_id, dispensacion_id, receta_id)
+        ):
+            logger.info("IncidenciasRepository.search skipped (filtros vacíos).")
+            return []
+
         clauses = []
         params = []
 
         if tipo:
-            clauses.append("tipo = ?")
-            params.append(tipo)
+            clauses.append("tipo LIKE ? COLLATE NOCASE")
+            params.append(like_value(tipo))
 
         if estado:
-            clauses.append("estado = ?")
-            params.append(estado)
+            clauses.append("estado LIKE ? COLLATE NOCASE")
+            params.append(like_value(estado))
 
         if severidad:
-            clauses.append("severidad = ?")
-            params.append(severidad)
+            clauses.append("severidad LIKE ? COLLATE NOCASE")
+            params.append(like_value(severidad))
 
         if desde:
             clauses.append("fecha_hora >= ?")
@@ -264,26 +282,35 @@ class IncidenciasRepository:
             clauses.append("receta_id = ?")
             params.append(receta_id)
 
+        clauses.append("activo = 1")
         sql = "SELECT * FROM incidencias"
         if clauses:
             sql += " WHERE " + " AND ".join(clauses)
 
         sql += " ORDER BY fecha_hora DESC"
 
-        rows = self._con.execute(sql, params).fetchall()
+        try:
+            rows = self._con.execute(sql, params).fetchall()
+        except sqlite3.Error as exc:
+            logger.error("Error SQL en IncidenciasRepository.search: %s", exc)
+            return []
         return [self._row_to_model(r) for r in rows]
 
     def list_open(self) -> List[Incidencia]:
         """
         Lista incidencias abiertas (estado = 'ABIERTA').
         """
-        rows = self._con.execute(
-            """
-            SELECT * FROM incidencias
-            WHERE estado = 'ABIERTA'
-            ORDER BY fecha_hora DESC
-            """
-        ).fetchall()
+        try:
+            rows = self._con.execute(
+                """
+                SELECT * FROM incidencias
+                WHERE estado = 'ABIERTA' AND activo = 1
+                ORDER BY fecha_hora DESC
+                """
+            ).fetchall()
+        except sqlite3.Error as exc:
+            logger.error("Error SQL en IncidenciasRepository.list_open: %s", exc)
+            return []
         return [self._row_to_model(r) for r in rows]
 
     # --------------------------------------------------------------

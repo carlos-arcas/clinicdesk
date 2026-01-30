@@ -15,12 +15,17 @@ No contiene:
 
 from __future__ import annotations
 
+import logging
 import sqlite3
 from typing import List, Optional
 
 from clinicdesk.app.domain.modelos import Sala
 from clinicdesk.app.domain.enums import TipoSala
+from clinicdesk.app.common.search_utils import has_search_values, like_value, normalize_search_text
 from clinicdesk.app.domain.exceptions import ValidationError
+
+
+logger = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------
@@ -128,7 +133,11 @@ class SalasRepository:
 
         sql += " ORDER BY nombre"
 
-        rows = self._con.execute(sql, params).fetchall()
+        try:
+            rows = self._con.execute(sql, params).fetchall()
+        except sqlite3.Error as exc:
+            logger.error("Error SQL en SalasRepository.list_all: %s", exc)
+            return []
         return [self._row_to_model(r) for r in rows]
 
     def search(
@@ -146,20 +155,29 @@ class SalasRepository:
         - activa: True / False / None (None = todas)
         - texto: busca en nombre y ubicación
         """
+        tipo_value = normalize_search_text(tipo.value if tipo else None)
+        texto = normalize_search_text(texto)
+
+        if not has_search_values(tipo_value, texto):
+            logger.info("SalasRepository.search skipped (filtros vacíos).")
+            return []
+
         clauses = []
         params = []
 
-        if tipo:
-            clauses.append("tipo = ?")
-            params.append(tipo.value)
+        if tipo_value:
+            clauses.append("tipo LIKE ? COLLATE NOCASE")
+            params.append(like_value(tipo_value))
 
         if activa is not None:
             clauses.append("activa = ?")
             params.append(int(activa))
 
         if texto:
-            clauses.append("(nombre LIKE ? OR ubicacion LIKE ?)")
-            like = f"%{texto}%"
+            clauses.append(
+                "(nombre LIKE ? COLLATE NOCASE OR ubicacion LIKE ? COLLATE NOCASE)"
+            )
+            like = like_value(texto)
             params.extend([like, like])
 
         sql = "SELECT * FROM salas"
@@ -168,7 +186,11 @@ class SalasRepository:
 
         sql += " ORDER BY nombre"
 
-        rows = self._con.execute(sql, params).fetchall()
+        try:
+            rows = self._con.execute(sql, params).fetchall()
+        except sqlite3.Error as exc:
+            logger.error("Error SQL en SalasRepository.search: %s", exc)
+            return []
         return [self._row_to_model(r) for r in rows]
 
     # --------------------------------------------------------------

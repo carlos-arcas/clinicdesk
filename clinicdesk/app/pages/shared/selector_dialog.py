@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import logging
 from typing import Callable, Iterable, Optional
 
 from PySide6.QtWidgets import (
@@ -16,11 +17,15 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from clinicdesk.app.common.search_utils import normalize_search_text
 from clinicdesk.app.queries.medicos_queries import MedicosQueries
 from clinicdesk.app.queries.medicamentos_queries import MedicamentosQueries
 from clinicdesk.app.queries.pacientes_queries import PacientesQueries
 from clinicdesk.app.queries.personal_queries import PersonalQueries
 from clinicdesk.app.queries.salas_queries import SalasQueries
+
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(slots=True)
@@ -32,7 +37,7 @@ class SelectorResult:
 FetchRows = Callable[[Optional[str]], Iterable[tuple[int, str, str, str]]]
 
 
-class SelectorDialog(QDialog):
+class EntitySelectorDialog(QDialog):
     def __init__(
         self,
         parent: Optional[QWidget],
@@ -83,7 +88,12 @@ class SelectorDialog(QDialog):
         self._refresh()
 
     def _refresh(self) -> None:
-        rows = list(self._fetch_rows(self.txt_search.text().strip() or None))
+        texto = normalize_search_text(self.txt_search.text())
+        if not texto:
+            logger.info("EntitySelectorDialog: búsqueda vacía, sin consulta.")
+            self.table.setRowCount(0)
+            return
+        rows = list(self._fetch_rows(texto))
         self.table.setRowCount(0)
         for data in rows:
             row_idx = self.table.rowCount()
@@ -127,7 +137,7 @@ def select_paciente(parent: QWidget, connection, *, activo: bool = True) -> Opti
         for row in rows:
             yield (row.id, row.documento, row.nombre_completo, row.telefono)
 
-    dialog = SelectorDialog(
+    dialog = EntitySelectorDialog(
         parent,
         title="Seleccionar paciente",
         headers=["Documento", "Nombre", "Teléfono"],
@@ -147,7 +157,7 @@ def select_medico(parent: QWidget, connection, *, activo: bool = True) -> Option
         for row in rows:
             yield (row.id, row.documento, row.nombre_completo, row.especialidad)
 
-    dialog = SelectorDialog(
+    dialog = EntitySelectorDialog(
         parent,
         title="Seleccionar médico",
         headers=["Documento", "Nombre", "Especialidad"],
@@ -167,7 +177,7 @@ def select_personal(parent: QWidget, connection, *, activo: bool = True) -> Opti
         for row in rows:
             yield (row.id, row.documento, row.nombre_completo, row.puesto)
 
-    dialog = SelectorDialog(
+    dialog = EntitySelectorDialog(
         parent,
         title="Seleccionar personal",
         headers=["Documento", "Nombre", "Puesto"],
@@ -188,7 +198,7 @@ def select_sala(parent: QWidget, connection, *, activa: bool = True) -> Optional
             ubicacion = row.ubicacion or ""
             yield (row.id, row.nombre, row.tipo, ubicacion)
 
-    dialog = SelectorDialog(
+    dialog = EntitySelectorDialog(
         parent,
         title="Seleccionar sala",
         headers=["Nombre", "Tipo", "Ubicación"],
@@ -208,7 +218,7 @@ def select_medicamento(parent: QWidget, connection, *, activo: bool = True) -> O
         for row in rows:
             yield (row.id, row.nombre_comercial, row.nombre_compuesto, str(row.stock))
 
-    dialog = SelectorDialog(
+    dialog = EntitySelectorDialog(
         parent,
         title="Seleccionar medicamento",
         headers=["Nombre comercial", "Compuesto", "Stock"],

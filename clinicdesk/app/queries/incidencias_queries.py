@@ -3,7 +3,13 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import List, Optional
 
+import logging
 import sqlite3
+
+from clinicdesk.app.common.search_utils import has_search_values, like_value, normalize_search_text
+
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True, slots=True)
@@ -43,18 +49,29 @@ class IncidenciasQueries:
         texto: Optional[str] = None,
         limit: int = 500,
     ) -> List[IncidenciaRow]:
-        where = []
+        tipo = normalize_search_text(tipo)
+        estado = normalize_search_text(estado)
+        severidad = normalize_search_text(severidad)
+        fecha_desde = normalize_search_text(fecha_desde)
+        fecha_hasta = normalize_search_text(fecha_hasta)
+        texto = normalize_search_text(texto)
+
+        if not has_search_values(tipo, estado, severidad, fecha_desde, fecha_hasta, texto):
+            logger.info("IncidenciasQueries.list skipped (filtros vacíos).")
+            return []
+
+        where = ["i.activo = 1"]
         params: List[object] = []
 
         if tipo:
-            where.append("i.tipo = ?")
-            params.append(tipo)
+            where.append("i.tipo LIKE ? COLLATE NOCASE")
+            params.append(like_value(tipo))
         if estado:
-            where.append("i.estado = ?")
-            params.append(estado)
+            where.append("i.estado LIKE ? COLLATE NOCASE")
+            params.append(like_value(estado))
         if severidad:
-            where.append("i.severidad = ?")
-            params.append(severidad)
+            where.append("i.severidad LIKE ? COLLATE NOCASE")
+            params.append(like_value(severidad))
         if fecha_desde:
             where.append("i.fecha_hora >= ?")
             params.append(f"{fecha_desde} 00:00:00")
@@ -62,46 +79,51 @@ class IncidenciasQueries:
             where.append("i.fecha_hora <= ?")
             params.append(f"{fecha_hasta} 23:59:59")
         if texto:
-            like = f"%{texto}%"
+            like = like_value(texto)
             where.append(
-                "(i.descripcion LIKE ? OR i.nota_override LIKE ? OR cp.nombre LIKE ? OR cp.apellidos LIKE ?)"
+                "(i.descripcion LIKE ? COLLATE NOCASE OR i.nota_override LIKE ? COLLATE NOCASE "
+                "OR cp.nombre LIKE ? COLLATE NOCASE OR cp.apellidos LIKE ? COLLATE NOCASE)"
             )
             params.extend([like, like, like, like])
 
         where_sql = ("WHERE " + " AND ".join(where)) if where else ""
 
-        rows = self._conn.execute(
-            f"""
-            SELECT
-                i.id,
-                i.tipo,
-                i.severidad,
-                i.estado,
-                i.fecha_hora,
-                i.descripcion,
-                i.nota_override,
-                i.confirmado_por_personal_id,
-                (cp.nombre || ' ' || cp.apellidos) AS confirmado_por_nombre,
+        try:
+            rows = self._conn.execute(
+                f"""
+                SELECT
+                    i.id,
+                    i.tipo,
+                    i.severidad,
+                    i.estado,
+                    i.fecha_hora,
+                    i.descripcion,
+                    i.nota_override,
+                    i.confirmado_por_personal_id,
+                    (cp.nombre || ' ' || cp.apellidos) AS confirmado_por_nombre,
 
-                i.medico_id,
-                CASE WHEN i.medico_id IS NULL THEN NULL ELSE (m.nombre || ' ' || m.apellidos) END AS medico_nombre,
+                    i.medico_id,
+                    CASE WHEN i.medico_id IS NULL THEN NULL ELSE (m.nombre || ' ' || m.apellidos) END AS medico_nombre,
 
-                i.personal_id,
-                CASE WHEN i.personal_id IS NULL THEN NULL ELSE (p.nombre || ' ' || p.apellidos) END AS personal_nombre,
+                    i.personal_id,
+                    CASE WHEN i.personal_id IS NULL THEN NULL ELSE (p.nombre || ' ' || p.apellidos) END AS personal_nombre,
 
-                i.cita_id,
-                i.receta_id,
-                i.dispensacion_id
-            FROM incidencias i
-            LEFT JOIN medicos m ON m.id = i.medico_id
-            LEFT JOIN personal p ON p.id = i.personal_id
-            JOIN personal cp ON cp.id = i.confirmado_por_personal_id
-            {where_sql}
-            ORDER BY i.fecha_hora DESC, i.id DESC
-            LIMIT ?
-            """,
-            (*params, int(limit)),
-        ).fetchall()
+                    i.cita_id,
+                    i.receta_id,
+                    i.dispensacion_id
+                FROM incidencias i
+                LEFT JOIN medicos m ON m.id = i.medico_id
+                LEFT JOIN personal p ON p.id = i.personal_id
+                JOIN personal cp ON cp.id = i.confirmado_por_personal_id
+                {where_sql}
+                ORDER BY i.fecha_hora DESC, i.id DESC
+                LIMIT ?
+                """,
+                (*params, int(limit)),
+            ).fetchall()
+        except sqlite3.Error as exc:
+            logger.error("Error SQL en IncidenciasQueries.list: %s", exc)
+            return []
 
         out: List[IncidenciaRow] = []
         for r in rows:
@@ -128,36 +150,40 @@ class IncidenciasQueries:
         return out
 
     def get_by_id(self, incidencia_id: int) -> Optional[IncidenciaRow]:
-        row = self._conn.execute(
-            """
-            SELECT
-                i.id,
-                i.tipo,
-                i.severidad,
-                i.estado,
-                i.fecha_hora,
-                i.descripcion,
-                i.nota_override,
-                i.confirmado_por_personal_id,
-                (cp.nombre || ' ' || cp.apellidos) AS confirmado_por_nombre,
+        try:
+            row = self._conn.execute(
+                """
+                SELECT
+                    i.id,
+                    i.tipo,
+                    i.severidad,
+                    i.estado,
+                    i.fecha_hora,
+                    i.descripcion,
+                    i.nota_override,
+                    i.confirmado_por_personal_id,
+                    (cp.nombre || ' ' || cp.apellidos) AS confirmado_por_nombre,
 
-                i.medico_id,
-                CASE WHEN i.medico_id IS NULL THEN NULL ELSE (m.nombre || ' ' || m.apellidos) END AS medico_nombre,
+                    i.medico_id,
+                    CASE WHEN i.medico_id IS NULL THEN NULL ELSE (m.nombre || ' ' || m.apellidos) END AS medico_nombre,
 
-                i.personal_id,
-                CASE WHEN i.personal_id IS NULL THEN NULL ELSE (p.nombre || ' ' || p.apellidos) END AS personal_nombre,
+                    i.personal_id,
+                    CASE WHEN i.personal_id IS NULL THEN NULL ELSE (p.nombre || ' ' || p.apellidos) END AS personal_nombre,
 
-                i.cita_id,
-                i.receta_id,
-                i.dispensacion_id
-            FROM incidencias i
-            LEFT JOIN medicos m ON m.id = i.medico_id
-            LEFT JOIN personal p ON p.id = i.personal_id
-            JOIN personal cp ON cp.id = i.confirmado_por_personal_id
-            WHERE i.id = ?
-            """,
-            (incidencia_id,),
-        ).fetchone()
+                    i.cita_id,
+                    i.receta_id,
+                    i.dispensacion_id
+                FROM incidencias i
+                LEFT JOIN medicos m ON m.id = i.medico_id
+                LEFT JOIN personal p ON p.id = i.personal_id
+                JOIN personal cp ON cp.id = i.confirmado_por_personal_id
+                WHERE i.id = ? AND i.activo = 1
+                """,
+                (incidencia_id,),
+            ).fetchone()
+        except sqlite3.Error as exc:
+            logger.error("Error SQL en IncidenciasQueries.get_by_id: %s", exc)
+            return None
 
         if not row:
             return None

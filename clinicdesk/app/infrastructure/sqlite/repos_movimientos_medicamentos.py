@@ -15,11 +15,15 @@ No contiene:
 
 from __future__ import annotations
 
+import logging
 import sqlite3
 from dataclasses import dataclass
 from typing import List, Optional
 
 from clinicdesk.app.domain.exceptions import ValidationError
+
+
+logger = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------
@@ -118,12 +122,9 @@ class MovimientosMedicamentosRepository:
 
     def delete(self, movimiento_id: int) -> None:
         """
-        Borrado físico (registro de auditoría).
+        Borrado lógico: marca el movimiento como inactivo.
         """
-        self._con.execute(
-            "DELETE FROM movimientos_medicamentos WHERE id = ?",
-            (movimiento_id,),
-        )
+        self._con.execute("UPDATE movimientos_medicamentos SET activo = 0 WHERE id = ?", (movimiento_id,))
         self._con.commit()
 
     # --------------------------------------------------------------
@@ -154,13 +155,14 @@ class MovimientosMedicamentosRepository:
             clauses.append("fecha_hora <= ?")
             params.append(hasta)
 
-        sql = (
-            "SELECT * FROM movimientos_medicamentos WHERE "
-            + " AND ".join(clauses)
-            + " ORDER BY fecha_hora DESC"
-        )
+        clauses.append("activo = 1")
+        sql = "SELECT * FROM movimientos_medicamentos WHERE " + " AND ".join(clauses) + " ORDER BY fecha_hora DESC"
 
-        rows = self._con.execute(sql, params).fetchall()
+        try:
+            rows = self._con.execute(sql, params).fetchall()
+        except sqlite3.Error as exc:
+            logger.error("Error SQL en MovimientosMedicamentosRepository.list_by_medicamento: %s", exc)
+            return []
         return [self._row_to_model(r) for r in rows]
 
     def list_by_tipo(
@@ -187,13 +189,14 @@ class MovimientosMedicamentosRepository:
             clauses.append("fecha_hora <= ?")
             params.append(hasta)
 
-        sql = (
-            "SELECT * FROM movimientos_medicamentos WHERE "
-            + " AND ".join(clauses)
-            + " ORDER BY fecha_hora DESC"
-        )
+        clauses.append("activo = 1")
+        sql = "SELECT * FROM movimientos_medicamentos WHERE " + " AND ".join(clauses) + " ORDER BY fecha_hora DESC"
 
-        rows = self._con.execute(sql, params).fetchall()
+        try:
+            rows = self._con.execute(sql, params).fetchall()
+        except sqlite3.Error as exc:
+            logger.error("Error SQL en MovimientosMedicamentosRepository.list_by_tipo: %s", exc)
+            return []
         return [self._row_to_model(r) for r in rows]
 
     # --------------------------------------------------------------

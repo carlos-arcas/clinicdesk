@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from typing import Optional
 
+import logging
+
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QComboBox,
@@ -23,6 +25,7 @@ from clinicdesk.app.domain.exceptions import ValidationError
 from clinicdesk.app.pages.dialog_override import OverrideDialog
 from clinicdesk.app.pages.medicamentos.dialogs.ajuste_stock import AjusteStockDialog
 from clinicdesk.app.pages.medicamentos.dialogs.medicamento_form import MedicamentoFormDialog
+from clinicdesk.app.pages.shared.table_utils import apply_row_style, set_item
 from clinicdesk.app.queries.medicamentos_queries import (
     MedicamentosQueries,
     MedicamentoRow,
@@ -120,11 +123,18 @@ class PageMedicamentos(QWidget):
         for m in rows:
             row = self.table.rowCount()
             self.table.insertRow(row)
-            self.table.setItem(row, 0, QTableWidgetItem(str(m.id)))
-            self.table.setItem(row, 1, QTableWidgetItem(m.nombre_comercial))
-            self.table.setItem(row, 2, QTableWidgetItem(m.nombre_compuesto))
-            self.table.setItem(row, 3, QTableWidgetItem(str(m.stock)))
-            self.table.setItem(row, 4, QTableWidgetItem("Sí" if m.activo else "No"))
+            set_item(self.table, row, 0, str(m.id))
+            set_item(self.table, row, 1, m.nombre_comercial)
+            set_item(self.table, row, 2, m.nombre_compuesto)
+            set_item(self.table, row, 3, str(m.stock))
+            set_item(self.table, row, 4, "Sí" if m.activo else "No")
+            tooltip = (
+                f"Comercial: {m.nombre_comercial}\n"
+                f"Compuesto: {m.nombre_compuesto}\n"
+                f"Stock: {m.stock}\n"
+                f"Estado: {'Activo' if m.activo else 'Inactivo'}"
+            )
+            apply_row_style(self.table, row, inactive=not m.activo, tooltip=tooltip)
 
     def _render_movimientos(self, rows: list[MovimientoMedicamentoRow]) -> None:
         self.table_movs.setRowCount(0)
@@ -288,5 +298,7 @@ class PageMedicamentos(QWidget):
 
 
 if __name__ == "__main__":
-    print("Este módulo no se ejecuta directamente. Usa: python -m clinicdesk")
+    logging.getLogger(__name__).info(
+        "Este módulo no se ejecuta directamente. Usa: python -m clinicdesk"
+    )
     raise SystemExit(2)

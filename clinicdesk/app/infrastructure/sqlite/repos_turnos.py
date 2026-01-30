@@ -15,10 +15,15 @@ Notas:
 
 from __future__ import annotations
 
+import logging
 import sqlite3
 from typing import List, Optional
 
+from clinicdesk.app.common.search_utils import has_search_values, like_value, normalize_search_text
 from clinicdesk.app.domain.exceptions import ValidationError
+
+
+logger = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------
@@ -161,7 +166,11 @@ class TurnosRepository:
 
         sql += " ORDER BY hora_inicio"
 
-        rows = self._con.execute(sql, params).fetchall()
+        try:
+            rows = self._con.execute(sql, params).fetchall()
+        except sqlite3.Error as exc:
+            logger.error("Error SQL en TurnosRepository.list_all: %s", exc)
+            return []
         return [self._row_to_model(r) for r in rows]
 
     def search(
@@ -177,12 +186,18 @@ class TurnosRepository:
         - nombre: búsqueda parcial por nombre
         - activo: True / False / None
         """
+        nombre = normalize_search_text(nombre)
+
+        if not has_search_values(nombre):
+            logger.info("TurnosRepository.search skipped (filtros vacíos).")
+            return []
+
         clauses = []
         params = []
 
         if nombre:
-            clauses.append("nombre LIKE ?")
-            params.append(f"%{nombre}%")
+            clauses.append("nombre LIKE ? COLLATE NOCASE")
+            params.append(like_value(nombre))
 
         if activo is not None:
             clauses.append("activo = ?")
@@ -194,7 +209,11 @@ class TurnosRepository:
 
         sql += " ORDER BY hora_inicio"
 
-        rows = self._con.execute(sql, params).fetchall()
+        try:
+            rows = self._con.execute(sql, params).fetchall()
+        except sqlite3.Error as exc:
+            logger.error("Error SQL en TurnosRepository.search: %s", exc)
+            return []
         return [self._row_to_model(r) for r in rows]
 
     # --------------------------------------------------------------

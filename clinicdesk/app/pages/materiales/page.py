@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from typing import Optional
 
+import logging
+
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QComboBox,
@@ -23,6 +25,7 @@ from clinicdesk.app.domain.exceptions import ValidationError
 from clinicdesk.app.pages.dialog_override import OverrideDialog
 from clinicdesk.app.pages.materiales.dialogs.ajuste_stock import AjusteStockDialog
 from clinicdesk.app.pages.materiales.dialogs.material_form import MaterialFormDialog
+from clinicdesk.app.pages.shared.table_utils import apply_row_style, set_item
 from clinicdesk.app.queries.materiales_queries import (
     MaterialesQueries,
     MaterialRow,
@@ -120,11 +123,18 @@ class PageMateriales(QWidget):
         for m in rows:
             row = self.table.rowCount()
             self.table.insertRow(row)
-            self.table.setItem(row, 0, QTableWidgetItem(str(m.id)))
-            self.table.setItem(row, 1, QTableWidgetItem(m.nombre))
-            self.table.setItem(row, 2, QTableWidgetItem(str(m.stock)))
-            self.table.setItem(row, 3, QTableWidgetItem("Sí" if m.fungible else "No"))
-            self.table.setItem(row, 4, QTableWidgetItem("Sí" if m.activo else "No"))
+            set_item(self.table, row, 0, str(m.id))
+            set_item(self.table, row, 1, m.nombre)
+            set_item(self.table, row, 2, str(m.stock))
+            set_item(self.table, row, 3, "Sí" if m.fungible else "No")
+            set_item(self.table, row, 4, "Sí" if m.activo else "No")
+            tooltip = (
+                f"Material: {m.nombre}\n"
+                f"Stock: {m.stock}\n"
+                f"Fungible: {'Sí' if m.fungible else 'No'}\n"
+                f"Estado: {'Activo' if m.activo else 'Inactivo'}"
+            )
+            apply_row_style(self.table, row, inactive=not m.activo, tooltip=tooltip)
 
     def _render_movimientos(self, rows: list[MovimientoMaterialRow]) -> None:
         self.table_movs.setRowCount(0)
@@ -286,5 +296,7 @@ class PageMateriales(QWidget):
 
 
 if __name__ == "__main__":
-    print("Este módulo no se ejecuta directamente. Usa: python -m clinicdesk")
+    logging.getLogger(__name__).info(
+        "Este módulo no se ejecuta directamente. Usa: python -m clinicdesk"
+    )
     raise SystemExit(2)

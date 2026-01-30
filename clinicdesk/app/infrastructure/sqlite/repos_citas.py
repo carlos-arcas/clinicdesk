@@ -16,11 +16,15 @@ No contiene:
 
 from __future__ import annotations
 
+import logging
 import sqlite3
 from typing import List, Optional
 
 from clinicdesk.app.domain.modelos import Cita
 from clinicdesk.app.domain.exceptions import ValidationError
+
+
+logger = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------
@@ -112,12 +116,9 @@ class CitasRepository:
 
     def delete(self, cita_id: int) -> None:
         """
-        Borrado físico de la cita.
+        Borrado lógico: marca la cita como inactiva.
         """
-        self._con.execute(
-            "DELETE FROM citas WHERE id = ?",
-            (cita_id,),
-        )
+        self._con.execute("UPDATE citas SET activo = 0 WHERE id = ?", (cita_id,))
         self._con.commit()
 
     def get_by_id(self, cita_id: int) -> Optional[Cita]:
@@ -159,13 +160,14 @@ class CitasRepository:
             clauses.append("inicio <= ?")
             params.append(hasta)
 
-        sql = (
-            "SELECT * FROM citas WHERE "
-            + " AND ".join(clauses)
-            + " ORDER BY inicio"
-        )
+        clauses.append("activo = 1")
+        sql = "SELECT * FROM citas WHERE " + " AND ".join(clauses) + " ORDER BY inicio"
 
-        rows = self._con.execute(sql, params).fetchall()
+        try:
+            rows = self._con.execute(sql, params).fetchall()
+        except sqlite3.Error as exc:
+            logger.error("Error SQL en CitasRepository.list_by_paciente: %s", exc)
+            return []
         return [self._row_to_model(r) for r in rows]
 
     def list_by_medico(
@@ -192,13 +194,14 @@ class CitasRepository:
             clauses.append("inicio <= ?")
             params.append(hasta)
 
-        sql = (
-            "SELECT * FROM citas WHERE "
-            + " AND ".join(clauses)
-            + " ORDER BY inicio"
-        )
+        clauses.append("activo = 1")
+        sql = "SELECT * FROM citas WHERE " + " AND ".join(clauses) + " ORDER BY inicio"
 
-        rows = self._con.execute(sql, params).fetchall()
+        try:
+            rows = self._con.execute(sql, params).fetchall()
+        except sqlite3.Error as exc:
+            logger.error("Error SQL en CitasRepository.list_by_medico: %s", exc)
+            return []
         return [self._row_to_model(r) for r in rows]
 
     def list_by_sala(
@@ -225,13 +228,14 @@ class CitasRepository:
             clauses.append("inicio <= ?")
             params.append(hasta)
 
-        sql = (
-            "SELECT * FROM citas WHERE "
-            + " AND ".join(clauses)
-            + " ORDER BY inicio"
-        )
+        clauses.append("activo = 1")
+        sql = "SELECT * FROM citas WHERE " + " AND ".join(clauses) + " ORDER BY inicio"
 
-        rows = self._con.execute(sql, params).fetchall()
+        try:
+            rows = self._con.execute(sql, params).fetchall()
+        except sqlite3.Error as exc:
+            logger.error("Error SQL en CitasRepository.list_by_sala: %s", exc)
+            return []
         return [self._row_to_model(r) for r in rows]
 
     def list_by_estado(
@@ -258,13 +262,14 @@ class CitasRepository:
             clauses.append("inicio <= ?")
             params.append(hasta)
 
-        sql = (
-            "SELECT * FROM citas WHERE "
-            + " AND ".join(clauses)
-            + " ORDER BY inicio"
-        )
+        clauses.append("activo = 1")
+        sql = "SELECT * FROM citas WHERE " + " AND ".join(clauses) + " ORDER BY inicio"
 
-        rows = self._con.execute(sql, params).fetchall()
+        try:
+            rows = self._con.execute(sql, params).fetchall()
+        except sqlite3.Error as exc:
+            logger.error("Error SQL en CitasRepository.list_by_estado: %s", exc)
+            return []
         return [self._row_to_model(r) for r in rows]
 
     # --------------------------------------------------------------

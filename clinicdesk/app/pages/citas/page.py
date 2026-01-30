@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from typing import List, Optional
 
+import logging
+
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QCalendarWidget,
@@ -124,5 +126,7 @@ class PageCitas(QWidget):
 
 
 if __name__ == "__main__":
-    print("Este módulo no se ejecuta directamente. Usa: python -m clinicdesk")
+    logging.getLogger(__name__).info(
+        "Este módulo no se ejecuta directamente. Usa: python -m clinicdesk"
+    )
     raise SystemExit(2)

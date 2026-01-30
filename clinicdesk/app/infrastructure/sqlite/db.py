@@ -79,6 +79,7 @@ def apply_schema(con: sqlite3.Connection, schema_path: Path) -> None:
     # executescript permite ejecutar múltiples sentencias SQL separadas por ';'
     con.executescript(sql)
     _migrate_stock_columns(con)
+    _migrate_active_columns(con)
     con.commit()
 
 
@@ -88,6 +89,20 @@ def _migrate_stock_columns(con: sqlite3.Connection) -> None:
     """
     _ensure_stock_column(con, table="medicamentos")
     _ensure_stock_column(con, table="materiales")
+
+
+def _migrate_active_columns(con: sqlite3.Connection) -> None:
+    _ensure_flag_column(con, table="citas", column="activo")
+    _ensure_flag_column(con, table="ausencias_medico", column="activo")
+    _ensure_flag_column(con, table="ausencias_personal", column="activo")
+    _ensure_flag_column(con, table="recetas", column="activo")
+    _ensure_flag_column(con, table="receta_lineas", column="activo")
+    _ensure_flag_column(con, table="dispensaciones", column="activo")
+    _ensure_flag_column(con, table="movimientos_medicamentos", column="activo")
+    _ensure_flag_column(con, table="movimientos_materiales", column="activo")
+    _ensure_flag_column(con, table="incidencias", column="activo")
+    _ensure_flag_column(con, table="salas", column="activa")
+    _ensure_flag_column(con, table="turnos", column="activo")
 
 
 def _ensure_stock_column(con: sqlite3.Connection, *, table: str) -> None:
@@ -104,6 +119,20 @@ def _ensure_stock_column(con: sqlite3.Connection, *, table: str) -> None:
     )
     con.execute(
         f"UPDATE {table} SET cantidad_en_almacen = cantidad_almacen"
+    )
+
+
+def _ensure_flag_column(con: sqlite3.Connection, *, table: str, column: str) -> None:
+    columns = {
+        row["name"] for row in con.execute(f"PRAGMA table_info({table})").fetchall()
+    }
+    if column in columns:
+        return
+    con.execute(
+        f"ALTER TABLE {table} ADD COLUMN {column} INTEGER NOT NULL DEFAULT 1"
+    )
+    con.execute(
+        f"UPDATE {table} SET {column} = 1"
     )
 
 

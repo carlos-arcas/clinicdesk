@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from typing import Optional
 
+import logging
+
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QComboBox,
@@ -22,6 +24,7 @@ from clinicdesk.app.container import AppContainer
 from clinicdesk.app.domain.enums import TipoSala
 from clinicdesk.app.domain.exceptions import ValidationError
 from clinicdesk.app.pages.salas.dialogs.sala_form import SalaFormDialog
+from clinicdesk.app.pages.shared.table_utils import apply_row_style, set_item
 from clinicdesk.app.queries.salas_queries import SalasQueries, SalaRow
 from clinicdesk.app.ui.error_presenter import present_error
 
@@ -107,11 +110,18 @@ class PageSalas(QWidget):
         for s in rows:
             row = self.table.rowCount()
             self.table.insertRow(row)
-            self.table.setItem(row, 0, QTableWidgetItem(str(s.id)))
-            self.table.setItem(row, 1, QTableWidgetItem(s.nombre))
-            self.table.setItem(row, 2, QTableWidgetItem(s.tipo))
-            self.table.setItem(row, 3, QTableWidgetItem(s.ubicacion))
-            self.table.setItem(row, 4, QTableWidgetItem("Sí" if s.activa else "No"))
+            set_item(self.table, row, 0, str(s.id))
+            set_item(self.table, row, 1, s.nombre)
+            set_item(self.table, row, 2, s.tipo)
+            set_item(self.table, row, 3, s.ubicacion)
+            set_item(self.table, row, 4, "Sí" if s.activa else "No")
+            tooltip = (
+                f"Sala: {s.nombre}\n"
+                f"Tipo: {s.tipo}\n"
+                f"Ubicación: {s.ubicacion or '—'}\n"
+                f"Estado: {'Activa' if s.activa else 'Inactiva'}"
+            )
+            apply_row_style(self.table, row, inactive=not s.activa, tooltip=tooltip)
 
     def _on_selection_changed(self) -> None:
         has_selection = self._selected_id() is not None
@@ -206,5 +216,7 @@ class PageSalas(QWidget):
 
 
 if __name__ == "__main__":
-    print("Este módulo no se ejecuta directamente. Usa: python -m clinicdesk")
+    logging.getLogger(__name__).info(
+        "Este módulo no se ejecuta directamente. Usa: python -m clinicdesk"
+    )
     raise SystemExit(2)
