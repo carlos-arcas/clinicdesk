@@ -21,6 +21,7 @@ from PySide6.QtWidgets import (
 )
 
 from clinicdesk.app.container import AppContainer
+from clinicdesk.app.common.search_utils import has_search_values, normalize_search_text
 from clinicdesk.app.domain.exceptions import ValidationError
 from clinicdesk.app.pages.dialog_override import OverrideDialog
 from clinicdesk.app.pages.materiales.dialogs.ajuste_stock import AjusteStockDialog
@@ -114,7 +115,11 @@ class PageMateriales(QWidget):
 
     def _refresh(self) -> None:
         activo = self._activo_filter()
-        rows = self._queries.search(texto=self.txt_buscar.text().strip() or None, activo=activo)
+        texto = normalize_search_text(self.txt_buscar.text())
+        if not has_search_values(texto):
+            rows = self._queries.list_all(activo=activo)
+        else:
+            rows = self._queries.search(texto=texto, activo=activo)
         self._render(rows)
         self._render_movimientos([])
 

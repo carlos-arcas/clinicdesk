@@ -16,6 +16,7 @@ from PySide6.QtWidgets import (
 from clinicdesk.app.domain.exceptions import ValidationError
 from clinicdesk.app.domain.modelos import Medicamento
 from clinicdesk.app.ui.error_presenter import present_error
+from clinicdesk.app.ui.label_utils import required_label
 
 
 @dataclass(slots=True)
@@ -37,8 +38,8 @@ class MedicamentoFormDialog(QDialog):
         self.chk_activo.setChecked(True)
 
         form = QFormLayout()
-        form.addRow("Nombre comercial", self.txt_nombre_comercial)
-        form.addRow("Nombre compuesto", self.txt_nombre_compuesto)
+        form.addRow(required_label("Nombre comercial"), self.txt_nombre_comercial)
+        form.addRow(required_label("Nombre compuesto"), self.txt_nombre_compuesto)
         form.addRow("Stock", self.spn_stock)
         form.addRow("", self.chk_activo)
 

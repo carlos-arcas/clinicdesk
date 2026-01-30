@@ -20,7 +20,7 @@ import sqlite3
 from typing import List, Optional
 
 from clinicdesk.app.domain.modelos import Material
-from clinicdesk.app.common.search_utils import has_search_values, like_value, normalize_search_text
+from clinicdesk.app.common.search_utils import like_value, normalize_search_text
 from clinicdesk.app.domain.exceptions import ValidationError
 
 
@@ -158,10 +158,6 @@ class MaterialesRepository:
         - activo: True / False / None (None = todos)
         """
         texto = normalize_search_text(texto)
-
-        if not has_search_values(texto):
-            logger.info("MaterialesRepository.search skipped (filtros vacíos).")
-            return []
 
         clauses = []
         params = []

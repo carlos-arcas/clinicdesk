@@ -20,6 +20,7 @@ from clinicdesk.app.domain.enums import TipoDocumento
 from clinicdesk.app.domain.exceptions import ValidationError
 from clinicdesk.app.domain.modelos import Personal
 from clinicdesk.app.ui.error_presenter import present_error
+from clinicdesk.app.ui.label_utils import required_label
 
 
 @dataclass(slots=True)
@@ -56,10 +57,10 @@ class PersonalFormDialog(QDialog):
         self.chk_activo.setChecked(True)
 
         form = QFormLayout()
-        form.addRow("Tipo documento", self.cbo_tipo_documento)
-        form.addRow("Documento", self.txt_documento)
-        form.addRow("Nombre", self.txt_nombre)
-        form.addRow("Apellidos", self.txt_apellidos)
+        form.addRow(required_label("Tipo documento"), self.cbo_tipo_documento)
+        form.addRow(required_label("Documento"), self.txt_documento)
+        form.addRow(required_label("Nombre"), self.txt_nombre)
+        form.addRow(required_label("Apellidos"), self.txt_apellidos)
         form.addRow("Teléfono", self.txt_telefono)
         form.addRow("Email", self.txt_email)
         fecha_layout = QHBoxLayout()
@@ -69,7 +70,7 @@ class PersonalFormDialog(QDialog):
         fecha_widget.setLayout(fecha_layout)
         form.addRow("Fecha nacimiento", fecha_widget)
         form.addRow("Dirección", self.txt_direccion)
-        form.addRow("Puesto", self.txt_puesto)
+        form.addRow(required_label("Puesto"), self.txt_puesto)
         form.addRow("Turno", self.txt_turno)
         form.addRow("", self.chk_activo)
 

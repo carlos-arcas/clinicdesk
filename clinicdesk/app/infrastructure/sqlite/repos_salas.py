@@ -21,7 +21,7 @@ from typing import List, Optional
 
 from clinicdesk.app.domain.modelos import Sala
 from clinicdesk.app.domain.enums import TipoSala
-from clinicdesk.app.common.search_utils import has_search_values, like_value, normalize_search_text
+from clinicdesk.app.common.search_utils import like_value, normalize_search_text
 from clinicdesk.app.domain.exceptions import ValidationError
 
 
@@ -157,10 +157,6 @@ class SalasRepository:
         """
         tipo_value = normalize_search_text(tipo.value if tipo else None)
         texto = normalize_search_text(texto)
-
-        if not has_search_values(tipo_value, texto):
-            logger.info("SalasRepository.search skipped (filtros vacíos).")
-            return []
 
         clauses = []
         params = []

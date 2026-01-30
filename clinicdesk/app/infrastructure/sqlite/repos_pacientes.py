@@ -25,7 +25,7 @@ from typing import Iterable, List, Optional
 from clinicdesk.app.domain.modelos import Paciente
 from clinicdesk.app.domain.enums import TipoDocumento
 from clinicdesk.app.domain.exceptions import ValidationError
-from clinicdesk.app.common.search_utils import has_search_values, like_value, normalize_search_text
+from clinicdesk.app.common.search_utils import like_value, normalize_search_text
 from clinicdesk.app.infrastructure.sqlite.date_utils import format_iso_date, parse_iso_date
 
 
@@ -77,13 +77,19 @@ class PacientesRepository:
                 format_iso_date(paciente.fecha_nacimiento),
                 paciente.direccion,
                 int(paciente.activo),
-                paciente.num_historia,
+                None,
                 paciente.alergias,
                 paciente.observaciones,
             ),
         )
+        paciente_id = int(cur.lastrowid)
+        num_historia = self._format_num_historia(paciente_id)
+        self._con.execute(
+            "UPDATE pacientes SET num_historia = ? WHERE id = ?",
+            (num_historia, paciente_id),
+        )
         self._con.commit()
-        return int(cur.lastrowid)
+        return paciente_id
 
     def update(self, paciente: Paciente) -> None:
         """
@@ -106,7 +112,6 @@ class PacientesRepository:
                 fecha_nacimiento = ?,
                 direccion = ?,
                 activo = ?,
-                num_historia = ?,
                 alergias = ?,
                 observaciones = ?
             WHERE id = ?
@@ -121,7 +126,6 @@ class PacientesRepository:
                 format_iso_date(paciente.fecha_nacimiento),
                 paciente.direccion,
                 int(paciente.activo),
-                paciente.num_historia,
                 paciente.alergias,
                 paciente.observaciones,
                 paciente.id,
@@ -212,10 +216,6 @@ class PacientesRepository:
         tipo_documento_value = normalize_search_text(
             tipo_documento.value if tipo_documento else None
         )
-
-        if not has_search_values(texto, documento, tipo_documento_value):
-            logger.info("PacientesRepository.search skipped (filtros vacíos).")
-            return []
 
         clauses: list[str] = []
         params: list = []
@@ -312,7 +312,7 @@ class PacientesRepository:
                     fecha_nacimiento=parse_iso_date(row.get("fecha_nacimiento") or None),
                     direccion=row.get("direccion") or None,
                     activo=bool(int(row.get("activo", "1"))),
-                    num_historia=row.get("num_historia") or None,
+                    num_historia=None,
                     alergias=row.get("alergias") or None,
                     observaciones=row.get("observaciones") or None,
                 )
@@ -345,3 +345,7 @@ class PacientesRepository:
             alergias=row["alergias"],
             observaciones=row["observaciones"],
         )
+
+    @staticmethod
+    def _format_num_historia(paciente_id: int) -> str:
+        return f"HIST-{paciente_id:04d}"

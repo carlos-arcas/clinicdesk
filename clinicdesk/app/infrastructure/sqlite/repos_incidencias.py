@@ -19,7 +19,7 @@ import sqlite3
 from dataclasses import dataclass
 from typing import List, Optional
 
-from clinicdesk.app.common.search_utils import has_search_values, like_value, normalize_search_text
+from clinicdesk.app.common.search_utils import like_value, normalize_search_text
 from clinicdesk.app.domain.exceptions import ValidationError
 
 
@@ -231,13 +231,6 @@ class IncidenciasRepository:
         severidad = normalize_search_text(severidad)
         desde = normalize_search_text(desde)
         hasta = normalize_search_text(hasta)
-
-        if not has_search_values(tipo, estado, severidad, desde, hasta) and all(
-            value is None
-            for value in (medico_id, personal_id, cita_id, dispensacion_id, receta_id)
-        ):
-            logger.info("IncidenciasRepository.search skipped (filtros vacíos).")
-            return []
 
         clauses = []
         params = []

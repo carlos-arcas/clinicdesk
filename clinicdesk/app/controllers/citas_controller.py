@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import List
 
-from PySide6.QtWidgets import QMessageBox, QWidget
+from PySide6.QtWidgets import QMessageBox, QWidget, QDialog
 
 from clinicdesk.app.container import AppContainer
 from clinicdesk.app.queries.citas_queries import CitaRow, CitasQueries
@@ -27,7 +27,7 @@ class CitasController:
 
     def create_cita_flow(self, default_date: str) -> bool:
         dlg = CitaFormDialog(self._parent, default_date=default_date, container=self._c)
-        if dlg.exec() != dlg.Accepted:
+        if dlg.exec() != QDialog.Accepted:
             return False
 
         data = dlg.get_data()
@@ -59,7 +59,7 @@ class CitasController:
                 warnings=e.warnings,
                 container=self._c,
             )
-            if od.exec() != od.Accepted:
+            if od.exec() != QDialog.Accepted:
                 return False
 
             decision = od.get_decision()

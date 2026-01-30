@@ -21,6 +21,7 @@ from PySide6.QtWidgets import (
 )
 
 from clinicdesk.app.container import AppContainer
+from clinicdesk.app.common.search_utils import has_search_values, normalize_search_text
 from clinicdesk.app.pages.pacientes.dialogs.paciente_form import PacienteFormDialog
 from clinicdesk.app.pages.shared.table_utils import apply_row_style, set_item
 from clinicdesk.app.queries.pacientes_queries import PacientesQueries, PacienteRow
@@ -93,7 +94,11 @@ class PagePacientes(QWidget):
     def _refresh(self) -> None:
         selected_id = self._selected_id()
         activo = self._activo_filter()
-        rows = self._queries.search(texto=self.txt_buscar.text().strip() or None, activo=activo)
+        texto = normalize_search_text(self.txt_buscar.text())
+        if not has_search_values(texto):
+            rows = self._queries.list_all(activo=activo)
+        else:
+            rows = self._queries.search(texto=texto, activo=activo)
         self._render(rows)
         if selected_id is not None:
             self._select_by_id(selected_id)

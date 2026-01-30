@@ -22,7 +22,7 @@ from typing import List, Optional
 from clinicdesk.app.domain.modelos import Personal
 from clinicdesk.app.domain.enums import TipoDocumento
 from clinicdesk.app.domain.exceptions import ValidationError
-from clinicdesk.app.common.search_utils import has_search_values, like_value, normalize_search_text
+from clinicdesk.app.common.search_utils import like_value, normalize_search_text
 from clinicdesk.app.infrastructure.sqlite.date_utils import format_iso_date, parse_iso_date
 
 
@@ -226,10 +226,6 @@ class PersonalRepository:
         tipo_documento_value = normalize_search_text(
             tipo_documento.value if tipo_documento else None
         )
-
-        if not has_search_values(texto, puesto, documento, tipo_documento_value):
-            logger.info("PersonalRepository.search skipped (filtros vacíos).")
-            return []
 
         clauses: list[str] = []
         params: list = []

@@ -21,6 +21,7 @@ from PySide6.QtWidgets import (
 )
 
 from clinicdesk.app.container import AppContainer
+from clinicdesk.app.common.search_utils import has_search_values, normalize_search_text
 from clinicdesk.app.domain.enums import TipoSala
 from clinicdesk.app.domain.exceptions import ValidationError
 from clinicdesk.app.pages.salas.dialogs.sala_form import SalaFormDialog
@@ -98,11 +99,16 @@ class PageSalas(QWidget):
         tipo = self.cbo_tipo.currentText()
         tipo = None if tipo == "Todos" else tipo
         activa = self._activa_filter()
-        rows = self._queries.search(
-            texto=self.txt_buscar.text().strip() or None,
-            tipo=tipo,
-            activa=activa,
-        )
+        texto = normalize_search_text(self.txt_buscar.text())
+        tipo = normalize_search_text(tipo)
+        if not has_search_values(texto, tipo):
+            rows = self._queries.list_all(activa=activa)
+        else:
+            rows = self._queries.search(
+                texto=texto,
+                tipo=tipo,
+                activa=activa,
+            )
         self._render(rows)
 
     def _render(self, rows: list[SalaRow]) -> None:

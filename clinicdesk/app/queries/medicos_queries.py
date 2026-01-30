@@ -6,7 +6,7 @@ from typing import List, Optional
 import logging
 import sqlite3
 
-from clinicdesk.app.common.search_utils import has_search_values, like_value, normalize_search_text
+from clinicdesk.app.common.search_utils import like_value, normalize_search_text
 
 
 logger = logging.getLogger(__name__)
@@ -26,6 +26,44 @@ class MedicosQueries:
     def __init__(self, connection: sqlite3.Connection) -> None:
         self._conn = connection
 
+    def list_all(
+        self,
+        *,
+        activo: Optional[bool] = True,
+        limit: int = 500,
+    ) -> List[MedicoRow]:
+        clauses = []
+        params: List[object] = []
+
+        if activo is not None:
+            clauses.append("activo = ?")
+            params.append(int(activo))
+
+        sql = (
+            "SELECT id, documento, nombre, apellidos, telefono, especialidad, activo FROM medicos"
+        )
+        if clauses:
+            sql += " WHERE " + " AND ".join(clauses)
+        sql += " ORDER BY apellidos, nombre LIMIT ?"
+        params.append(int(limit))
+
+        try:
+            rows = self._conn.execute(sql, params).fetchall()
+        except sqlite3.Error as exc:
+            logger.error("Error SQL en MedicosQueries.list_all: %s", exc)
+            return []
+        return [
+            MedicoRow(
+                id=row["id"],
+                documento=row["documento"],
+                nombre_completo=f"{row['nombre']} {row['apellidos']}".strip(),
+                telefono=row["telefono"] or "",
+                especialidad=row["especialidad"],
+                activo=bool(row["activo"]),
+            )
+            for row in rows
+        ]
+
     def search(
         self,
         *,
@@ -36,10 +74,6 @@ class MedicosQueries:
     ) -> List[MedicoRow]:
         texto = normalize_search_text(texto)
         especialidad = normalize_search_text(especialidad)
-
-        if not has_search_values(texto, especialidad):
-            logger.info("Medicos search skipped (filtros vacíos).")
-            return []
 
         clauses = []
         params: List[object] = []

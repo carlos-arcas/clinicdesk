@@ -6,7 +6,7 @@ from typing import List, Optional
 import logging
 import sqlite3
 
-from clinicdesk.app.common.search_utils import has_search_values, like_value, normalize_search_text
+from clinicdesk.app.common.search_utils import like_value, normalize_search_text
 
 
 logger = logging.getLogger(__name__)
@@ -36,6 +36,41 @@ class MedicamentosQueries:
     def __init__(self, connection: sqlite3.Connection) -> None:
         self._conn = connection
 
+    def list_all(
+        self,
+        *,
+        activo: Optional[bool] = True,
+        limit: int = 500,
+    ) -> List[MedicamentoRow]:
+        clauses = []
+        params: List[object] = []
+
+        if activo is not None:
+            clauses.append("activo = ?")
+            params.append(int(activo))
+
+        sql = "SELECT id, nombre_comercial, nombre_compuesto, cantidad_en_almacen, activo FROM medicamentos"
+        if clauses:
+            sql += " WHERE " + " AND ".join(clauses)
+        sql += " ORDER BY nombre_comercial LIMIT ?"
+        params.append(int(limit))
+
+        try:
+            rows = self._conn.execute(sql, params).fetchall()
+        except sqlite3.Error as exc:
+            logger.error("Error SQL en MedicamentosQueries.list_all: %s", exc)
+            return []
+        return [
+            MedicamentoRow(
+                id=row["id"],
+                nombre_comercial=row["nombre_comercial"],
+                nombre_compuesto=row["nombre_compuesto"],
+                stock=int(row["cantidad_en_almacen"]),
+                activo=bool(row["activo"]),
+            )
+            for row in rows
+        ]
+
     def search(
         self,
         *,
@@ -44,10 +79,6 @@ class MedicamentosQueries:
         limit: int = 500,
     ) -> List[MedicamentoRow]:
         texto = normalize_search_text(texto)
-
-        if not has_search_values(texto):
-            logger.info("Medicamentos search skipped (filtros vacíos).")
-            return []
 
         clauses = []
         params: List[object] = []
