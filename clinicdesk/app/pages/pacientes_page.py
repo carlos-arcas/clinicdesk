@@ -42,6 +42,7 @@ class PacientesPage(QWidget):
 
         self.tabla = QTableWidget(0, 3)
         self.tabla.setHorizontalHeaderLabels(["ID", "Nombre", "Teléfono"])
+        self.tabla.setColumnHidden(0, True)
         layout.addWidget(self.tabla, 1)
 
         self.boton_guardar.clicked.connect(self._guardar)

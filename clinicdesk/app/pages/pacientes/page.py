@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Optional
 
+from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QComboBox,
     QHBoxLayout,
@@ -14,6 +15,7 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QWidget,
     QDialog,
+    QMenu,
 )
 
 from clinicdesk.app.container import AppContainer
@@ -64,7 +66,9 @@ class PagePacientes(QWidget):
         self.table.setHorizontalHeaderLabels(
             ["ID", "Documento", "Nombre", "Teléfono", "Activo"]
         )
+        self.table.setColumnHidden(0, True)
         self.table.horizontalHeader().setStretchLastSection(True)
+        self.table.setContextMenuPolicy(Qt.CustomContextMenu)
 
         root.addLayout(filters)
         root.addLayout(actions)
@@ -74,6 +78,7 @@ class PagePacientes(QWidget):
         self.btn_buscar.clicked.connect(self._refresh)
         self.txt_buscar.returnPressed.connect(self._refresh)
         self.table.itemSelectionChanged.connect(self._on_selection_changed)
+        self.table.customContextMenuRequested.connect(self._open_context_menu)
         self.btn_nuevo.clicked.connect(self._on_nuevo)
         self.btn_editar.clicked.connect(self._on_editar)
         self.btn_desactivar.clicked.connect(self._on_desactivar)
@@ -199,6 +204,25 @@ class PagePacientes(QWidget):
     def _reset_filters(self) -> None:
         self.txt_buscar.clear()
         self.cbo_activo.setCurrentText("Todos")
+
+    def _open_context_menu(self, pos) -> None:
+        row = self.table.rowAt(pos.y())
+        if row >= 0:
+            self.table.setCurrentCell(row, 0)
+        menu = QMenu(self)
+        action_new = menu.addAction("Nuevo")
+        action_edit = menu.addAction("Editar")
+        action_delete = menu.addAction("Desactivar")
+        has_selection = self._selected_id() is not None
+        action_edit.setEnabled(has_selection)
+        action_delete.setEnabled(has_selection)
+        action = menu.exec(self.table.viewport().mapToGlobal(pos))
+        if action == action_new:
+            self._on_nuevo()
+        elif action == action_edit:
+            self._on_editar()
+        elif action == action_delete:
+            self._on_desactivar()
 
 
 if __name__ == "__main__":

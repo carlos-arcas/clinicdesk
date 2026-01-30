@@ -34,28 +34,26 @@ class PageRecetas(QWidget):
         top = QHBoxLayout()
         self.txt_buscar = QLineEdit()
         self.btn_buscar = QPushButton("Buscar pacientes")
-        self.txt_paciente_id = QLineEdit()
-        self.btn_cargar = QPushButton("Cargar recetas")
 
         top.addWidget(QLabel("Buscar"))
         top.addWidget(self.txt_buscar)
         top.addWidget(self.btn_buscar)
-        top.addWidget(QLabel("Paciente ID"))
-        top.addWidget(self.txt_paciente_id)
-        top.addWidget(self.btn_cargar)
 
         self.table_pacientes = QTableWidget(0, 3)
         self.table_pacientes.setHorizontalHeaderLabels(["ID", "Documento", "Nombre"])
+        self.table_pacientes.setColumnHidden(0, True)
         self.table_pacientes.horizontalHeader().setStretchLastSection(True)
 
         self.table_recetas = QTableWidget(0, 4)
         self.table_recetas.setHorizontalHeaderLabels(["ID", "Fecha", "Médico", "Estado"])
+        self.table_recetas.setColumnHidden(0, True)
         self.table_recetas.horizontalHeader().setStretchLastSection(True)
 
         self.table_lineas = QTableWidget(0, 6)
         self.table_lineas.setHorizontalHeaderLabels(
             ["ID", "Medicamento", "Dosis", "Cantidad", "Pendiente", "Estado"]
         )
+        self.table_lineas.setColumnHidden(0, True)
         self.table_lineas.horizontalHeader().setStretchLastSection(True)
 
         root.addLayout(top)
@@ -68,7 +66,6 @@ class PageRecetas(QWidget):
 
     def _connect_signals(self) -> None:
         self.btn_buscar.clicked.connect(self._buscar_pacientes)
-        self.btn_cargar.clicked.connect(self._cargar_recetas)
         self.table_pacientes.itemSelectionChanged.connect(self._select_paciente)
         self.table_recetas.itemSelectionChanged.connect(self._cargar_lineas)
 
@@ -92,11 +89,10 @@ class PageRecetas(QWidget):
     def _select_paciente(self) -> None:
         paciente_id = self._selected_id(self.table_pacientes)
         if paciente_id:
-            self.txt_paciente_id.setText(str(paciente_id))
             self._cargar_recetas()
 
     def _cargar_recetas(self) -> None:
-        paciente_id = self._selected_id_text()
+        paciente_id = self._selected_id(self.table_pacientes)
         if not paciente_id:
             return
         rows = self._recetas_queries.list_por_paciente(paciente_id)
@@ -141,12 +137,7 @@ class PageRecetas(QWidget):
         except ValueError:
             return None
 
-    def _selected_id_text(self) -> Optional[int]:
-        value = self.txt_paciente_id.text().strip()
-        try:
-            return int(value) if value else None
-        except ValueError:
-            return None
+
 
 
 if __name__ == "__main__":

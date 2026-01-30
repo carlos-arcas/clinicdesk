@@ -2,11 +2,12 @@ from __future__ import annotations
 
 from typing import List, Optional
 
-from PySide6.QtCore import QDate
+from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QCalendarWidget,
     QHBoxLayout,
     QLabel,
+    QMenu,
     QPushButton,
     QTableWidget,
     QTableWidgetItem,
@@ -15,8 +16,8 @@ from PySide6.QtWidgets import (
 )
 
 from clinicdesk.app.container import AppContainer
+from clinicdesk.app.controllers.citas_controller import CitasController
 from clinicdesk.app.queries.citas_queries import CitaRow, CitasQueries
-from clinicdesk.app.application.usecases.crear_cita import CrearCitaUseCase
 
 
 class PageCitas(QWidget):
@@ -24,18 +25,21 @@ class PageCitas(QWidget):
         super().__init__(parent)
         self._container = container
         self._queries = CitasQueries(container)
+        self._controller = CitasController(self, container)
 
         self.calendar = QCalendarWidget()
         self.lbl_date = QLabel("Fecha: —")
 
         self.btn_new = QPushButton("Nueva cita")
         self.btn_delete = QPushButton("Eliminar cita")
+        self.btn_delete.setEnabled(False)
 
-        self.table = QTableWidget(0, 9)
+        self.table = QTableWidget(0, 8)
         self.table.setHorizontalHeaderLabels(
-            ["ID", "Inicio", "Fin", "Paciente", "Médico", "Sala", "Estado", "Motivo", "Paciente ID"]
+            ["ID", "Inicio", "Fin", "Paciente", "Médico", "Sala", "Estado", "Motivo"]
         )
-        self.table.setColumnHidden(8, True)
+        self.table.setColumnHidden(0, True)
+        self.table.setContextMenuPolicy(Qt.CustomContextMenu)
 
         left = QVBoxLayout()
         left.addWidget(self.calendar)
@@ -51,6 +55,10 @@ class PageCitas(QWidget):
         root.addLayout(right, 3)
 
         self.calendar.selectionChanged.connect(self._refresh)
+        self.btn_new.clicked.connect(self._on_new)
+        self.btn_delete.clicked.connect(self._on_delete)
+        self.table.itemSelectionChanged.connect(self._on_selection_changed)
+        self.table.customContextMenuRequested.connect(self._open_context_menu)
 
         self._refresh()
 
@@ -75,7 +83,44 @@ class PageCitas(QWidget):
             self.table.setItem(r, 5, QTableWidgetItem(c.sala_nombre))
             self.table.setItem(r, 6, QTableWidgetItem(c.estado))
             self.table.setItem(r, 7, QTableWidgetItem(c.motivo or ""))
-            self.table.setItem(r, 8, QTableWidgetItem(str(c.paciente_id)))
+
+    def _selected_id(self) -> Optional[int]:
+        items = self.table.selectedItems()
+        if not items:
+            return None
+        try:
+            return int(items[0].text())
+        except ValueError:
+            return None
+
+    def _on_selection_changed(self) -> None:
+        self.btn_delete.setEnabled(self._selected_id() is not None)
+
+    def _on_new(self) -> None:
+        date_str = self.calendar.selectedDate().toString("yyyy-MM-dd")
+        if self._controller.create_cita_flow(date_str):
+            self._refresh()
+
+    def _on_delete(self) -> None:
+        cita_id = self._selected_id()
+        if not cita_id:
+            return
+        if self._controller.delete_cita(cita_id):
+            self._refresh()
+
+    def _open_context_menu(self, pos) -> None:
+        row = self.table.rowAt(pos.y())
+        if row >= 0:
+            self.table.setCurrentCell(row, 0)
+        menu = QMenu(self)
+        action_new = menu.addAction("Nueva cita")
+        action_delete = menu.addAction("Eliminar cita")
+        action_delete.setEnabled(self._selected_id() is not None)
+        action = menu.exec(self.table.viewport().mapToGlobal(pos))
+        if action == action_new:
+            self._on_new()
+        elif action == action_delete:
+            self._on_delete()
 
 
 if __name__ == "__main__":

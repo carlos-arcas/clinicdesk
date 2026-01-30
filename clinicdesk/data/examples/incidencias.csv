@@ -1,0 +1,9 @@
+tipo,severidad,estado,fecha_hora,descripcion,medico_id,personal_id,cita_id,dispensacion_id,receta_id,confirmado_por_personal_id,nota_override
+CITA,MEDIA,ABIERTA,2024-11-05 09:45:00,"Paciente no acudió a la cita programada.",2,,12,,,5,"Se anotó ausencia por llamada telefónica."
+DISPENSACION,ALTA,EN_REVISION,2024-11-06 12:15:00,"Stock insuficiente para completar la dispensación. Se autorizó entrega parcial.",,4,,8,3,4,"Se validó por coordinación de farmacia."
+STOCK,BAJA,RESUELTA,2024-11-07 15:20:00,"Diferencia de inventario en recuento semanal de paracetamol.",,6,,,7,6,"Ajuste manual tras recuento físico."
+CITA,MEDIA,EN_REVISION,2024-11-08 10:00:00,"Solapamiento de citas en la misma sala durante 15 minutos.",3,,14,,,7,"Se informó al equipo y se reprogramó."
+CALENDARIO,BAJA,RESUELTA,2024-11-09 08:30:00,"Cambio de turno de urgencia por baja médica.",,8,,,9,8,"Cambio validado por supervisión."
+DISPENSACION,MEDIA,ABIERTA,2024-11-10 13:40:00,"Receta sin firma médica al momento de dispensar.",,5,,10,4,5,"Se dispensó una dosis mínima por urgencia."
+STOCK,ALTA,EN_REVISION,2024-11-11 17:10:00,"Lote de antibiótico con caducidad próxima detectado.",,7,,,11,7,"Se bloqueó el lote para retirada."
+CITA,BAJA,RESUELTA,2024-11-12 11:05:00,"Retraso de 20 minutos por fallo del sistema de turnos.",1,,18,,,3,"Se avisó a los pacientes en sala de espera."

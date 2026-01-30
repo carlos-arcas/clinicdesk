@@ -39,21 +39,21 @@ class PageDispensaciones(QWidget):
         self.date_hasta = QDateEdit()
         self.date_hasta.setCalendarPopup(True)
         self.date_hasta.setDate(QDate.currentDate())
-        self.txt_paciente_id = QLineEdit()
-        self.txt_personal_id = QLineEdit()
-        self.txt_medicamento_id = QLineEdit()
+        self.txt_paciente = QLineEdit()
+        self.txt_personal = QLineEdit()
+        self.txt_medicamento = QLineEdit()
         self.btn_filtrar = QPushButton("Filtrar")
 
         filters.addWidget(QLabel("Desde"))
         filters.addWidget(self.date_desde)
         filters.addWidget(QLabel("Hasta"))
         filters.addWidget(self.date_hasta)
-        filters.addWidget(QLabel("Paciente ID"))
-        filters.addWidget(self.txt_paciente_id)
-        filters.addWidget(QLabel("Personal ID"))
-        filters.addWidget(self.txt_personal_id)
-        filters.addWidget(QLabel("Medicamento ID"))
-        filters.addWidget(self.txt_medicamento_id)
+        filters.addWidget(QLabel("Paciente"))
+        filters.addWidget(self.txt_paciente)
+        filters.addWidget(QLabel("Personal"))
+        filters.addWidget(self.txt_personal)
+        filters.addWidget(QLabel("Medicamento"))
+        filters.addWidget(self.txt_medicamento)
         filters.addWidget(self.btn_filtrar)
 
         self.table = QTableWidget(0, 8)
@@ -69,6 +69,8 @@ class PageDispensaciones(QWidget):
                 "Incidencia",
             ]
         )
+        self.table.setColumnHidden(0, True)
+        self.table.setColumnHidden(6, True)
         self.table.horizontalHeader().setStretchLastSection(True)
 
         root.addLayout(filters)
@@ -86,9 +88,9 @@ class PageDispensaciones(QWidget):
         rows = self._queries.list(
             fecha_desde=fecha_desde,
             fecha_hasta=fecha_hasta,
-            paciente_id=self._int_or_none(self.txt_paciente_id.text().strip()),
-            personal_id=self._int_or_none(self.txt_personal_id.text().strip()),
-            medicamento_id=self._int_or_none(self.txt_medicamento_id.text().strip()),
+            paciente_texto=self.txt_paciente.text().strip() or None,
+            personal_texto=self.txt_personal.text().strip() or None,
+            medicamento_texto=self.txt_medicamento.text().strip() or None,
         )
         self._render(rows)
 
@@ -106,15 +108,7 @@ class PageDispensaciones(QWidget):
             self.table.setItem(row, 6, QTableWidgetItem(str(d.receta_id)))
             self.table.setItem(row, 7, QTableWidgetItem("Sí" if d.incidencia else "No"))
 
-    @staticmethod
-    def _int_or_none(value: str) -> Optional[int]:
-        if not value:
-            return None
-        try:
-            number = int(value)
-            return number if number > 0 else None
-        except ValueError:
-            return None
+
 
 
 if __name__ == "__main__":
