@@ -17,3 +17,6 @@ En `clinicdesk/data/examples/` hay datos realistas para empezar:
 - `pacientes.csv`
 - `medicos.csv`
 - `personal.csv`
+
+## Tests
+Consulta las instrucciones en [docs/TESTING.md](docs/TESTING.md).
