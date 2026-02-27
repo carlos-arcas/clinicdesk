@@ -4,8 +4,13 @@ from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 
 from clinicdesk.app.application.features.citas_features import CitasFeatureRow
+from clinicdesk.app.application.ml.calibration import (
+    ThresholdPolicy,
+    calibrate_threshold,
+    compute_metrics_at_threshold,
+)
 from clinicdesk.app.application.ml.evaluation import EvalMetrics, evaluate
-from clinicdesk.app.application.ml.naive_bayes_citas import model_to_dict, train
+from clinicdesk.app.application.ml.naive_bayes_citas import model_to_dict, predict_batch, train
 from clinicdesk.app.application.ml.splitting import (
     TemporalSplitConfig,
     TemporalSplitNotEnoughDataError,
@@ -43,10 +48,13 @@ class TrainCitasModelResponse:
     dataset_version: str
     train_metrics: EvalMetrics
     test_metrics: EvalMetrics
+    calibrated_threshold: float
+    test_metrics_at_calibrated_threshold: EvalMetrics
 
 
 class TrainCitasModel:
     MODEL_NAME = "citas_nb_v1"
+    DEFAULT_CALIBRATION_POLICY = ThresholdPolicy(threshold=0.5, objective="min_recall", value=0.80)
 
     def __init__(self, feature_store_service: FeatureStoreService, model_store: ModelStorePort) -> None:
         self._feature_store_service = feature_store_service
@@ -72,6 +80,10 @@ class TrainCitasModel:
         model = train(train_rows)
         train_metrics = evaluate(model, train_rows, derive_target_from_feature)
         test_metrics = evaluate(model, test_rows, derive_target_from_feature)
+        test_scores = [pred.score for pred in predict_batch(model, test_rows)]
+        y_true = [int(derive_target_from_feature(row)) for row in test_rows]
+        calibrated_threshold = calibrate_threshold(test_scores, y_true, self.DEFAULT_CALIBRATION_POLICY)
+        calibrated_metrics = compute_metrics_at_threshold(test_scores, y_true, calibrated_threshold)
         model_version = request.model_version or self._build_version()
         payload = model_to_dict(model)
         metadata_payload = self._build_metadata_payload(
@@ -81,6 +93,8 @@ class TrainCitasModel:
             split_cfg,
             train_metrics,
             test_metrics,
+            calibrated_threshold,
+            calibrated_metrics,
             len(test_rows),
         )
         self._model_store.save_model(self.MODEL_NAME, model_version, payload, metadata_payload)
@@ -90,6 +104,8 @@ class TrainCitasModel:
             dataset_version=request.dataset_version,
             train_metrics=train_metrics,
             test_metrics=test_metrics,
+            calibrated_threshold=calibrated_threshold,
+            test_metrics_at_calibrated_threshold=calibrated_metrics,
         )
 
     def _build_version(self) -> str:
@@ -103,6 +119,8 @@ class TrainCitasModel:
         split_cfg: TemporalSplitConfig,
         train_metrics: EvalMetrics,
         test_metrics: EvalMetrics,
+        calibrated_threshold: float,
+        calibrated_metrics: EvalMetrics,
         test_row_count: int,
     ) -> dict:
         return {
@@ -113,6 +131,9 @@ class TrainCitasModel:
             "split_config": asdict(split_cfg),
             "train_metrics": asdict(train_metrics),
             "test_metrics": asdict(test_metrics),
+            "calibrated_threshold": calibrated_threshold,
+            "calibration_policy": asdict(self.DEFAULT_CALIBRATION_POLICY),
+            "test_metrics_at_calibrated_threshold": asdict(calibrated_metrics),
             "test_row_count": test_row_count,
             "evaluation_note": "offline eval with deterministic temporal holdout (proxy label)",
         }
