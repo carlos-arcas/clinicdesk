@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from clinicdesk.app.application.features.citas_features import CitasFeatureRow
+from clinicdesk.app.application.ml_artifacts.feature_artifacts import canonical_json_bytes, compute_content_hash
 from clinicdesk.app.application.ports.predictor_port import PredictorPort
 from clinicdesk.app.application.services.feature_store_service import FeatureStoreService
 
@@ -44,13 +45,17 @@ class ScoreCitas:
 
     def execute(self, request: ScoreCitasRequest) -> ScoreCitasResponse:
         self._validate_request(request)
+        metadata, metadata_warning = self._load_metadata_if_present(request.dataset_version)
         rows = self._load_rows(request.dataset_version)
+        self._validate_rows_against_metadata(request.dataset_version, rows, metadata)
         if request.limit is not None:
             rows = rows[: request.limit]
 
         features = [_to_feature_row(row) for row in rows]
         predictions = self._predictor.predict_batch(features)
-        scored_items = [_to_scored_cita(feature, pred) for feature, pred in zip(features, predictions)]
+        scored_items = [
+            _to_scored_cita(feature, pred, metadata_warning) for feature, pred in zip(features, predictions)
+        ]
 
         return ScoreCitasResponse(
             version=request.dataset_version,
@@ -75,6 +80,28 @@ class ScoreCitas:
             raise ScoringValidationError("Payload de feature store inválido: se esperaba list.")
         return loaded
 
+    def _load_metadata_if_present(self, dataset_version: str) -> tuple[Any | None, str | None]:
+        try:
+            metadata = self._feature_store_service.load_citas_features_metadata(dataset_version)
+        except (FileNotFoundError, AttributeError):
+            return None, "metadata no disponible para esta versión"
+        return metadata, None
+
+    def _validate_rows_against_metadata(
+        self, dataset_version: str, rows: list[Any], metadata: Any | None
+    ) -> None:
+        if metadata is None:
+            return
+        if metadata.row_count != len(rows):
+            raise ScoringValidationError(
+                f"Metadata inválida para versión '{dataset_version}': row_count={metadata.row_count} no coincide con {len(rows)} filas."
+            )
+        actual_hash = compute_content_hash(canonical_json_bytes(rows))
+        if metadata.content_hash != actual_hash:
+            raise ScoringValidationError(
+                f"Metadata inválida para versión '{dataset_version}': content_hash no coincide."
+            )
+
 
 def _to_feature_row(raw: Any) -> CitasFeatureRow:
     if isinstance(raw, CitasFeatureRow):
@@ -87,10 +114,13 @@ def _to_feature_row(raw: Any) -> CitasFeatureRow:
         raise ScoringValidationError("Fila de features incompleta o con claves inválidas.") from exc
 
 
-def _to_scored_cita(feature: CitasFeatureRow, prediction: Any) -> ScoredCita:
+def _to_scored_cita(feature: CitasFeatureRow, prediction: Any, warning: str | None) -> ScoredCita:
+    reasons = list(prediction.reasons)
+    if warning and warning not in reasons:
+        reasons.append(warning)
     return ScoredCita(
         cita_id=feature.cita_id,
         score=prediction.score,
         label=prediction.label,
-        reasons=prediction.reasons,
+        reasons=reasons,
     )
