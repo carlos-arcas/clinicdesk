@@ -65,3 +65,23 @@ Formato por entrada:
   - Añadir transforms de features (p. ej. franja horaria, día semana, lead time).
   - Definir persistencia/versionado de dataset (feature store ligero).
   - Preparar contratos para dataset de entrenamiento/validación.
+
+- **DATE/TIME**: 2026-02-27 22:40 UTC
+- **Paso**: Paso 5: Features citas v1 + quality report
+- **Qué se hizo**:
+  - Se creó el módulo puro de application `application/features/citas_features.py` con DTO canónico `CitasFeatureRow` y transformaciones deterministas desde `list[CitasDatasetRow]`.
+  - Se implementó `build_citas_features(...)` con normalización de estado, buckets de duración/notas, señales temporales (`hora_inicio`, `dia_semana`, `is_weekend`) y flag `is_suspicious`.
+  - Se implementó `validate_citas_features(...)` para invariantes de calidad mínimas y explícitas.
+  - Se implementó `CitasFeatureQualityReport` + `compute_citas_quality_report(...)` con contadores agregados por estado y buckets.
+  - Se añadieron tests unitarios dedicados en `tests/test_citas_features.py` para happy path, notas en cero, outliers, validación y reporte.
+- **Decisiones**:
+  - Outliers de duración (`duracion_min > 240`) no rompen pipeline: se marcan con `is_suspicious=True` y se contabilizan en el reporte.
+  - Duración no positiva solo se permite para `estado_norm="cancelada"`; para otros estados la validación lanza error explícito.
+  - `missing_count` del reporte se calcula como features con `estado_norm="desconocido"`.
+  - `lead_time_min` se omite en v1 porque `CitasDatasetRow` actual no expone `creada_en/reservada_en`.
+- **Riesgos**:
+  - La normalización de estados cubre alias comunes, pero pueden aparecer variantes nuevas que convenga mapear en una tabla de vocabulario de dominio.
+- **Qué queda**:
+  - Feature store/versionado de datasets y features.
+  - Baseline de entrenamiento/evaluación con split reproducible.
+  - Contrato de scoring online/offline y monitoreo de deriva de datos/features.
