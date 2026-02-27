@@ -18,5 +18,12 @@ En `clinicdesk/data/examples/` hay datos realistas para empezar:
 - `medicos.csv`
 - `personal.csv`
 
+
+## Estándares de arquitectura y calidad
+- Estándar consolidado: [docs/standards.md](docs/standards.md).
+- Contrato de arquitectura: [docs/architecture_contract.md](docs/architecture_contract.md).
+- Gate de calidad CI (core >= 85%): [docs/ci_quality_gate.md](docs/ci_quality_gate.md).
+- Registro de progreso: [docs/progress_log.md](docs/progress_log.md).
+
 ## Tests
 Consulta las instrucciones en [docs/TESTING.md](docs/TESTING.md).
