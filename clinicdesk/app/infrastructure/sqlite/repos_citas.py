@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import logging
 import sqlite3
+from datetime import datetime
 from typing import List, Optional
 
 from clinicdesk.app.domain.enums import EstadoCita
@@ -270,6 +271,28 @@ class CitasRepository:
             rows = self._con.execute(sql, params).fetchall()
         except sqlite3.Error as exc:
             logger.error("Error SQL en CitasRepository.list_by_estado: %s", exc)
+            return []
+        return [self._row_to_model(r) for r in rows]
+
+    def list_in_range(self, *, desde: datetime, hasta: datetime) -> List[Cita]:
+        """Lista citas activas cuyo inicio cae dentro del rango temporal."""
+        if hasta < desde:
+            raise ValidationError("Rango inválido: 'hasta' debe ser >= 'desde'.")
+
+        try:
+            rows = self._con.execute(
+                """
+                SELECT *
+                FROM citas
+                WHERE activo = 1
+                  AND inicio >= ?
+                  AND inicio <= ?
+                ORDER BY inicio
+                """,
+                (desde, hasta),
+            ).fetchall()
+        except sqlite3.Error as exc:
+            logger.error("Error SQL en CitasRepository.list_in_range: %s", exc)
             return []
         return [self._row_to_model(r) for r in rows]
 

@@ -46,3 +46,22 @@ Formato por entrada:
   - Persisten warnings de adaptador datetime de sqlite3 en Python 3.12 (no bloqueante para este paso).
 - **Qué queda**:
   - Cuando haya acceso a dependencias de red/CI, evaluar migración de cálculo de cobertura a `pytest-cov` manteniendo el mismo contrato de core.
+
+- **DATE/TIME**: 2026-02-27 22:05 UTC
+- **Paso**: Paso 4: Pipeline extracción citas v1
+- **Qué se hizo**:
+  - Se definió el contrato de lectura `CitasReadPort` y el read-model `CitaReadModel` para desacoplar la extracción de la capa UI.
+  - Se implementó el caso de uso `BuildCitasDataset` para construir filas tabulares con filtros por rango, mapeo tipado e invariantes (`duracion_min >= 0`, control de nulos en notas).
+  - Se añadió el adaptador `SqliteCitasReadAdapter` en infraestructura, reutilizando repositorios existentes de citas/incidencias.
+  - Se extendió `CitasRepository` con `list_in_range(...)` para lectura temporal canónica.
+  - Se añadieron tests unitarios del builder con fakes y un test de contrato del adaptador sin SQLite real.
+- **Decisiones**:
+  - El puerto vive en `application/ports` porque el caso de uso de extracción pertenece a application y debe depender de abstracciones.
+  - El dataset se modela con dataclass (`CitasDatasetRow`) para tipado fuerte y evolución segura hacia features ML.
+  - Se reutiliza `IncidenciasRepository.search(cita_id=...)` para derivar `has_incidencias`, evitando duplicación SQL prematura en esta versión v1.
+- **Riesgos**:
+  - El adaptador actual consulta incidencias por cita (patrón N+1) y puede requerir optimización cuando el volumen crezca.
+- **Qué queda**:
+  - Añadir transforms de features (p. ej. franja horaria, día semana, lead time).
+  - Definir persistencia/versionado de dataset (feature store ligero).
+  - Preparar contratos para dataset de entrenamiento/validación.
