@@ -105,3 +105,23 @@ Formato por entrada:
   - Definir online store y estrategia híbrida offline/online.
   - Incorporar locking atómico y manejo robusto de concurrencia.
   - Añadir metadatos de lineage, checksum y gobernanza de versiones.
+
+- **DATE/TIME**: 2026-02-28 00:05 UTC
+- **Paso**: Paso 7: Baseline predictor + scoring use case
+- **Qué se hizo**:
+  - Se definió el contrato de inferencia `PredictorPort` en application con tipos públicos `PredictorInput` y `PredictionResult`.
+  - Se implementó `BaselineCitasPredictor` determinista en application (`ml/`) con reglas explicables, score clamped en `[0,1]`, labels (`low/medium/high`) y `reasons` trazables.
+  - Se implementó el caso de uso `ScoreCitas` con request/response tipados, carga desde `FeatureStoreService`, soporte de `limit` y mapeo a `ScoredCita`.
+  - Se añadieron errores explícitos de dominio de aplicación (`ScoringDatasetNotFoundError`, `ScoringValidationError`) para separar fallos de acceso a datos y validación.
+  - Se añadieron tests unitarios dedicados para predictor y use case usando fakes simples y sin dependencias externas.
+- **Decisiones**:
+  - El baseline se mantuvo 100% determinista y sin estado para permitir reproducibilidad, trazabilidad y debugging temprano sin pipeline de entrenamiento.
+  - Se ubicó el predictor en `application` (no infraestructura) porque encapsula reglas puras de negocio/heurística.
+  - Se priorizó contrato estable (`PredictorPort`) para poder reemplazar baseline por un modelo real sin romper casos de uso.
+- **Riesgos**:
+  - Las reglas heurísticas no sustituyen evaluación estadística real; pueden sesgar decisiones en distribución cambiante.
+  - La deserialización actual asume schema de features estable; cambios de contrato requerirán versionado explícito.
+- **Qué queda**:
+  - Integrar modelo entrenable real (offline + evaluación), con métricas y calibración.
+  - Definir pipeline de entrenamiento y registro de artefactos/versiones de modelo.
+  - Añadir monitoreo de drift de datos/features y validaciones de scoring online.
