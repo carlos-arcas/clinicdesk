@@ -186,3 +186,23 @@ Formato por entrada:
 - **Limitaciones**:
   - `temporal_folds(...)` queda disponible pero no se integra aún en metadata de entrenamiento para mantener cambio mínimo del caso de uso.
   - El target sigue siendo proxy label derivada de features, útil para plumbing/CI pero no equivalente a ground-truth clínico.
+
+- **DATE/TIME**: 2026-02-28 03:05 UTC
+- **Paso**: Paso 11: Calibración de threshold + drift report
+- **Qué se hizo**:
+  - Se añadió calibración de threshold en `application/ml/calibration.py` con políticas `min_recall`, `min_precision` y `f1_max`, además de cálculo puro de métricas por threshold.
+  - Se integró la calibración en `TrainCitasModel`: scoring en holdout temporal, selección de threshold calibrado y persistencia de `calibrated_threshold`, `calibration_policy` y `test_metrics_at_calibrated_threshold` en metadata del modelo.
+  - Se actualizó `ScoreCitas` para predictor entrenado: aplica `calibrated_threshold` de metadata para etiqueta binaria (`risk`/`no_risk`) y agrega reason `threshold:<thr>`; mantiene fallback a `0.5` por compatibilidad.
+  - Se añadió `application/ml/drift.py` con `DriftReport`, distribución categórica, PSI y cálculo de drift sobre features discretas clave.
+  - Se añadió el caso de uso `DriftCitasFeatures` para comparar dos versiones de features vía `FeatureStoreService` y devolver `DriftReport`.
+  - Se agregaron tests core dedicados para calibración, integración train+scoring calibrado y drift.
+- **Decisiones**:
+  - Policy por defecto de calibración: `objective=min_recall`, `value=0.80`, `threshold` fallback de `0.5`.
+  - Umbral de alerta PSI: `0.2` para `overall_flag=True` cuando al menos una feature supera ese valor.
+  - En objetivos `min_*`, si no hay threshold que cumpla target se devuelve el threshold más cercano por métrica objetivo.
+- **Limitaciones**:
+  - La calibración usa el test set temporal del mismo pipeline offline y etiqueta proxy; no sustituye validación clínica con ground-truth.
+  - El reporte de drift actual cubre solo features categóricas discretas y no persiste artefacto JSON en store (solo retorno en use case).
+- **Qué queda**:
+  - Incorporar persistencia opcional del drift report como artefacto versionado y alarmas automáticas de CI/CD.
+  - Evaluar thresholds dinámicos por segmento operativo (especialidad/sede) cuando existan labels reales.

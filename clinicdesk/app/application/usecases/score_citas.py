@@ -7,7 +7,7 @@ from clinicdesk.app.application.features.citas_features import CitasFeatureRow
 from clinicdesk.app.application.ml.naive_bayes_citas import model_from_dict, predict_batch as predict_batch_trained
 from clinicdesk.app.application.ml_artifacts.feature_artifacts import canonical_json_bytes, compute_content_hash
 from clinicdesk.app.application.ports.model_store_port import ModelStorePort
-from clinicdesk.app.application.ports.predictor_port import PredictorPort
+from clinicdesk.app.application.ports.predictor_port import PredictionResult, PredictorPort
 from clinicdesk.app.application.services.feature_store_service import FeatureStoreService
 
 
@@ -120,13 +120,22 @@ class ScoreCitas:
         features: list[CitasFeatureRow],
         dataset_metadata: Any | None,
         request: ScoreCitasRequest,
-    ) -> tuple[list[Any], str | None]:
+    ) -> tuple[list[PredictionResult], str | None]:
         if request.predictor_kind == "baseline":
             return self._predictor.predict_batch(features), None
-        model = self._load_trained_model(request.model_version or "")
-        self._validate_schema_compatibility(dataset_metadata, model[1])
-        predictions = predict_batch_trained(model_from_dict(model[0]), features)
-        return predictions, f"trained_model:{self.TRAINED_MODEL_NAME}@{request.model_version}"
+        model_payload, model_metadata = self._load_trained_model(request.model_version or "")
+        self._validate_schema_compatibility(dataset_metadata, model_metadata)
+        predictions = predict_batch_trained(model_from_dict(model_payload), features)
+        threshold = float(model_metadata.get("calibrated_threshold", 0.5))
+        calibrated_predictions = [self._apply_trained_threshold(pred, threshold) for pred in predictions]
+        reason = f"trained_model:{self.TRAINED_MODEL_NAME}@{request.model_version}"
+        return calibrated_predictions, reason
+
+    def _apply_trained_threshold(self, prediction: PredictionResult, threshold: float) -> PredictionResult:
+        label = "risk" if prediction.score >= threshold else "no_risk"
+        reasons = list(prediction.reasons)
+        reasons.append(f"threshold:{threshold:.2f}")
+        return PredictionResult(score=prediction.score, label=label, reasons=reasons)
 
     def _load_trained_model(self, model_version: str) -> tuple[dict[str, Any], dict[str, Any]]:
         if self._model_store is None:
