@@ -99,6 +99,7 @@ def test_schema_hash_is_stable_and_contains_expected_fields() -> None:
         "has_incidencias",
         "estado_norm",
         "is_suspicious",
+        "inicio_ts",
     ]
 
 

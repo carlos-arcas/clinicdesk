@@ -6,6 +6,11 @@ from datetime import datetime, timezone
 from clinicdesk.app.application.features.citas_features import CitasFeatureRow
 from clinicdesk.app.application.ml.evaluation import EvalMetrics, evaluate
 from clinicdesk.app.application.ml.naive_bayes_citas import model_to_dict, train
+from clinicdesk.app.application.ml.splitting import (
+    TemporalSplitConfig,
+    TemporalSplitNotEnoughDataError,
+    temporal_train_test_split,
+)
 from clinicdesk.app.application.ml.targets import derive_target_from_feature
 from clinicdesk.app.application.ml_artifacts.feature_artifacts import (
     build_schema_from_dataclass,
@@ -21,6 +26,10 @@ class ModelTrainingValidationError(ValueError):
     """Error explícito de validación durante entrenamiento."""
 
 
+class TrainCitasModelNotEnoughDataError(ModelTrainingValidationError):
+    """Error explícito cuando no hay suficientes datos para split temporal."""
+
+
 @dataclass(slots=True)
 class TrainCitasModelRequest:
     dataset_version: str
@@ -32,7 +41,8 @@ class TrainCitasModelResponse:
     model_name: str
     model_version: str
     dataset_version: str
-    metrics: EvalMetrics
+    train_metrics: EvalMetrics
+    test_metrics: EvalMetrics
 
 
 class TrainCitasModel:
@@ -53,22 +63,33 @@ class TrainCitasModel:
         if metadata.schema_hash != expected_schema_hash:
             raise ModelTrainingValidationError("schema_hash de features incompatible para entrenamiento.")
 
-        model = train(rows)
-        metrics = evaluate(model, rows, derive_target_from_feature)
+        split_cfg = TemporalSplitConfig(test_ratio=0.2, min_train=20, time_field="inicio_ts")
+        try:
+            train_rows, test_rows = temporal_train_test_split(rows, split_cfg)
+        except TemporalSplitNotEnoughDataError as exc:
+            raise TrainCitasModelNotEnoughDataError(str(exc)) from exc
+
+        model = train(train_rows)
+        train_metrics = evaluate(model, train_rows, derive_target_from_feature)
+        test_metrics = evaluate(model, test_rows, derive_target_from_feature)
         model_version = request.model_version or self._build_version()
         payload = model_to_dict(model)
         metadata_payload = self._build_metadata_payload(
             request.dataset_version,
             expected_schema_hash,
             payload,
-            metrics,
+            split_cfg,
+            train_metrics,
+            test_metrics,
+            len(test_rows),
         )
         self._model_store.save_model(self.MODEL_NAME, model_version, payload, metadata_payload)
         return TrainCitasModelResponse(
             model_name=self.MODEL_NAME,
             model_version=model_version,
             dataset_version=request.dataset_version,
-            metrics=metrics,
+            train_metrics=train_metrics,
+            test_metrics=test_metrics,
         )
 
     def _build_version(self) -> str:
@@ -79,15 +100,21 @@ class TrainCitasModel:
         dataset_version: str,
         schema_hash: str,
         payload: dict,
-        metrics: EvalMetrics,
+        split_cfg: TemporalSplitConfig,
+        train_metrics: EvalMetrics,
+        test_metrics: EvalMetrics,
+        test_row_count: int,
     ) -> dict:
         return {
             "trained_on_dataset_version": dataset_version,
             "created_at": datetime.now(tz=timezone.utc).isoformat(),
             "content_hash": compute_content_hash(canonical_json_bytes(payload)),
             "schema_hash": schema_hash,
-            "metrics": asdict(metrics),
-            "evaluation_note": "offline eval on training dataset (proxy label)",
+            "split_config": asdict(split_cfg),
+            "train_metrics": asdict(train_metrics),
+            "test_metrics": asdict(test_metrics),
+            "test_row_count": test_row_count,
+            "evaluation_note": "offline eval with deterministic temporal holdout (proxy label)",
         }
 
 
