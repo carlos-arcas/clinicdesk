@@ -146,3 +146,26 @@ Formato por entrada:
   - Añadir lock/atomic writes y estrategia anti-corrupción de artefactos parcialmente escritos.
   - Incorporar firma de artefactos y dataset registry centralizado con políticas de retención.
   - Definir validación de compatibilidad de `schema_version` durante scoring y entrenamiento.
+
+- **DATE/TIME**: 2026-02-28 01:25 UTC
+- **Paso**: Paso 9: Train + evaluate + model store offline
+- **Qué se hizo**:
+  - Se agregó `derive_target_from_feature(...)` como etiqueta proxy determinista (`1` si `has_incidencias` o `is_suspicious`, si no `0`) para habilitar pipeline end-to-end reproducible sin dependencias externas.
+  - Se implementó modelo entrenable determinista tipo Naive Bayes discreto en application (`train/predict_one/predict_batch`) con suavizado de Laplace y payload serializable.
+  - Se incorporó módulo de evaluación offline (`EvalMetrics`) con accuracy, precision, recall y matriz de confusión (`tp/fp/tn/fn`) usando threshold fijo `score>=0.5`.
+  - Se definió el puerto `ModelStorePort` y su implementación `LocalJsonModelStore` para versionado offline en `base/models/<model>/<version>.*.json`.
+  - Se creó caso de uso `TrainCitasModel` para: cargar features versionadas + metadata, validar `schema_hash`, entrenar, evaluar sobre el dataset actual, y registrar payload+metadata+métricas del modelo.
+  - Se extendió `ScoreCitas` para seleccionar predictor por request (`baseline|trained`), cargar modelo entrenado por versión, validar compatibilidad de `schema_hash` y anexar reason `trained_model:<name>@<version>`.
+  - Se añadieron tests core de entrenamiento, model store y scoring con modelo entrenado (incluyendo mismatch de schema).
+- **Decisiones**:
+  - Se eligió Naive Bayes discreto por ser corto, determinista, explicable y sin optimización numérica compleja.
+  - Se conservó `baseline` como default para compatibilidad total hacia atrás.
+  - La etiqueta se documenta explícitamente como **proxy label** (no ground-truth clínica).
+- **Riesgos**:
+  - La evaluación se ejecuta sobre el mismo dataset de entrenamiento (optimista y no generalizable).
+  - El target proxy introduce leakage intencional en esta fase inicial; útil para validar plumbing, no para performance real.
+  - Persistencia del model store es local JSON sin locking/atomicidad multiarchivo.
+- **Qué queda**:
+  - Incorporar split reproducible train/validation/holdout y/o CV.
+  - Diseñar etiquetado real de negocio (ground truth) y calibración de scores.
+  - Añadir validaciones de drift y políticas de promoción de modelos.
