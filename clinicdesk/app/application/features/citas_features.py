@@ -19,6 +19,7 @@ class CitasFeatureRow:
     has_incidencias: bool
     estado_norm: str
     is_suspicious: bool
+    inicio_ts: int = 0
 
 
 @dataclass(slots=True)
@@ -52,6 +53,7 @@ def build_citas_features(
             has_incidencias=bool(row.has_incidencias),
             estado_norm=_normalize_estado(row.estado),
             is_suspicious=_is_suspicious(row),
+            inicio_ts=int(row.inicio.timestamp()),
         )
         for row in rows
     ]

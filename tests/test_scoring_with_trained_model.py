@@ -24,18 +24,32 @@ def _quality(total: int) -> CitasFeatureQualityReport:
     )
 
 
-def _rows() -> list[CitasFeatureRow]:
-    return [
-        CitasFeatureRow("r1", 20, "11-20", 8, 1, False, 4, "1-20", True, "programada", False),
-        CitasFeatureRow("r2", 30, "21-40", 10, 2, False, 22, "21-100", False, "programada", True),
-        CitasFeatureRow("r3", 30, "21-40", 12, 3, False, 9, "1-20", False, "realizada", False),
-    ]
+def _rows(size: int = 30) -> list[CitasFeatureRow]:
+    rows: list[CitasFeatureRow] = []
+    for idx in range(size):
+        rows.append(
+            CitasFeatureRow(
+                cita_id=f"r{idx}",
+                duracion_min=20 + (idx % 3) * 10,
+                duracion_bucket="11-20" if idx % 2 == 0 else "21-40",
+                hora_inicio=8 + (idx % 10),
+                dia_semana=idx % 7,
+                is_weekend=(idx % 7) >= 5,
+                notas_len=idx,
+                notas_len_bucket="1-20" if idx <= 20 else "21-100",
+                has_incidencias=idx % 2 == 0,
+                estado_norm="programada" if idx % 3 else "realizada",
+                is_suspicious=idx % 11 == 0,
+                inicio_ts=1_700_000_000 + idx,
+            )
+        )
+    return rows
 
 
 def test_score_citas_with_trained_predictor_is_deterministic(tmp_path) -> None:
     feature_service = FeatureStoreService(LocalJsonFeatureStore(tmp_path / "features"))
     model_store = LocalJsonModelStore(tmp_path / "models")
-    dataset_version = feature_service.save_citas_features_with_artifacts(_rows(), _quality(3), version="dsv1")
+    dataset_version = feature_service.save_citas_features_with_artifacts(_rows(), _quality(30), version="dsv1")
     TrainCitasModel(feature_service, model_store).execute(
         TrainCitasModelRequest(dataset_version=dataset_version, model_version="m1")
     )
@@ -53,7 +67,7 @@ def test_score_citas_with_trained_predictor_is_deterministic(tmp_path) -> None:
 def test_score_citas_trained_raises_for_schema_mismatch(tmp_path) -> None:
     feature_service = FeatureStoreService(LocalJsonFeatureStore(tmp_path / "features"))
     model_store = LocalJsonModelStore(tmp_path / "models")
-    dataset_version = feature_service.save_citas_features_with_artifacts(_rows(), _quality(3), version="dsv1")
+    dataset_version = feature_service.save_citas_features_with_artifacts(_rows(), _quality(30), version="dsv1")
     TrainCitasModel(feature_service, model_store).execute(
         TrainCitasModelRequest(dataset_version=dataset_version, model_version="m1")
     )

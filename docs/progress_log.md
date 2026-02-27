@@ -169,3 +169,20 @@ Formato por entrada:
   - Incorporar split reproducible train/validation/holdout y/o CV.
   - Diseñar etiquetado real de negocio (ground truth) y calibración de scores.
   - Añadir validaciones de drift y políticas de promoción de modelos.
+
+- **DATE/TIME**: 2026-02-28 02:10 UTC
+- **Paso**: Paso 10: Evaluación holdout temporal + backtesting simple
+- **Qué se hizo**:
+  - Se añadió `application/ml/splitting.py` con `TemporalSplitConfig`, `temporal_train_test_split(...)`, error explícito `TemporalSplitNotEnoughDataError` y `temporal_folds(...)` walk-forward determinista.
+  - Se evolucionó `CitasFeatureRow` incorporando `inicio_ts` (epoch int) para habilitar split temporal serializable sin romper persistencia JSON del feature store.
+  - Se actualizó `TrainCitasModel` para cargar features, aplicar split temporal determinista (80/20, `min_train=20`), entrenar solo con train y evaluar por separado en train/test.
+  - Se cambió metadata del modelo para incluir `split_config`, `train_metrics`, `test_metrics` y `test_row_count`; además el response del use case ahora expone ambas métricas.
+  - Se agregó adaptación de error de split insuficiente a `TrainCitasModelNotEnoughDataError` para cortar entrenamiento de forma explícita.
+  - Se añadieron tests core: `tests/test_temporal_split.py` y extensión de `tests/test_ml_training.py` para verificar split determinista, error por datos insuficientes y persistencia de métricas train/test.
+- **Decisiones**:
+  - Campo temporal elegido: `inicio_ts` en `CitasFeatureRow` para evitar serialización de `datetime` en artefactos JSON.
+  - Configuración base de split: `test_ratio=0.2`, `min_train=20`, orden ascendente por tiempo.
+  - Backtesting implementado como helper opcional en módulo de split con ventanas fijas 60/20, 80/20 y 90/10.
+- **Limitaciones**:
+  - `temporal_folds(...)` queda disponible pero no se integra aún en metadata de entrenamiento para mantener cambio mínimo del caso de uso.
+  - El target sigue siendo proxy label derivada de features, útil para plumbing/CI pero no equivalente a ground-truth clínico.
