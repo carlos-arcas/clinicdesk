@@ -85,3 +85,23 @@ Formato por entrada:
   - Feature store/versionado de datasets y features.
   - Baseline de entrenamiento/evaluación con split reproducible.
   - Contrato de scoring online/offline y monitoreo de deriva de datos/features.
+
+- **DATE/TIME**: 2026-02-27 23:10 UTC
+- **Paso**: Paso 6: Feature Store offline v1
+- **Qué se hizo**:
+  - Se definió el contrato `FeatureStorePort` en application (contract-first) con operaciones `save`, `load` y `list_versions`.
+  - Se implementó `LocalJsonFeatureStore` en infraestructura con persistencia local en `data/feature_store/<dataset>/<version>.json`, creación automática de carpetas y errores explícitos para dataset/versión inexistentes.
+  - Se añadió `FeatureStoreService` en application para orquestar el dataset lógico `citas_features`, generar versión timestamp segura para filename y delegar la persistencia/carga al port.
+  - Se incorporó test suite dedicada `tests/test_feature_store.py` cubriendo roundtrip, listado de versiones, errores explícitos, no sobreescritura entre versiones y serialización determinista.
+- **Decisiones**:
+  - Se eligió JSON local frente a SQLite en v1 para minimizar complejidad operativa, facilitar inspección humana y mantener cero dependencia externa.
+  - Se fijó serialización determinista (`sort_keys=True`) para asegurar reproducibilidad binaria del artefacto al guardar el mismo contenido.
+  - Se mantuvo el servicio de aplicación liviano y sin lógica de infraestructura para respetar Clean Architecture.
+- **Riesgos**:
+  - JSON completo por versión no escala bien para datasets grandes; podría requerir compresión/particionado.
+  - No hay locking ni control de concurrencia en escrituras simultáneas.
+  - La validación del payload cargado es mínima (solo tipo lista) y puede ampliarse con esquemas versionados.
+- **Qué queda**:
+  - Definir online store y estrategia híbrida offline/online.
+  - Incorporar locking atómico y manejo robusto de concurrencia.
+  - Añadir metadatos de lineage, checksum y gobernanza de versiones.
