@@ -125,3 +125,24 @@ Formato por entrada:
   - Integrar modelo entrenable real (offline + evaluación), con métricas y calibración.
   - Definir pipeline de entrenamiento y registro de artefactos/versiones de modelo.
   - Añadir monitoreo de drift de datos/features y validaciones de scoring online.
+
+- **DATE/TIME**: 2026-02-28 00:40 UTC
+- **Paso**: Paso 8: Lineage + metadata + schema + hashes
+- **Qué se hizo**:
+  - Se creó el módulo de artefactos ML en application con modelos `FeatureSchemaField`, `FeatureSchema`, `FeatureArtifactMetadata` y helpers puros para hashing/canonicalización.
+  - Se extendió el puerto `FeatureStorePort` con `save_with_metadata(...)` y `load_metadata(...)` manteniendo `save/load/list_versions` para compatibilidad.
+  - Se evolucionó `LocalJsonFeatureStore` para persistir por versión tres artefactos (`.json`, `.metadata.json`, `.schema.json`) y para exponer errores explícitos cuando faltan metadata o schema.
+  - Se añadió `FeatureStoreService.save_citas_features_with_artifacts(...)` para construir schema/hashes/metadata+quality report de `citas_features` y persistirlos de forma reproducible.
+  - Se integró validación de metadata en `ScoreCitas`: cuando hay metadata valida `row_count` y `content_hash`; si no existe metadata continúa por compatibilidad agregando reason informativa.
+  - Se añadió test suite `tests/test_feature_store_artifacts.py` con casos de creación de artefactos, hashes deterministas, estabilidad de schema y validación en scoring con metadata inconsistente.
+- **Decisiones**:
+  - Compatibilidad hacia atrás: scoring no falla si falta metadata en versiones antiguas; solo agrega reason `metadata no disponible para esta versión`.
+  - `schema_hash` y `content_hash` se calculan sobre JSON canónico (`sort_keys=True`, `separators` compactos) para reproducibilidad binaria.
+  - El schema persistido en infraestructura se deriva de las filas serializadas y el schema de aplicación se deriva del dataclass de features para contrato estable de `citas_features`.
+- **Riesgos**:
+  - No hay locking transaccional ni escritura atómica multiarchivo entre rows/schema/metadata.
+  - Falta firma criptográfica de artefactos y registro global de datasets/versiones.
+- **Qué queda**:
+  - Añadir lock/atomic writes y estrategia anti-corrupción de artefactos parcialmente escritos.
+  - Incorporar firma de artefactos y dataset registry centralizado con políticas de retención.
+  - Definir validación de compatibilidad de `schema_version` durante scoring y entrenamiento.
