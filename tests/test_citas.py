@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from datetime import datetime
+
 import pytest
 
 from clinicdesk.app.application.usecases.crear_cita import (
@@ -144,3 +146,49 @@ def test_citas_override_crea_incidencia_y_actualiza_estado(container, seed_data)
     assert any(item.id == result.cita_id for item in by_paciente)
     assert any(item.id == result.cita_id for item in by_sala)
     assert any(item.id == result.cita_id for item in realizadas)
+
+
+def test_citas_list_in_range_returns_only_requested_window(container, seed_data) -> None:
+    usecase = CrearCitaUseCase(container)
+    req_in = CrearCitaRequest(
+        paciente_id=seed_data["paciente_activo_id"],
+        medico_id=seed_data["medico_activo_id"],
+        sala_id=seed_data["sala_activa_id"],
+        inicio="2024-05-20 12:00:00",
+        fin="2024-05-20 12:20:00",
+        motivo="En rango",
+        estado=EstadoCita.PROGRAMADA.value,
+    )
+    req_out = CrearCitaRequest(
+        paciente_id=seed_data["paciente_activo_id"],
+        medico_id=seed_data["medico_activo_id"],
+        sala_id=seed_data["sala_activa_id"],
+        inicio="2024-05-21 12:00:00",
+        fin="2024-05-21 12:20:00",
+        motivo="Fuera de rango",
+        estado=EstadoCita.PROGRAMADA.value,
+        override=True,
+        nota_override="Autorizado por coordinación",
+        confirmado_por_personal_id=seed_data["personal_activo_id"],
+    )
+    usecase.execute(req_in)
+    usecase.execute(req_out)
+
+    citas_repo = CitasRepository(container.connection)
+    rows = citas_repo.list_in_range(
+        desde=datetime(2024, 5, 20, 0, 0, 0),
+        hasta=datetime(2024, 5, 20, 23, 59, 59),
+    )
+
+    assert len(rows) == 1
+    assert rows[0].motivo == "En rango"
+
+
+def test_citas_list_in_range_validates_temporal_window(container) -> None:
+    citas_repo = CitasRepository(container.connection)
+
+    with pytest.raises(ValidationError, match="Rango inválido"):
+        citas_repo.list_in_range(
+            desde=datetime(2024, 5, 22, 0, 0, 0),
+            hasta=datetime(2024, 5, 20, 23, 59, 59),
+        )
