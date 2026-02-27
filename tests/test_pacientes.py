@@ -40,7 +40,6 @@ def test_pacientes_crud_and_search(container, seed_data, assert_expected_actual)
             "telefono": "644555666",
             "email": "ana@example.test",
             "activo": True,
-            "num_historia": "H-200",
         },
         {
             "documento": stored.documento,
@@ -49,10 +48,10 @@ def test_pacientes_crud_and_search(container, seed_data, assert_expected_actual)
             "telefono": stored.telefono,
             "email": stored.email,
             "activo": stored.activo,
-            "num_historia": stored.num_historia,
         },
         message="Paciente creado: esperado vs obtenido",
     )
+    assert stored.num_historia and stored.num_historia.startswith("HIST-"), "num_historia debe ser autogenerado"
 
     stored.nombre = "Ana Maria"
     stored.telefono = "699888777"

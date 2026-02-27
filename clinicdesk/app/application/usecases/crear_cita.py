@@ -27,6 +27,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import List, Optional, Tuple
 
+from clinicdesk.app.domain.enums import EstadoCita
 from clinicdesk.app.domain.modelos import Cita
 from clinicdesk.app.domain.exceptions import ValidationError
 
@@ -157,11 +158,11 @@ class CrearCitaUseCase:
             paciente_id=req.paciente_id,
             medico_id=req.medico_id,
             sala_id=req.sala_id,
-            inicio=req.inicio,
-            fin=req.fin,
+            inicio=inicio_dt,
+            fin=fin_dt,
             motivo=req.motivo,
-            observaciones=req.observaciones,
-            estado=req.estado,
+            notas=req.observaciones,
+            estado=EstadoCita(req.estado),
         )
         cita_id = self._c.citas_repo.create(cita)
 

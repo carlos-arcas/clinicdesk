@@ -239,6 +239,6 @@ class MedicamentosRepository:
             id=row["id"],
             nombre_compuesto=row["nombre_compuesto"],
             nombre_comercial=row["nombre_comercial"],
-            cantidad_en_almacen=row["cantidad_en_almacen"],
+            cantidad_almacen=row["cantidad_en_almacen"],
             activo=bool(row["activo"]),
         )

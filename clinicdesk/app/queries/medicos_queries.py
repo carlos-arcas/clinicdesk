@@ -89,8 +89,9 @@ class MedicosQueries:
 
             cleaned = texto.replace(" ", "").replace("-", "")
             if cleaned:
-                clauses.append(
-                    "REPLACE(REPLACE(telefono, ' ', ''), '-', '') LIKE ? COLLATE NOCASE"
+                clauses[-1] = (
+                    clauses[-1][:-1]
+                    + " OR REPLACE(REPLACE(telefono, ' ', ''), '-', '') LIKE ? COLLATE NOCASE)"
                 )
                 params.append(like_value(cleaned))
 

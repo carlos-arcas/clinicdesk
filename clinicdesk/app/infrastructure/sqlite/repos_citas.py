@@ -20,6 +20,7 @@ import logging
 import sqlite3
 from typing import List, Optional
 
+from clinicdesk.app.domain.enums import EstadoCita
 from clinicdesk.app.domain.modelos import Cita
 from clinicdesk.app.domain.exceptions import ValidationError
 
@@ -59,7 +60,7 @@ class CitasRepository:
                 inicio,
                 fin,
                 motivo,
-                observaciones,
+                notas,
                 estado
             )
             VALUES (?, ?, ?, ?, ?, ?, ?, ?)
@@ -71,8 +72,8 @@ class CitasRepository:
                 cita.inicio,
                 cita.fin,
                 cita.motivo,
-                cita.observaciones,
-                cita.estado,
+                cita.notas,
+                cita.estado.value,
             ),
         )
         self._con.commit()
@@ -96,7 +97,7 @@ class CitasRepository:
                 inicio = ?,
                 fin = ?,
                 motivo = ?,
-                observaciones = ?,
+                notas = ?,
                 estado = ?
             WHERE id = ?
             """,
@@ -107,8 +108,8 @@ class CitasRepository:
                 cita.inicio,
                 cita.fin,
                 cita.motivo,
-                cita.observaciones,
-                cita.estado,
+                cita.notas,
+                cita.estado.value,
                 cita.id,
             ),
         )
@@ -288,6 +289,6 @@ class CitasRepository:
             inicio=row["inicio"],
             fin=row["fin"],
             motivo=row["motivo"],
-            observaciones=row["observaciones"],
-            estado=row["estado"],
+            notas=row["notas"],
+            estado=EstadoCita(row["estado"]),
         )
