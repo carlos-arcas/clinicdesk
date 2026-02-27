@@ -224,6 +224,6 @@ class MaterialesRepository:
             id=row["id"],
             nombre=row["nombre"],
             fungible=bool(row["fungible"]),
-            cantidad_en_almacen=row["cantidad_en_almacen"],
+            cantidad_almacen=row["cantidad_en_almacen"],
             activo=bool(row["activo"]),
         )

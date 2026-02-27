@@ -2,7 +2,11 @@ from __future__ import annotations
 
 import pytest
 
-from clinicdesk.app.application.usecases.crear_cita import CrearCitaRequest, CrearCitaUseCase
+from clinicdesk.app.application.usecases.crear_cita import (
+    CrearCitaRequest,
+    CrearCitaUseCase,
+    PendingWarningsError,
+)
 from clinicdesk.app.domain.enums import EstadoCita
 from clinicdesk.app.domain.exceptions import ValidationError
 from clinicdesk.app.infrastructure.sqlite.repos_citas import CitasRepository
@@ -87,3 +91,56 @@ def test_citas_solape_validation(container, seed_data) -> None:
 
     with pytest.raises(ValidationError, match="solape"):
         usecase.execute(overlap_request)
+
+
+def test_citas_warning_requires_override(container, seed_data) -> None:
+    usecase = CrearCitaUseCase(container)
+
+    req = CrearCitaRequest(
+        paciente_id=seed_data["paciente_activo_id"],
+        medico_id=seed_data["medico_activo_id"],
+        sala_id=seed_data["sala_activa_id"],
+        inicio="2024-05-21 09:00:00",
+        fin="2024-05-21 09:30:00",
+        motivo="Sin cuadrante",
+        estado=EstadoCita.PROGRAMADA.value,
+    )
+
+    with pytest.raises(PendingWarningsError):
+        usecase.execute(req)
+
+
+def test_citas_override_crea_incidencia_y_actualiza_estado(container, seed_data) -> None:
+    usecase = CrearCitaUseCase(container)
+
+    req = CrearCitaRequest(
+        paciente_id=seed_data["paciente_activo_id"],
+        medico_id=seed_data["medico_activo_id"],
+        sala_id=seed_data["sala_activa_id"],
+        inicio="2024-05-21 11:00:00",
+        fin="2024-05-21 11:30:00",
+        motivo="Con override",
+        estado=EstadoCita.PROGRAMADA.value,
+        override=True,
+        nota_override="Autorizado por coordinación",
+        confirmado_por_personal_id=seed_data["personal_activo_id"],
+    )
+
+    result = usecase.execute(req)
+    assert result.incidencia_id is not None
+
+    citas_repo = CitasRepository(container.connection)
+    cita = citas_repo.get_by_id(result.cita_id)
+    assert cita is not None
+    cita.estado = EstadoCita.REALIZADA
+    citas_repo.update(cita)
+
+    by_medico = citas_repo.list_by_medico(seed_data["medico_activo_id"])
+    by_paciente = citas_repo.list_by_paciente(seed_data["paciente_activo_id"])
+    by_sala = citas_repo.list_by_sala(seed_data["sala_activa_id"])
+    realizadas = citas_repo.list_by_estado(EstadoCita.REALIZADA.value)
+
+    assert any(item.id == result.cita_id for item in by_medico)
+    assert any(item.id == result.cita_id for item in by_paciente)
+    assert any(item.id == result.cita_id for item in by_sala)
+    assert any(item.id == result.cita_id for item in realizadas)
