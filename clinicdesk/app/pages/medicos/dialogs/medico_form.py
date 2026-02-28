@@ -53,8 +53,9 @@ class MedicoFormDialog(QDialog):
         self.txt_direccion = QLineEdit()
         self.txt_num_colegiado = QLineEdit()
         self.txt_especialidad = QLineEdit()
-        self.chk_activo = QCheckBox("Activo")
+        self.chk_activo = QCheckBox("Registro activo")
         self.chk_activo.setChecked(True)
+        self.chk_activo.setToolTip("Si se desmarca, el registro quedará inactivo y oculto en filtros de activos.")
 
         form = QFormLayout()
         form.addRow(required_label("Tipo documento"), self.cbo_tipo_documento)

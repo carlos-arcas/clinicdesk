@@ -35,8 +35,9 @@ class SalaFormDialog(QDialog):
         self.cbo_tipo = QComboBox()
         self.cbo_tipo.addItems([t.value for t in TipoSala])
         self.txt_ubicacion = QLineEdit()
-        self.chk_activa = QCheckBox("Activa")
+        self.chk_activa = QCheckBox("Registro activo")
         self.chk_activa.setChecked(True)
+        self.chk_activa.setToolTip("Si se desmarca, el registro quedará inactivo y oculto en filtros de activos.")
 
         form = QFormLayout()
         form.addRow(required_label("Nombre"), self.txt_nombre)

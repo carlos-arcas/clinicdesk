@@ -58,8 +58,9 @@ class PacienteFormDialog(QDialog):
         self.txt_num_historia.setPlaceholderText("Se genera automáticamente")
         self.txt_alergias = QTextEdit()
         self.txt_observaciones = QTextEdit()
-        self.chk_activo = QCheckBox("Activo")
+        self.chk_activo = QCheckBox("Registro activo")
         self.chk_activo.setChecked(True)
+        self.chk_activo.setToolTip("Si se desmarca, el registro quedará inactivo y oculto en filtros de activos.")
 
         form = QFormLayout()
         form.addRow(required_label("Tipo documento"), self.cbo_tipo_documento)

@@ -23,6 +23,7 @@ from PySide6.QtWidgets import (
 from clinicdesk.app.container import AppContainer
 from clinicdesk.app.common.search_utils import has_search_values, normalize_search_text
 from clinicdesk.app.pages.personal.dialogs.personal_form import PersonalFormDialog
+from clinicdesk.app.pages.shared.crud_page_helpers import confirm_deactivation, set_buttons_enabled
 from clinicdesk.app.pages.shared.table_utils import apply_row_style, set_item
 from clinicdesk.app.queries.personal_queries import PersonalQueries, PersonalRow
 from clinicdesk.app.ui.error_presenter import present_error
@@ -84,7 +85,8 @@ class PagePersonal(QWidget):
     def _connect_signals(self) -> None:
         self.btn_buscar.clicked.connect(self._refresh)
         self.txt_buscar.returnPressed.connect(self._refresh)
-        self.table.itemSelectionChanged.connect(self._on_selection_changed)
+        self.table.itemSelectionChanged.connect(self._update_buttons)
+        self.table.itemDoubleClicked.connect(lambda _: self._on_editar())
         self.table.customContextMenuRequested.connect(self._open_context_menu)
         self.btn_nuevo.clicked.connect(self._on_nuevo)
         self.btn_editar.clicked.connect(self._on_editar)
@@ -110,6 +112,7 @@ class PagePersonal(QWidget):
         self._render(rows)
         if selected_id is not None:
             self._select_by_id(selected_id)
+        self._update_buttons()
 
     def _render(self, rows: list[PersonalRow]) -> None:
         self.table.setRowCount(0)
@@ -130,10 +133,11 @@ class PagePersonal(QWidget):
             )
             apply_row_style(self.table, row, inactive=not p.activo, tooltip=tooltip)
 
-    def _on_selection_changed(self) -> None:
-        has_selection = self._selected_id() is not None
-        self.btn_editar.setEnabled(has_selection)
-        self.btn_desactivar.setEnabled(has_selection)
+    def _update_buttons(self) -> None:
+        set_buttons_enabled(
+            has_selection=self._selected_id() is not None,
+            buttons=[self.btn_editar, self.btn_desactivar],
+        )
 
     def _on_nuevo(self) -> None:
         dialog = PersonalFormDialog(self)
@@ -183,7 +187,7 @@ class PagePersonal(QWidget):
         personal_id = self._selected_id()
         if not personal_id:
             return
-        if QMessageBox.question(self, "Personal", "¿Desactivar personal?") != QMessageBox.Yes:
+        if not confirm_deactivation(self, module_title="Personal", entity_label="personal"):
             return
         self._container.personal_repo.delete(personal_id)
         self._refresh()

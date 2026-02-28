@@ -26,6 +26,7 @@ from clinicdesk.app.domain.exceptions import ValidationError
 from clinicdesk.app.pages.dialog_override import OverrideDialog
 from clinicdesk.app.pages.materiales.dialogs.ajuste_stock import AjusteStockDialog
 from clinicdesk.app.pages.materiales.dialogs.material_form import MaterialFormDialog
+from clinicdesk.app.pages.shared.crud_page_helpers import confirm_deactivation, set_buttons_enabled
 from clinicdesk.app.pages.shared.table_utils import apply_row_style, set_item
 from clinicdesk.app.queries.materiales_queries import (
     MaterialesQueries,
@@ -111,7 +112,8 @@ class PageMateriales(QWidget):
     def _connect_signals(self) -> None:
         self.btn_buscar.clicked.connect(self._refresh)
         self.txt_buscar.returnPressed.connect(self._refresh)
-        self.table.itemSelectionChanged.connect(self._on_selection_changed)
+        self.table.itemSelectionChanged.connect(self._update_buttons)
+        self.table.itemDoubleClicked.connect(lambda _: self._on_editar())
         self.table.customContextMenuRequested.connect(self._open_context_menu)
         self.btn_nuevo.clicked.connect(self._on_nuevo)
         self.btn_editar.clicked.connect(self._on_editar)
@@ -131,6 +133,7 @@ class PageMateriales(QWidget):
             rows = self._queries.search(texto=texto, activo=activo)
         self._render(rows)
         self._render_movimientos([])
+        self._update_buttons()
         log_screen_data_loaded(self._container.connection, "materiales", len(rows))
         has_data = bool(rows)
         self.lbl_empty.setVisible(not has_data)
@@ -165,11 +168,12 @@ class PageMateriales(QWidget):
             self.table_movs.setItem(row, 3, QTableWidgetItem(m.personal))
             self.table_movs.setItem(row, 4, QTableWidgetItem(m.motivo))
 
-    def _on_selection_changed(self) -> None:
+    def _update_buttons(self) -> None:
         has_selection = self._selected_id() is not None
-        self.btn_editar.setEnabled(has_selection)
-        self.btn_desactivar.setEnabled(has_selection)
-        self.btn_ajustar.setEnabled(has_selection)
+        set_buttons_enabled(
+            has_selection=has_selection,
+            buttons=[self.btn_editar, self.btn_desactivar, self.btn_ajustar],
+        )
         if has_selection:
             self._load_movimientos()
 
@@ -220,7 +224,7 @@ class PageMateriales(QWidget):
         material_id = self._selected_id()
         if not material_id:
             return
-        if QMessageBox.question(self, "Materiales", "¿Desactivar material?") != QMessageBox.Yes:
+        if not confirm_deactivation(self, module_title="Materiales", entity_label="material"):
             return
         self._container.materiales_repo.delete(material_id)
         self._refresh()
