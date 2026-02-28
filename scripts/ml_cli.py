@@ -12,6 +12,13 @@ from clinicdesk.app.application.pipelines.build_citas_dataset import BuildCitasD
 from clinicdesk.app.application.ports.citas_read_port import CitaReadModel, CitasReadPort
 from clinicdesk.app.application.services.feature_store_service import FeatureStoreService
 from clinicdesk.app.application.usecases.drift_citas_features import DriftCitasFeatures, DriftCitasFeaturesRequest
+from clinicdesk.app.application.usecases.export_csv import (
+    ExportDriftCSV,
+    ExportFeaturesCSV,
+    ExportModelMetricsFromMetadataCSV,
+    ExportScoringCSV,
+    ModelMetricsExportData,
+)
 from clinicdesk.app.application.usecases.score_citas import ScoreCitas, ScoreCitasRequest
 from clinicdesk.app.application.usecases.train_citas_model import TrainCitasModel, TrainCitasModelRequest
 from clinicdesk.app.infrastructure.feature_store.local_json_feature_store import LocalJsonFeatureStore
@@ -41,6 +48,7 @@ def build_parser() -> argparse.ArgumentParser:
     _add_train_parser(subparsers)
     _add_score_parser(subparsers)
     _add_drift_parser(subparsers)
+    _add_export_parser(subparsers)
     return parser
 
 
@@ -81,6 +89,37 @@ def _add_drift_parser(subparsers: argparse._SubParsersAction) -> None:
     parser.add_argument("--feature-store-path", default=_DEFAULT_FEATURE_STORE_PATH)
 
 
+def _add_export_parser(subparsers: argparse._SubParsersAction) -> None:
+    parser = subparsers.add_parser("export", help="Exporta contratos CSV para Power BI")
+    export_subparsers = parser.add_subparsers(dest="export_command", required=True)
+
+    features_parser = export_subparsers.add_parser("features", help="Exporta dataset de features")
+    features_parser.add_argument("--dataset-version", required=True)
+    features_parser.add_argument("--output", required=True)
+    features_parser.add_argument("--feature-store-path", default=_DEFAULT_FEATURE_STORE_PATH)
+
+    metrics_parser = export_subparsers.add_parser("metrics", help="Exporta métricas del modelo")
+    metrics_parser.add_argument("--model-name", default=_DEFAULT_MODEL_NAME)
+    metrics_parser.add_argument("--model-version", required=True)
+    metrics_parser.add_argument("--dataset-version", required=True)
+    metrics_parser.add_argument("--output", required=True)
+    metrics_parser.add_argument("--model-store-path", default=_DEFAULT_MODEL_STORE_PATH)
+
+    scoring_parser = export_subparsers.add_parser("scoring", help="Exporta scoring")
+    scoring_parser.add_argument("--dataset-version", required=True)
+    scoring_parser.add_argument("--predictor", choices=("baseline", "trained"), default="trained")
+    scoring_parser.add_argument("--model-version", required=True)
+    scoring_parser.add_argument("--output", required=True)
+    scoring_parser.add_argument("--feature-store-path", default=_DEFAULT_FEATURE_STORE_PATH)
+    scoring_parser.add_argument("--model-store-path", default=_DEFAULT_MODEL_STORE_PATH)
+
+    drift_parser = export_subparsers.add_parser("drift", help="Exporta drift entre versiones")
+    drift_parser.add_argument("--from-version", required=True)
+    drift_parser.add_argument("--to-version", required=True)
+    drift_parser.add_argument("--output", required=True)
+    drift_parser.add_argument("--feature-store-path", default=_DEFAULT_FEATURE_STORE_PATH)
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
@@ -93,6 +132,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             return _handle_score(args)
         if args.command == "drift":
             return _handle_drift(args)
+        if args.command == "export":
+            return _handle_export(args)
         parser.error("Comando no soportado")
     except Exception as exc:  # pragma: no cover - fallback de CLI
         print(f"ERROR: {exc}")
@@ -226,6 +267,93 @@ def _handle_drift(args: argparse.Namespace) -> int:
 def _require_default_model_name(model_name: str) -> None:
     if model_name != _DEFAULT_MODEL_NAME:
         raise ValueError(f"model-name no soportado todavía: '{model_name}' (use '{_DEFAULT_MODEL_NAME}')")
+
+
+def _handle_export(args: argparse.Namespace) -> int:
+    if args.export_command == "features":
+        return _export_features(args)
+    if args.export_command == "metrics":
+        return _export_metrics(args)
+    if args.export_command == "scoring":
+        return _export_scoring(args)
+    if args.export_command == "drift":
+        return _export_drift(args)
+    raise ValueError(f"Subcomando export no soportado: {args.export_command}")
+
+
+def _export_features(args: argparse.Namespace) -> int:
+    feature_store = FeatureStoreService(LocalJsonFeatureStore(args.feature_store_path))
+    rows = feature_store.load_citas_features(args.dataset_version)
+    output = ExportFeaturesCSV().execute(args.dataset_version, rows, args.output)
+    print(output)
+    return 0
+
+
+def _export_metrics(args: argparse.Namespace) -> int:
+    _require_default_model_name(args.model_name)
+    model_store = LocalJsonModelStore(args.model_store_path)
+    _, metadata = model_store.load_model(args.model_name, args.model_version)
+    metrics = _build_metrics_export_data(args, metadata)
+    output = ExportModelMetricsFromMetadataCSV().execute(metrics, args.output)
+    print(output)
+    return 0
+
+
+def _export_scoring(args: argparse.Namespace) -> int:
+    feature_store = FeatureStoreService(LocalJsonFeatureStore(args.feature_store_path))
+    model_store = LocalJsonModelStore(args.model_store_path)
+    score_response = ScoreCitas(feature_store, BaselineCitasPredictor(), model_store=model_store).execute(
+        ScoreCitasRequest(
+            dataset_version=args.dataset_version,
+            predictor_kind=args.predictor,
+            model_version=args.model_version,
+        )
+    )
+    threshold_used = _resolve_threshold_used(args.predictor, args.model_version, model_store)
+    output = ExportScoringCSV().execute(
+        score_response,
+        predictor_kind=args.predictor,
+        model_version=args.model_version,
+        threshold_used=threshold_used,
+        output_path=args.output,
+    )
+    print(output)
+    return 0
+
+
+def _export_drift(args: argparse.Namespace) -> int:
+    feature_store = FeatureStoreService(LocalJsonFeatureStore(args.feature_store_path))
+    report = DriftCitasFeatures(feature_store).execute(
+        DriftCitasFeaturesRequest(from_version=args.from_version, to_version=args.to_version)
+    )
+    output = ExportDriftCSV().execute(report, args.output)
+    print(output)
+    return 0
+
+
+def _build_metrics_export_data(args: argparse.Namespace, metadata: dict) -> ModelMetricsExportData:
+    train_metrics = metadata.get("train_metrics", {})
+    test_metrics = metadata.get("test_metrics", {})
+    return ModelMetricsExportData(
+        model_name=args.model_name,
+        model_version=args.model_version,
+        dataset_version=args.dataset_version,
+        train_accuracy=float(train_metrics.get("accuracy", 0.0)),
+        test_accuracy=float(test_metrics.get("accuracy", 0.0)),
+        train_precision=float(train_metrics.get("precision", 0.0)),
+        test_precision=float(test_metrics.get("precision", 0.0)),
+        train_recall=float(train_metrics.get("recall", 0.0)),
+        test_recall=float(test_metrics.get("recall", 0.0)),
+        calibrated_threshold=float(metadata.get("calibrated_threshold", 0.5)),
+        created_at=str(metadata.get("created_at", "")),
+    )
+
+
+def _resolve_threshold_used(predictor_kind: str, model_version: str, model_store: LocalJsonModelStore) -> float:
+    if predictor_kind == "baseline":
+        return 0.5
+    _, metadata = model_store.load_model(_DEFAULT_MODEL_NAME, model_version)
+    return float(metadata.get("calibrated_threshold", 0.5))
 
 
 if __name__ == "__main__":

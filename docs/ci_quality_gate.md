@@ -45,3 +45,18 @@ Con `PYTHONPATH=.` puedes ejecutar el flujo ML end-to-end sin UI:
    - `PYTHONPATH=. python scripts/ml_cli.py score --dataset-version v_demo --predictor trained --model-version m_demo --feature-store-path ./data/feature_store --model-store-path ./data/model_store --limit 10`
 4. Drift (comparar versiones):
    - `PYTHONPATH=. python scripts/ml_cli.py drift --from-version v_demo --to-version v_demo2 --feature-store-path ./data/feature_store`
+
+## Power BI Integration (CSV Contracts)
+La CLI ML incluye exportación CSV estable (orden fijo de columnas) para integrar dashboards externos (ej. Power BI) sin depender de `pandas`.
+
+Comandos:
+- `PYTHONPATH=. python scripts/ml_cli.py export features --dataset-version v_demo --output ./exports --feature-store-path ./data/feature_store`
+- `PYTHONPATH=. python scripts/ml_cli.py export metrics --model-name citas_nb_v1 --model-version m_demo --dataset-version v_demo --output ./exports --model-store-path ./data/model_store`
+- `PYTHONPATH=. python scripts/ml_cli.py export scoring --dataset-version v_demo --predictor trained --model-version m_demo --output ./exports --feature-store-path ./data/feature_store --model-store-path ./data/model_store`
+- `PYTHONPATH=. python scripts/ml_cli.py export drift --from-version v_demo --to-version v_demo2 --output ./exports --feature-store-path ./data/feature_store`
+
+Archivos generados en `./exports/`:
+- `features_export.csv`
+- `model_metrics_export.csv`
+- `scoring_export.csv`
+- `drift_export.csv`
