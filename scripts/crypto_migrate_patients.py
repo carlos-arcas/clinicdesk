@@ -112,19 +112,28 @@ def _migrate_row(
     nullable_columns: set[str],
     stats: MigrationStats,
 ) -> MigrationStats:
-    updates = _build_backfill_updates(row, protection, con)
-    if not updates and not wipe_legacy:
-        return stats
-    if updates:
-        _execute_update(con, row_id=int(row["id"]), updates=updates)
-        stats = MigrationStats(scanned=stats.scanned, backfilled=stats.backfilled + 1, wiped=stats.wiped)
-    if not wipe_legacy:
-        return stats
-    wipe_updates = _build_wipe_updates(row=row, updates=updates, nullable_columns=nullable_columns)
-    if wipe_updates:
-        _execute_update(con, row_id=int(row["id"]), updates=wipe_updates)
-        stats = MigrationStats(scanned=stats.scanned, backfilled=stats.backfilled, wiped=stats.wiped + 1)
-    return stats
+    row_id = int(row["id"])
+
+    # 1) Backfill: completar *_enc/*_hash si faltan.
+    backfill_updates = _build_backfill_updates(row, protection, con)
+    backfilled = stats.backfilled
+    if backfill_updates:
+        _execute_update(con, row_id=row_id, updates=backfill_updates)
+        backfilled += 1
+
+    # 2) Wipe: limpiar legacy nullable si está habilitado, incluso sin backfill.
+    wiped = stats.wiped
+    if wipe_legacy:
+        wipe_updates = _build_wipe_updates(
+            row=row,
+            backfill_updates=backfill_updates,
+            nullable_columns=nullable_columns,
+        )
+        if wipe_updates:
+            _execute_update(con, row_id=row_id, updates=wipe_updates)
+            wiped += 1
+
+    return MigrationStats(scanned=stats.scanned, backfilled=backfilled, wiped=wiped)
 
 
 def _build_backfill_updates(
@@ -158,16 +167,17 @@ def _legacy_value(con: sqlite3.Connection, *, row: sqlite3.Row, field: str) -> s
 def _build_wipe_updates(
     *,
     row: sqlite3.Row,
-    updates: dict[str, str | None],
+    backfill_updates: dict[str, str | None],
     nullable_columns: set[str],
 ) -> dict[str, None]:
     wipe: dict[str, None] = {}
     for field in _PROTECTED_FIELDS:
         if field not in nullable_columns:
             continue
-        encrypted_now = updates.get(f"{field}_enc") or row[f"{field}_enc"]
-        hashed_now = updates.get(f"{field}_hash") or row[f"{field}_hash"]
-        if encrypted_now and hashed_now and row[field] is not None:
+        encrypted_now = backfill_updates.get(f"{field}_enc") or row[f"{field}_enc"]
+        hashed_now = backfill_updates.get(f"{field}_hash") or row[f"{field}_hash"]
+        legacy_value = row[field]
+        if encrypted_now and hashed_now and legacy_value not in (None, ""):
             wipe[field] = None
     return wipe
 

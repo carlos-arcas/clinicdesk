@@ -5,7 +5,13 @@ from pathlib import Path
 
 import pytest
 
-pytest.importorskip("cryptography", reason="Falta dependencia opcional cryptography en este entorno")
+try:
+    import cryptography  # noqa: F401
+except ImportError as exc:  # pragma: no cover - depende del entorno
+    raise RuntimeError(
+        "La dependencia obligatoria 'cryptography' no está instalada. "
+        "Instálala con: pip install cryptography"
+    ) from exc
 
 from clinicdesk.app.domain.enums import TipoDocumento
 from clinicdesk.app.domain.modelos import Paciente
@@ -68,6 +74,7 @@ def test_backfill_migrates_legacy_patient_and_can_wipe(tmp_path: Path, monkeypat
     assert row["documento_hash"] is not None
 
     stats = _migrate(con, wipe_legacy=True)
+    assert stats.backfilled == 0
     assert stats.wiped == 1
 
     row = con.execute("SELECT * FROM pacientes WHERE id = ?", (paciente_id,)).fetchone()
