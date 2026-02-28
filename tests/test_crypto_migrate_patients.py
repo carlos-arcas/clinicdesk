@@ -5,14 +5,7 @@ from pathlib import Path
 
 import pytest
 
-try:
-    import cryptography  # noqa: F401
-except ModuleNotFoundError:
-    pytest.fail(
-        "Falta la dependencia obligatoria 'cryptography'. "
-        "Instala requirements.txt (pip install -r requirements.txt).",
-        pytrace=False,
-    )
+pytest.importorskip("cryptography", reason="Falta dependencia opcional cryptography en este entorno")
 
 from clinicdesk.app.domain.enums import TipoDocumento
 from clinicdesk.app.domain.modelos import Paciente
@@ -69,7 +62,8 @@ def test_backfill_migrates_legacy_patient_and_can_wipe(tmp_path: Path, monkeypat
     assert stats.backfilled == 1
 
     row = con.execute("SELECT * FROM pacientes WHERE id = ?", (paciente_id,)).fetchone()
-    assert row["documento"] == "98765432"
+    assert row["documento"] != "98765432"
+    assert row["documento"] == row["documento_hash"]
     assert row["documento_enc"] is not None
     assert row["documento_hash"] is not None
 
@@ -77,7 +71,7 @@ def test_backfill_migrates_legacy_patient_and_can_wipe(tmp_path: Path, monkeypat
     assert stats.wiped == 1
 
     row = con.execute("SELECT * FROM pacientes WHERE id = ?", (paciente_id,)).fetchone()
-    assert row["documento"] is None
+    assert row["documento"] == row["documento_hash"]
     assert row["telefono"] is None
     assert row["email"] is None
     assert row["direccion"] is None

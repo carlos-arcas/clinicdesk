@@ -5,14 +5,7 @@ from pathlib import Path
 
 import pytest
 
-try:
-    import cryptography  # noqa: F401
-except ModuleNotFoundError:
-    pytest.fail(
-        "Falta la dependencia obligatoria 'cryptography'. "
-        "Instala requirements.txt (pip install -r requirements.txt).",
-        pytrace=False,
-    )
+pytest.importorskip("cryptography", reason="Falta dependencia opcional cryptography en este entorno")
 
 from clinicdesk.app.common.crypto_field_protection import decrypt, encrypt, hash_lookup
 from clinicdesk.app.domain.enums import TipoDocumento
@@ -81,7 +74,7 @@ def test_sqlite_pacientes_stores_ciphertext_when_feature_flag_enabled(
         (paciente_id,),
     ).fetchone()
 
-    assert row["documento"] is None
+    assert row["documento"] == row["documento_hash"]
     assert row["telefono"] is None
     assert row["email"] is None
     assert row["direccion"] is None

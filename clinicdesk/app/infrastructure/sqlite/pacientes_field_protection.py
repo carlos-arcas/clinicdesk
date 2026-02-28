@@ -32,10 +32,12 @@ class PacientesFieldProtection:
     def encode(self, field: str, value: str | None) -> ProtectedFieldValue:
         if not self.enabled or field not in _PROTECTED or value is None:
             return ProtectedFieldValue(legacy=value, encrypted=None, lookup_hash=None)
+        lookup_hash = hash_lookup(value)
+        legacy_value = lookup_hash if field == "documento" else None
         return ProtectedFieldValue(
-            legacy=None,
+            legacy=legacy_value,
             encrypted=encrypt(value),
-            lookup_hash=hash_lookup(value),
+            lookup_hash=lookup_hash,
         )
 
     def decode(self, field: str, *, legacy: str | None, encrypted: str | None) -> str | None:
