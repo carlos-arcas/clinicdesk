@@ -29,7 +29,8 @@ class PacientesQueries:
         self,
         *,
         activo: Optional[bool] = True,
-        limit: int = 500,
+        limit: Optional[int] = None,
+        offset: int = 0,
     ) -> List[PacienteRow]:
         clauses = []
         params: List[object] = []
@@ -41,8 +42,8 @@ class PacientesQueries:
         sql = "SELECT id, documento, nombre, apellidos, telefono, activo FROM pacientes"
         if clauses:
             sql += " WHERE " + " AND ".join(clauses)
-        sql += " ORDER BY apellidos, nombre LIMIT ?"
-        params.append(int(limit))
+        sql += " ORDER BY apellidos, nombre, id"
+        sql, params = self._with_pagination(sql, params, limit=limit, offset=offset)
 
         try:
             rows = self._conn.execute(sql, params).fetchall()
@@ -67,7 +68,8 @@ class PacientesQueries:
         tipo_documento: Optional[str] = None,
         documento: Optional[str] = None,
         activo: Optional[bool] = True,
-        limit: int = 500,
+        limit: Optional[int] = None,
+        offset: int = 0,
     ) -> List[PacienteRow]:
         texto = normalize_search_text(texto)
         documento = normalize_search_text(documento)
@@ -107,8 +109,8 @@ class PacientesQueries:
         sql = "SELECT id, documento, nombre, apellidos, telefono, activo FROM pacientes"
         if clauses:
             sql += " WHERE " + " AND ".join(clauses)
-        sql += " ORDER BY apellidos, nombre LIMIT ?"
-        params.append(int(limit))
+        sql += " ORDER BY apellidos, nombre, id"
+        sql, params = self._with_pagination(sql, params, limit=limit, offset=offset)
 
         try:
             rows = self._conn.execute(sql, params).fetchall()
@@ -125,3 +127,25 @@ class PacientesQueries:
             )
             for row in rows
         ]
+
+    @staticmethod
+    def _with_pagination(
+        sql: str,
+        params: List[object],
+        *,
+        limit: Optional[int],
+        offset: int,
+    ) -> tuple[str, List[object]]:
+        normalized_offset = max(0, int(offset))
+        if limit is not None:
+            sql += " LIMIT ?"
+            params.append(max(1, int(limit)))
+            if normalized_offset:
+                sql += " OFFSET ?"
+                params.append(normalized_offset)
+            return sql, params
+
+        if normalized_offset:
+            sql += " LIMIT -1 OFFSET ?"
+            params.append(normalized_offset)
+        return sql, params

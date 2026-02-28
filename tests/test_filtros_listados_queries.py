@@ -57,3 +57,69 @@ def test_medicos_queries_agrupa_especialidades_sin_duplicar() -> None:
     assert len(rows) == 2
     assert rows[0].id == 1
     assert rows[0].especialidad == "Cardiología,Pediatría"
+
+
+def test_medicos_queries_aplica_paginacion_y_orden_estable_por_id() -> None:
+    conn = sqlite3.connect(":memory:")
+    conn.row_factory = sqlite3.Row
+    conn.executescript(
+        """
+        CREATE TABLE medicos (
+            id INTEGER,
+            documento TEXT,
+            nombre TEXT,
+            apellidos TEXT,
+            telefono TEXT,
+            num_colegiado TEXT,
+            especialidad TEXT,
+            activo INTEGER
+        );
+
+        INSERT INTO medicos(id, documento, nombre, apellidos, telefono, num_colegiado, especialidad, activo)
+        VALUES
+            (3, 'D3', 'Ariadna', 'Ruiz', '600333333', 'MED-3', 'Cardiología', 1),
+            (1, 'D1', 'Ariadna', 'Ruiz', '600111111', 'MED-1', 'Cardiología', 1),
+            (2, 'D2', 'Ariadna', 'Ruiz', '600222222', 'MED-2', 'Cardiología', 1);
+        """
+    )
+
+    queries = MedicosQueries(conn)
+
+    first_page = queries.list_all(activo=True, limit=2, offset=0)
+    second_page = queries.list_all(activo=True, limit=2, offset=2)
+
+    assert [row.id for row in first_page] == [1, 2]
+    assert [row.id for row in second_page] == [3]
+
+
+def test_pacientes_queries_aplica_paginacion_y_orden_estable_por_id() -> None:
+    conn = sqlite3.connect(":memory:")
+    conn.row_factory = sqlite3.Row
+    conn.executescript(
+        """
+        CREATE TABLE pacientes (
+            id INTEGER,
+            tipo_documento TEXT,
+            documento TEXT,
+            nombre TEXT,
+            apellidos TEXT,
+            telefono TEXT,
+            fecha_nacimiento TEXT,
+            activo INTEGER
+        );
+
+        INSERT INTO pacientes(id, tipo_documento, documento, nombre, apellidos, telefono, fecha_nacimiento, activo)
+        VALUES
+            (3, 'DNI', 'P3', 'Claudia', 'Soto', '600333333', '1990-01-01', 1),
+            (1, 'DNI', 'P1', 'Claudia', 'Soto', '600111111', '1990-01-01', 1),
+            (2, 'DNI', 'P2', 'Claudia', 'Soto', '600222222', '1990-01-01', 1);
+        """
+    )
+
+    queries = PacientesQueries(conn)
+
+    first_page = queries.list_all(activo=True, limit=2, offset=0)
+    second_page = queries.list_all(activo=True, limit=2, offset=2)
+
+    assert [row.id for row in first_page] == [1, 2]
+    assert [row.id for row in second_page] == [3]

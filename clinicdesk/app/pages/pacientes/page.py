@@ -29,10 +29,14 @@ from clinicdesk.app.ui.error_presenter import present_error
 
 
 class PagePacientes(QWidget):
+    _PAGE_SIZE = 100
+
     def __init__(self, container: AppContainer, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
         self._container = container
         self._queries = PacientesQueries(container.connection)
+        self._offset = 0
+        self._has_next_page = False
 
         self._build_ui()
         self._connect_signals()
@@ -56,6 +60,18 @@ class PagePacientes(QWidget):
         actions.addWidget(self.btn_csv)
         actions.addStretch(1)
 
+        pagination = QHBoxLayout()
+        self.btn_prev = QPushButton("← Anterior")
+        self.btn_next = QPushButton("Siguiente →")
+        self.lbl_page = QLineEdit()
+        self.lbl_page.setReadOnly(True)
+        self.lbl_page.setFrame(False)
+        self.lbl_page.setAlignment(Qt.AlignCenter)
+        pagination.addStretch(1)
+        pagination.addWidget(self.btn_prev)
+        pagination.addWidget(self.lbl_page)
+        pagination.addWidget(self.btn_next)
+
         self.table = QTableWidget(0, 5)
         self.table.setHorizontalHeaderLabels(
             ["ID", "Documento", "Nombre", "Teléfono", "Activo"]
@@ -66,10 +82,11 @@ class PagePacientes(QWidget):
 
         root.addWidget(self.filtros)
         root.addLayout(actions)
+        root.addLayout(pagination)
         root.addWidget(self.table)
 
     def _connect_signals(self) -> None:
-        self.filtros.filtros_cambiados.connect(self._refresh)
+        self.filtros.filtros_cambiados.connect(self._on_filters_changed)
         self.table.itemSelectionChanged.connect(self._update_buttons)
         self.table.itemDoubleClicked.connect(lambda _: self._on_editar())
         self.table.customContextMenuRequested.connect(self._open_context_menu)
@@ -77,6 +94,8 @@ class PagePacientes(QWidget):
         self.btn_editar.clicked.connect(self._on_editar)
         self.btn_desactivar.clicked.connect(self._on_desactivar)
         self.btn_csv.clicked.connect(self._open_csv_dialog)
+        self.btn_prev.clicked.connect(self._on_prev_page)
+        self.btn_next.clicked.connect(self._on_next_page)
 
     def on_show(self) -> None:
         self._refresh()
@@ -84,17 +103,51 @@ class PagePacientes(QWidget):
     def _refresh(self) -> None:
         selected_id = self._selected_id()
         activo = self.filtros.activo()
-        base_rows = self._queries.list_all(activo=activo)
+        limit = self._PAGE_SIZE + 1
         texto = normalize_search_text(self.filtros.texto())
         if not has_search_values(texto):
-            rows = base_rows
+            fetched_rows = self._queries.list_all(activo=activo, limit=limit, offset=self._offset)
         else:
-            rows = self._queries.search(texto=texto, activo=activo)
-        self.filtros.set_contador(len(rows), len(base_rows))
+            fetched_rows = self._queries.search(
+                texto=texto,
+                activo=activo,
+                limit=limit,
+                offset=self._offset,
+            )
+        self._has_next_page = len(fetched_rows) > self._PAGE_SIZE
+        rows = fetched_rows[: self._PAGE_SIZE]
+        shown_until = self._offset + len(rows)
+        total_hint = shown_until + (1 if self._has_next_page else 0)
+        self.filtros.set_contador(shown_until, total_hint)
         self._render(rows)
+        self._update_pagination_controls(len(rows))
         if selected_id is not None:
             self._select_by_id(selected_id)
         self._update_buttons()
+
+    def _on_filters_changed(self) -> None:
+        self._offset = 0
+        self._refresh()
+
+    def _on_prev_page(self) -> None:
+        if self._offset == 0:
+            return
+        self._offset = max(0, self._offset - self._PAGE_SIZE)
+        self._refresh()
+
+    def _on_next_page(self) -> None:
+        if not self._has_next_page:
+            return
+        self._offset += self._PAGE_SIZE
+        self._refresh()
+
+    def _update_pagination_controls(self, current_size: int) -> None:
+        page_number = (self._offset // self._PAGE_SIZE) + 1
+        start = self._offset + 1 if current_size else 0
+        end = self._offset + current_size
+        self.lbl_page.setText(f"Página {page_number} · {start}-{end}")
+        self.btn_prev.setEnabled(self._offset > 0)
+        self.btn_next.setEnabled(self._has_next_page)
 
     def _render(self, rows: list[PacienteRow]) -> None:
         self.table.setRowCount(0)
