@@ -14,6 +14,7 @@ from clinicdesk.app.pages.medicamentos.register import register as register_medi
 from clinicdesk.app.pages.materiales.register import register as register_materiales
 from clinicdesk.app.pages.recetas.register import register as register_recetas
 from clinicdesk.app.pages.dispensaciones.register import register as register_dispensaciones
+from clinicdesk.app.pages.demo_ml.register import register as register_demo_ml
 from clinicdesk.app.pages.pages_registry import PageRegistry
 
 
@@ -34,5 +35,6 @@ def get_pages(container):
     register_turnos(registry, container)
     register_ausencias(registry, container)
     register_incidencias(registry, container)
+    register_demo_ml(registry, container)
 
     return registry.list()

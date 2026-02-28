@@ -255,3 +255,18 @@ Formato por entrada:
   - El comando `seed-demo` inserta incrementalmente (no limpia tablas); ejecuciones repetidas sobre la misma BD pueden acumular datos demo.
 - **Qué queda**:
   - Evaluar comando opcional de limpieza/reset para escenarios de demo repetibles en la misma base persistente.
+
+- **DATE/TIME**: 2026-02-28 06:10 UTC
+- **Paso**: Paso 15: UI Demo & ML
+- **Qué se hizo**:
+  - Se creó `DemoMLFacade` en application para orquestar seed, listados demo, build-features, train, score, drift y export CSV sin exponer detalles de infraestructura a la UI.
+  - Se añadieron read models tipados para tablas de médicos, pacientes, citas e incidencias consumidas por la pantalla Demo.
+  - Se incorporó gateway SQLite dedicado (`SqliteDemoMLReadGateway`) para consultas de lectura de demo, inyectado desde `AppContainer`.
+  - Se añadió la página UI `Demo & ML` con panel de seed, tabs de exploración con búsqueda, acciones ML y área de resultados/logs.
+  - Las operaciones potencialmente largas se ejecutan en background con `QThread` para evitar congelar la ventana principal.
+  - Se añadieron tests puros de facade con fakes para seed, score y export.
+- **Decisiones**:
+  - Se mantuvo el facade deliberadamente thin: orquesta use cases existentes y solo adapta output a contratos de UI.
+  - Export en UI reutiliza respuestas en memoria de train/score/drift para evitar acoplar pantalla a stores concretos.
+- **Limitaciones**:
+  - La UI de escritorio no cuenta con test automatizado visual; se cubrió core/facade por tests de dominio/application.
