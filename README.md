@@ -1,5 +1,7 @@
 # ClinicDesk ML Architecture Case Study
 
+[![Quality Gate](https://github.com/clinicdesk/clinicdesk/actions/workflows/quality_gate.yml/badge.svg)](https://github.com/clinicdesk/clinicdesk/actions/workflows/quality_gate.yml)
+
 Arquitectura ML reproducible para predicción de riesgo en citas clínicas, con gobernanza de artefactos y exportación de datos estable para consumo en Power BI.
 
 ## 🎯 Problema
