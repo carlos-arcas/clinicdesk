@@ -100,6 +100,7 @@ def _apply_schema(con: sqlite3.Connection) -> None:
     sql = path.read_text(encoding="utf-8")
     con.executescript(sql)
     _migrate_stock_columns(con)
+    _migrate_pacientes_field_protection(con)
     con.commit()
 
 
@@ -126,6 +127,33 @@ def _ensure_stock_column(con: sqlite3.Connection, *, table: str) -> None:
     con.execute(
         f"UPDATE {table} SET cantidad_en_almacen = cantidad_almacen"
     )
+
+
+def _migrate_pacientes_field_protection(con: sqlite3.Connection) -> None:
+    for column in (
+        "documento_enc",
+        "email_enc",
+        "telefono_enc",
+        "direccion_enc",
+        "documento_hash",
+        "email_hash",
+        "telefono_hash",
+    ):
+        _ensure_nullable_text_column(con, table="pacientes", column=column)
+    con.execute("CREATE INDEX IF NOT EXISTS idx_pacientes_documento_hash ON pacientes(documento_hash)")
+    con.execute("CREATE INDEX IF NOT EXISTS idx_pacientes_email_hash ON pacientes(email_hash)")
+    con.execute("CREATE INDEX IF NOT EXISTS idx_pacientes_telefono_hash ON pacientes(telefono_hash)")
+    con.execute(
+        "CREATE UNIQUE INDEX IF NOT EXISTS idx_pacientes_tipo_documento_hash_unique "
+        "ON pacientes(tipo_documento, documento_hash) WHERE documento_hash IS NOT NULL"
+    )
+
+
+def _ensure_nullable_text_column(con: sqlite3.Connection, *, table: str, column: str) -> None:
+    columns = {row["name"] for row in con.execute(f"PRAGMA table_info({table})").fetchall()}
+    if column in columns:
+        return
+    con.execute(f"ALTER TABLE {table} ADD COLUMN {column} TEXT")
 
 
 # ---------------------------------------------------------------------

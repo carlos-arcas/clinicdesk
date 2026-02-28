@@ -86,6 +86,7 @@ def apply_schema(con: sqlite3.Connection, schema_path: Path) -> None:
     _migrate_stock_columns(con)
     _migrate_active_columns(con)
     _migrate_demo_columns(con)
+    _migrate_pacientes_field_protection(con)
     con.commit()
 
 
@@ -151,6 +152,23 @@ def _migrate_demo_columns(con: sqlite3.Connection) -> None:
     _ensure_text_column(con, table="movimientos_materiales", column="referencia", default="")
 
 
+def _migrate_pacientes_field_protection(con: sqlite3.Connection) -> None:
+    _ensure_nullable_text_column(con, table="pacientes", column="documento_enc")
+    _ensure_nullable_text_column(con, table="pacientes", column="email_enc")
+    _ensure_nullable_text_column(con, table="pacientes", column="telefono_enc")
+    _ensure_nullable_text_column(con, table="pacientes", column="direccion_enc")
+    _ensure_nullable_text_column(con, table="pacientes", column="documento_hash")
+    _ensure_nullable_text_column(con, table="pacientes", column="email_hash")
+    _ensure_nullable_text_column(con, table="pacientes", column="telefono_hash")
+    con.execute("CREATE INDEX IF NOT EXISTS idx_pacientes_documento_hash ON pacientes(documento_hash)")
+    con.execute("CREATE INDEX IF NOT EXISTS idx_pacientes_email_hash ON pacientes(email_hash)")
+    con.execute("CREATE INDEX IF NOT EXISTS idx_pacientes_telefono_hash ON pacientes(telefono_hash)")
+    con.execute(
+        "CREATE UNIQUE INDEX IF NOT EXISTS idx_pacientes_tipo_documento_hash_unique "
+        "ON pacientes(tipo_documento, documento_hash) WHERE documento_hash IS NOT NULL"
+    )
+
+
 def _ensure_text_column(con: sqlite3.Connection, *, table: str, column: str, default: str) -> None:
     columns = {row["name"] for row in con.execute(f"PRAGMA table_info({table})").fetchall()}
     if column in columns:
@@ -164,6 +182,13 @@ def _ensure_int_column(con: sqlite3.Connection, *, table: str, column: str, defa
     if column in columns:
         return
     con.execute(f"ALTER TABLE {table} ADD COLUMN {column} INTEGER NOT NULL DEFAULT {int(default)}")
+
+
+def _ensure_nullable_text_column(con: sqlite3.Connection, *, table: str, column: str) -> None:
+    columns = {row["name"] for row in con.execute(f"PRAGMA table_info({table})").fetchall()}
+    if column in columns:
+        return
+    con.execute(f"ALTER TABLE {table} ADD COLUMN {column} TEXT")
 
 
 def bootstrap(

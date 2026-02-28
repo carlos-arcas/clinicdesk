@@ -67,7 +67,7 @@ Fuente principal: `clinicdesk/app/infrastructure/sqlite/schema.sql`.
 | Timestamps (`fecha`, `fecha_hora`, `inicio`, `fin`) | **Claro** (fase 1) | Sin cambios iniciales | Críticos para agenda/reporting; evaluar tokenización temporal futura |
 
 ## Estado actual vs política
-- Actualmente el esquema guarda los campos sensibles **en claro**.
+- Estado incremental (actual): `pacientes.documento/email/telefono/direccion` ya soporta cifrado por campo con feature-flag `CLINICDESK_FIELD_CRYPTO` y hashes de lookup exacto.
 - Ya existen transformaciones de higiene útiles para la política:
   - normalización de strings opcionales por `strip`;
   - validación básica de teléfono/email;
@@ -80,16 +80,16 @@ Estas transformaciones no cifran ni hashean, pero son precondiciones para que ha
 ## 3) Checklist accionable para el PR de cifrado real
 
 ## Diseño y migración
-- [ ] Definir módulo `security/field_protection.py` con interfaz estable (`encrypt/decrypt/hash_lookup`).
-- [ ] Introducir secret management mínimo por entorno (`CLINICDESK_PEPPER`, `CLINICDESK_FIELD_KEY`).
-- [ ] Crear migraciones SQL no destructivas: columnas `*_hash`, `*_enc`, `*_last4`.
+- [x] Definido módulo `clinicdesk/app/common/crypto_field_protection.py` con `encrypt/decrypt/hash_lookup`.
+- [x] Secret management por entorno: `CLINICDESK_FIELD_KEY`, `CLINICDESK_FIELD_HASH_KEY` (nunca en repo).
+- [x] Migración incremental no destructiva para `pacientes`: `documento/email/telefono/direccion` con columnas `*_enc` y `*_hash` requeridas para lookup exacto.
 - [ ] Backfill incremental y reversible (batch + checkpoints).
 
 ## Repositorios y casos de uso
-- [ ] Canonicalizar dato antes de hash/cifrado (trim, casefold, normalización local definida).
-- [ ] Escribir en dual mode (claro + protegido) durante transición.
-- [ ] Leer preferentemente de protegido y fallback controlado a claro.
-- [ ] Añadir feature flag `SECURITY_FIELD_PROTECTION_ENABLED`.
+- [x] Canonicalización antes de hash (trim/casefold/NFKC y normalización de teléfono para lookup).
+- [x] Escritura dual de columnas protegidas (`*_enc` + `*_hash`) con fallback legacy por feature-flag.
+- [x] Lectura preferente de `*_enc` cuando el flag está activo; fallback a columnas legacy si no.
+- [x] Feature-flag activo: `CLINICDESK_FIELD_CRYPTO=0/1`.
 
 ## Seguridad operativa
 - [ ] Prohibir logging de payloads sensibles en repositorios/casos de uso.
@@ -108,3 +108,8 @@ Estas transformaciones no cifran ni hashean, pero son precondiciones para que ha
 - No se introduce SQLCipher todavía.
 - No se agregan dependencias criptográficas pesadas en este PR.
 - Este PR documenta política y valida precondiciones de transformación ya existentes para facilitar la implementación del cifrado real en el siguiente ciclo.
+
+
+## 5) Limitaciones conocidas de esta fase incremental
+- Búsqueda libre (`LIKE`) se mantiene sin romper, pero cuando `CLINICDESK_FIELD_CRYPTO=1` pierde coincidencia parcial sobre `documento/email/telefono` porque esas columnas quedan sin plaintext.
+- Búsquedas exactas de `documento/email/telefono` migran a `*_hash` para mantener funcionalidad sin exponer PII en reposo.

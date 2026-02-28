@@ -15,6 +15,13 @@ CREATE TABLE IF NOT EXISTS pacientes (
     email TEXT,
     fecha_nacimiento TEXT, -- ISO date: YYYY-MM-DD
     direccion TEXT,
+    documento_enc TEXT,
+    email_enc TEXT,
+    telefono_enc TEXT,
+    direccion_enc TEXT,
+    documento_hash TEXT,
+    email_hash TEXT,
+    telefono_hash TEXT,
     activo INTEGER NOT NULL DEFAULT 1,
 
     num_historia TEXT,
@@ -26,6 +33,12 @@ CREATE TABLE IF NOT EXISTS pacientes (
 
 CREATE INDEX IF NOT EXISTS idx_pacientes_nombre_apellidos ON pacientes(nombre, apellidos);
 CREATE INDEX IF NOT EXISTS idx_pacientes_documento ON pacientes(documento);
+CREATE INDEX IF NOT EXISTS idx_pacientes_documento_hash ON pacientes(documento_hash);
+CREATE INDEX IF NOT EXISTS idx_pacientes_email_hash ON pacientes(email_hash);
+CREATE INDEX IF NOT EXISTS idx_pacientes_telefono_hash ON pacientes(telefono_hash);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_pacientes_tipo_documento_hash_unique
+ON pacientes(tipo_documento, documento_hash)
+WHERE documento_hash IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_pacientes_activo ON pacientes(activo);
 
 
