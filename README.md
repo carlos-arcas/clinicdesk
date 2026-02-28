@@ -132,6 +132,37 @@ La app incluye la pantalla **Demo & ML** en el menú lateral para ejecutar el fl
 
 > La UI solo consume `application.services.DemoMLFacade`; no accede a SQLite ni stores desde la capa de presentación.
 
+## Demo en 60s (Paso 16: One-click)
+
+En **Demo & ML** ahora existe el botón **Run Full Demo** que ejecuta en un click:
+`seed -> build-features -> train -> score -> drift -> export`.
+
+1. Ajusta seed/volúmenes/rango y carpeta `Export dir`.
+2. Pulsa **Run Full Demo**.
+3. Revisa la barra de progreso por pasos y logs en tiempo real.
+4. Si necesitas abortar, usa **Cancel** (cancelación segura).
+5. Al finalizar verás `dataset_version`, `model_version`, rutas CSV y lista de comandos CLI equivalentes (botón **Copy CLI commands**).
+
+CSV listos para Power BI:
+- `features_export.csv`
+- `model_metrics_export.csv`
+- `scoring_export.csv`
+- `drift_export.csv`
+
+Comandos CLI equivalentes (referencia):
+
+```bash
+PYTHONPATH=. python scripts/ml_cli.py seed-demo --seed 123 --doctors 10 --patients 80 --appointments 300 --from 2026-01-01 --to 2026-02-28 --incidence-rate 0.15
+PYTHONPATH=. python scripts/ml_cli.py build-features --version demo_ui_<timestamp> --from 2026-01-01 --to 2026-02-28 --store-path ./data/feature_store
+PYTHONPATH=. python scripts/ml_cli.py train --dataset-version demo_ui_<timestamp> --model-version m_demo_ui_<timestamp> --feature-store-path ./data/feature_store --model-store-path ./data/model_store
+PYTHONPATH=. python scripts/ml_cli.py score --dataset-version demo_ui_<timestamp> --predictor trained --model-version m_demo_ui_<timestamp> --feature-store-path ./data/feature_store --model-store-path ./data/model_store --limit 20
+PYTHONPATH=. python scripts/ml_cli.py drift --from-version <prev_or_same> --to-version demo_ui_<timestamp> --feature-store-path ./data/feature_store
+PYTHONPATH=. python scripts/ml_cli.py export features --dataset-version demo_ui_<timestamp> --output ./exports --feature-store-path ./data/feature_store
+PYTHONPATH=. python scripts/ml_cli.py export metrics --model-name citas_nb_v1 --model-version m_demo_ui_<timestamp> --dataset-version demo_ui_<timestamp> --output ./exports --model-store-path ./data/model_store
+PYTHONPATH=. python scripts/ml_cli.py export scoring --dataset-version demo_ui_<timestamp> --predictor trained --model-version m_demo_ui_<timestamp> --output ./exports --feature-store-path ./data/feature_store --model-store-path ./data/model_store
+PYTHONPATH=. python scripts/ml_cli.py export drift --from-version <prev_or_same> --to-version demo_ui_<timestamp> --output ./exports --feature-store-path ./data/feature_store
+```
+
 ### Demo rápida por CLI (alternativa)
 
 ```bash

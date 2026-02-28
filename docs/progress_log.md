@@ -270,3 +270,17 @@ Formato por entrada:
   - Export en UI reutiliza respuestas en memoria de train/score/drift para evitar acoplar pantalla a stores concretos.
 - **Limitaciones**:
   - La UI de escritorio no cuenta con test automatizado visual; se cubrió core/facade por tests de dominio/application.
+
+- **DATE/TIME**: 2026-02-28 07:10 UTC
+- **Paso**: Paso 16: One-click demo runner + progress/cancel
+- **Qué se hizo**:
+  - Se añadió `DemoRunService` en application para orquestar el flujo completo `seed -> build_features -> train -> score -> drift -> export` con contratos explícitos (`DemoRunConfig`, `DemoRunStepResult`, `DemoRunResult`) y `CancelToken` thread-safe.
+  - El servicio reporta progreso por pasos, registra resultado detallado por etapa y entrega comandos CLI equivalentes para reproducibilidad.
+  - Se incorporó `Run Full Demo` en la UI Demo & ML con barra de progreso, botón `Cancel`, resumen final, rutas de export y lista copiable de comandos CLI.
+  - Se persistieron en `QSettings` los valores `last_dataset_version`, `last_model_version`, `last_export_dir` y `prev_dataset_version` para ejecutar drift incremental entre corridas.
+  - Se agregaron tests core puros en `tests/test_demo_run_service.py` con `FakeDemoMLFacade` validando orden de pasos, progresión monotónica, cancelación, comandos CLI y 4 CSV de export.
+- **Decisiones**:
+  - La orquestación vive en `application/services` para mantener la UI sin lógica de negocio.
+  - Drift usa `prev_dataset_version` de settings cuando existe; en caso contrario usa self-to para que la demo nunca falle por configuración inicial.
+- **Limitaciones**:
+  - La UI de escritorio se valida manualmente; no hay suite visual automatizada para PySide6.
