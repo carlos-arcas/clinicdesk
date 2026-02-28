@@ -364,3 +364,18 @@ Formato por entrada:
   - Se añadieron logs estructurados `screen_data_loaded module=X count=N db_path=...` en pantallas críticas para diagnóstico de módulos vacíos.
   - Se incorporó empty state con botón “Generar datos demo” en módulos de farmacia/recetas/medicamentos/materiales/dispensaciones.
   - Se agregó test core de no regresión para comprobar que tras seed las consultas clave devuelven filas > 0.
+
+- **DATE/TIME**: 2026-02-28 13:40 UTC
+- **Paso**: Paso 20: Analítica no técnica + progreso/cancel reutilizable
+- **Qué se hizo**:
+  - Se creó `AnalyticsWorkflowService` en application para orquestar flujo guiado (`prepare_analysis`, `train`, `score`, `drift`, `export_all`, `run_full_workflow`) sobre `DemoMLFacade`.
+  - Se añadió `ProgressDialog` reutilizable con barra de progreso, pasos con estado, cancelación y mini-log filtrado por `run_id`.
+  - Se actualizó `LogBufferHandler` para soportar snapshot compartido y filtro por `run_id`, habilitando trazabilidad de ejecución en UI.
+  - Se rediseñó la pantalla como **Analítica (Demo)** con lenguaje no técnico, wizard de 4 pasos, botón **Ejecutar Demo Completa** y panel **Avanzado** colapsado por defecto.
+  - Se incorporó persistencia de “Último análisis” por `QSettings` (`last_run_ts`, `last_export_dir`, `last_summary_text`, `last_internal_versions`).
+  - Se añadieron tests core de workflow con fakes: resultado completo con exports, cancel token y drift opcional.
+- **Decisiones**:
+  - Orquestación de negocio en capa application, manteniendo UI como composición/presentación sin mezclar reglas de flujo.
+  - Terminología orientada a negocio para reducir carga técnica en demos ejecutivas.
+- **Riesgos**:
+  - La validación visual del diálogo PySide6 sigue siendo manual (sin test UI automatizado en este paso).
