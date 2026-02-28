@@ -526,3 +526,22 @@ Formato por entrada:
   - Se añadió indicador `Cargando...` + refresco programado para evitar bloqueo percibido en UI durante recarga.
 - **Riesgos / notas**:
   - `quality_gate.py --strict` continúa fallando por deuda estructural preexistente fuera de este alcance (`demo_data_seeder.py`, `repos_pacientes.py`).
+
+- **DATE/TIME**: 2026-02-28 12:35 UTC
+- **Paso**: PR quirúrgico — strict green structural gate
+- **Qué se hizo**:
+  - Se ejecutó `PYTHONPATH=. python scripts/quality_gate.py --strict` para identificar offenders activos del strict gate y confirmar cobertura core.
+  - Se refactorizó `demo_data_seeder` separando mapeadores de DTO->dominio y persistencia por lotes en módulos dedicados, manteniendo la API pública de `DemoDataSeeder.persist`.
+  - Se redujo la complejidad estructural de `PacientesRepository`, `PersonalRepository` y `RecetasRepository` mediante delegación explícita a componentes de consultas/CSV, sin cambiar contratos públicos ni semántica.
+  - Se regeneró `docs/quality_report.md` con strict en verde.
+- **Decisiones**:
+  - Priorizar refactor mecánico por composición/delegación sobre allowlist nueva en core.
+  - Mantener SQL, nombres de métodos públicos y comportamiento funcional para minimizar riesgo regresivo.
+  - Extraer lógica repetitiva de filtros/consultas a componentes privados por contexto de repositorio.
+  - No tocar UI; el arreglo se restringe a infraestructura SQLite y seeding.
+  - Conservar logging estructurado existente en flujo de seed.
+  - Cerrar el PR solo con strict green verificable localmente.
+- **Riesgos**:
+  - Se mantiene deuda no bloqueante en hotspots allowlisted de tooling (`scripts/`).
+- **Qué queda**:
+  - Before/after strict: `violations_count` 5 -> 0, `blocking_violations_count` 5 -> 0, `top_hotspots` 3 -> 2 (allowlisted), con `max_hotspots = 0` satisfecho.
