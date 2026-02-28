@@ -187,3 +187,13 @@ Ejemplo:
 ```bash
 CLINICDESK_DB_PATH=./data/clinicdesk.db PYTHONPATH=. python scripts/ml_cli.py seed-demo --appointments 5000 --batch-size 500
 ```
+
+## Demo para usuarios no técnicos
+
+Para poblar la aplicación con datos realistas de demostración (incluyendo farmacia, recetas/líneas, dispensaciones, materiales, movimientos, turnos y ausencias):
+
+```bash
+python -m scripts.ml_cli seed-demo --reset --meds 200 --materials 120 --recipes 400 --movements 2000 --turns-months 2 --absences 60
+```
+
+Después del seed, las pantallas muestran datos visibles y, si alguna queda vacía, la UI ofrece estado vacío con botón **"Generar datos demo"**.

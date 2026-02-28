@@ -267,6 +267,7 @@ CREATE TABLE IF NOT EXISTS recetas (
     paciente_id INTEGER NOT NULL,
     medico_id INTEGER NOT NULL,
     fecha TEXT NOT NULL, -- ISO datetime
+    estado TEXT NOT NULL DEFAULT 'ACTIVA',
     observaciones TEXT,
     activo INTEGER NOT NULL DEFAULT 1,
 
@@ -285,6 +286,9 @@ CREATE TABLE IF NOT EXISTS receta_lineas (
     medicamento_id INTEGER NOT NULL,
 
     dosis TEXT NOT NULL,
+    cantidad INTEGER NOT NULL DEFAULT 1,
+    pendiente INTEGER NOT NULL DEFAULT 1,
+    estado TEXT NOT NULL DEFAULT 'PENDIENTE',
     duracion_dias INTEGER,
     instrucciones TEXT,
     activo INTEGER NOT NULL DEFAULT 1,
@@ -344,6 +348,7 @@ CREATE TABLE IF NOT EXISTS movimientos_medicamentos (
     tipo TEXT NOT NULL,       -- ENTRADA / SALIDA / AJUSTE
     cantidad INTEGER NOT NULL,
     motivo TEXT,
+    referencia TEXT,
     activo INTEGER NOT NULL DEFAULT 1,
 
     receta_id INTEGER,
@@ -371,6 +376,7 @@ CREATE TABLE IF NOT EXISTS movimientos_materiales (
     tipo TEXT NOT NULL,
     cantidad INTEGER NOT NULL,
     motivo TEXT,
+    referencia TEXT,
     activo INTEGER NOT NULL DEFAULT 1,
 
     personal_id INTEGER,

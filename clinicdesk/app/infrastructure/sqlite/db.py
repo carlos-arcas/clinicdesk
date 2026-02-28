@@ -80,6 +80,7 @@ def apply_schema(con: sqlite3.Connection, schema_path: Path) -> None:
     con.executescript(sql)
     _migrate_stock_columns(con)
     _migrate_active_columns(con)
+    _migrate_demo_columns(con)
     con.commit()
 
 
@@ -134,6 +135,30 @@ def _ensure_flag_column(con: sqlite3.Connection, *, table: str, column: str) -> 
     con.execute(
         f"UPDATE {table} SET {column} = 1"
     )
+
+
+def _migrate_demo_columns(con: sqlite3.Connection) -> None:
+    _ensure_text_column(con, table="recetas", column="estado", default="ACTIVA")
+    _ensure_int_column(con, table="receta_lineas", column="cantidad", default=1)
+    _ensure_int_column(con, table="receta_lineas", column="pendiente", default=1)
+    _ensure_text_column(con, table="receta_lineas", column="estado", default="PENDIENTE")
+    _ensure_text_column(con, table="movimientos_medicamentos", column="referencia", default="")
+    _ensure_text_column(con, table="movimientos_materiales", column="referencia", default="")
+
+
+def _ensure_text_column(con: sqlite3.Connection, *, table: str, column: str, default: str) -> None:
+    columns = {row["name"] for row in con.execute(f"PRAGMA table_info({table})").fetchall()}
+    if column in columns:
+        return
+    escaped = default.replace("'", "''")
+    con.execute(f"ALTER TABLE {table} ADD COLUMN {column} TEXT NOT NULL DEFAULT '{escaped}'")
+
+
+def _ensure_int_column(con: sqlite3.Connection, *, table: str, column: str, default: int) -> None:
+    columns = {row["name"] for row in con.execute(f"PRAGMA table_info({table})").fetchall()}
+    if column in columns:
+        return
+    con.execute(f"ALTER TABLE {table} ADD COLUMN {column} INTEGER NOT NULL DEFAULT {int(default)}")
 
 
 def bootstrap(

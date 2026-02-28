@@ -38,6 +38,8 @@ from clinicdesk.app.application.usecases.ajustar_stock_material import (
     PendingWarningsError,
 )
 from clinicdesk.app.ui.error_presenter import present_error
+from clinicdesk.app.pages.shared.screen_data_log import log_screen_data_loaded
+from clinicdesk.app.application.usecases.seed_demo_data import SeedDemoDataRequest
 
 
 class PageMateriales(QWidget):
@@ -92,6 +94,10 @@ class PageMateriales(QWidget):
             ["Fecha", "Tipo", "Cantidad", "Personal", "Motivo"]
         )
         self.table_movs.horizontalHeader().setStretchLastSection(True)
+        self.lbl_empty = QLabel("No hay datos cargados. Pulsa ‘Generar datos demo’.")
+        self.btn_seed_demo = QPushButton("Generar datos demo")
+        self.lbl_empty.setVisible(False)
+        self.btn_seed_demo.setVisible(False)
 
         root.addLayout(filters)
         root.addLayout(actions)
@@ -99,6 +105,8 @@ class PageMateriales(QWidget):
         root.addWidget(self.table)
         root.addWidget(QLabel("Movimientos"))
         root.addWidget(self.table_movs)
+        root.addWidget(self.lbl_empty)
+        root.addWidget(self.btn_seed_demo)
 
     def _connect_signals(self) -> None:
         self.btn_buscar.clicked.connect(self._refresh)
@@ -109,6 +117,7 @@ class PageMateriales(QWidget):
         self.btn_editar.clicked.connect(self._on_editar)
         self.btn_desactivar.clicked.connect(self._on_desactivar)
         self.btn_ajustar.clicked.connect(self._on_ajustar_stock)
+        self.btn_seed_demo.clicked.connect(self._on_seed_demo)
 
     def on_show(self) -> None:
         self._refresh()
@@ -122,6 +131,10 @@ class PageMateriales(QWidget):
             rows = self._queries.search(texto=texto, activo=activo)
         self._render(rows)
         self._render_movimientos([])
+        log_screen_data_loaded(self._container.connection, "materiales", len(rows))
+        has_data = bool(rows)
+        self.lbl_empty.setVisible(not has_data)
+        self.btn_seed_demo.setVisible(not has_data)
 
     def _render(self, rows: list[MaterialRow]) -> None:
         self.table.setRowCount(0)
@@ -298,6 +311,10 @@ class PageMateriales(QWidget):
             self._on_desactivar()
         elif action == action_adjust:
             self._on_ajustar_stock()
+
+    def _on_seed_demo(self) -> None:
+        self._container.demo_ml_facade.seed_demo(SeedDemoDataRequest())
+        self._refresh()
 
 
 if __name__ == "__main__":

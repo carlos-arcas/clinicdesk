@@ -353,3 +353,14 @@ Formato por entrada:
   - Precedencia explícita `arg > env > default` para que scripts/batch puedan fijar ruta inequívoca en ejecución.
 - **Qué queda**:
   - Si se desea, unificar también `launch.bat/launcher.bat` legacy para que redirijan internamente a `START_APP.bat`.
+
+- **DATE/TIME**: 2026-02-28 12:40 UTC
+- **Paso**: Paso 19: Seed completo + UX no-tech + progress dialogs
+- **Qué se hizo**:
+  - Se extendió `SeedDemoDataRequest`/`Response` para cubrir medicamentos, materiales, recetas, líneas, dispensaciones, movimientos, turnos y ausencias.
+  - `DemoDataSeeder` ahora siembra inventario, recetas/líneas, dispensaciones, movimientos de farmacia/material, calendario por meses y ausencias, respetando FKs y orden de inserción.
+  - Se añadieron argumentos CLI para `seed-demo`: `--meds`, `--materials`, `--recipes`, `--movements`, `--turns-months`, `--absences`.
+  - Se corrigió desalineación de esquema con columnas requeridas por consultas/UI (`recetas.estado`, `receta_lineas.cantidad/pendiente/estado`, `movimientos*.referencia`) + migraciones idempotentes.
+  - Se añadieron logs estructurados `screen_data_loaded module=X count=N db_path=...` en pantallas críticas para diagnóstico de módulos vacíos.
+  - Se incorporó empty state con botón “Generar datos demo” en módulos de farmacia/recetas/medicamentos/materiales/dispensaciones.
+  - Se agregó test core de no regresión para comprobar que tras seed las consultas clave devuelven filas > 0.

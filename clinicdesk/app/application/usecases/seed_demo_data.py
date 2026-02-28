@@ -27,6 +27,12 @@ class SeedDemoDataRequest:
     to_date: str | None = None
     incidence_rate: float = 0.15
     batch_size: int = 500
+    n_medicamentos: int = 200
+    n_materiales: int = 120
+    n_recetas: int = 400
+    n_movimientos: int = 2000
+    turns_months: int = 2
+    n_ausencias: int = 60
 
 
 @dataclass(slots=True)
@@ -36,6 +42,15 @@ class SeedDemoDataResponse:
     personal: int
     appointments: int
     incidences: int
+    medicamentos: int
+    materiales: int
+    recetas: int
+    receta_lineas: int
+    dispensaciones: int
+    movimientos_medicamentos: int
+    movimientos_materiales: int
+    turnos: int
+    ausencias: int
     from_date: str
     to_date: str
     dataset_version: str
@@ -76,6 +91,15 @@ class SeedDemoData:
             staff,
             appointments,
             incidences,
+            seed=request.seed,
+            from_date=start_date,
+            to_date=end_date,
+            n_medicamentos=request.n_medicamentos,
+            n_materiales=request.n_materiales,
+            n_recetas=request.n_recetas,
+            n_movimientos=request.n_movimientos,
+            turns_months=request.turns_months,
+            n_ausencias=request.n_ausencias,
             batch_size=request.batch_size,
         )
         persist_seconds = (datetime.now(UTC) - persist_started).total_seconds()
@@ -88,6 +112,15 @@ class SeedDemoData:
             personal=result.personal,
             appointments=result.appointments,
             incidences=result.incidences,
+            medicamentos=result.medicamentos,
+            materiales=result.materiales,
+            recetas=result.recetas,
+            receta_lineas=result.receta_lineas,
+            dispensaciones=result.dispensaciones,
+            movimientos_medicamentos=result.movimientos_medicamentos,
+            movimientos_materiales=result.movimientos_materiales,
+            turnos=result.turnos,
+            ausencias=result.ausencias,
             from_date=start_date.isoformat(),
             to_date=end_date.isoformat(),
             dataset_version=_dataset_version(request.seed),
