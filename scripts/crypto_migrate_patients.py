@@ -149,7 +149,7 @@ def _build_backfill_updates(
         encoded = protection.encode(field, legacy_value)
         if encoded.encrypted is None:
             continue
-        if encoded.legacy != row[field]:
+        if field == "documento" and encoded.legacy != row[field]:
             updates[field] = encoded.legacy
         updates[f"{field}_enc"] = encoded.encrypted
         updates[f"{field}_hash"] = encoded.lookup_hash

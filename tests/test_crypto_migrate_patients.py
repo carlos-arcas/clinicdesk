@@ -72,6 +72,9 @@ def test_backfill_migrates_legacy_patient_and_can_wipe(tmp_path: Path, monkeypat
     assert row["documento"] == row["documento_hash"]
     assert row["documento_enc"] is not None
     assert row["documento_hash"] is not None
+    assert row["telefono"] == "655111222"
+    assert row["email"] == "luis@clinic.test"
+    assert row["direccion"] == "Avenida Central 10"
 
     stats = _migrate(con, wipe_legacy=True)
     assert stats.backfilled == 0
