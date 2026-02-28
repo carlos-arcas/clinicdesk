@@ -6,9 +6,7 @@ import logging
 
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
-    QComboBox,
     QHBoxLayout,
-    QLabel,
     QLineEdit,
     QMessageBox,
     QPushButton,
@@ -23,6 +21,7 @@ from PySide6.QtWidgets import (
 from clinicdesk.app.container import AppContainer
 from clinicdesk.app.common.search_utils import has_search_values, normalize_search_text
 from clinicdesk.app.pages.medicos.dialogs.medico_form import MedicoFormDialog
+from clinicdesk.app.pages.shared.filtro_listado import FiltroListadoWidget
 from clinicdesk.app.pages.shared.crud_page_helpers import confirm_deactivation, set_buttons_enabled
 from clinicdesk.app.pages.shared.table_utils import apply_row_style, set_item
 from clinicdesk.app.queries.medicos_queries import MedicosQueries, MedicoRow
@@ -43,19 +42,12 @@ class PageMedicos(QWidget):
         root = QVBoxLayout(self)
 
         filters = QHBoxLayout()
-        self.txt_buscar = QLineEdit()
+        self.filtros = FiltroListadoWidget(self)
         self.txt_especialidad = QLineEdit()
-        self.cbo_activo = QComboBox()
-        self.cbo_activo.addItems(["Activos", "Inactivos", "Todos"])
-        self.btn_buscar = QPushButton("Buscar")
 
-        filters.addWidget(QLabel("Buscar"))
-        filters.addWidget(self.txt_buscar)
-        filters.addWidget(QLabel("Especialidad"))
+        filters.addWidget(self.filtros)
         filters.addWidget(self.txt_especialidad)
-        filters.addWidget(QLabel("Estado"))
-        filters.addWidget(self.cbo_activo)
-        filters.addWidget(self.btn_buscar)
+        self.txt_especialidad.setPlaceholderText("Especialidad")
 
         actions = QHBoxLayout()
         self.btn_nuevo = QPushButton("Nuevo")
@@ -83,8 +75,8 @@ class PageMedicos(QWidget):
         root.addWidget(self.table)
 
     def _connect_signals(self) -> None:
-        self.btn_buscar.clicked.connect(self._refresh)
-        self.txt_buscar.returnPressed.connect(self._refresh)
+        self.filtros.filtros_cambiados.connect(self._refresh)
+        self.txt_especialidad.textChanged.connect(self._refresh)
         self.table.itemSelectionChanged.connect(self._update_buttons)
         self.table.itemDoubleClicked.connect(lambda _: self._on_editar())
         self.table.customContextMenuRequested.connect(self._open_context_menu)
@@ -98,17 +90,19 @@ class PageMedicos(QWidget):
 
     def _refresh(self) -> None:
         selected_id = self._selected_id()
-        activo = self._activo_filter()
-        texto = normalize_search_text(self.txt_buscar.text())
+        activo = self.filtros.activo()
+        base_rows = self._queries.list_all(activo=activo)
+        texto = normalize_search_text(self.filtros.texto())
         especialidad = normalize_search_text(self.txt_especialidad.text())
         if not has_search_values(texto, especialidad):
-            rows = self._queries.list_all(activo=activo)
+            rows = base_rows
         else:
             rows = self._queries.search(
                 texto=texto,
                 especialidad=especialidad,
                 activo=activo,
             )
+        self.filtros.set_contador(len(rows), len(base_rows))
         self._render(rows)
         if selected_id is not None:
             self._select_by_id(selected_id)
@@ -221,18 +215,9 @@ class PageMedicos(QWidget):
             "Ejecuta la aplicación con: python -m clinicdesk",
         )
 
-    def _activo_filter(self) -> Optional[bool]:
-        value = self.cbo_activo.currentText()
-        if value == "Activos":
-            return True
-        if value == "Inactivos":
-            return False
-        return None
-
     def _reset_filters(self) -> None:
-        self.txt_buscar.clear()
+        self.filtros.limpiar()
         self.txt_especialidad.clear()
-        self.cbo_activo.setCurrentText("Todos")
 
     def _open_context_menu(self, pos) -> None:
         row = self.table.rowAt(pos.y())

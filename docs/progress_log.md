@@ -478,3 +478,27 @@ Formato por entrada:
   - Persisten warnings de `sqlite3` datetime adapter (no bloqueantes para gate).
 - **Qué queda**:
   - Continuar reducción de hotspots no bloqueantes reportados por structural gate en próximas iteraciones.
+
+- **DATE/TIME**: 2026-02-28 12:20 UTC
+- **Paso**: Fase 1 UX — filtros unificados en listados + fix duplicados de médicos
+- **Before**:
+  - Cada página CRUD tenía filtros implementados de forma manual, sin componente compartido ni comportamiento homogéneo.
+  - El refresco dependía de botón/enter y no tenía debounce uniforme en listados.
+  - No existía contador estándar de resultados en los listados objetivo.
+  - La query de médicos devolvía `especialidad` directa por fila sin agregación explícita por médico.
+- **Qué se hizo**:
+  - Se creó `FiltroListadoWidget` reutilizable (búsqueda libre, estado, botón limpiar, contador `Mostrando X de Y`, debounce de 300ms).
+  - Se integró el componente en: Pacientes, Médicos, Personal, Salas, Medicamentos y Materiales.
+  - Se unificó refresco por cambio de filtro y se actualizó contador en cada `_refresh`.
+  - Se actualizó `MedicosQueries` para devolver una fila por médico usando `GROUP BY` y agregar especialidades con `GROUP_CONCAT(DISTINCT especialidad)`.
+  - Se añadieron tests de queries para validar filtros por texto/estado y no duplicación de médicos con agregación de especialidades.
+- **After**:
+  - Filtros compartidos y consistentes en los seis listados objetivo.
+  - Debounce unificado en filtro libre y acción de limpieza consistente.
+  - Indicador visual de volumen filtrado vs total por estado en cada listado.
+  - Listado de médicos preparado para consolidar especialidades por médico sin duplicar filas.
+- **Decisiones técnicas**:
+  - Se centralizó solo la parte común de filtros (texto + estado + limpiar + contador), manteniendo filtros específicos de módulo (p. ej. tipo/puesto/especialidad) fuera del componente para preservar SRP.
+  - Se resolvió el bug de duplicación en capa de queries (infraestructura) para no mover SQL a UI y mantener separación de capas.
+- **Riesgos / notas**:
+  - La agregación de especialidades depende de `GROUP_CONCAT` en SQLite; el dominio permanece desacoplado de motor SQL.
