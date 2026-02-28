@@ -27,6 +27,7 @@ from clinicdesk.app.domain.enums import TipoDocumento
 from clinicdesk.app.domain.exceptions import ValidationError
 from clinicdesk.app.common.search_utils import like_value, normalize_search_text
 from clinicdesk.app.infrastructure.sqlite.date_utils import format_iso_date, parse_iso_date
+from clinicdesk.app.infrastructure.sqlite.pii_crypto import get_connection_pii_cipher
 
 
 logger = logging.getLogger(__name__)
@@ -44,6 +45,7 @@ class PacientesRepository:
 
     def __init__(self, connection: sqlite3.Connection) -> None:
         self._con = connection
+        self._pii_cipher = get_connection_pii_cipher(connection)
 
     # --------------------------------------------------------------
     # CRUD
@@ -72,14 +74,14 @@ class PacientesRepository:
                 paciente.documento,
                 paciente.nombre,
                 paciente.apellidos,
-                paciente.telefono,
-                paciente.email,
+                self._encrypt(paciente.telefono),
+                self._encrypt(paciente.email),
                 format_iso_date(paciente.fecha_nacimiento),
-                paciente.direccion,
+                self._encrypt(paciente.direccion),
                 int(paciente.activo),
                 None,
-                paciente.alergias,
-                paciente.observaciones,
+                self._encrypt(paciente.alergias),
+                self._encrypt(paciente.observaciones),
             ),
         )
         paciente_id = int(cur.lastrowid)
@@ -121,13 +123,13 @@ class PacientesRepository:
                 paciente.documento,
                 paciente.nombre,
                 paciente.apellidos,
-                paciente.telefono,
-                paciente.email,
+                self._encrypt(paciente.telefono),
+                self._encrypt(paciente.email),
                 format_iso_date(paciente.fecha_nacimiento),
-                paciente.direccion,
+                self._encrypt(paciente.direccion),
                 int(paciente.activo),
-                paciente.alergias,
-                paciente.observaciones,
+                self._encrypt(paciente.alergias),
+                self._encrypt(paciente.observaciones),
                 paciente.id,
             ),
         )
@@ -336,16 +338,26 @@ class PacientesRepository:
             documento=row["documento"],
             nombre=row["nombre"],
             apellidos=row["apellidos"],
-            telefono=row["telefono"],
-            email=row["email"],
+            telefono=self._decrypt(row["telefono"]),
+            email=self._decrypt(row["email"]),
             fecha_nacimiento=parse_iso_date(row["fecha_nacimiento"]),
-            direccion=row["direccion"],
+            direccion=self._decrypt(row["direccion"]),
             activo=bool(row["activo"]),
             num_historia=row["num_historia"],
-            alergias=row["alergias"],
-            observaciones=row["observaciones"],
+            alergias=self._decrypt(row["alergias"]),
+            observaciones=self._decrypt(row["observaciones"]),
         )
 
     @staticmethod
     def _format_num_historia(paciente_id: int) -> str:
         return f"HIST-{paciente_id:04d}"
+
+    def _encrypt(self, value: str | None) -> str | None:
+        if self._pii_cipher is None:
+            return value
+        return self._pii_cipher.encrypt_optional(value)
+
+    def _decrypt(self, value: str | None) -> str | None:
+        if self._pii_cipher is None:
+            return value
+        return self._pii_cipher.decrypt_optional(value)
