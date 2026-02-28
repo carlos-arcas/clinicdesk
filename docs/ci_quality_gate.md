@@ -75,3 +75,11 @@ Flujo recomendado para demos ML + Power BI con datos coherentes:
    - `PYTHONPATH=. python scripts/ml_cli.py export features --dataset-version <version> --output ./exports --feature-store-path ./data/feature_store`
 
 Secuencia completa para operación: `seed-demo -> build-features -> train -> export -> Power BI`.
+
+## Logging & Crash files
+- El bootstrap de logging unificado usa `logging` de stdlib y crea en cada ejecución:
+  - `logs/app.log` (operacional)
+  - `logs/crash_soft.log` (errores esperables capturados)
+  - `logs/crash_fatal.log` (excepciones no controladas / critical)
+- Se agregó una validación bloqueante en `scripts/quality_gate.py` para fallar si aparece `print` en archivos Python fuera de allowlist mínima.
+- Todos los scripts CLI deben enrutar salida de consola por `logging` (handler de consola a `stderr`), no por `print`.

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import sqlite3
+import uuid
 from collections import Counter
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -30,10 +31,13 @@ from clinicdesk.app.infrastructure.sqlite.citas_read_adapter import SqliteCitasR
 from clinicdesk.app.infrastructure.sqlite.repos_citas import CitasRepository
 from clinicdesk.app.infrastructure.sqlite.repos_incidencias import IncidenciasRepository
 from clinicdesk.app.bootstrap import bootstrap_database
+from clinicdesk.app.bootstrap_logging import configure_logging, get_logger, log_soft_exception, set_run_context
+from clinicdesk.app.crash_handler import install_global_exception_hook
 
 _DEFAULT_FEATURE_STORE_PATH = "./data/feature_store"
 _DEFAULT_MODEL_STORE_PATH = "./data/model_store"
 _DEFAULT_MODEL_NAME = "citas_nb_v1"
+_LOGGER = get_logger(__name__)
 
 
 class FakeCitasReadAdapter(CitasReadPort):
@@ -137,6 +141,9 @@ def _add_seed_demo_parser(subparsers: argparse._SubParsersAction) -> None:
 
 
 def main(argv: Sequence[str] | None = None) -> int:
+    configure_logging("clinicdesk-ml-cli", Path("./logs"), level="INFO", json=True)
+    set_run_context(uuid.uuid4().hex[:8])
+    install_global_exception_hook(_LOGGER)
     parser = build_parser()
     args = parser.parse_args(argv)
     try:
@@ -153,9 +160,9 @@ def main(argv: Sequence[str] | None = None) -> int:
         if args.command == "seed-demo":
             return _handle_seed_demo(args)
         parser.error("Comando no soportado")
-    except Exception as exc:  # pragma: no cover - fallback de CLI
-        print(f"ERROR: {exc}")
-        return 1
+    except ValueError as exc:
+        log_soft_exception(_LOGGER, exc, {"command": getattr(args, "command", "-")})
+        return 2
     return 0
 
 
@@ -172,7 +179,7 @@ def _handle_build_features(args: argparse.Namespace) -> int:
     quality = compute_citas_quality_report(features)
     store = FeatureStoreService(LocalJsonFeatureStore(args.store_path))
     version = store.save_citas_features_with_artifacts(features, quality, version=args.version)
-    print(f"saved_version={version} row_count={quality.total} suspicious_count={quality.suspicious_count}")
+    _LOGGER.info("saved_version=%s row_count=%s suspicious_count=%s", version, quality.total, quality.suspicious_count)
     return 0
 
 
@@ -236,7 +243,7 @@ def _handle_train(args: argparse.Namespace) -> int:
     response = TrainCitasModel(feature_store, model_store).execute(
         TrainCitasModelRequest(dataset_version=args.dataset_version, model_version=args.model_version)
     )
-    print(
+    _LOGGER.info(
         "model="
         f"{response.model_name}@{response.model_version} "
         f"train_precision={response.train_metrics.precision:.3f} "
@@ -261,15 +268,15 @@ def _handle_score(args: argparse.Namespace) -> int:
     )
     _print_score_table(response.items, top_n=args.limit or 10)
     labels = Counter(item.label for item in response.items)
-    print(f"summary_labels={dict(labels)} total={response.total}")
+    _LOGGER.info("summary_labels=%s total=%s", dict(labels), response.total)
     return 0
 
 
 def _print_score_table(items: list, top_n: int) -> None:
-    print("cita_id | score | label | reasons")
+    _LOGGER.info("cita_id | score | label | reasons")
     for item in items[:top_n]:
         reasons = ",".join(item.reasons[:3])
-        print(f"{item.cita_id} | {item.score:.3f} | {item.label} | {_truncate(reasons, 64)}")
+        _LOGGER.info("%s | %.3f | %s | %s", item.cita_id, item.score, item.label, _truncate(reasons, 64))
 
 
 def _truncate(value: str, max_len: int) -> str:
@@ -282,8 +289,8 @@ def _handle_drift(args: argparse.Namespace) -> int:
         DriftCitasFeaturesRequest(from_version=args.from_version, to_version=args.to_version)
     )
     psi_fmt = {key: round(value, 4) for key, value in report.psi_by_feature.items()}
-    print(f"psi_by_feature={psi_fmt}")
-    print(f"overall_flag={report.overall_flag} from={report.from_version} to={report.to_version}")
+    _LOGGER.info("psi_by_feature=%s", psi_fmt)
+    _LOGGER.info("overall_flag=%s from=%s to=%s", report.overall_flag, report.from_version, report.to_version)
     return 0
 
 
@@ -308,7 +315,7 @@ def _export_features(args: argparse.Namespace) -> int:
     feature_store = FeatureStoreService(LocalJsonFeatureStore(args.feature_store_path))
     rows = feature_store.load_citas_features(args.dataset_version)
     output = ExportFeaturesCSV().execute(args.dataset_version, rows, args.output)
-    print(output)
+    _LOGGER.info(output)
     return 0
 
 
@@ -318,7 +325,7 @@ def _export_metrics(args: argparse.Namespace) -> int:
     _, metadata = model_store.load_model(args.model_name, args.model_version)
     metrics = _build_metrics_export_data(args, metadata)
     output = ExportModelMetricsFromMetadataCSV().execute(metrics, args.output)
-    print(output)
+    _LOGGER.info(output)
     return 0
 
 
@@ -340,7 +347,7 @@ def _export_scoring(args: argparse.Namespace) -> int:
         threshold_used=threshold_used,
         output_path=args.output,
     )
-    print(output)
+    _LOGGER.info(output)
     return 0
 
 
@@ -350,7 +357,7 @@ def _export_drift(args: argparse.Namespace) -> int:
         DriftCitasFeaturesRequest(from_version=args.from_version, to_version=args.to_version)
     )
     output = ExportDriftCSV().execute(report, args.output)
-    print(output)
+    _LOGGER.info(output)
     return 0
 
 
@@ -395,15 +402,15 @@ def _handle_seed_demo(args: argparse.Namespace) -> int:
         )
     finally:
         connection.close()
-    print(
+    _LOGGER.info(
         "seeded "
         f"doctors={response.doctors} patients={response.patients} personal={response.personal} "
         f"appointments={response.appointments} incidences={response.incidences} "
         f"range={response.from_date}:{response.to_date} dataset_version={response.dataset_version}"
     )
-    print("next: build-features --from {0} --to {1}".format(response.from_date, response.to_date))
-    print("next: train --dataset-version <version>")
-    print("next: export features --dataset-version <version> --output ./out/features.csv")
+    _LOGGER.info("next: build-features --from %s --to %s", response.from_date, response.to_date)
+    _LOGGER.info("next: train --dataset-version <version>")
+    _LOGGER.info("next: export features --dataset-version <version> --output ./out/features.csv")
     return 0
 
 

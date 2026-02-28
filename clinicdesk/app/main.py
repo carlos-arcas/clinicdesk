@@ -1,16 +1,38 @@
 from __future__ import annotations
 
+import logging
 import sys
+import uuid
+from pathlib import Path
 
 from PySide6.QtWidgets import QApplication
 
 from clinicdesk.app.bootstrap import bootstrap_database
+from clinicdesk.app.bootstrap_logging import configure_logging, get_logger, set_run_context
 from clinicdesk.app.container import build_container
+from clinicdesk.app.crash_handler import install_global_exception_hook
+from clinicdesk.app.ui.log_buffer_handler import LogBufferHandler
 from clinicdesk.app.ui.main_window import MainWindow
 from clinicdesk.app.ui.theme import load_qss
 
 
+LOGGER = get_logger(__name__)
+
+
+def _install_ui_log_buffer() -> LogBufferHandler:
+    handler = LogBufferHandler(capacity=300)
+    formatter = logging.Formatter("%(asctime)s %(levelname)s %(name)s %(message)s")
+    handler.setFormatter(formatter)
+    logging.getLogger().addHandler(handler)
+    return handler
+
+
 def main() -> int:
+    configure_logging("clinicdesk-ui", Path("./logs"), level="INFO", json=True)
+    set_run_context(uuid.uuid4().hex[:8])
+    install_global_exception_hook(LOGGER)
+    _install_ui_log_buffer()
+
     app = QApplication(sys.argv)
     app.setStyleSheet(load_qss())
 
