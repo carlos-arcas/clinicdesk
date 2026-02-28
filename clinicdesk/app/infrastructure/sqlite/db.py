@@ -22,6 +22,10 @@ from typing import Optional
 from clinicdesk.app.infrastructure.sqlite.sqlite_datetime_codecs import (
     register_sqlite_datetime_codecs,
 )
+from clinicdesk.app.infrastructure.sqlite.pii_crypto import (
+    configure_connection_pii,
+    migrate_existing_pii_data,
+)
 
 
 @dataclass(frozen=True)
@@ -44,6 +48,7 @@ def connect(config: SqliteConfig) -> sqlite3.Connection:
 
     con = sqlite3.connect(config.db_path.as_posix())
     con.row_factory = sqlite3.Row  # devuelve filas tipo dict-like
+    configure_connection_pii(con)
 
     _apply_pragmas(con)
     return con
@@ -86,6 +91,7 @@ def apply_schema(con: sqlite3.Connection, schema_path: Path) -> None:
     _migrate_stock_columns(con)
     _migrate_active_columns(con)
     _migrate_demo_columns(con)
+    migrate_existing_pii_data(con)
     con.commit()
 
 

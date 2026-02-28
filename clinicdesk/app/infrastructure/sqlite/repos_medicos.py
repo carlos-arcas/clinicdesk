@@ -24,6 +24,7 @@ from clinicdesk.app.domain.enums import TipoDocumento
 from clinicdesk.app.domain.exceptions import ValidationError
 from clinicdesk.app.common.search_utils import like_value, normalize_search_text
 from clinicdesk.app.infrastructure.sqlite.date_utils import format_iso_date, parse_iso_date
+from clinicdesk.app.infrastructure.sqlite.pii_crypto import get_connection_pii_cipher
 
 
 logger = logging.getLogger(__name__)
@@ -41,15 +42,13 @@ class MedicosRepository:
 
     def __init__(self, connection: sqlite3.Connection) -> None:
         self._con = connection
+        self._pii_cipher = get_connection_pii_cipher(connection)
 
     # --------------------------------------------------------------
     # CRUD
     # --------------------------------------------------------------
 
     def create(self, medico: Medico) -> int:
-        """
-        Inserta un nuevo médico y devuelve su id.
-        """
         medico.validar()
 
         cur = self._con.execute(
@@ -69,10 +68,10 @@ class MedicosRepository:
                 medico.documento,
                 medico.nombre,
                 medico.apellidos,
-                medico.telefono,
-                medico.email,
+                _encrypt_pii(self._pii_cipher, medico.telefono),
+                _encrypt_pii(self._pii_cipher, medico.email),
                 format_iso_date(medico.fecha_nacimiento),
-                medico.direccion,
+                _encrypt_pii(self._pii_cipher, medico.direccion),
                 int(medico.activo),
                 medico.num_colegiado,
                 medico.especialidad,
@@ -82,9 +81,6 @@ class MedicosRepository:
         return int(cur.lastrowid)
 
     def update(self, medico: Medico) -> None:
-        """
-        Actualiza un médico existente.
-        """
         if not medico.id:
             raise ValidationError("No se puede actualizar un médico sin id.")
 
@@ -111,10 +107,10 @@ class MedicosRepository:
                 medico.documento,
                 medico.nombre,
                 medico.apellidos,
-                medico.telefono,
-                medico.email,
+                _encrypt_pii(self._pii_cipher, medico.telefono),
+                _encrypt_pii(self._pii_cipher, medico.email),
                 format_iso_date(medico.fecha_nacimiento),
-                medico.direccion,
+                _encrypt_pii(self._pii_cipher, medico.direccion),
                 int(medico.activo),
                 medico.num_colegiado,
                 medico.especialidad,
@@ -124,9 +120,6 @@ class MedicosRepository:
         self._con.commit()
 
     def delete(self, medico_id: int) -> None:
-        """
-        Borrado lógico: marca el médico como inactivo.
-        """
         self._con.execute(
             "UPDATE medicos SET activo = 0 WHERE id = ?",
             (medico_id,),
@@ -134,9 +127,6 @@ class MedicosRepository:
         self._con.commit()
 
     def get_by_id(self, medico_id: int) -> Optional[Medico]:
-        """
-        Obtiene un médico por id.
-        """
         row = self._con.execute(
             "SELECT * FROM medicos WHERE id = ?",
             (medico_id,),
@@ -149,9 +139,6 @@ class MedicosRepository:
         tipo_documento: TipoDocumento | str,
         documento: str,
     ) -> Optional[int]:
-        """
-        Obtiene el id del médico a partir del tipo + documento.
-        """
         if not documento:
             return None
         tipo = tipo_documento.value if isinstance(tipo_documento, TipoDocumento) else str(tipo_documento)
@@ -166,9 +153,6 @@ class MedicosRepository:
     # --------------------------------------------------------------
 
     def list_all(self, *, solo_activos: bool = True) -> List[Medico]:
-        """
-        Lista todos los médicos.
-        """
         sql = "SELECT * FROM medicos"
         params: list = []
 
@@ -193,16 +177,6 @@ class MedicosRepository:
         documento: Optional[str] = None,
         activo: Optional[bool] = True,
     ) -> List[Medico]:
-        """
-        Búsqueda flexible de médicos.
-
-        Parámetros:
-        - texto: busca en nombre, apellidos, documento y num_colegiado
-        - especialidad: filtro exacto por especialidad
-        - tipo_documento: filtro por tipo
-        - documento: documento exacto
-        - activo: True / False / None (None = todos)
-        """
         texto = normalize_search_text(texto)
         especialidad = normalize_search_text(especialidad)
         documento = normalize_search_text(documento)
@@ -255,20 +229,29 @@ class MedicosRepository:
     # --------------------------------------------------------------
 
     def _row_to_model(self, row: sqlite3.Row) -> Medico:
-        """
-        Convierte una fila SQLite en un modelo Medico.
-        """
         return Medico(
             id=row["id"],
             tipo_documento=TipoDocumento(row["tipo_documento"]),
             documento=row["documento"],
             nombre=row["nombre"],
             apellidos=row["apellidos"],
-            telefono=row["telefono"],
-            email=row["email"],
+            telefono=_decrypt_pii(self._pii_cipher, row["telefono"]),
+            email=_decrypt_pii(self._pii_cipher, row["email"]),
             fecha_nacimiento=parse_iso_date(row["fecha_nacimiento"]),
-            direccion=row["direccion"],
+            direccion=_decrypt_pii(self._pii_cipher, row["direccion"]),
             activo=bool(row["activo"]),
             num_colegiado=row["num_colegiado"],
             especialidad=row["especialidad"],
         )
+
+
+def _encrypt_pii(cipher, value: str | None) -> str | None:
+    if cipher is None:
+        return value
+    return cipher.encrypt_optional(value)
+
+
+def _decrypt_pii(cipher, value: str | None) -> str | None:
+    if cipher is None:
+        return value
+    return cipher.decrypt_optional(value)

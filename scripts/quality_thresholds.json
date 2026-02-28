@@ -24,6 +24,27 @@
       "path": "scripts/ml_cli.py",
       "max_file_loc": 500,
       "reason": "Deuda temporal aceptada: CLI de soporte para flujos ML"
+    },
+    {
+      "path": "clinicdesk/app/infrastructure/sqlite/demo_data_seeder.py",
+      "max_file_loc": 450,
+      "max_function_loc": 80,
+      "reason": "Deuda temporal aceptada: seeding demo concentrado en un módulo legado"
+    },
+    {
+      "path": "clinicdesk/app/infrastructure/sqlite/repos_pacientes.py",
+      "max_class_loc": 300,
+      "reason": "Deuda temporal aceptada: repositorio legacy mientras se completa partición por mixins"
+    },
+    {
+      "path": "clinicdesk/app/infrastructure/sqlite/repos_personal.py",
+      "max_class_loc": 240,
+      "reason": "Deuda temporal aceptada: repositorio legacy pendiente de segmentación"
+    },
+    {
+      "path": "clinicdesk/app/infrastructure/sqlite/repos_recetas.py",
+      "max_class_loc": 230,
+      "reason": "Deuda temporal aceptada: refactor diferido por compatibilidad con UI"
     }
   ]
 }

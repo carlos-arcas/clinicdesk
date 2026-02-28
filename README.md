@@ -210,6 +210,38 @@ Ejemplo:
 CLINICDESK_DB_PATH=./data/clinicdesk.db PYTHONPATH=. python scripts/ml_cli.py seed-demo --appointments 5000 --batch-size 500
 ```
 
+
+## 🔐 Protección de PII en reposo (SQLite)
+
+Se implementó **cifrado por columnas sensibles** (opción B) para tablas de personas:
+
+- `pacientes`: `telefono`, `email`, `direccion`, `alergias`, `observaciones`
+- `medicos`: `telefono`, `email`, `direccion`
+- `personal`: `telefono`, `email`, `direccion`
+
+### Flags por entorno
+
+- `CLINICDESK_PII_ENCRYPTION_ENABLED` → `true/false` (default: `false`)
+- `CLINICDESK_PII_ENCRYPTION_KEY` → clave de cifrado (obligatoria si el flag está en `true`)
+
+Ejemplo:
+
+```bash
+export CLINICDESK_PII_ENCRYPTION_ENABLED=true
+export CLINICDESK_PII_ENCRYPTION_KEY='cambia-esta-clave-en-tu-entorno'
+PYTHONPATH=. python -m clinicdesk.app.main
+```
+
+### Compatibilidad con DB existente
+
+- Si el cifrado está desactivado, el comportamiento no cambia.
+- Si se activa el cifrado, al arrancar se migra automáticamente PII legado en claro hacia formato cifrado (`enc:v1:...`).
+- Lecturas mantienen compatibilidad: datos en claro antiguos también se pueden leer sin romper flujos.
+
+### UX cuando falta la clave
+
+Si `CLINICDESK_PII_ENCRYPTION_ENABLED=true` y no existe `CLINICDESK_PII_ENCRYPTION_KEY`, la app falla temprano con mensaje explícito para configurar el entorno (sin loguear secretos).
+
 ## Demo para usuarios no técnicos
 
 Para poblar la aplicación con datos realistas de demostración (incluyendo farmacia, recetas/líneas, dispensaciones, materiales, movimientos, turnos y ausencias):

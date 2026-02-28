@@ -24,6 +24,7 @@ from clinicdesk.app.domain.enums import TipoDocumento
 from clinicdesk.app.domain.exceptions import ValidationError
 from clinicdesk.app.common.search_utils import like_value, normalize_search_text
 from clinicdesk.app.infrastructure.sqlite.date_utils import format_iso_date, parse_iso_date
+from clinicdesk.app.infrastructure.sqlite.pii_crypto import get_connection_pii_cipher
 
 
 logger = logging.getLogger(__name__)
@@ -41,6 +42,7 @@ class PersonalRepository:
 
     def __init__(self, connection: sqlite3.Connection) -> None:
         self._con = connection
+        self._pii_cipher = get_connection_pii_cipher(connection)
 
     # --------------------------------------------------------------
     # CRUD
@@ -69,10 +71,10 @@ class PersonalRepository:
                 personal.documento,
                 personal.nombre,
                 personal.apellidos,
-                personal.telefono,
-                personal.email,
+                self._encrypt(personal.telefono),
+                self._encrypt(personal.email),
                 format_iso_date(personal.fecha_nacimiento),
-                personal.direccion,
+                self._encrypt(personal.direccion),
                 int(personal.activo),
                 personal.puesto,
                 personal.turno,
@@ -111,10 +113,10 @@ class PersonalRepository:
                 personal.documento,
                 personal.nombre,
                 personal.apellidos,
-                personal.telefono,
-                personal.email,
+                self._encrypt(personal.telefono),
+                self._encrypt(personal.email),
                 format_iso_date(personal.fecha_nacimiento),
-                personal.direccion,
+                self._encrypt(personal.direccion),
                 int(personal.activo),
                 personal.puesto,
                 personal.turno,
@@ -281,11 +283,21 @@ class PersonalRepository:
             documento=row["documento"],
             nombre=row["nombre"],
             apellidos=row["apellidos"],
-            telefono=row["telefono"],
-            email=row["email"],
+            telefono=self._decrypt(row["telefono"]),
+            email=self._decrypt(row["email"]),
             fecha_nacimiento=parse_iso_date(row["fecha_nacimiento"]),
-            direccion=row["direccion"],
+            direccion=self._decrypt(row["direccion"]),
             activo=bool(row["activo"]),
             puesto=row["puesto"],
             turno=row["turno"],
         )
+
+    def _encrypt(self, value: str | None) -> str | None:
+        if self._pii_cipher is None:
+            return value
+        return self._pii_cipher.encrypt_optional(value)
+
+    def _decrypt(self, value: str | None) -> str | None:
+        if self._pii_cipher is None:
+            return value
+        return self._pii_cipher.decrypt_optional(value)

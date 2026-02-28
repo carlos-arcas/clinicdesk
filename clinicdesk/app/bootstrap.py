@@ -22,6 +22,10 @@ from clinicdesk.app.bootstrap_logging import get_logger
 from clinicdesk.app.infrastructure.sqlite.sqlite_datetime_codecs import (
     register_sqlite_datetime_codecs,
 )
+from clinicdesk.app.infrastructure.sqlite.pii_crypto import (
+    configure_connection_pii,
+    migrate_existing_pii_data,
+)
 
 
 LOGGER = get_logger(__name__)
@@ -100,6 +104,7 @@ def _apply_schema(con: sqlite3.Connection) -> None:
     sql = path.read_text(encoding="utf-8")
     con.executescript(sql)
     _migrate_stock_columns(con)
+    migrate_existing_pii_data(con)
     con.commit()
 
 
@@ -152,6 +157,7 @@ def bootstrap_database(apply_schema: bool = True, sqlite_path: str | None = None
     con = sqlite3.connect(target_path.as_posix())
     LOGGER.info("db_opened path=%s", target_path)
     con.row_factory = sqlite3.Row
+    configure_connection_pii(con)
 
     _apply_pragmas(con)
 
