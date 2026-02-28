@@ -25,6 +25,9 @@ from clinicdesk.app.infrastructure.sqlite.repos_calendario_medico import (
     BloqueCalendarioMedico,
 )
 from clinicdesk.app.infrastructure.sqlite.repos_turnos import Turno
+from clinicdesk.app.infrastructure.sqlite.field_crypto_migrations import (
+    ensure_pacientes_field_crypto_columns,
+)
 
 
 TEST_DB_PATH = Path(__file__).resolve().parent / "tmp" / "clinicdesk_test.sqlite"
@@ -67,6 +70,7 @@ def _ensure_test_migrations(con: sqlite3.Connection) -> None:
         "notas_incidencia",
         "notas_incidencia TEXT",
     )
+    ensure_pacientes_field_crypto_columns(con)
 
 
 @pytest.fixture()

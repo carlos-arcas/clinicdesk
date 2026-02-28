@@ -7,6 +7,7 @@ import logging
 import sqlite3
 
 from clinicdesk.app.common.search_utils import like_value, normalize_search_text
+from clinicdesk.app.infrastructure.sqlite.pacientes_field_protection import PacientesFieldProtection
 
 
 logger = logging.getLogger(__name__)
@@ -24,6 +25,7 @@ class PacienteRow:
 class PacientesQueries:
     def __init__(self, connection: sqlite3.Connection) -> None:
         self._conn = connection
+        self._field_protection = PacientesFieldProtection(connection)
 
     def list_all(
         self,
@@ -33,12 +35,11 @@ class PacientesQueries:
     ) -> List[PacienteRow]:
         clauses = []
         params: List[object] = []
-
         if activo is not None:
             clauses.append("activo = ?")
             params.append(int(activo))
 
-        sql = "SELECT id, documento, nombre, apellidos, telefono, activo FROM pacientes"
+        sql = self._base_select_sql()
         if clauses:
             sql += " WHERE " + " AND ".join(clauses)
         sql += " ORDER BY apellidos, nombre LIMIT ?"
@@ -49,16 +50,7 @@ class PacientesQueries:
         except sqlite3.Error as exc:
             logger.error("Error SQL en PacientesQueries.list_all: %s", exc)
             return []
-        return [
-            PacienteRow(
-                id=row["id"],
-                documento=row["documento"],
-                nombre_completo=f"{row['nombre']} {row['apellidos']}".strip(),
-                telefono=row["telefono"] or "",
-                activo=bool(row["activo"]),
-            )
-            for row in rows
-        ]
+        return [self._to_row(row) for row in rows]
 
     def search(
         self,
@@ -78,33 +70,40 @@ class PacientesQueries:
 
         if texto:
             like = like_value(texto)
-            clauses.append(
-                "(nombre LIKE ? COLLATE NOCASE OR apellidos LIKE ? COLLATE NOCASE "
-                "OR documento LIKE ? COLLATE NOCASE OR telefono LIKE ? COLLATE NOCASE)"
-            )
-            params.extend([like, like, like, like])
-
-            cleaned = texto.replace(" ", "").replace("-", "")
-            if cleaned:
-                clauses[-1] = (
-                    clauses[-1][:-1]
-                    + " OR REPLACE(REPLACE(telefono, ' ', ''), '-', '') LIKE ? COLLATE NOCASE)"
+            if self._field_protection.enabled:
+                clauses.append("(nombre LIKE ? COLLATE NOCASE OR apellidos LIKE ? COLLATE NOCASE)")
+                params.extend([like, like])
+            else:
+                clauses.append(
+                    "(nombre LIKE ? COLLATE NOCASE OR apellidos LIKE ? COLLATE NOCASE "
+                    "OR documento LIKE ? COLLATE NOCASE OR telefono LIKE ? COLLATE NOCASE)"
                 )
-                params.append(like_value(cleaned))
+                params.extend([like, like, like, like])
+                cleaned = texto.replace(" ", "").replace("-", "")
+                if cleaned:
+                    clauses[-1] = (
+                        clauses[-1][:-1]
+                        + " OR REPLACE(REPLACE(telefono, ' ', ''), '-', '') LIKE ? COLLATE NOCASE)"
+                    )
+                    params.append(like_value(cleaned))
 
         if tipo_documento:
             clauses.append("tipo_documento LIKE ? COLLATE NOCASE")
             params.append(like_value(tipo_documento))
 
         if documento:
-            clauses.append("documento LIKE ? COLLATE NOCASE")
-            params.append(like_value(documento))
+            if self._field_protection.enabled:
+                clauses.append("documento_hash = ?")
+                params.append(self._field_protection.hash_for_lookup("documento", documento))
+            else:
+                clauses.append("documento LIKE ? COLLATE NOCASE")
+                params.append(like_value(documento))
 
         if activo is not None:
             clauses.append("activo = ?")
             params.append(int(activo))
 
-        sql = "SELECT id, documento, nombre, apellidos, telefono, activo FROM pacientes"
+        sql = self._base_select_sql()
         if clauses:
             sql += " WHERE " + " AND ".join(clauses)
         sql += " ORDER BY apellidos, nombre LIMIT ?"
@@ -115,13 +114,30 @@ class PacientesQueries:
         except sqlite3.Error as exc:
             logger.error("Error SQL en PacientesQueries.search: %s", exc)
             return []
-        return [
-            PacienteRow(
-                id=row["id"],
-                documento=row["documento"],
-                nombre_completo=f"{row['nombre']} {row['apellidos']}".strip(),
-                telefono=row["telefono"] or "",
-                activo=bool(row["activo"]),
-            )
-            for row in rows
-        ]
+        return [self._to_row(row) for row in rows]
+
+    @staticmethod
+    def _base_select_sql() -> str:
+        return (
+            "SELECT id, documento, documento_enc, telefono, telefono_enc, "
+            "nombre, apellidos, activo FROM pacientes"
+        )
+
+    def _to_row(self, row: sqlite3.Row) -> PacienteRow:
+        documento = self._field_protection.decode(
+            "documento",
+            legacy=row["documento"],
+            encrypted=row["documento_enc"],
+        )
+        telefono = self._field_protection.decode(
+            "telefono",
+            legacy=row["telefono"],
+            encrypted=row["telefono_enc"],
+        )
+        return PacienteRow(
+            id=row["id"],
+            documento=documento or "",
+            nombre_completo=f"{row['nombre']} {row['apellidos']}".strip(),
+            telefono=telefono or "",
+            activo=bool(row["activo"]),
+        )
