@@ -8,10 +8,10 @@ from datetime import date
 from pathlib import Path
 
 from scripts.ml_cli import run_cli
+from clinicdesk.app.bootstrap import bootstrap_database, resolve_db_path
 from clinicdesk.app.bootstrap_logging import configure_logging, get_logger, log_soft_exception, set_run_context
 from clinicdesk.app.crash_handler import install_global_exception_hook
 
-_DEFAULT_SQLITE_PATH = "./data/demo.db"
 _DEFAULT_FROM_DATE = "2025-01-01"
 _DEFAULT_TO_DATE = "2026-02-28"
 _LOGGER = get_logger(__name__)
@@ -26,7 +26,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--from", dest="from_date", type=str, default=_DEFAULT_FROM_DATE)
     parser.add_argument("--to", dest="to_date", type=str, default=_DEFAULT_TO_DATE)
     parser.add_argument("--incidence-rate", type=float, default=0.15)
-    parser.add_argument("--sqlite-path", type=str, default=_DEFAULT_SQLITE_PATH)
+    parser.add_argument("--sqlite-path", type=str, default=None)
     parser.add_argument("--reset", dest="reset", action="store_true", default=None)
     parser.add_argument("--no-reset", dest="reset", action="store_false")
     parser.add_argument("--turbo", dest="turbo", action="store_true", default=True)
@@ -94,7 +94,7 @@ def _validate_args(args: argparse.Namespace) -> Path:
     if to_date < from_date:
         raise ValueError("Rango inválido: --to no puede ser menor que --from")
 
-    sqlite_path = Path(args.sqlite_path).expanduser().resolve()
+    sqlite_path = resolve_db_path(args.sqlite_path)
     sqlite_path.parent.mkdir(parents=True, exist_ok=True)
     return sqlite_path
 
@@ -102,7 +102,7 @@ def _validate_args(args: argparse.Namespace) -> Path:
 
 
 def _fetch_counts(sqlite_path: Path) -> dict[str, int]:
-    with sqlite3.connect(sqlite_path.as_posix()) as conn:
+    with bootstrap_database(apply_schema=False, sqlite_path=sqlite_path.as_posix()) as conn:
         return {
             "medicos": _count_table(conn, "medicos"),
             "pacientes": _count_table(conn, "pacientes"),

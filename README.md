@@ -176,7 +176,8 @@ PYTHONPATH=. python scripts/ml_cli.py drift --from-version <v1> --to-version <v2
 ## 💾 Storage único SQLite (app + seed-demo)
 
 - Fuente única por defecto: `./data/clinicdesk.db`.
-- La app (`clinicdesk.app.main`) y `scripts/ml_cli.py seed-demo` usan el mismo bootstrap de SQLite.
+- La DB activa se controla por `CLINICDESK_DB_PATH` (si no está definida, se usa el default oficial).
+- La app (`clinicdesk.app.main`), `seed_demo_data.py` y `scripts/ml_cli.py seed-demo` usan el mismo `resolve_db_path()` del bootstrap de SQLite.
 - Override soportado:
   - CLI: `--sqlite-path /ruta/al/archivo.db`
   - Variable de entorno: `CLINICDESK_DB_PATH=/ruta/al/archivo.db`

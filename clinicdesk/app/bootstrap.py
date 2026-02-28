@@ -18,6 +18,14 @@ import sqlite3
 from os import getenv
 from pathlib import Path
 
+from clinicdesk.app.bootstrap_logging import get_logger
+
+
+LOGGER = get_logger(__name__)
+
+def _is_special_sqlite_path(raw_path: str) -> bool:
+    return raw_path == ":memory:" or raw_path.startswith("file:")
+
 
 # ---------------------------------------------------------------------
 # Rutas del proyecto
@@ -34,12 +42,27 @@ def data_dir() -> Path:
     return Path("./data")
 
 
+def resolve_db_path(sqlite_path_arg: str | None = None, *, emit_log: bool = True) -> Path:
+    """Resuelve la ruta SQLite desde arg/env/default con trazabilidad en logs."""
+    if sqlite_path_arg:
+        resolved = Path(sqlite_path_arg) if _is_special_sqlite_path(sqlite_path_arg) else Path(sqlite_path_arg).expanduser().resolve()
+        source = "arg"
+    else:
+        configured = getenv("CLINICDESK_DB_PATH")
+        if configured:
+            resolved = Path(configured) if _is_special_sqlite_path(configured) else Path(configured).expanduser().resolve()
+            source = "env"
+        else:
+            resolved = (data_dir() / "clinicdesk.db").expanduser().resolve()
+            source = "default"
+    if emit_log:
+        LOGGER.info("db_path_resolved path=%s source=%s", resolved, source)
+    return resolved
+
+
 def db_path() -> Path:
-    """Ruta al archivo SQLite."""
-    configured = getenv("CLINICDESK_DB_PATH")
-    if configured:
-        return Path(configured)
-    return data_dir() / "clinicdesk.db"
+    """Ruta al archivo SQLite (compatibilidad)."""
+    return resolve_db_path(emit_log=False)
 
 
 def schema_path() -> Path:
@@ -120,9 +143,10 @@ def bootstrap_database(apply_schema: bool = True, sqlite_path: str | None = None
     """
     data_dir().mkdir(parents=True, exist_ok=True)
 
-    target_path = Path(sqlite_path) if sqlite_path else db_path()
+    target_path = resolve_db_path(sqlite_path)
     target_path.parent.mkdir(parents=True, exist_ok=True)
     con = sqlite3.connect(target_path.as_posix())
+    LOGGER.info("db_opened path=%s", target_path)
     con.row_factory = sqlite3.Row
 
     _apply_pragmas(con)
