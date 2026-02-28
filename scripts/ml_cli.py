@@ -35,7 +35,8 @@ from clinicdesk.app.infrastructure.model_store.local_json_model_store import Loc
 from clinicdesk.app.infrastructure.sqlite.demo_data_seeder import DemoDataSeeder
 from clinicdesk.app.infrastructure.sqlite.reset_safety import (
     UnsafeDatabaseResetError,
-    is_safe_demo_db_path,
+    build_reset_confirmation_help,
+    evaluate_reset_safety,
     reset_demo_database,
 )
 from clinicdesk.app.infrastructure.sqlite.sqlite_tuning import sqlite_seed_turbo
@@ -170,6 +171,7 @@ def _add_seed_demo_parser(subparsers: argparse._SubParsersAction) -> None:
     parser.add_argument("--no-turbo", dest="turbo", action="store_false")
     parser.add_argument("--reset", dest="reset", action="store_true", default=None)
     parser.add_argument("--no-reset", dest="reset", action="store_false")
+    parser.add_argument("--confirm-reset", type=str, default=None)
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -193,7 +195,13 @@ def main(argv: Sequence[str] | None = None) -> int:
             return _handle_seed_demo(args)
         parser.error("Comando no soportado")
     except (ValueError, UnsafeDatabaseResetError) as exc:
-        log_soft_exception(_LOGGER, exc, {"command": getattr(args, "command", "-")})
+        extra = {"command": getattr(args, "command", "-")}
+        if isinstance(exc, UnsafeDatabaseResetError) and getattr(args, "command", None) == "seed-demo":
+            sqlite_target = _resolve_sqlite_path(getattr(args, "sqlite_path", None))
+            safety = evaluate_reset_safety(sqlite_target)
+            if safety.requires_strong_confirmation:
+                extra["confirm_reset_hint"] = build_reset_confirmation_help(sqlite_target)
+        log_soft_exception(_LOGGER, exc, extra)
         return 2
     return 0
 
@@ -486,8 +494,8 @@ def _handle_seed_demo(args: argparse.Namespace) -> int:
     target_path = _resolve_sqlite_path(args.sqlite_path)
     should_reset = _resolve_reset_flag(args.reset, target_path)
     if should_reset:
-        _LOGGER.info("seed_demo_reset_requested path=%s", target_path)
-        reset_demo_database(target_path)
+        _LOGGER.info("seed_demo_reset_requested")
+        reset_demo_database(target_path, confirmation_token=args.confirm_reset)
     connection = _open_sqlite_connection(target_path)
     try:
         response = _run_seed_demo_use_case(args, connection)
@@ -537,7 +545,7 @@ def _resolve_sqlite_path(raw_sqlite_path: str | None) -> Path:
 def _resolve_reset_flag(reset_arg: bool | None, sqlite_path: Path) -> bool:
     if reset_arg is not None:
         return reset_arg
-    return is_safe_demo_db_path(sqlite_path)
+    return evaluate_reset_safety(sqlite_path).reason_code in {"default_demo_db", "inside_demo_data_dir"}
 
 
 def _open_sqlite_connection(sqlite_path: Path) -> sqlite3.Connection:
