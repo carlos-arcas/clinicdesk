@@ -38,7 +38,10 @@ def _aesgcm():
     try:
         from cryptography.hazmat.primitives.ciphers.aead import AESGCM
     except ModuleNotFoundError as exc:
-        raise RuntimeError("Missing dependency: cryptography") from exc
+        raise RuntimeError(
+            "Missing dependency: cryptography. Install requirements.txt "
+            "(pip install -r requirements.txt)."
+        ) from exc
     return AESGCM(_encryption_key())
 
 

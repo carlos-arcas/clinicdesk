@@ -19,6 +19,8 @@
    pip install -r requirements-dev.txt
    ```
 
+> `cryptography` es dependencia obligatoria para cifrado/migraciones de pacientes; no se considera opcional.
+
 ## Ejecutar tests
 
 ### Opción A — launcher (1 comando)
