@@ -88,7 +88,25 @@ class CrearCitaUseCase:
         self._c = container
 
     def execute(self, req: CrearCitaRequest) -> CrearCitaResult:
-        # ---------- Validaciones duras básicas ----------
+        self._validate_request(req)
+        inicio_dt, fin_dt, estado, notas = self._normalize_inputs(req)
+        self._load_dependencies(req)
+        warnings = self._apply_rules(req)
+        cita_id, incidencia_id = self._persist(
+            req,
+            inicio_dt=inicio_dt,
+            fin_dt=fin_dt,
+            estado=estado,
+            notas=notas,
+            warnings=warnings,
+        )
+        return self._build_response(cita_id=cita_id, warnings=warnings, incidencia_id=incidencia_id)
+
+    # -----------------------------------------------------------------
+    # Internos
+    # -----------------------------------------------------------------
+
+    def _validate_request(self, req: CrearCitaRequest) -> None:
         if req.paciente_id <= 0:
             raise ValidationError("paciente_id inválido.")
         if req.medico_id <= 0:
@@ -96,28 +114,26 @@ class CrearCitaUseCase:
         if req.sala_id <= 0:
             raise ValidationError("sala_id inválido.")
 
+    def _normalize_inputs(self, req: CrearCitaRequest) -> Tuple[datetime, datetime, EstadoCita, Optional[str]]:
         inicio_dt, fin_dt = self._parse_inicio_fin(req.inicio, req.fin)
+        return inicio_dt, fin_dt, EstadoCita(req.estado), req.observaciones
 
-        # Médico existe y activo
+    def _load_dependencies(self, req: CrearCitaRequest) -> None:
         medico = self._c.medicos_repo.get_by_id(req.medico_id)
         if not medico or not medico.activo:
             raise ValidationError("El médico no existe o está inactivo.")
 
-        # Sala existe y activa
         sala = self._c.salas_repo.get_by_id(req.sala_id)
         if not sala or not sala.activa:
             raise ValidationError("La sala no existe o está inactiva.")
 
-        # ---------- Reglas de solape (NO override) ----------
         self._assert_no_solape_medico(req.medico_id, req.inicio, req.fin)
         self._assert_no_solape_sala(req.sala_id, req.inicio, req.fin)
 
-        # ---------- Warnings (no bloquean por sí mismos) ----------
+    def _apply_rules(self, req: CrearCitaRequest) -> List[WarningItem]:
         warnings: List[WarningItem] = []
+        fecha = req.inicio[:10]
 
-        fecha = req.inicio[:10]  # "YYYY-MM-DD"
-
-        # Calendario no estricto: si no hay bloque ese día -> warning
         hay_calendario = self._c.calendario_medico_repo.exists_for_medico_fecha(
             req.medico_id, fecha, solo_activos=True
         )
@@ -130,7 +146,6 @@ class CrearCitaUseCase:
                 )
             )
 
-        # Ausencias: por defecto bloquea, override permitido con incidencia ALTA
         if self._c.ausencias_medico_repo.exists_overlap(req.medico_id, req.inicio, req.fin):
             warnings.append(
                 WarningItem(
@@ -140,19 +155,26 @@ class CrearCitaUseCase:
                 )
             )
 
-        # ---------- Guardado consciente ----------
-        incidencia_id: Optional[int] = None
-        if warnings:
-            if not req.override:
-                raise PendingWarningsError(warnings)
+        if not warnings:
+            return warnings
+        if not req.override:
+            raise PendingWarningsError(warnings)
+        if not req.nota_override or not req.nota_override.strip():
+            raise ValidationError("Para guardar con incidencia/warning es obligatorio rellenar nota_override.")
+        if not req.confirmado_por_personal_id or req.confirmado_por_personal_id <= 0:
+            raise ValidationError("confirmado_por_personal_id es obligatorio al guardar con override.")
+        return warnings
 
-            if not req.nota_override or not req.nota_override.strip():
-                raise ValidationError("Para guardar con incidencia/warning es obligatorio rellenar nota_override.")
-
-            if not req.confirmado_por_personal_id or req.confirmado_por_personal_id <= 0:
-                raise ValidationError("confirmado_por_personal_id es obligatorio al guardar con override.")
-
-        # ---------- Crear cita ----------
+    def _persist(
+        self,
+        req: CrearCitaRequest,
+        *,
+        inicio_dt: datetime,
+        fin_dt: datetime,
+        estado: EstadoCita,
+        notas: Optional[str],
+        warnings: List[WarningItem],
+    ) -> Tuple[int, Optional[int]]:
         cita = Cita(
             id=None,
             paciente_id=req.paciente_id,
@@ -161,43 +183,42 @@ class CrearCitaUseCase:
             inicio=inicio_dt,
             fin=fin_dt,
             motivo=req.motivo,
-            notas=req.observaciones,
-            estado=EstadoCita(req.estado),
+            notas=notas,
+            estado=estado,
         )
         cita_id = self._c.citas_repo.create(cita)
+        if not warnings:
+            return cita_id, None
 
-        # ---------- Registrar incidencia si hubo override ----------
-        if warnings:
-            severidad = self._max_severidad(warnings)
-            descripcion = self._build_incidencia_descripcion(req, warnings, medico_id=req.medico_id, sala_id=req.sala_id)
+        severidad = self._max_severidad(warnings)
+        descripcion = self._build_incidencia_descripcion(req, warnings, medico_id=req.medico_id, sala_id=req.sala_id)
 
-            from clinicdesk.app.infrastructure.sqlite.repos_incidencias import Incidencia  # modelo ligero del repo
+        from clinicdesk.app.infrastructure.sqlite.repos_incidencias import Incidencia  # modelo ligero del repo
 
-            inc = Incidencia(
-                tipo="CITA",
-                severidad=severidad,
-                estado="ABIERTA",
-                fecha_hora=self._now_iso(),
-                descripcion=descripcion,
-                medico_id=req.medico_id,
-                personal_id=req.confirmado_por_personal_id,  # quién confirma/autoriza
-                cita_id=cita_id,
-                dispensacion_id=None,
-                receta_id=None,
-                confirmado_por_personal_id=req.confirmado_por_personal_id,
-                nota_override=req.nota_override.strip(),
-            )
-            incidencia_id = self._c.incidencias_repo.create(inc)
-
-        return CrearCitaResult(
+        inc = Incidencia(
+            tipo="CITA",
+            severidad=severidad,
+            estado="ABIERTA",
+            fecha_hora=self._now_iso(),
+            descripcion=descripcion,
+            medico_id=req.medico_id,
+            personal_id=req.confirmado_por_personal_id,
             cita_id=cita_id,
-            warnings=warnings,
-            incidencia_id=incidencia_id,
+            dispensacion_id=None,
+            receta_id=None,
+            confirmado_por_personal_id=req.confirmado_por_personal_id,
+            nota_override=req.nota_override.strip(),
         )
+        return cita_id, self._c.incidencias_repo.create(inc)
 
-    # -----------------------------------------------------------------
-    # Internos
-    # -----------------------------------------------------------------
+    def _build_response(
+        self,
+        *,
+        cita_id: int,
+        warnings: List[WarningItem],
+        incidencia_id: Optional[int],
+    ) -> CrearCitaResult:
+        return CrearCitaResult(cita_id=cita_id, warnings=warnings, incidencia_id=incidencia_id)
 
     def _parse_inicio_fin(self, inicio: str, fin: str) -> Tuple[datetime, datetime]:
         if not inicio or not fin:

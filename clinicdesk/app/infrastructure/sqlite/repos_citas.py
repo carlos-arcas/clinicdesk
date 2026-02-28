@@ -157,26 +157,7 @@ class CitasRepository:
         if paciente_id <= 0:
             raise ValidationError("paciente_id inválido.")
 
-        clauses = ["paciente_id = ?"]
-        params = [paciente_id]
-
-        if desde:
-            clauses.append("inicio >= ?")
-            params.append(desde)
-
-        if hasta:
-            clauses.append("inicio <= ?")
-            params.append(hasta)
-
-        clauses.append("activo = 1")
-        sql = "SELECT * FROM citas WHERE " + " AND ".join(clauses) + " ORDER BY inicio"
-
-        try:
-            rows = self._con.execute(sql, params).fetchall()
-        except sqlite3.Error as exc:
-            logger.error("Error SQL en CitasRepository.list_by_paciente: %s", exc)
-            return []
-        return [self._row_to_model(r) for r in rows]
+        return self._list_by_field("paciente_id", paciente_id, desde=desde, hasta=hasta, method_name="list_by_paciente")
 
     def list_by_medico(
         self,
@@ -191,26 +172,7 @@ class CitasRepository:
         if medico_id <= 0:
             raise ValidationError("medico_id inválido.")
 
-        clauses = ["medico_id = ?"]
-        params = [medico_id]
-
-        if desde:
-            clauses.append("inicio >= ?")
-            params.append(desde)
-
-        if hasta:
-            clauses.append("inicio <= ?")
-            params.append(hasta)
-
-        clauses.append("activo = 1")
-        sql = "SELECT * FROM citas WHERE " + " AND ".join(clauses) + " ORDER BY inicio"
-
-        try:
-            rows = self._con.execute(sql, params).fetchall()
-        except sqlite3.Error as exc:
-            logger.error("Error SQL en CitasRepository.list_by_medico: %s", exc)
-            return []
-        return [self._row_to_model(r) for r in rows]
+        return self._list_by_field("medico_id", medico_id, desde=desde, hasta=hasta, method_name="list_by_medico")
 
     def list_by_sala(
         self,
@@ -225,26 +187,7 @@ class CitasRepository:
         if sala_id <= 0:
             raise ValidationError("sala_id inválido.")
 
-        clauses = ["sala_id = ?"]
-        params = [sala_id]
-
-        if desde:
-            clauses.append("inicio >= ?")
-            params.append(desde)
-
-        if hasta:
-            clauses.append("inicio <= ?")
-            params.append(hasta)
-
-        clauses.append("activo = 1")
-        sql = "SELECT * FROM citas WHERE " + " AND ".join(clauses) + " ORDER BY inicio"
-
-        try:
-            rows = self._con.execute(sql, params).fetchall()
-        except sqlite3.Error as exc:
-            logger.error("Error SQL en CitasRepository.list_by_sala: %s", exc)
-            return []
-        return [self._row_to_model(r) for r in rows]
+        return self._list_by_field("sala_id", sala_id, desde=desde, hasta=hasta, method_name="list_by_sala")
 
     def list_by_estado(
         self,
@@ -259,26 +202,7 @@ class CitasRepository:
         if not estado:
             raise ValidationError("estado obligatorio.")
 
-        clauses = ["estado = ?"]
-        params = [estado]
-
-        if desde:
-            clauses.append("inicio >= ?")
-            params.append(desde)
-
-        if hasta:
-            clauses.append("inicio <= ?")
-            params.append(hasta)
-
-        clauses.append("activo = 1")
-        sql = "SELECT * FROM citas WHERE " + " AND ".join(clauses) + " ORDER BY inicio"
-
-        try:
-            rows = self._con.execute(sql, params).fetchall()
-        except sqlite3.Error as exc:
-            logger.error("Error SQL en CitasRepository.list_by_estado: %s", exc)
-            return []
-        return [self._row_to_model(r) for r in rows]
+        return self._list_by_field("estado", estado, desde=desde, hasta=hasta, method_name="list_by_estado")
 
     def list_in_range(self, *, desde: datetime, hasta: datetime) -> List[Cita]:
         """Lista citas activas cuyo inicio cae dentro del rango temporal."""
@@ -321,3 +245,28 @@ class CitasRepository:
             notas=row["notas"],
             estado=EstadoCita(row["estado"]),
         )
+
+    def _list_by_field(
+        self,
+        field_name: str,
+        field_value: int | str,
+        *,
+        desde: Optional[str],
+        hasta: Optional[str],
+        method_name: str,
+    ) -> List[Cita]:
+        clauses = [f"{field_name} = ?", "activo = 1"]
+        params: list[int | str] = [field_value]
+        if desde:
+            clauses.append("inicio >= ?")
+            params.append(desde)
+        if hasta:
+            clauses.append("inicio <= ?")
+            params.append(hasta)
+        sql = "SELECT * FROM citas WHERE " + " AND ".join(clauses) + " ORDER BY inicio"
+        try:
+            rows = self._con.execute(sql, params).fetchall()
+        except sqlite3.Error as exc:
+            logger.error("Error SQL en CitasRepository.%s: %s", method_name, exc)
+            return []
+        return [self._row_to_model(r) for r in rows]
