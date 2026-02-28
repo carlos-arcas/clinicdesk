@@ -5,7 +5,14 @@ from pathlib import Path
 
 import pytest
 
-pytest.importorskip("cryptography")
+try:
+    import cryptography  # noqa: F401
+except ModuleNotFoundError:
+    pytest.fail(
+        "Falta la dependencia obligatoria 'cryptography'. "
+        "Instala requirements.txt (pip install -r requirements.txt).",
+        pytrace=False,
+    )
 
 from clinicdesk.app.common.crypto_field_protection import decrypt, encrypt, hash_lookup
 from clinicdesk.app.domain.enums import TipoDocumento
