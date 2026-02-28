@@ -1,0 +1,60 @@
+name: Quality Gate
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+
+jobs:
+  quality-gate:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+          cache-dependency-path: |
+            requirements.txt
+            requirements-dev.txt
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          if [ -f requirements-dev.txt ]; then
+            pip install -r requirements-dev.txt
+          fi
+
+      - name: Run tests (non-UI)
+        env:
+          PYTHONPATH: .
+        run: python -m pytest -q -m "not ui"
+
+      - name: Run strict quality gate
+        env:
+          PYTHONPATH: .
+        run: python scripts/quality_gate.py --strict
+
+      - name: Log top hotspots from quality report
+        if: always()
+        env:
+          PYTHONPATH: .
+        run: |
+          python -c "import logging; from pathlib import Path; logging.basicConfig(level=logging.INFO, format='%(levelname)s %(message)s'); report = Path('docs/quality_report.md'); logger = logging.getLogger('quality-report'); lines = report.read_text(encoding='utf-8').splitlines() if report.exists() else []; hotspots = [line for line in lines if '| `clinicdesk/' in line][:10]; logger.info('Top hotspots (max 10):'); [logger.info(line) for line in hotspots] if hotspots else logger.info('No hotspot rows found or report not generated.')"
+
+      - name: Upload quality artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: quality-report
+          if-no-files-found: warn
+          path: |
+            docs/quality_report.md
+            logs/*.log
+            .coverage
+            htmlcov/**
