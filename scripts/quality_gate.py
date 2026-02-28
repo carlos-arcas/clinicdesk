@@ -7,6 +7,7 @@ import ast
 import argparse
 import logging
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -31,6 +32,15 @@ CORE_PATHS = [
 ]
 MIN_COVERAGE = 85.0
 PRINT_ALLOWLIST = {Path("tests")}
+ARTIFACT_SUFFIXES = {".zip", ".db", ".sqlite", ".sqlite3", ".dump", ".bak", ".sqlitedb"}
+ARTIFACT_ALLOWLIST = {Path("clinicdesk.zip")}
+SCAN_EXCLUDE_DIRS = {".git", ".venv", "__pycache__", ".pytest_cache", "logs"}
+MAX_SCAN_BYTES = 1_000_000
+SECRET_PATTERNS: tuple[re.Pattern[str], ...] = (
+    re.compile(r"AKIA[0-9A-Z]{16}"),
+    re.compile(r"-----BEGIN (?:RSA |EC |OPENSSH |DSA )?PRIVATE KEY-----"),
+    re.compile(r"(?i)(?:password|passwd|secret|api[_-]?key|token)\s*[:=]\s*['\"]?[A-Za-z0-9_\-+/=]{12,}"),
+)
 _LOGGER = logging.getLogger(__name__)
 
 from clinicdesk.app.bootstrap_logging import configure_logging, set_run_context
@@ -122,6 +132,56 @@ def _parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
+def _iter_repo_files() -> Iterable[Path]:
+    for path in REPO_ROOT.rglob("*"):
+        if not path.is_file():
+            continue
+        if any(part in SCAN_EXCLUDE_DIRS for part in path.relative_to(REPO_ROOT).parts):
+            continue
+        yield path
+
+
+def _check_forbidden_artifacts() -> int:
+    offenders: list[Path] = []
+    for file_path in _iter_repo_files():
+        rel_path = file_path.relative_to(REPO_ROOT)
+        if rel_path in ARTIFACT_ALLOWLIST:
+            continue
+        if file_path.suffix.lower() in ARTIFACT_SUFFIXES:
+            offenders.append(rel_path)
+    if not offenders:
+        return 0
+    _LOGGER.error("[quality-gate] ❌ Se detectaron artefactos prohibidos.")
+    for path in sorted(offenders):
+        _LOGGER.error("[quality-gate] Artefacto prohibido: %s", path)
+    return 4
+
+
+def _contains_secret(text: str) -> bool:
+    return any(pattern.search(text) for pattern in SECRET_PATTERNS)
+
+
+def _check_secret_patterns() -> int:
+    offenders: list[Path] = []
+    for file_path in _iter_repo_files():
+        try:
+            if file_path.stat().st_size > MAX_SCAN_BYTES:
+                continue
+            text = file_path.read_text(encoding="utf-8")
+        except (UnicodeDecodeError, OSError):
+            continue
+        if _contains_secret(text):
+            offenders.append(file_path.relative_to(REPO_ROOT))
+
+    if not offenders:
+        return 0
+
+    _LOGGER.error("[quality-gate] ❌ Se detectaron posibles secretos.")
+    for path in sorted(offenders):
+        _LOGGER.error("[quality-gate] %s: SECRETO DETECTADO", path)
+    return 5
+
+
 def main() -> int:
     args = _parse_args()
     mode = "report-only" if args.report_only else "strict"
@@ -132,6 +192,14 @@ def main() -> int:
     no_print_rc = _check_no_print_calls()
     if no_print_rc != 0:
         return no_print_rc
+
+    artifact_rc = _check_forbidden_artifacts()
+    if artifact_rc != 0:
+        return artifact_rc
+
+    secret_rc = _check_secret_patterns()
+    if secret_rc != 0:
+        return secret_rc
 
     optional_checks_rc = _run_optional_checks()
     if optional_checks_rc != 0:
