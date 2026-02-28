@@ -6,10 +6,8 @@ import logging
 
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
-    QComboBox,
     QHBoxLayout,
     QLabel,
-    QLineEdit,
     QMessageBox,
     QPushButton,
     QTableWidget,
@@ -26,6 +24,7 @@ from clinicdesk.app.domain.exceptions import ValidationError
 from clinicdesk.app.pages.dialog_override import OverrideDialog
 from clinicdesk.app.pages.materiales.dialogs.ajuste_stock import AjusteStockDialog
 from clinicdesk.app.pages.materiales.dialogs.material_form import MaterialFormDialog
+from clinicdesk.app.pages.shared.filtro_listado import FiltroListadoWidget
 from clinicdesk.app.pages.shared.crud_page_helpers import confirm_deactivation, set_buttons_enabled
 from clinicdesk.app.pages.shared.table_utils import apply_row_style, set_item
 from clinicdesk.app.queries.materiales_queries import (
@@ -56,17 +55,7 @@ class PageMateriales(QWidget):
     def _build_ui(self) -> None:
         root = QVBoxLayout(self)
 
-        filters = QHBoxLayout()
-        self.txt_buscar = QLineEdit()
-        self.cbo_activo = QComboBox()
-        self.cbo_activo.addItems(["Activos", "Inactivos", "Todos"])
-        self.btn_buscar = QPushButton("Buscar")
-
-        filters.addWidget(QLabel("Buscar"))
-        filters.addWidget(self.txt_buscar)
-        filters.addWidget(QLabel("Estado"))
-        filters.addWidget(self.cbo_activo)
-        filters.addWidget(self.btn_buscar)
+        self.filtros = FiltroListadoWidget(self)
 
         actions = QHBoxLayout()
         self.btn_nuevo = QPushButton("Nuevo")
@@ -100,7 +89,7 @@ class PageMateriales(QWidget):
         self.lbl_empty.setVisible(False)
         self.btn_seed_demo.setVisible(False)
 
-        root.addLayout(filters)
+        root.addWidget(self.filtros)
         root.addLayout(actions)
         root.addWidget(QLabel("Materiales"))
         root.addWidget(self.table)
@@ -110,8 +99,7 @@ class PageMateriales(QWidget):
         root.addWidget(self.btn_seed_demo)
 
     def _connect_signals(self) -> None:
-        self.btn_buscar.clicked.connect(self._refresh)
-        self.txt_buscar.returnPressed.connect(self._refresh)
+        self.filtros.filtros_cambiados.connect(self._refresh)
         self.table.itemSelectionChanged.connect(self._update_buttons)
         self.table.itemDoubleClicked.connect(lambda _: self._on_editar())
         self.table.customContextMenuRequested.connect(self._open_context_menu)
@@ -125,12 +113,14 @@ class PageMateriales(QWidget):
         self._refresh()
 
     def _refresh(self) -> None:
-        activo = self._activo_filter()
-        texto = normalize_search_text(self.txt_buscar.text())
+        activo = self.filtros.activo()
+        base_rows = self._queries.list_all(activo=activo)
+        texto = normalize_search_text(self.filtros.texto())
         if not has_search_values(texto):
-            rows = self._queries.list_all(activo=activo)
+            rows = base_rows
         else:
             rows = self._queries.search(texto=texto, activo=activo)
+        self.filtros.set_contador(len(rows), len(base_rows))
         self._render(rows)
         self._render_movimientos([])
         self._update_buttons()
@@ -281,17 +271,8 @@ class PageMateriales(QWidget):
         except ValueError:
             return None
 
-    def _activo_filter(self) -> Optional[bool]:
-        value = self.cbo_activo.currentText()
-        if value == "Activos":
-            return True
-        if value == "Inactivos":
-            return False
-        return None
-
     def _reset_filters(self) -> None:
-        self.txt_buscar.clear()
-        self.cbo_activo.setCurrentText("Todos")
+        self.filtros.limpiar()
 
     def _open_context_menu(self, pos) -> None:
         row = self.table.rowAt(pos.y())

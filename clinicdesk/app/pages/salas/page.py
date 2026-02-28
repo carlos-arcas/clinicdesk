@@ -6,10 +6,7 @@ import logging
 
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
-    QComboBox,
     QHBoxLayout,
-    QLabel,
-    QLineEdit,
     QMessageBox,
     QPushButton,
     QTableWidget,
@@ -25,6 +22,7 @@ from clinicdesk.app.common.search_utils import has_search_values, normalize_sear
 from clinicdesk.app.domain.enums import TipoSala
 from clinicdesk.app.domain.exceptions import ValidationError
 from clinicdesk.app.pages.salas.dialogs.sala_form import SalaFormDialog
+from clinicdesk.app.pages.shared.filtro_listado import FiltroListadoWidget
 from clinicdesk.app.pages.shared.crud_page_helpers import confirm_deactivation, set_buttons_enabled
 from clinicdesk.app.pages.shared.table_utils import apply_row_style, set_item
 from clinicdesk.app.queries.salas_queries import SalasQueries, SalaRow
@@ -45,21 +43,14 @@ class PageSalas(QWidget):
         root = QVBoxLayout(self)
 
         filters = QHBoxLayout()
-        self.txt_buscar = QLineEdit()
+        self.filtros = FiltroListadoWidget(self)
+        self.filtros.cbo_estado.clear()
+        self.filtros.cbo_estado.addItems(["Activas", "Inactivas", "Todas"])
         self.cbo_tipo = QComboBox()
         self.cbo_tipo.addItem("Todos")
         self.cbo_tipo.addItems([t.value for t in TipoSala])
-        self.cbo_activa = QComboBox()
-        self.cbo_activa.addItems(["Activas", "Inactivas", "Todas"])
-        self.btn_buscar = QPushButton("Buscar")
-
-        filters.addWidget(QLabel("Buscar"))
-        filters.addWidget(self.txt_buscar)
-        filters.addWidget(QLabel("Tipo"))
+        filters.addWidget(self.filtros)
         filters.addWidget(self.cbo_tipo)
-        filters.addWidget(QLabel("Estado"))
-        filters.addWidget(self.cbo_activa)
-        filters.addWidget(self.btn_buscar)
 
         actions = QHBoxLayout()
         self.btn_nuevo = QPushButton("Nueva")
@@ -85,8 +76,8 @@ class PageSalas(QWidget):
         root.addWidget(self.table)
 
     def _connect_signals(self) -> None:
-        self.btn_buscar.clicked.connect(self._refresh)
-        self.txt_buscar.returnPressed.connect(self._refresh)
+        self.filtros.filtros_cambiados.connect(self._refresh)
+        self.cbo_tipo.currentIndexChanged.connect(self._refresh)
         self.table.itemSelectionChanged.connect(self._update_buttons)
         self.table.itemDoubleClicked.connect(lambda _: self._on_editar())
         self.table.customContextMenuRequested.connect(self._open_context_menu)
@@ -101,16 +92,18 @@ class PageSalas(QWidget):
         tipo = self.cbo_tipo.currentText()
         tipo = None if tipo == "Todos" else tipo
         activa = self._activa_filter()
-        texto = normalize_search_text(self.txt_buscar.text())
+        base_rows = self._queries.list_all(activa=activa)
+        texto = normalize_search_text(self.filtros.texto())
         tipo = normalize_search_text(tipo)
         if not has_search_values(texto, tipo):
-            rows = self._queries.list_all(activa=activa)
+            rows = base_rows
         else:
             rows = self._queries.search(
                 texto=texto,
                 tipo=tipo,
                 activa=activa,
             )
+        self.filtros.set_contador(len(rows), len(base_rows))
         self._render(rows)
         self._update_buttons()
 
@@ -193,7 +186,7 @@ class PageSalas(QWidget):
             return None
 
     def _activa_filter(self) -> Optional[bool]:
-        value = self.cbo_activa.currentText()
+        value = self.filtros.cbo_estado.currentText()
         if value == "Activas":
             return True
         if value == "Inactivas":
@@ -201,9 +194,9 @@ class PageSalas(QWidget):
         return None
 
     def _reset_filters(self) -> None:
-        self.txt_buscar.clear()
+        self.filtros.limpiar()
         self.cbo_tipo.setCurrentText("Todos")
-        self.cbo_activa.setCurrentText("Todas")
+        self.filtros.cbo_estado.setCurrentText("Todas")
 
     def _open_context_menu(self, pos) -> None:
         row = self.table.rowAt(pos.y())

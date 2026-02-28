@@ -26,6 +26,12 @@ class MedicosQueries:
     def __init__(self, connection: sqlite3.Connection) -> None:
         self._conn = connection
 
+    _BASE_SELECT = (
+        "SELECT id, documento, nombre, apellidos, telefono, "
+        "GROUP_CONCAT(DISTINCT especialidad) AS especialidad, activo "
+        "FROM medicos"
+    )
+
     def list_all(
         self,
         *,
@@ -39,11 +45,10 @@ class MedicosQueries:
             clauses.append("activo = ?")
             params.append(int(activo))
 
-        sql = (
-            "SELECT id, documento, nombre, apellidos, telefono, especialidad, activo FROM medicos"
-        )
+        sql = self._BASE_SELECT
         if clauses:
             sql += " WHERE " + " AND ".join(clauses)
+        sql += " GROUP BY id, documento, nombre, apellidos, telefono, activo"
         sql += " ORDER BY apellidos, nombre LIMIT ?"
         params.append(int(limit))
 
@@ -103,9 +108,10 @@ class MedicosQueries:
             clauses.append("activo = ?")
             params.append(int(activo))
 
-        sql = "SELECT id, documento, nombre, apellidos, telefono, especialidad, activo FROM medicos"
+        sql = self._BASE_SELECT
         if clauses:
             sql += " WHERE " + " AND ".join(clauses)
+        sql += " GROUP BY id, documento, nombre, apellidos, telefono, activo"
         sql += " ORDER BY apellidos, nombre LIMIT ?"
         params.append(int(limit))
 
