@@ -18,6 +18,8 @@ from PySide6.QtWidgets import (
 from clinicdesk.app.container import AppContainer
 from clinicdesk.app.queries.pacientes_queries import PacientesQueries, PacienteRow
 from clinicdesk.app.queries.recetas_queries import RecetasQueries, RecetaRow, RecetaLineaRow
+from clinicdesk.app.pages.shared.screen_data_log import log_screen_data_loaded
+from clinicdesk.app.application.usecases.seed_demo_data import SeedDemoDataRequest
 
 
 class PageRecetas(QWidget):
@@ -65,11 +67,18 @@ class PageRecetas(QWidget):
         root.addWidget(self.table_recetas)
         root.addWidget(QLabel("Líneas"))
         root.addWidget(self.table_lineas)
+        self.lbl_empty = QLabel("No hay datos cargados. Pulsa ‘Generar datos demo’.")
+        self.btn_seed_demo = QPushButton("Generar datos demo")
+        self.lbl_empty.setVisible(False)
+        self.btn_seed_demo.setVisible(False)
+        root.addWidget(self.lbl_empty)
+        root.addWidget(self.btn_seed_demo)
 
     def _connect_signals(self) -> None:
         self.btn_buscar.clicked.connect(self._buscar_pacientes)
         self.table_pacientes.itemSelectionChanged.connect(self._select_paciente)
         self.table_recetas.itemSelectionChanged.connect(self._cargar_lineas)
+        self.btn_seed_demo.clicked.connect(self._on_seed_demo)
 
     def on_show(self) -> None:
         self._buscar_pacientes()
@@ -100,6 +109,9 @@ class PageRecetas(QWidget):
         rows = self._recetas_queries.list_por_paciente(paciente_id)
         self._render_recetas(rows)
         self._render_lineas([])
+        log_screen_data_loaded(self._container.connection, "recetas", len(rows))
+        self.lbl_empty.setVisible(not bool(rows))
+        self.btn_seed_demo.setVisible(not bool(rows))
 
     def _render_recetas(self, rows: list[RecetaRow]) -> None:
         self.table_recetas.setRowCount(0)
@@ -138,6 +150,10 @@ class PageRecetas(QWidget):
             return int(items[0].text())
         except ValueError:
             return None
+
+    def _on_seed_demo(self) -> None:
+        self._container.demo_ml_facade.seed_demo(SeedDemoDataRequest())
+        self._buscar_pacientes()
 
 
 

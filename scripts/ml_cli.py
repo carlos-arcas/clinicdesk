@@ -145,6 +145,12 @@ def _add_seed_demo_parser(subparsers: argparse._SubParsersAction) -> None:
     parser.add_argument("--incidence-rate", type=float, default=0.15)
     parser.add_argument("--sqlite-path", type=str, default=None)
     parser.add_argument("--batch-size", type=int, default=500)
+    parser.add_argument("--meds", type=int, default=200)
+    parser.add_argument("--materials", type=int, default=120)
+    parser.add_argument("--recipes", type=int, default=400)
+    parser.add_argument("--movements", type=int, default=2000)
+    parser.add_argument("--turns-months", type=int, default=2)
+    parser.add_argument("--absences", type=int, default=60)
     parser.add_argument("--turbo", dest="turbo", action="store_true", default=True)
     parser.add_argument("--no-turbo", dest="turbo", action="store_false")
     parser.add_argument("--reset", dest="reset", action="store_true", default=None)
@@ -430,6 +436,12 @@ def _run_seed_demo_use_case(args: argparse.Namespace, connection: sqlite3.Connec
         to_date=args.to_date,
         incidence_rate=args.incidence_rate,
         batch_size=args.batch_size,
+        n_medicamentos=args.meds,
+        n_materiales=args.materials,
+        n_recetas=args.recipes,
+        n_movimientos=args.movements,
+        turns_months=args.turns_months,
+        n_ausencias=args.absences,
     )
     if not args.turbo:
         _LOGGER.info("seed_demo_turbo_disabled")

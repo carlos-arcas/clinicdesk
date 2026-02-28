@@ -27,6 +27,7 @@ from clinicdesk.app.pages.shared.selector_dialog import select_medico, select_pe
 from clinicdesk.app.queries.ausencias_queries import AusenciasQueries, AusenciaRow
 from clinicdesk.app.infrastructure.sqlite.repos_ausencias_medico import AusenciaMedico
 from clinicdesk.app.infrastructure.sqlite.repos_ausencias_personal import AusenciaPersonal
+from clinicdesk.app.pages.shared.screen_data_log import log_screen_data_loaded
 
 
 class PageAusencias(QWidget):
@@ -103,6 +104,7 @@ class PageAusencias(QWidget):
         persona_id = self._persona_id
         if persona_id is None:
             self.table.setRowCount(0)
+            log_screen_data_loaded(self._container.connection, "ausencias", 0)
             return
 
         desde = self.date_desde.date().toString("yyyy-MM-dd")
@@ -114,6 +116,7 @@ class PageAusencias(QWidget):
             rows = self._queries.list_personal(persona_id, desde=desde, hasta=hasta)
 
         self._render(rows)
+        log_screen_data_loaded(self._container.connection, "ausencias", len(rows))
 
     def _render(self, rows: list[AusenciaRow]) -> None:
         self.table.setRowCount(0)
