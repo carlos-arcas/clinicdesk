@@ -32,6 +32,48 @@ class MedicosQueries:
         "FROM medicos"
     )
 
+    @staticmethod
+    def _build_texto_clause(texto: Optional[str]) -> tuple[Optional[str], List[object]]:
+        if not texto:
+            return None, []
+
+        like = like_value(texto)
+        conditions = [
+            "nombre LIKE ? COLLATE NOCASE",
+            "apellidos LIKE ? COLLATE NOCASE",
+            "documento LIKE ? COLLATE NOCASE",
+            "telefono LIKE ? COLLATE NOCASE",
+            "num_colegiado LIKE ? COLLATE NOCASE",
+        ]
+        params: List[object] = [like, like, like, like, like]
+
+        cleaned = texto.replace(" ", "").replace("-", "")
+        if cleaned:
+            conditions.append("REPLACE(REPLACE(telefono, ' ', ''), '-', '') LIKE ? COLLATE NOCASE")
+            params.append(like_value(cleaned))
+
+        return "(" + " OR ".join(conditions) + ")", params
+
+    @staticmethod
+    def _build_especialidad_clause(especialidad: Optional[str]) -> tuple[Optional[str], List[object]]:
+        if not especialidad:
+            return None, []
+        return "especialidad LIKE ? COLLATE NOCASE", [like_value(especialidad)]
+
+    @staticmethod
+    def _build_activo_clause(activo: Optional[bool]) -> tuple[Optional[str], List[object]]:
+        if activo is None:
+            return None, []
+        return "activo = ?", [int(activo)]
+
+    @staticmethod
+    def _build_where(*parts: tuple[Optional[str], List[object]]) -> tuple[str, List[object]]:
+        clauses = [clause for clause, _ in parts if clause]
+        params = [param for _, values in parts for param in values]
+        if not clauses:
+            return "", params
+        return " WHERE " + " AND ".join(clauses), params
+
     def list_all(
         self,
         *,
@@ -89,37 +131,14 @@ class MedicosQueries:
         texto = normalize_search_text(texto)
         especialidad = normalize_search_text(especialidad)
 
-        clauses = []
-        params: List[object] = []
-
-        if texto:
-            like = like_value(texto)
-            clauses.append(
-                "(nombre LIKE ? COLLATE NOCASE OR apellidos LIKE ? COLLATE NOCASE "
-                "OR documento LIKE ? COLLATE NOCASE OR telefono LIKE ? COLLATE NOCASE "
-                "OR num_colegiado LIKE ? COLLATE NOCASE)"
-            )
-            params.extend([like, like, like, like, like])
-
-            cleaned = texto.replace(" ", "").replace("-", "")
-            if cleaned:
-                clauses[-1] = (
-                    clauses[-1][:-1]
-                    + " OR REPLACE(REPLACE(telefono, ' ', ''), '-', '') LIKE ? COLLATE NOCASE)"
-                )
-                params.append(like_value(cleaned))
-
-        if especialidad:
-            clauses.append("especialidad LIKE ? COLLATE NOCASE")
-            params.append(like_value(especialidad))
-
-        if activo is not None:
-            clauses.append("activo = ?")
-            params.append(int(activo))
+        where_sql, params = self._build_where(
+            self._build_texto_clause(texto),
+            self._build_especialidad_clause(especialidad),
+            self._build_activo_clause(activo),
+        )
 
         sql = self._BASE_SELECT
-        if clauses:
-            sql += " WHERE " + " AND ".join(clauses)
+        sql += where_sql
         sql += " GROUP BY id, documento, nombre, apellidos, telefono, activo"
         sql += " ORDER BY apellidos, nombre, id"
         if limit is not None:
