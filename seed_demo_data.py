@@ -3,14 +3,18 @@ from __future__ import annotations
 import argparse
 import sqlite3
 import sys
+import uuid
 from datetime import date
 from pathlib import Path
 
 from scripts.ml_cli import run_cli
+from clinicdesk.app.bootstrap_logging import configure_logging, get_logger, log_soft_exception, set_run_context
+from clinicdesk.app.crash_handler import install_global_exception_hook
 
 _DEFAULT_SQLITE_PATH = "./data/demo.db"
 _DEFAULT_FROM_DATE = "2025-01-01"
 _DEFAULT_TO_DATE = "2026-02-28"
+_LOGGER = get_logger(__name__)
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -29,6 +33,9 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main(argv: list[str] | None = None) -> int:
+    configure_logging("clinicdesk-seed-demo", Path("./logs"), level="INFO", json=True)
+    set_run_context(uuid.uuid4().hex[:8])
+    install_global_exception_hook(_LOGGER)
     args = build_parser().parse_args(argv)
     try:
         sqlite_path = _validate_args(args)
@@ -62,11 +69,8 @@ def main(argv: list[str] | None = None) -> int:
         _print_summary(counts, sqlite_path, args.from_date, args.to_date)
         return 0
     except ValueError as exc:
-        print(f"ERROR: {exc}")
+        log_soft_exception(_LOGGER, exc, {"command": "seed_demo_data"})
         return 2
-    except Exception as exc:  # pragma: no cover
-        print(f"ERROR inesperado: {exc}")
-        return 1
 
 
 def _validate_args(args: argparse.Namespace) -> Path:
@@ -100,7 +104,7 @@ def _reset_demo_db_if_allowed(sqlite_path: Path) -> None:
             f"Ruta recibida: {sqlite_path}"
         )
     sqlite_path.unlink()
-    print(f"[reset] base demo eliminada: {sqlite_path}")
+    _LOGGER.info("[reset] base demo eliminada: %s", sqlite_path)
 
 
 def _is_safe_demo_db_path(sqlite_path: Path) -> bool:
@@ -126,17 +130,17 @@ def _count_table(conn: sqlite3.Connection, table_name: str) -> int:
 
 
 def _print_summary(counts: dict[str, int], sqlite_path: Path, from_date: str, to_date: str) -> None:
-    print("\n=== RESUMEN DEMO ===")
-    print(
+    _LOGGER.info("=== RESUMEN DEMO ===")
+    _LOGGER.info(
         "Conteos creados: "
         f"medicos={counts['medicos']} pacientes={counts['pacientes']} "
         f"personal={counts['personal']} citas={counts['citas']} incidencias={counts['incidencias']}"
     )
-    print(f"Base de datos: {sqlite_path}")
-    print("Siguientes pasos sugeridos:")
-    print(f"  PYTHONPATH=. python scripts/ml_cli.py build-features --from {from_date} --to {to_date} --store-path ./data/feature_store")
-    print("  PYTHONPATH=. python scripts/ml_cli.py train --dataset-version <version> --model-version m_demo --feature-store-path ./data/feature_store --model-store-path ./data/model_store")
-    print("  PYTHONPATH=. python scripts/ml_cli.py export features --dataset-version <version> --output ./exports --feature-store-path ./data/feature_store")
+    _LOGGER.info("Base de datos: %s", sqlite_path)
+    _LOGGER.info("Siguientes pasos sugeridos:")
+    _LOGGER.info("  PYTHONPATH=. python scripts/ml_cli.py build-features --from %s --to %s --store-path ./data/feature_store", from_date, to_date)
+    _LOGGER.info("  PYTHONPATH=. python scripts/ml_cli.py train --dataset-version <version> --model-version m_demo --feature-store-path ./data/feature_store --model-store-path ./data/model_store")
+    _LOGGER.info("  PYTHONPATH=. python scripts/ml_cli.py export features --dataset-version <version> --output ./exports --feature-store-path ./data/feature_store")
 
 
 if __name__ == "__main__":

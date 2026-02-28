@@ -284,3 +284,21 @@ Formato por entrada:
   - Drift usa `prev_dataset_version` de settings cuando existe; en caso contrario usa self-to para que la demo nunca falle por configuración inicial.
 - **Limitaciones**:
   - La UI de escritorio se valida manualmente; no hay suite visual automatizada para PySide6.
+
+- **DATE/TIME**: 2026-02-28 04:40 UTC
+- **Paso**: Paso 13: Logging robusto (operational + soft/fatal crash), cero prints
+- **Qué se hizo**:
+  - Se implementó bootstrap central de logging en `clinicdesk/app/bootstrap_logging.py` con contexto `run_id/user`, salida consistente a consola y rotación de archivos (`app.log`, `crash_soft.log`, `crash_fatal.log`).
+  - Se añadió `clinicdesk/app/crash_handler.py` para instalar hook global de excepciones (`sys.excepthook` y `threading.excepthook`) enviando tracebacks a fatal crash log.
+  - Se agregó helper `log_soft_exception(...)` para registrar errores esperables como soft crash + operacional.
+  - Se integró logging en `scripts/ml_cli.py`, `seed_demo_data.py`, `clinicdesk/app/main.py`, y `clinicdesk/tools/test_launcher.py` eliminando `print`.
+  - Se añadió `LogBufferHandler` in-memory para UI (`clinicdesk/app/ui/log_buffer_handler.py`) como réplica opcional para logs en pantalla.
+  - Se actualizó `scripts/quality_gate.py` para detectar y bloquear `print` fuera de allowlist.
+  - Se añadieron tests smoke de logging/crash (`tests/test_logging_smoke.py`).
+- **Decisiones**:
+  - Formato estructurado configurable (`json=True/False`) con campos obligatorios de trazabilidad para observabilidad end-to-end.
+  - Separación explícita de crashes esperables (soft) vs terminales (fatal) para operación y soporte.
+- **Riesgos**:
+  - Algunos módulos legacy siguen sin emitir logs de dominio ricos; la base queda preparada para extender instrumentación progresiva.
+- **Qué queda**:
+  - Extender correlación con `request_id` por interacción UI/servicio cuando exista capa de transporte explícita.

@@ -3,6 +3,8 @@
 
 from __future__ import annotations
 
+import ast
+import logging
 import os
 import shutil
 import subprocess
@@ -26,21 +28,25 @@ CORE_PATHS = [
     REPO_ROOT / "clinicdesk" / "app" / "queries" / "citas_queries.py",
 ]
 MIN_COVERAGE = 85.0
+PRINT_ALLOWLIST = {Path("tests")}
+_LOGGER = logging.getLogger(__name__)
+
+from clinicdesk.app.bootstrap_logging import configure_logging, set_run_context
 
 
 def _run_optional_checks() -> int:
     pyproject = REPO_ROOT / "pyproject.toml"
     if not pyproject.exists() or "[tool.ruff" not in pyproject.read_text(encoding="utf-8"):
-        print("[quality-gate] Ruff no configurado: se omite lint/format.")
+        _LOGGER.info("[quality-gate] Ruff no configurado: se omite lint/format.")
         return 0
 
     ruff = shutil.which("ruff")
     if not ruff:
-        print("[quality-gate] Ruff configurado pero no instalado.")
+        _LOGGER.error("[quality-gate] Ruff configurado pero no instalado.")
         return 1
 
     for cmd in ([ruff, "check", "."], [ruff, "format", "--check", "."]):
-        print("[quality-gate] Ejecutando:", " ".join(cmd))
+        _LOGGER.info("[quality-gate] Ejecutando: %s", " ".join(cmd))
         result = subprocess.run(cmd, cwd=REPO_ROOT)
         if result.returncode != 0:
             return result.returncode
@@ -74,25 +80,58 @@ def _compute_core_coverage(tracer: trace.Trace) -> float:
     return (executed_total / executable_total) * 100.0
 
 
+def _is_allowlisted(file_path: Path) -> bool:
+    rel_path = file_path.relative_to(REPO_ROOT)
+    return any(rel_path.parts[: len(root.parts)] == root.parts for root in PRINT_ALLOWLIST)
+
+
+def _check_no_print_calls() -> int:
+    offenders: list[Path] = []
+    for file_path in REPO_ROOT.rglob("*.py"):
+        if _is_allowlisted(file_path):
+            continue
+        source = file_path.read_text(encoding="utf-8")
+        tree = ast.parse(source)
+        has_print_call = any(
+            isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id == "print"
+            for node in ast.walk(tree)
+        )
+        if has_print_call:
+            offenders.append(file_path)
+    if not offenders:
+        return 0
+    _LOGGER.error("[quality-gate] ❌ Se detectaron print fuera de allowlist.")
+    for file_path in offenders:
+        _LOGGER.error("[quality-gate] print encontrado en %s", file_path.relative_to(REPO_ROOT))
+    return 3
+
+
 def main() -> int:
+    configure_logging("clinicdesk-quality-gate", REPO_ROOT / "logs", level="INFO", json=False)
+    set_run_context("qualitygate")
+
+    no_print_rc = _check_no_print_calls()
+    if no_print_rc != 0:
+        return no_print_rc
+
     optional_checks_rc = _run_optional_checks()
     if optional_checks_rc != 0:
         return optional_checks_rc
 
     pytest_args = ["-q", "-m", "not ui"]
-    print("[quality-gate] Ejecutando pytest:", "python -m pytest", " ".join(pytest_args))
+    _LOGGER.info("[quality-gate] Ejecutando pytest: python -m pytest %s", " ".join(pytest_args))
     test_rc, tracer = _run_pytest_with_trace(pytest_args)
     if test_rc != 0:
-        print(f"[quality-gate] ❌ pytest falló con código {test_rc}.")
+        _LOGGER.error("[quality-gate] ❌ pytest falló con código %s.", test_rc)
         return test_rc
 
     coverage = _compute_core_coverage(tracer)
-    print(f"[quality-gate] Core coverage: {coverage:.2f}% (mínimo {MIN_COVERAGE:.2f}%)")
+    _LOGGER.info("[quality-gate] Core coverage: %.2f%% (mínimo %.2f%%)", coverage, MIN_COVERAGE)
     if coverage < MIN_COVERAGE:
-        print("[quality-gate] ❌ Cobertura de core por debajo del umbral.")
+        _LOGGER.error("[quality-gate] ❌ Cobertura de core por debajo del umbral.")
         return 2
 
-    print("[quality-gate] ✅ Gate superado.")
+    _LOGGER.info("[quality-gate] ✅ Gate superado.")
     return 0
 
 
