@@ -97,33 +97,35 @@ class AnalyticsWorkflowService:
         previous_dataset_version: str | None = None,
         seed_request: SeedDemoDataRequest | None = None,
         cancel_token: CancelToken | None = None,
-        progress_cb: Callable[[int, str, str], None] | None = None,
+        progress_callback: Callable[[int, str], None] | None = None,
+        progress_cb: Callable[[int, str], None] | None = None,
     ) -> AnalyticsWorkflowResult:
+        cb = progress_callback or progress_cb
         dataset_version = self._build_dataset_version()
         model_version = self._build_model_version()
-        self._notify(progress_cb, 0, "running", "Iniciando análisis guiado")
+        self._notify(cb, 0, "Iniciando análisis guiado")
         self._check_cancel(cancel_token)
         if seed_request is not None and config.seed_if_missing:
-            self._notify(progress_cb, 5, "running", "Generando datos demo")
+            self._notify(cb, 5, "Generando datos demo")
             self._facade.seed_demo(seed_request)
-        self._notify(progress_cb, 15, "running", "Preparando análisis")
+        self._notify(cb, 15, "Preparando análisis")
         dataset_version = self.prepare_analysis(from_date, to_date, dataset_version)
         self._check_cancel(cancel_token)
-        self._notify(progress_cb, 40, "running", "Entrenando")
+        self._notify(cb, 40, "Entrenando")
         train_response, model_version = self.train(dataset_version, model_version)
         self._check_cancel(cancel_token)
-        self._notify(progress_cb, 60, "running", "Calculando riesgo")
+        self._notify(cb, 60, "Calculando riesgo")
         score_response = self.score(dataset_version, model_version, config.score_limit, config.predictor_kind)
         self._check_cancel(cancel_token)
         drift_report = None
         drift_flag = False
         if config.drift_enabled:
-            self._notify(progress_cb, 78, "running", "Detectando cambios")
+            self._notify(cb, 78, "Detectando cambios")
             source_version = previous_dataset_version or dataset_version
             drift_report = self.drift(source_version, dataset_version)
             drift_flag = bool(getattr(drift_report, "overall_flag", False))
         self._check_cancel(cancel_token)
-        self._notify(progress_cb, 90, "running", "Exportando resultados")
+        self._notify(cb, 90, "Exportando resultados")
         exports = self.export_all(dataset_version, train_response, score_response, drift_report, config)
         summary = self._build_summary(score_response.total, exports, drift_flag)
         metrics = {
@@ -131,7 +133,7 @@ class AnalyticsWorkflowService:
             "threshold": float(train_response.calibrated_threshold),
             "score_total": float(score_response.total),
         }
-        self._notify(progress_cb, 100, "done", "Análisis completo")
+        self._notify(cb, 100, "Análisis completo")
         result = AnalyticsWorkflowResult(
             export_paths=exports,
             metrics=metrics,
@@ -142,9 +144,9 @@ class AnalyticsWorkflowService:
         LOGGER.info("analytics_workflow_completed", extra={"exports": len(exports), "drift": drift_flag})
         return result
 
-    def _notify(self, progress_cb: Callable[[int, str, str], None] | None, progress: int, status: str, message: str) -> None:
+    def _notify(self, progress_cb: Callable[[int, str], None] | None, progress: int, message: str) -> None:
         if progress_cb is not None:
-            progress_cb(progress, status, message)
+            progress_cb(progress, message)
 
     def _check_cancel(self, cancel_token: CancelToken | None) -> None:
         if cancel_token is not None and cancel_token.is_cancelled():
