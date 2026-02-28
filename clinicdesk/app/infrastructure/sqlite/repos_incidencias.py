@@ -226,56 +226,18 @@ class IncidenciasRepository:
         """
         Búsqueda flexible de incidencias para auditoría.
         """
-        tipo = normalize_search_text(tipo)
-        estado = normalize_search_text(estado)
-        severidad = normalize_search_text(severidad)
-        desde = normalize_search_text(desde)
-        hasta = normalize_search_text(hasta)
-
-        clauses = []
-        params = []
-
-        if tipo:
-            clauses.append("tipo LIKE ? COLLATE NOCASE")
-            params.append(like_value(tipo))
-
-        if estado:
-            clauses.append("estado LIKE ? COLLATE NOCASE")
-            params.append(like_value(estado))
-
-        if severidad:
-            clauses.append("severidad LIKE ? COLLATE NOCASE")
-            params.append(like_value(severidad))
-
-        if desde:
-            clauses.append("fecha_hora >= ?")
-            params.append(desde)
-
-        if hasta:
-            clauses.append("fecha_hora <= ?")
-            params.append(hasta)
-
-        if medico_id is not None:
-            clauses.append("medico_id = ?")
-            params.append(medico_id)
-
-        if personal_id is not None:
-            clauses.append("personal_id = ?")
-            params.append(personal_id)
-
-        if cita_id is not None:
-            clauses.append("cita_id = ?")
-            params.append(cita_id)
-
-        if dispensacion_id is not None:
-            clauses.append("dispensacion_id = ?")
-            params.append(dispensacion_id)
-
-        if receta_id is not None:
-            clauses.append("receta_id = ?")
-            params.append(receta_id)
-
-        clauses.append("activo = 1")
+        clauses, params = _build_search_query(
+            tipo=tipo,
+            estado=estado,
+            severidad=severidad,
+            desde=desde,
+            hasta=hasta,
+            medico_id=medico_id,
+            personal_id=personal_id,
+            cita_id=cita_id,
+            dispensacion_id=dispensacion_id,
+            receta_id=receta_id,
+        )
         sql = "SELECT * FROM incidencias"
         if clauses:
             sql += " WHERE " + " AND ".join(clauses)
@@ -329,3 +291,64 @@ class IncidenciasRepository:
             confirmado_por_personal_id=row["confirmado_por_personal_id"],
             nota_override=row["nota_override"],
         )
+
+
+def _build_search_query(
+    *,
+    tipo: Optional[str],
+    estado: Optional[str],
+    severidad: Optional[str],
+    desde: Optional[str],
+    hasta: Optional[str],
+    medico_id: Optional[int],
+    personal_id: Optional[int],
+    cita_id: Optional[int],
+    dispensacion_id: Optional[int],
+    receta_id: Optional[int],
+) -> tuple[list[str], list[str | int]]:
+    tipo = normalize_search_text(tipo)
+    estado = normalize_search_text(estado)
+    severidad = normalize_search_text(severidad)
+    desde = normalize_search_text(desde)
+    hasta = normalize_search_text(hasta)
+    clauses: list[str] = ["activo = 1"]
+    params: list[str | int] = []
+
+    _append_like_clause(clauses, params, "tipo", tipo)
+    _append_like_clause(clauses, params, "estado", estado)
+    _append_like_clause(clauses, params, "severidad", severidad)
+    _append_range_clause(clauses, params, "fecha_hora >= ?", desde)
+    _append_range_clause(clauses, params, "fecha_hora <= ?", hasta)
+
+    _append_optional_id_clause(clauses, params, "medico_id", medico_id)
+    _append_optional_id_clause(clauses, params, "personal_id", personal_id)
+    _append_optional_id_clause(clauses, params, "cita_id", cita_id)
+    _append_optional_id_clause(clauses, params, "dispensacion_id", dispensacion_id)
+    _append_optional_id_clause(clauses, params, "receta_id", receta_id)
+    return clauses, params
+
+
+def _append_like_clause(clauses: list[str], params: list[str | int], field: str, value: Optional[str]) -> None:
+    if not value:
+        return
+    clauses.append(f"{field} LIKE ? COLLATE NOCASE")
+    params.append(like_value(value))
+
+
+def _append_range_clause(clauses: list[str], params: list[str | int], clause: str, value: Optional[str]) -> None:
+    if not value:
+        return
+    clauses.append(clause)
+    params.append(value)
+
+
+def _append_optional_id_clause(
+    clauses: list[str],
+    params: list[str | int],
+    field: str,
+    value: Optional[int],
+) -> None:
+    if value is None:
+        return
+    clauses.append(f"{field} = ?")
+    params.append(value)

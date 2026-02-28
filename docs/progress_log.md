@@ -463,3 +463,18 @@ Formato por entrada:
     - `clinicdesk/app/queries/dispensaciones_queries.py`
     - `docs/quality_report.md`
     - `docs/progress_log.md`
+
+- **DATE/TIME**: 2026-02-28 11:30 UTC
+- **Paso**: Refactor incremental para gate estricto (citas + split dominio + hotspot infraestructura)
+- **Qué se hizo**:
+  - Se refactorizó `CrearCitaUseCase.execute` a orquestador con helpers privados (`_validate_request`, `_normalize_inputs`, `_load_dependencies`, `_apply_rules`, `_persist`, `_build_response`) sin cambios funcionales.
+  - Se dividió `domain/modelos.py` en `domain/entities.py` y `domain/value_objects.py`, manteniendo compatibilidad vía `domain/modelos.py` como re-export y `domain/__init__.py` actualizado.
+  - Se extrajeron helpers de seed masivo a `infrastructure/sqlite/demo_data_seed_helpers.py` para reducir `file_loc`, `class_loc` y `function_loc` bloqueantes en strict.
+  - Se regeneró `docs/quality_report.md` ejecutando `python scripts/quality_gate.py --strict`.
+- **Decisiones**:
+  - Se priorizó extracción mecánica y re-export para minimizar riesgo de regresión.
+  - Se mantuvieron firmas públicas y DTOs existentes.
+- **Riesgos**:
+  - Persisten warnings de `sqlite3` datetime adapter (no bloqueantes para gate).
+- **Qué queda**:
+  - Continuar reducción de hotspots no bloqueantes reportados por structural gate en próximas iteraciones.

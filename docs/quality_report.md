@@ -1,10 +1,10 @@
 # Structural Quality Report
 
 ## 1) Resumen
-- total_files_scanned: **125**
-- violations_count: **13**
-- blocking_violations_count: **13**
-- top_hotspots: **6**
+- total_files_scanned: **128**
+- violations_count: **4**
+- blocking_violations_count: **4**
+- top_hotspots: **2**
 
 ### Umbrales aplicados
 - max_file_loc: 400
@@ -17,57 +17,34 @@
 ## 2) Violaciones por tipo
 
 ### Files over LOC
-- `clinicdesk/app/domain/modelos.py` :: `<file>` -> 416.00 > 400.00 (allowlisted: no)
-- `clinicdesk/app/infrastructure/sqlite/demo_data_seeder.py` :: `<file>` -> 412.00 > 400.00 (allowlisted: no)
+- Ninguna.
 
 ### Functions over LOC
-- `clinicdesk/app/application/usecases/crear_cita.py` :: `CrearCitaUseCase.execute` -> 81.00 > 60.00 (allowlisted: no)
-- `clinicdesk/app/infrastructure/sqlite/demo_data_seeder.py` :: `DemoDataSeeder.persist` -> 71.00 > 60.00 (allowlisted: no)
-- `clinicdesk/app/infrastructure/sqlite/repos_incidencias.py` :: `IncidenciasRepository.search` -> 65.00 > 60.00 (allowlisted: no)
+- `clinicdesk/app/infrastructure/sqlite/demo_data_seeder.py` :: `DemoDataSeeder.persist` -> 65.00 > 60.00 (allowlisted: no)
 
 ### Classes over LOC
-- `clinicdesk/app/infrastructure/sqlite/demo_data_seeder.py` :: `DemoDataSeeder` -> 307.00 > 200.00 (allowlisted: no)
-- `clinicdesk/app/infrastructure/sqlite/repos_citas.py` :: `CitasRepository` -> 233.00 > 200.00 (allowlisted: no)
-- `clinicdesk/app/infrastructure/sqlite/repos_incidencias.py` :: `IncidenciasRepository` -> 208.00 > 200.00 (allowlisted: no)
 - `clinicdesk/app/infrastructure/sqlite/repos_pacientes.py` :: `PacientesRepository` -> 261.00 > 200.00 (allowlisted: no)
 - `clinicdesk/app/infrastructure/sqlite/repos_personal.py` :: `PersonalRepository` -> 216.00 > 200.00 (allowlisted: no)
 - `clinicdesk/app/infrastructure/sqlite/repos_recetas.py` :: `RecetasRepository` -> 219.00 > 200.00 (allowlisted: no)
 
 ### Functions over CC
-- `clinicdesk/app/application/usecases/crear_cita.py` :: `CrearCitaUseCase.execute` -> 17.00 > 10.00 (allowlisted: no)
-- `clinicdesk/app/infrastructure/sqlite/repos_incidencias.py` :: `IncidenciasRepository.search` -> 13.00 > 10.00 (allowlisted: no)
+- Ninguna.
 
 ## 3) Hotspots (top 10)
 
 | file | file_loc | max_cc | avg_cc | worst_function | score | allowlisted? |
 | --- | ---: | ---: | ---: | --- | ---: | --- |
 | `scripts/structural_gate.py` | 418 | 24 | 3.17 | analyze_repo (cc=24, loc=82) | 1.86 | sí |
-| `clinicdesk/app/application/usecases/crear_cita.py` | 203 | 17 | 3.44 | CrearCitaUseCase.execute (cc=17, loc=81) | 1.22 | no |
-| `clinicdesk/app/infrastructure/sqlite/repos_incidencias.py` | 261 | 13 | 3.40 | IncidenciasRepository.search (cc=13, loc=65) | 1.04 | no |
-| `clinicdesk/app/infrastructure/sqlite/demo_data_seeder.py` | 412 | 9 | 4.07 | DemoDataSeeder._persist_incidences (cc=9, loc=48) | 0.95 | no |
 | `scripts/ml_cli.py` | 463 | 8 | 1.84 | main (cc=8, loc=24) | 0.94 | sí |
-| `clinicdesk/app/domain/modelos.py` | 416 | 5 | 1.73 | Cita.validar (cc=5, loc=16) | 0.72 | no |
 
 ## 4) Recomendaciones automáticas
 
 - `scripts/structural_gate.py` / `analyze_repo`: extrae funciones puras para separar ramas condicionales y bajar CC.
 - `scripts/structural_gate.py`: divide el módulo en submódulos cohesivos por bounded context para reducir LOC del archivo.
 - `scripts/structural_gate.py` / `analyze_repo`: introduce use cases/ports para desacoplar orquestación de detalles de infraestructura.
-- `clinicdesk/app/application/usecases/crear_cita.py` / `CrearCitaUseCase.execute`: extrae funciones puras para separar ramas condicionales y bajar CC.
-- `clinicdesk/app/application/usecases/crear_cita.py`: divide el módulo en submódulos cohesivos por bounded context para reducir LOC del archivo.
-- `clinicdesk/app/application/usecases/crear_cita.py` / `CrearCitaUseCase.execute`: introduce use cases/ports para desacoplar orquestación de detalles de infraestructura.
-- `clinicdesk/app/infrastructure/sqlite/repos_incidencias.py` / `IncidenciasRepository.search`: extrae funciones puras para separar ramas condicionales y bajar CC.
-- `clinicdesk/app/infrastructure/sqlite/repos_incidencias.py`: divide el módulo en submódulos cohesivos por bounded context para reducir LOC del archivo.
-- `clinicdesk/app/infrastructure/sqlite/repos_incidencias.py` / `IncidenciasRepository.search`: introduce use cases/ports para desacoplar orquestación de detalles de infraestructura.
-- `clinicdesk/app/infrastructure/sqlite/demo_data_seeder.py` / `DemoDataSeeder._persist_incidences`: extrae funciones puras para separar ramas condicionales y bajar CC.
-- `clinicdesk/app/infrastructure/sqlite/demo_data_seeder.py`: divide el módulo en submódulos cohesivos por bounded context para reducir LOC del archivo.
-- `clinicdesk/app/infrastructure/sqlite/demo_data_seeder.py` / `DemoDataSeeder._persist_incidences`: introduce use cases/ports para desacoplar orquestación de detalles de infraestructura.
 - `scripts/ml_cli.py` / `main`: extrae funciones puras para separar ramas condicionales y bajar CC.
 - `scripts/ml_cli.py`: divide el módulo en submódulos cohesivos por bounded context para reducir LOC del archivo.
 - `scripts/ml_cli.py` / `main`: introduce use cases/ports para desacoplar orquestación de detalles de infraestructura.
-- `clinicdesk/app/domain/modelos.py` / `Cita.validar`: extrae funciones puras para separar ramas condicionales y bajar CC.
-- `clinicdesk/app/domain/modelos.py`: divide el módulo en submódulos cohesivos por bounded context para reducir LOC del archivo.
-- `clinicdesk/app/domain/modelos.py` / `Cita.validar`: introduce use cases/ports para desacoplar orquestación de detalles de infraestructura.
 
 ## Allowlist / deuda controlada
 
