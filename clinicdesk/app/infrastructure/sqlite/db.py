@@ -22,6 +22,9 @@ from typing import Optional
 from clinicdesk.app.infrastructure.sqlite.sqlite_datetime_codecs import (
     register_sqlite_datetime_codecs,
 )
+from clinicdesk.app.infrastructure.sqlite.field_crypto_migrations import (
+    ensure_pacientes_field_crypto_columns,
+)
 from clinicdesk.app.infrastructure.sqlite.pii_crypto import (
     configure_connection_pii,
     migrate_existing_pii_data,
@@ -91,6 +94,7 @@ def apply_schema(con: sqlite3.Connection, schema_path: Path) -> None:
     _migrate_stock_columns(con)
     _migrate_active_columns(con)
     _migrate_demo_columns(con)
+    ensure_pacientes_field_crypto_columns(con)
     migrate_existing_pii_data(con)
     con.commit()
 

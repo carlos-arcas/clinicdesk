@@ -80,14 +80,14 @@ Estas transformaciones no cifran ni hashean, pero son precondiciones para que ha
 ## 3) Checklist accionable para el PR de cifrado real
 
 ## Diseño y migración
-- [ ] Definir módulo `security/field_protection.py` con interfaz estable (`encrypt/decrypt/hash_lookup`).
-- [ ] Introducir secret management mínimo por entorno (`CLINICDESK_PEPPER`, `CLINICDESK_FIELD_KEY`).
-- [ ] Crear migraciones SQL no destructivas: columnas `*_hash`, `*_enc`, `*_last4`.
+- [x] Definir módulo `common/crypto_field_protection.py` con interfaz estable (`encrypt/decrypt/hash_lookup`) para PACIENTES.
+- [x] Introducir secret management mínimo por entorno (`CLINICDESK_CRYPTO_KEY`) y flag (`CLINICDESK_FIELD_CRYPTO`) para PACIENTES.
+- [x] Crear migraciones SQL no destructivas para PACIENTES: columnas `*_hash`, `*_enc` (idempotentes en bootstrap).
 - [ ] Backfill incremental y reversible (batch + checkpoints).
 
 ## Repositorios y casos de uso
 - [ ] Canonicalizar dato antes de hash/cifrado (trim, casefold, normalización local definida).
-- [ ] Escribir en dual mode (claro + protegido) durante transición.
+- [x] Escribir en dual mode para PACIENTES con flag de activación y fallback legacy de lectura.
 - [ ] Leer preferentemente de protegido y fallback controlado a claro.
 - [ ] Añadir feature flag `SECURITY_FIELD_PROTECTION_ENABLED`.
 
@@ -105,6 +105,7 @@ Estas transformaciones no cifran ni hashean, pero son precondiciones para que ha
 ---
 
 ## 4) Decisiones explícitas para esta fase
+- ✅ PACIENTES cifrado implementado (incremental por campo con feature flag).
 - No se introduce SQLCipher todavía.
 - No se agregan dependencias criptográficas pesadas en este PR.
 - Este PR documenta política y valida precondiciones de transformación ya existentes para facilitar la implementación del cifrado real en el siguiente ciclo.
