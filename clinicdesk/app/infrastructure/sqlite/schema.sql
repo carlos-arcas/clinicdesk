@@ -27,6 +27,7 @@ CREATE TABLE IF NOT EXISTS pacientes (
 CREATE INDEX IF NOT EXISTS idx_pacientes_nombre_apellidos ON pacientes(nombre, apellidos);
 CREATE INDEX IF NOT EXISTS idx_pacientes_documento ON pacientes(documento);
 CREATE INDEX IF NOT EXISTS idx_pacientes_activo ON pacientes(activo);
+CREATE INDEX IF NOT EXISTS idx_pacientes_activo_apellidos_nombre ON pacientes(activo, apellidos, nombre);
 
 
 CREATE TABLE IF NOT EXISTS medicos (
@@ -52,6 +53,7 @@ CREATE INDEX IF NOT EXISTS idx_medicos_nombre_apellidos ON medicos(nombre, apell
 CREATE INDEX IF NOT EXISTS idx_medicos_especialidad ON medicos(especialidad);
 CREATE INDEX IF NOT EXISTS idx_medicos_documento ON medicos(documento);
 CREATE INDEX IF NOT EXISTS idx_medicos_activo ON medicos(activo);
+CREATE INDEX IF NOT EXISTS idx_medicos_activo_apellidos_nombre ON medicos(activo, apellidos, nombre);
 
 
 CREATE TABLE IF NOT EXISTS personal (
@@ -76,6 +78,7 @@ CREATE INDEX IF NOT EXISTS idx_personal_nombre_apellidos ON personal(nombre, ape
 CREATE INDEX IF NOT EXISTS idx_personal_puesto ON personal(puesto);
 CREATE INDEX IF NOT EXISTS idx_personal_documento ON personal(documento);
 CREATE INDEX IF NOT EXISTS idx_personal_activo ON personal(activo);
+CREATE INDEX IF NOT EXISTS idx_personal_activo_apellidos_nombre ON personal(activo, apellidos, nombre);
 
 -- ============================================================
 -- SALAS
@@ -229,6 +232,7 @@ CREATE INDEX IF NOT EXISTS idx_citas_medico_inicio ON citas(medico_id, inicio);
 CREATE INDEX IF NOT EXISTS idx_citas_sala_inicio ON citas(sala_id, inicio);
 CREATE INDEX IF NOT EXISTS idx_citas_paciente_inicio ON citas(paciente_id, inicio);
 CREATE INDEX IF NOT EXISTS idx_citas_activo ON citas(activo);
+CREATE INDEX IF NOT EXISTS idx_citas_activo_estado_inicio ON citas(activo, estado, inicio);
 
 -- ============================================================
 -- INVENTARIO (tablas separadas)
@@ -278,6 +282,7 @@ CREATE TABLE IF NOT EXISTS recetas (
 CREATE INDEX IF NOT EXISTS idx_recetas_paciente_fecha ON recetas(paciente_id, fecha);
 CREATE INDEX IF NOT EXISTS idx_recetas_medico_fecha ON recetas(medico_id, fecha);
 CREATE INDEX IF NOT EXISTS idx_recetas_activo ON recetas(activo);
+CREATE INDEX IF NOT EXISTS idx_recetas_activo_estado_fecha ON recetas(activo, estado, fecha DESC);
 
 
 CREATE TABLE IF NOT EXISTS receta_lineas (
@@ -427,3 +432,4 @@ CREATE INDEX IF NOT EXISTS idx_incidencias_tipo_estado ON incidencias(tipo, esta
 CREATE INDEX IF NOT EXISTS idx_incidencias_medico_fecha ON incidencias(medico_id, fecha_hora);
 CREATE INDEX IF NOT EXISTS idx_incidencias_personal_fecha ON incidencias(personal_id, fecha_hora);
 CREATE INDEX IF NOT EXISTS idx_incidencias_activo ON incidencias(activo);
+CREATE INDEX IF NOT EXISTS idx_incidencias_activo_estado_fecha ON incidencias(activo, estado, fecha_hora DESC);

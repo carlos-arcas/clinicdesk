@@ -86,6 +86,7 @@ def apply_schema(con: sqlite3.Connection, schema_path: Path) -> None:
     _migrate_stock_columns(con)
     _migrate_active_columns(con)
     _migrate_demo_columns(con)
+    _migrate_performance_indexes(con)
     con.commit()
 
 
@@ -149,6 +150,25 @@ def _migrate_demo_columns(con: sqlite3.Connection) -> None:
     _ensure_text_column(con, table="receta_lineas", column="estado", default="PENDIENTE")
     _ensure_text_column(con, table="movimientos_medicamentos", column="referencia", default="")
     _ensure_text_column(con, table="movimientos_materiales", column="referencia", default="")
+
+
+def _migrate_performance_indexes(con: sqlite3.Connection) -> None:
+    con.executescript(
+        """
+        CREATE INDEX IF NOT EXISTS idx_pacientes_activo_apellidos_nombre
+            ON pacientes(activo, apellidos, nombre);
+        CREATE INDEX IF NOT EXISTS idx_medicos_activo_apellidos_nombre
+            ON medicos(activo, apellidos, nombre);
+        CREATE INDEX IF NOT EXISTS idx_personal_activo_apellidos_nombre
+            ON personal(activo, apellidos, nombre);
+        CREATE INDEX IF NOT EXISTS idx_citas_activo_estado_inicio
+            ON citas(activo, estado, inicio);
+        CREATE INDEX IF NOT EXISTS idx_recetas_activo_estado_fecha
+            ON recetas(activo, estado, fecha DESC);
+        CREATE INDEX IF NOT EXISTS idx_incidencias_activo_estado_fecha
+            ON incidencias(activo, estado, fecha_hora DESC);
+        """
+    )
 
 
 def _ensure_text_column(con: sqlite3.Connection, *, table: str, column: str, default: str) -> None:

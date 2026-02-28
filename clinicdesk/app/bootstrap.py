@@ -100,6 +100,7 @@ def _apply_schema(con: sqlite3.Connection) -> None:
     sql = path.read_text(encoding="utf-8")
     con.executescript(sql)
     _migrate_stock_columns(con)
+    _migrate_performance_indexes(con)
     con.commit()
 
 
@@ -125,6 +126,25 @@ def _ensure_stock_column(con: sqlite3.Connection, *, table: str) -> None:
     )
     con.execute(
         f"UPDATE {table} SET cantidad_en_almacen = cantidad_almacen"
+    )
+
+
+def _migrate_performance_indexes(con: sqlite3.Connection) -> None:
+    con.executescript(
+        """
+        CREATE INDEX IF NOT EXISTS idx_pacientes_activo_apellidos_nombre
+            ON pacientes(activo, apellidos, nombre);
+        CREATE INDEX IF NOT EXISTS idx_medicos_activo_apellidos_nombre
+            ON medicos(activo, apellidos, nombre);
+        CREATE INDEX IF NOT EXISTS idx_personal_activo_apellidos_nombre
+            ON personal(activo, apellidos, nombre);
+        CREATE INDEX IF NOT EXISTS idx_citas_activo_estado_inicio
+            ON citas(activo, estado, inicio);
+        CREATE INDEX IF NOT EXISTS idx_recetas_activo_estado_fecha
+            ON recetas(activo, estado, fecha DESC);
+        CREATE INDEX IF NOT EXISTS idx_incidencias_activo_estado_fecha
+            ON incidencias(activo, estado, fecha_hora DESC);
+        """
     )
 
 
