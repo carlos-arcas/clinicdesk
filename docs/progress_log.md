@@ -502,3 +502,27 @@ Formato por entrada:
   - Se resolvió el bug de duplicación en capa de queries (infraestructura) para no mover SQL a UI y mantener separación de capas.
 - **Riesgos / notas**:
   - La agregación de especialidades depende de `GROUP_CONCAT` en SQLite; el dominio permanece desacoplado de motor SQL.
+
+- **DATE/TIME**: 2026-02-28 12:30 UTC
+- **Paso**: Fase 2 (PR A) — Citas agenda operativa (tabs + listado filtrable + presets)
+- **Before**:
+  - La página de Citas solo mostraba vista calendario por día y no tenía vista lista operativa.
+  - No existía filtrado de citas por rango temporal/estado/texto libre en la capa de lectura para UI.
+  - No había mapeo de presentación de estados para "No asistió" en el nuevo listado.
+- **Qué se hizo**:
+  - Se añadió en Citas una UI con dos pestañas: `Calendario` y `Lista`.
+  - Se incorporó `FiltroListadoWidget` en la pestaña Lista con búsqueda libre, filtro de estado de cita, limpiar y contador.
+  - Se añadieron presets de rango `Hoy / Semana / Mes` conectados a `desde/hasta` mediante `QDateEdit` sin duplicar selector de fecha del calendario.
+  - Se implementó `CitasQueries.search_listado(...)` para filtrar por rango `desde/hasta`, estado y texto libre en capa de queries (sin SQL en UI).
+  - Se añadió tabla operativa de lista con columnas: fecha, hora_inicio, hora_fin, paciente, médico, sala, estado, notas_len e incidencias.
+  - Se añadió mapeo de presentación de estados para mostrar `No asistió` desde `NO_PRESENTADO`.
+  - Se añadieron tests de core para filtros de query (rango + estado + texto) y para mapping de estado.
+- **After**:
+  - Citas dispone de vista dual calendario/lista con UX orientada a operación diaria y rango temporal rápido.
+  - El filtrado queda desacoplado en `queries` y listo para evolución en PR B (acciones rápidas/reglas).
+- **Decisiones técnicas**:
+  - Se reutilizó `FiltroListadoWidget` con configuración de estados por contexto para evitar duplicación.
+  - Se mantuvo `EstadoCita` de dominio sin cambios de esquema al ya incluir `PROGRAMADA`, `CANCELADA`, `REALIZADA`, `NO_PRESENTADO`.
+  - Se añadió indicador `Cargando...` + refresco programado para evitar bloqueo percibido en UI durante recarga.
+- **Riesgos / notas**:
+  - `quality_gate.py --strict` continúa fallando por deuda estructural preexistente fuera de este alcance (`demo_data_seeder.py`, `repos_pacientes.py`).

@@ -43,12 +43,27 @@ class FiltroListadoWidget(QWidget):
             return False
         return None
 
+    def estado(self) -> str:
+        return self.cbo_estado.currentData() or self.cbo_estado.currentText()
+
+    def set_estado_items(self, items: list[tuple[str, str]], default_value: str) -> None:
+        self.cbo_estado.blockSignals(True)
+        self.cbo_estado.clear()
+        for etiqueta, valor in items:
+            self.cbo_estado.addItem(etiqueta, valor)
+        index = self.cbo_estado.findData(default_value)
+        self.cbo_estado.setCurrentIndex(index if index >= 0 else 0)
+        self.cbo_estado.blockSignals(False)
+
     def set_contador(self, mostrados: int, totales: int) -> None:
         self.lbl_contador.setText(self.tr("Mostrando {mostrados} de {totales}").format(mostrados=mostrados, totales=totales))
 
     def limpiar(self) -> None:
         self.txt_busqueda.clear()
-        self.cbo_estado.setCurrentText("Todos")
+        idx = self.cbo_estado.findData("TODOS")
+        if idx < 0:
+            idx = self.cbo_estado.findText("Todos")
+        self.cbo_estado.setCurrentIndex(idx if idx >= 0 else 0)
 
     def _on_filter_change(self) -> None:
         self._debounce.start()
@@ -56,4 +71,3 @@ class FiltroListadoWidget(QWidget):
     def _on_limpiar(self) -> None:
         self.limpiar()
         self.filtros_cambiados.emit()
-
