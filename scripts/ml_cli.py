@@ -1,0 +1,232 @@
+from __future__ import annotations
+
+import argparse
+import sqlite3
+from collections import Counter
+from datetime import datetime, timedelta
+from typing import Sequence
+
+from clinicdesk.app.application.features.citas_features import build_citas_features, compute_citas_quality_report
+from clinicdesk.app.application.ml.baseline_citas_predictor import BaselineCitasPredictor
+from clinicdesk.app.application.pipelines.build_citas_dataset import BuildCitasDataset
+from clinicdesk.app.application.ports.citas_read_port import CitaReadModel, CitasReadPort
+from clinicdesk.app.application.services.feature_store_service import FeatureStoreService
+from clinicdesk.app.application.usecases.drift_citas_features import DriftCitasFeatures, DriftCitasFeaturesRequest
+from clinicdesk.app.application.usecases.score_citas import ScoreCitas, ScoreCitasRequest
+from clinicdesk.app.application.usecases.train_citas_model import TrainCitasModel, TrainCitasModelRequest
+from clinicdesk.app.infrastructure.feature_store.local_json_feature_store import LocalJsonFeatureStore
+from clinicdesk.app.infrastructure.model_store.local_json_model_store import LocalJsonModelStore
+from clinicdesk.app.infrastructure.sqlite.citas_read_adapter import SqliteCitasReadAdapter
+from clinicdesk.app.infrastructure.sqlite.repos_citas import CitasRepository
+from clinicdesk.app.infrastructure.sqlite.repos_incidencias import IncidenciasRepository
+from clinicdesk.app.bootstrap import bootstrap_database
+
+_DEFAULT_FEATURE_STORE_PATH = "./data/feature_store"
+_DEFAULT_MODEL_STORE_PATH = "./data/model_store"
+_DEFAULT_MODEL_NAME = "citas_nb_v1"
+
+
+class FakeCitasReadAdapter(CitasReadPort):
+    def __init__(self, rows: list[CitaReadModel]) -> None:
+        self._rows = rows
+
+    def list_in_range(self, desde: datetime, hasta: datetime) -> list[CitaReadModel]:
+        return [row for row in self._rows if desde <= row.inicio <= hasta]
+
+
+def build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(description="CLI ML mínima para flujo end-to-end de citas")
+    subparsers = parser.add_subparsers(dest="command", required=True)
+    _add_build_features_parser(subparsers)
+    _add_train_parser(subparsers)
+    _add_score_parser(subparsers)
+    _add_drift_parser(subparsers)
+    return parser
+
+
+def _add_build_features_parser(subparsers: argparse._SubParsersAction) -> None:
+    parser = subparsers.add_parser("build-features", help="Construye features y artifacts")
+    parser.add_argument("--from", dest="from_date", type=str, default=None)
+    parser.add_argument("--to", dest="to_date", type=str, default=None)
+    parser.add_argument("--version", type=str, default=None)
+    parser.add_argument("--store-path", type=str, default=_DEFAULT_FEATURE_STORE_PATH)
+    parser.add_argument("--demo-fake", action="store_true")
+    parser.add_argument("--demo-profile", choices=("baseline", "shifted"), default="baseline")
+
+
+def _add_train_parser(subparsers: argparse._SubParsersAction) -> None:
+    parser = subparsers.add_parser("train", help="Entrena y registra modelo")
+    parser.add_argument("--dataset-version", required=True)
+    parser.add_argument("--model-version", default=None)
+    parser.add_argument("--model-name", default=_DEFAULT_MODEL_NAME)
+    parser.add_argument("--feature-store-path", default=_DEFAULT_FEATURE_STORE_PATH)
+    parser.add_argument("--model-store-path", default=_DEFAULT_MODEL_STORE_PATH)
+
+
+def _add_score_parser(subparsers: argparse._SubParsersAction) -> None:
+    parser = subparsers.add_parser("score", help="Scoring baseline o entrenado")
+    parser.add_argument("--dataset-version", required=True)
+    parser.add_argument("--predictor", choices=("baseline", "trained"), default="baseline")
+    parser.add_argument("--model-version", default=None)
+    parser.add_argument("--model-name", default=_DEFAULT_MODEL_NAME)
+    parser.add_argument("--limit", type=int, default=None)
+    parser.add_argument("--feature-store-path", default=_DEFAULT_FEATURE_STORE_PATH)
+    parser.add_argument("--model-store-path", default=_DEFAULT_MODEL_STORE_PATH)
+
+
+def _add_drift_parser(subparsers: argparse._SubParsersAction) -> None:
+    parser = subparsers.add_parser("drift", help="Compara drift entre versiones")
+    parser.add_argument("--from-version", required=True)
+    parser.add_argument("--to-version", required=True)
+    parser.add_argument("--feature-store-path", default=_DEFAULT_FEATURE_STORE_PATH)
+
+
+def main(argv: Sequence[str] | None = None) -> int:
+    parser = build_parser()
+    args = parser.parse_args(argv)
+    try:
+        if args.command == "build-features":
+            return _handle_build_features(args)
+        if args.command == "train":
+            return _handle_train(args)
+        if args.command == "score":
+            return _handle_score(args)
+        if args.command == "drift":
+            return _handle_drift(args)
+        parser.error("Comando no soportado")
+    except Exception as exc:  # pragma: no cover - fallback de CLI
+        print(f"ERROR: {exc}")
+        return 1
+    return 0
+
+
+def _handle_build_features(args: argparse.Namespace) -> int:
+    desde, hasta = _resolve_range(args.from_date, args.to_date)
+    read_adapter = _build_read_adapter(args.demo_fake, args.demo_profile, desde, hasta)
+    dataset_rows = BuildCitasDataset(read_adapter).execute(desde, hasta)
+    features = build_citas_features(dataset_rows)
+    quality = compute_citas_quality_report(features)
+    store = FeatureStoreService(LocalJsonFeatureStore(args.store_path))
+    version = store.save_citas_features_with_artifacts(features, quality, version=args.version)
+    print(f"saved_version={version} row_count={quality.total} suspicious_count={quality.suspicious_count}")
+    return 0
+
+
+def _build_read_adapter(
+    demo_fake: bool,
+    demo_profile: str,
+    desde: datetime,
+    hasta: datetime,
+) -> CitasReadPort:
+    if demo_fake:
+        return FakeCitasReadAdapter(_make_fake_citas(demo_profile, desde, 40))
+    try:
+        connection = bootstrap_database(apply_schema=True)
+        return SqliteCitasReadAdapter(CitasRepository(connection), IncidenciasRepository(connection))
+    except sqlite3.Error:
+        return FakeCitasReadAdapter(_make_fake_citas(demo_profile, desde, 40))
+
+
+def _resolve_range(from_date: str | None, to_date: str | None) -> tuple[datetime, datetime]:
+    now = datetime.now().replace(microsecond=0)
+    default_from = now - timedelta(days=30)
+    desde = _parse_date(from_date, default=default_from)
+    hasta = _parse_date(to_date, default=now)
+    if hasta < desde:
+        raise ValueError("Rango inválido: --to no puede ser menor que --from")
+    return desde, hasta
+
+
+def _parse_date(raw: str | None, *, default: datetime) -> datetime:
+    if not raw:
+        return default
+    return datetime.strptime(raw, "%Y-%m-%d")
+
+
+def _make_fake_citas(profile: str, start: datetime, total: int) -> list[CitaReadModel]:
+    return [_fake_cita(profile, start, idx) for idx in range(total)]
+
+
+def _fake_cita(profile: str, start: datetime, idx: int) -> CitaReadModel:
+    inicio = start + timedelta(hours=idx * 3)
+    duration = 15 + (idx % 4) * 10
+    if profile == "shifted":
+        duration += 30
+    estado = "no_show" if profile == "shifted" and idx % 3 == 0 else "programada"
+    return CitaReadModel(
+        cita_id=f"demo-{profile}-{idx}",
+        paciente_id=1000 + idx,
+        medico_id=200 + (idx % 3),
+        inicio=inicio,
+        fin=inicio + timedelta(minutes=duration),
+        estado=estado,
+        notas=("nota extensa " * 4 if profile == "shifted" else "nota breve").strip(),
+        has_incidencias=(idx % (2 if profile == "shifted" else 5) == 0),
+    )
+
+
+def _handle_train(args: argparse.Namespace) -> int:
+    _require_default_model_name(args.model_name)
+    feature_store = FeatureStoreService(LocalJsonFeatureStore(args.feature_store_path))
+    model_store = LocalJsonModelStore(args.model_store_path)
+    response = TrainCitasModel(feature_store, model_store).execute(
+        TrainCitasModelRequest(dataset_version=args.dataset_version, model_version=args.model_version)
+    )
+    print(
+        "model="
+        f"{response.model_name}@{response.model_version} "
+        f"train_precision={response.train_metrics.precision:.3f} "
+        f"test_recall={response.test_metrics.recall:.3f} "
+        f"calibrated_threshold={response.calibrated_threshold:.3f}"
+    )
+    return 0
+
+
+def _handle_score(args: argparse.Namespace) -> int:
+    _require_default_model_name(args.model_name)
+    feature_store = FeatureStoreService(LocalJsonFeatureStore(args.feature_store_path))
+    model_store = LocalJsonModelStore(args.model_store_path)
+    use_case = ScoreCitas(feature_store, BaselineCitasPredictor(), model_store=model_store)
+    response = use_case.execute(
+        ScoreCitasRequest(
+            dataset_version=args.dataset_version,
+            limit=args.limit,
+            predictor_kind=args.predictor,
+            model_version=args.model_version,
+        )
+    )
+    _print_score_table(response.items, top_n=args.limit or 10)
+    labels = Counter(item.label for item in response.items)
+    print(f"summary_labels={dict(labels)} total={response.total}")
+    return 0
+
+
+def _print_score_table(items: list, top_n: int) -> None:
+    print("cita_id | score | label | reasons")
+    for item in items[:top_n]:
+        reasons = ",".join(item.reasons[:3])
+        print(f"{item.cita_id} | {item.score:.3f} | {item.label} | {_truncate(reasons, 64)}")
+
+
+def _truncate(value: str, max_len: int) -> str:
+    return value if len(value) <= max_len else f"{value[: max_len - 3]}..."
+
+
+def _handle_drift(args: argparse.Namespace) -> int:
+    feature_store = FeatureStoreService(LocalJsonFeatureStore(args.feature_store_path))
+    report = DriftCitasFeatures(feature_store).execute(
+        DriftCitasFeaturesRequest(from_version=args.from_version, to_version=args.to_version)
+    )
+    psi_fmt = {key: round(value, 4) for key, value in report.psi_by_feature.items()}
+    print(f"psi_by_feature={psi_fmt}")
+    print(f"overall_flag={report.overall_flag} from={report.from_version} to={report.to_version}")
+    return 0
+
+
+def _require_default_model_name(model_name: str) -> None:
+    if model_name != _DEFAULT_MODEL_NAME:
+        raise ValueError(f"model-name no soportado todavía: '{model_name}' (use '{_DEFAULT_MODEL_NAME}')")
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

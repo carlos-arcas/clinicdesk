@@ -33,3 +33,15 @@ Módulos excluidos del gate bloqueante en este paso:
 ## Notas de operación
 - Los tests de UI deben declararse con marker `ui` para no bloquear este gate.
 - El script devuelve `exit code != 0` si falla lint configurado, tests o cobertura.
+
+## Demo ML CLI (30s)
+Con `PYTHONPATH=.` puedes ejecutar el flujo ML end-to-end sin UI:
+
+1. Build features + artifacts:
+   - `PYTHONPATH=. python scripts/ml_cli.py build-features --demo-fake --version v_demo --store-path ./data/feature_store`
+2. Train (split temporal + calibración + model store):
+   - `PYTHONPATH=. python scripts/ml_cli.py train --dataset-version v_demo --model-version m_demo --feature-store-path ./data/feature_store --model-store-path ./data/model_store`
+3. Score (baseline o trained):
+   - `PYTHONPATH=. python scripts/ml_cli.py score --dataset-version v_demo --predictor trained --model-version m_demo --feature-store-path ./data/feature_store --model-store-path ./data/model_store --limit 10`
+4. Drift (comparar versiones):
+   - `PYTHONPATH=. python scripts/ml_cli.py drift --from-version v_demo --to-version v_demo2 --feature-store-path ./data/feature_store`
