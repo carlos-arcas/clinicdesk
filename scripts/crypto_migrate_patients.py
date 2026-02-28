@@ -87,9 +87,17 @@ def _migrate(con: sqlite3.Connection, wipe_legacy: bool) -> MigrationStats:
         raise RuntimeError("CLINICDESK_FIELD_CRYPTO=1 y CLINICDESK_CRYPTO_KEY son obligatorios")
 
     rows = con.execute("SELECT * FROM pacientes").fetchall()
+    nullable_columns = _nullable_columns(con)
     stats = MigrationStats(scanned=len(rows))
     for row in rows:
-        stats = _migrate_row(con, row=row, protection=protection, wipe_legacy=wipe_legacy, stats=stats)
+        stats = _migrate_row(
+            con,
+            row=row,
+            protection=protection,
+            wipe_legacy=wipe_legacy,
+            nullable_columns=nullable_columns,
+            stats=stats,
+        )
     con.commit()
     LOGGER.info("crypto_migration.completed", extra={"scanned": stats.scanned, "backfilled": stats.backfilled, "wiped": stats.wiped})
     return stats
@@ -101,6 +109,7 @@ def _migrate_row(
     row: sqlite3.Row,
     protection: PacientesFieldProtection,
     wipe_legacy: bool,
+    nullable_columns: set[str],
     stats: MigrationStats,
 ) -> MigrationStats:
     updates = _build_backfill_updates(row, protection, con)
@@ -111,7 +120,7 @@ def _migrate_row(
         stats = MigrationStats(scanned=stats.scanned, backfilled=stats.backfilled + 1, wiped=stats.wiped)
     if not wipe_legacy:
         return stats
-    wipe_updates = _build_wipe_updates(row=row, updates=updates)
+    wipe_updates = _build_wipe_updates(row=row, updates=updates, nullable_columns=nullable_columns)
     if wipe_updates:
         _execute_update(con, row_id=int(row["id"]), updates=wipe_updates)
         stats = MigrationStats(scanned=stats.scanned, backfilled=stats.backfilled, wiped=stats.wiped + 1)
@@ -131,6 +140,8 @@ def _build_backfill_updates(
         encoded = protection.encode(field, legacy_value)
         if encoded.encrypted is None:
             continue
+        if encoded.legacy != row[field]:
+            updates[field] = encoded.legacy
         updates[f"{field}_enc"] = encoded.encrypted
         updates[f"{field}_hash"] = encoded.lookup_hash
     return updates
@@ -144,14 +155,26 @@ def _legacy_value(con: sqlite3.Connection, *, row: sqlite3.Row, field: str) -> s
     return pii_cipher.decrypt_optional(value) if pii_cipher else value
 
 
-def _build_wipe_updates(*, row: sqlite3.Row, updates: dict[str, str | None]) -> dict[str, None]:
+def _build_wipe_updates(
+    *,
+    row: sqlite3.Row,
+    updates: dict[str, str | None],
+    nullable_columns: set[str],
+) -> dict[str, None]:
     wipe: dict[str, None] = {}
     for field in _PROTECTED_FIELDS:
+        if field not in nullable_columns:
+            continue
         encrypted_now = updates.get(f"{field}_enc") or row[f"{field}_enc"]
         hashed_now = updates.get(f"{field}_hash") or row[f"{field}_hash"]
         if encrypted_now and hashed_now and row[field] is not None:
             wipe[field] = None
     return wipe
+
+
+def _nullable_columns(con: sqlite3.Connection) -> set[str]:
+    rows = con.execute("PRAGMA table_info(pacientes)").fetchall()
+    return {row["name"] for row in rows if int(row["notnull"]) == 0}
 
 
 def _execute_update(con: sqlite3.Connection, *, row_id: int, updates: dict[str, str | None]) -> None:
