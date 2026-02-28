@@ -79,3 +79,36 @@ def test_medicos_crud_and_search(container, seed_data, assert_expected_actual) -
     inactivos = medicos_repo.search(activo=False)
     inactivos_ids = [m.id for m in inactivos]
     assert seed_data["medico_inactivo_id"] in inactivos_ids, "Médico inactivo debe aparecer con activo=False"
+
+
+def test_medicos_queries_support_offset_limit_and_stable_order(container) -> None:
+    queries = MedicosQueries(container.connection)
+    repo = container.medicos_repo
+
+    created_ids = []
+    for idx in range(3):
+        medico = Medico(
+            tipo_documento=TipoDocumento.DNI,
+            documento=f"9988776{idx}",
+            nombre="Orden",
+            apellidos="Estable",
+            telefono=f"6000000{idx}",
+            email=None,
+            fecha_nacimiento=date(1985, 1, idx + 1),
+            direccion=None,
+            activo=True,
+            num_colegiado=f"EST-{idx}",
+            especialidad="General",
+        )
+        created_ids.append(repo.create(medico))
+
+    ordered_rows = [
+        row for row in queries.search(texto="Orden", activo=True, limit=None) if row.documento.startswith("9988776")
+    ]
+    assert [row.id for row in ordered_rows] == sorted(created_ids)
+
+    first_page = queries.search(texto="Orden", activo=True, limit=2, offset=0)
+    second_page = queries.search(texto="Orden", activo=True, limit=2, offset=2)
+
+    paged_ids = [row.id for row in first_page + second_page if row.documento.startswith("9988776")]
+    assert paged_ids[:3] == sorted(created_ids)

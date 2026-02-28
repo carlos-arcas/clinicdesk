@@ -34,10 +34,12 @@ class SelectorResult:
     display: str
 
 
-FetchRows = Callable[[Optional[str]], Iterable[tuple[int, str, str, str]]]
+FetchRows = Callable[[Optional[str], int, int], Iterable[tuple[int, str, str, str]]]
 
 
 class EntitySelectorDialog(QDialog):
+    _PAGE_SIZE = 50
+
     def __init__(
         self,
         parent: Optional[QWidget],
@@ -53,6 +55,7 @@ class EntitySelectorDialog(QDialog):
 
         self._fetch_rows = fetch_rows
         self._selection: Optional[SelectorResult] = None
+        self._page = 0
 
         self.txt_search = QLineEdit()
         self.txt_search.setPlaceholderText(placeholder)
@@ -70,6 +73,18 @@ class EntitySelectorDialog(QDialog):
         self.table.setColumnHidden(0, True)
         self.table.horizontalHeader().setStretchLastSection(True)
 
+        self.lbl_page = QLabel("")
+        self.btn_prev = QPushButton("Anterior")
+        self.btn_next = QPushButton("Siguiente")
+        self.btn_prev.setEnabled(False)
+        self.btn_next.setEnabled(False)
+
+        pagination = QHBoxLayout()
+        pagination.addWidget(self.btn_prev)
+        pagination.addWidget(self.btn_next)
+        pagination.addWidget(self.lbl_page)
+        pagination.addStretch(1)
+
         buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
         buttons.button(QDialogButtonBox.Ok).setText("Seleccionar")
         buttons.button(QDialogButtonBox.Cancel).setText("Cancelar")
@@ -77,14 +92,31 @@ class EntitySelectorDialog(QDialog):
         layout = QVBoxLayout(self)
         layout.addLayout(search_row)
         layout.addWidget(self.table)
+        layout.addLayout(pagination)
         layout.addWidget(buttons)
 
-        self.btn_search.clicked.connect(self._refresh)
-        self.txt_search.returnPressed.connect(self._refresh)
+        self.btn_search.clicked.connect(self._on_search)
+        self.txt_search.returnPressed.connect(self._on_search)
+        self.btn_prev.clicked.connect(self._go_prev)
+        self.btn_next.clicked.connect(self._go_next)
         self.table.itemDoubleClicked.connect(lambda _: self._accept_selection())
         buttons.accepted.connect(self._accept_selection)
         buttons.rejected.connect(self.reject)
 
+        self._refresh()
+
+    def _on_search(self) -> None:
+        self._page = 0
+        self._refresh()
+
+    def _go_prev(self) -> None:
+        if self._page <= 0:
+            return
+        self._page -= 1
+        self._refresh()
+
+    def _go_next(self) -> None:
+        self._page += 1
         self._refresh()
 
     def _refresh(self) -> None:
@@ -92,15 +124,37 @@ class EntitySelectorDialog(QDialog):
         if not texto:
             logger.info("EntitySelectorDialog: búsqueda vacía, sin consulta.")
             self.table.setRowCount(0)
+            self.btn_prev.setEnabled(False)
+            self.btn_next.setEnabled(False)
+            self.lbl_page.setText("")
             return
-        rows = list(self._fetch_rows(texto))
+
+        offset = self._page * self._PAGE_SIZE
+        rows = list(self._fetch_rows(texto, offset, self._PAGE_SIZE + 1))
+        has_next = len(rows) > self._PAGE_SIZE
+        page_rows = rows[: self._PAGE_SIZE]
+
+        if self._page > 0 and not page_rows:
+            self._page -= 1
+            self._refresh()
+            return
+
         self.table.setRowCount(0)
-        for data in rows:
+        for data in page_rows:
             row_idx = self.table.rowCount()
             self.table.insertRow(row_idx)
             self.table.setItem(row_idx, 0, QTableWidgetItem(str(data[0])))
             for col_idx, value in enumerate(data[1:], start=1):
                 self.table.setItem(row_idx, col_idx, QTableWidgetItem(value))
+
+        has_prev = self._page > 0
+        self.btn_prev.setEnabled(has_prev)
+        self.btn_next.setEnabled(has_next)
+
+        if has_prev or has_next:
+            self.lbl_page.setText(f"Página {self._page + 1}")
+        else:
+            self.lbl_page.setText(f"{len(page_rows)} resultados")
 
     def _accept_selection(self) -> None:
         row = self.table.currentRow()
@@ -132,9 +186,9 @@ class EntitySelectorDialog(QDialog):
 def select_paciente(parent: QWidget, connection, *, activo: bool = True) -> Optional[SelectorResult]:
     queries = PacientesQueries(connection)
 
-    def fetch_rows(texto: Optional[str]) -> Iterable[tuple[int, str, str, str]]:
-        rows = queries.search(texto=texto, activo=activo)
-        for row in rows:
+    def fetch_rows(texto: Optional[str], offset: int, limit: int) -> Iterable[tuple[int, str, str, str]]:
+        rows = queries.search(texto=texto, activo=activo, limit=offset + limit)
+        for row in rows[offset: offset + limit]:
             yield (row.id, row.documento, row.nombre_completo, row.telefono)
 
     dialog = EntitySelectorDialog(
@@ -152,8 +206,8 @@ def select_paciente(parent: QWidget, connection, *, activo: bool = True) -> Opti
 def select_medico(parent: QWidget, connection, *, activo: bool = True) -> Optional[SelectorResult]:
     queries = MedicosQueries(connection)
 
-    def fetch_rows(texto: Optional[str]) -> Iterable[tuple[int, str, str, str]]:
-        rows = queries.search(texto=texto, activo=activo)
+    def fetch_rows(texto: Optional[str], offset: int, limit: int) -> Iterable[tuple[int, str, str, str]]:
+        rows = queries.search(texto=texto, activo=activo, limit=limit, offset=offset)
         for row in rows:
             yield (row.id, row.documento, row.nombre_completo, row.especialidad)
 
@@ -172,8 +226,8 @@ def select_medico(parent: QWidget, connection, *, activo: bool = True) -> Option
 def select_personal(parent: QWidget, connection, *, activo: bool = True) -> Optional[SelectorResult]:
     queries = PersonalQueries(connection)
 
-    def fetch_rows(texto: Optional[str]) -> Iterable[tuple[int, str, str, str]]:
-        rows = queries.search(texto=texto, activo=activo)
+    def fetch_rows(texto: Optional[str], offset: int, limit: int) -> Iterable[tuple[int, str, str, str]]:
+        rows = queries.search(texto=texto, activo=activo, limit=limit, offset=offset)
         for row in rows:
             yield (row.id, row.documento, row.nombre_completo, row.puesto)
 
@@ -192,9 +246,9 @@ def select_personal(parent: QWidget, connection, *, activo: bool = True) -> Opti
 def select_sala(parent: QWidget, connection, *, activa: bool = True) -> Optional[SelectorResult]:
     queries = SalasQueries(connection)
 
-    def fetch_rows(texto: Optional[str]) -> Iterable[tuple[int, str, str, str]]:
-        rows = queries.search(texto=texto, activa=activa)
-        for row in rows:
+    def fetch_rows(texto: Optional[str], offset: int, limit: int) -> Iterable[tuple[int, str, str, str]]:
+        rows = queries.search(texto=texto, activa=activa, limit=offset + limit)
+        for row in rows[offset: offset + limit]:
             ubicacion = row.ubicacion or ""
             yield (row.id, row.nombre, row.tipo, ubicacion)
 
@@ -213,9 +267,9 @@ def select_sala(parent: QWidget, connection, *, activa: bool = True) -> Optional
 def select_medicamento(parent: QWidget, connection, *, activo: bool = True) -> Optional[SelectorResult]:
     queries = MedicamentosQueries(connection)
 
-    def fetch_rows(texto: Optional[str]) -> Iterable[tuple[int, str, str, str]]:
-        rows = queries.search(texto=texto, activo=activo)
-        for row in rows:
+    def fetch_rows(texto: Optional[str], offset: int, limit: int) -> Iterable[tuple[int, str, str, str]]:
+        rows = queries.search(texto=texto, activo=activo, limit=offset + limit)
+        for row in rows[offset: offset + limit]:
             yield (row.id, row.nombre_comercial, row.nombre_compuesto, str(row.stock))
 
     dialog = EntitySelectorDialog(
