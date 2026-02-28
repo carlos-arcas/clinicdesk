@@ -302,3 +302,20 @@ Formato por entrada:
   - Algunos módulos legacy siguen sin emitir logs de dominio ricos; la base queda preparada para extender instrumentación progresiva.
 - **Qué queda**:
   - Extender correlación con `request_id` por interacción UI/servicio cuando exista capa de transporte explícita.
+
+- **DATE/TIME**: 2026-02-28 06:20 UTC
+- **Paso**: Fix seed-demo wiring SQLite + error SQL dispensaciones + observabilidad de progreso
+- **Qué se hizo**:
+  - Se auditó wiring de arranque y se confirmó que app/CLI usan `bootstrap_database`, unificando por defecto la BD en `./data/clinicdesk.db` y permitiendo override por `CLINICDESK_DB_PATH` o `--sqlite-path`.
+  - Se corrigió `DispensacionesQueries.list` para derivar `incidencia` desde tabla `incidencias` (EXISTS por `dispensacion_id`) en lugar de leer columna inexistente `d.incidencia`.
+  - Se añadió progreso estructurado por fases y lotes en seed-demo (generación, persistencia por batch, tiempos por fase y total).
+  - Se mejoró persistencia de seed masivo con commits por lote en citas/incidencias para evitar sensación de cuelgue.
+  - Se añadieron tests: wiring seed->query real en mismo sqlite path, cobertura de `DispensacionesQueries` con schema real sin columna legacy, y verificación de mensajes de progreso en logs.
+- **Decisiones**:
+  - Cambio mínimo sin refactor masivo: se mantuvieron repositorios existentes para entidades maestras y se optimizó en lote solo el camino caliente (citas/incidencias).
+  - Se priorizó compatibilidad con arquitectura existente (seed en use case + infraestructura SQLite).
+- **Riesgos**:
+  - Persistencia de médicos/pacientes/personal sigue insertando por entidad (coste bajo relativo).
+  - Existen componentes legacy que aún asumen columnas históricas en dispensaciones fuera del alcance de este ajuste.
+- **Qué queda**:
+  - Evaluar migración gradual de paths legacy `*.sqlite` en scripts/docs secundarios para eliminar ambigüedad histórica.

@@ -10,14 +10,15 @@ from clinicdesk.app.application.demo_data.dtos import (
     PatientCreateDTO,
     PersonalCreateDTO,
 )
-from clinicdesk.app.domain.enums import EstadoCita, TipoDocumento, TipoSala
-from clinicdesk.app.domain.modelos import Cita, Medico, Paciente, Personal, Sala
-from clinicdesk.app.infrastructure.sqlite.repos_citas import CitasRepository
-from clinicdesk.app.infrastructure.sqlite.repos_incidencias import Incidencia, IncidenciasRepository
+from clinicdesk.app.bootstrap_logging import get_logger
+from clinicdesk.app.domain.enums import TipoDocumento, TipoSala
+from clinicdesk.app.domain.modelos import Medico, Paciente, Personal, Sala
 from clinicdesk.app.infrastructure.sqlite.repos_medicos import MedicosRepository
 from clinicdesk.app.infrastructure.sqlite.repos_pacientes import PacientesRepository
 from clinicdesk.app.infrastructure.sqlite.repos_personal import PersonalRepository
 from clinicdesk.app.infrastructure.sqlite.repos_salas import SalasRepository
+
+LOGGER = get_logger(__name__)
 
 
 @dataclass(slots=True)
@@ -37,15 +38,12 @@ class DemoDataSeeder:
         pacientes_repo: PacientesRepository | None = None,
         personal_repo: PersonalRepository | None = None,
         salas_repo: SalasRepository | None = None,
-        citas_repo: CitasRepository | None = None,
-        incidencias_repo: IncidenciasRepository | None = None,
     ) -> None:
+        self._connection = connection
         self._medicos_repo = medicos_repo or MedicosRepository(connection)
         self._pacientes_repo = pacientes_repo or PacientesRepository(connection)
         self._personal_repo = personal_repo or PersonalRepository(connection)
         self._salas_repo = salas_repo or SalasRepository(connection)
-        self._citas_repo = citas_repo or CitasRepository(connection)
-        self._incidencias_repo = incidencias_repo or IncidenciasRepository(connection)
 
     def persist(
         self,
@@ -54,13 +52,30 @@ class DemoDataSeeder:
         staff: list[PersonalCreateDTO],
         appointments: list[AppointmentCreateDTO],
         incidences_by_appointment: dict[str, list[IncidenceDTO]],
+        *,
+        batch_size: int = 500,
     ) -> DemoSeedPersistResult:
+        safe_batch_size = max(1, batch_size)
+        LOGGER.info("Persisting doctors... count=%s", len(doctors))
         doctor_ids = [self._medicos_repo.create(_to_medico(dto)) for dto in doctors]
+        LOGGER.info("Persisting patients... count=%s", len(patients))
         patient_ids = [self._pacientes_repo.create(_to_paciente(dto)) for dto in patients]
+        LOGGER.info("Persisting staff... count=%s", len(staff))
         staff_ids = [self._personal_repo.create(_to_personal(dto)) for dto in staff]
         sala_ids = self._ensure_salas()
-        appointment_id_map = self._persist_appointments(appointments, patient_ids, doctor_ids, sala_ids)
-        incidences_count = self._persist_incidences(incidences_by_appointment, appointment_id_map, staff_ids)
+        appointment_id_map = self._persist_appointments(
+            appointments,
+            patient_ids,
+            doctor_ids,
+            sala_ids,
+            batch_size=safe_batch_size,
+        )
+        incidences_count = self._persist_incidences(
+            incidences_by_appointment,
+            appointment_id_map,
+            staff_ids,
+            batch_size=safe_batch_size,
+        )
         return DemoSeedPersistResult(
             doctors=len(doctor_ids),
             patients=len(patient_ids),
@@ -86,22 +101,36 @@ class DemoDataSeeder:
         patient_ids: list[int],
         doctor_ids: list[int],
         room_ids: list[int],
+        *,
+        batch_size: int,
     ) -> dict[str, int]:
         appointment_id_map: dict[str, int] = {}
-        for dto in appointments:
-            cita_id = self._citas_repo.create(
-                Cita(
-                    paciente_id=patient_ids[dto.patient_index],
-                    medico_id=doctor_ids[dto.doctor_index],
-                    sala_id=room_ids[(dto.patient_index + dto.doctor_index) % len(room_ids)],
-                    inicio=dto.starts_at,
-                    fin=dto.ends_at,
-                    estado=EstadoCita(dto.status),
-                    motivo=dto.reason,
-                    notas=dto.notes,
+        total = len(appointments)
+        if total == 0:
+            return appointment_id_map
+        total_batches = (total + batch_size - 1) // batch_size
+        for batch_index, batch in enumerate(_iter_batches(appointments, batch_size), start=1):
+            LOGGER.info("Persisting appointments batch %s/%s", batch_index, total_batches)
+            for dto in batch:
+                cur = self._connection.execute(
+                    """
+                    INSERT INTO citas (
+                        paciente_id, medico_id, sala_id, inicio, fin, estado, motivo, notas
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        patient_ids[dto.patient_index],
+                        doctor_ids[dto.doctor_index],
+                        room_ids[(dto.patient_index + dto.doctor_index) % len(room_ids)],
+                        dto.starts_at,
+                        dto.ends_at,
+                        dto.status,
+                        dto.reason,
+                        dto.notes,
+                    ),
                 )
-            )
-            appointment_id_map[dto.external_id] = cita_id
+                appointment_id_map[dto.external_id] = int(cur.lastrowid)
+            self._connection.commit()
         return appointment_id_map
 
     def _persist_incidences(
@@ -109,30 +138,53 @@ class DemoDataSeeder:
         incidences_by_appointment: dict[str, list[IncidenceDTO]],
         appointment_ids: dict[str, int],
         staff_ids: list[int],
+        *,
+        batch_size: int,
     ) -> int:
         if not staff_ids:
             return 0
         total = 0
+        flattened: list[tuple[int, IncidenceDTO]] = []
         for external_id, entries in incidences_by_appointment.items():
             cita_id = appointment_ids.get(external_id)
             if cita_id is None:
                 continue
             for entry in entries:
+                flattened.append((cita_id, entry))
+        total_rows = len(flattened)
+        if total_rows == 0:
+            return 0
+        total_batches = (total_rows + batch_size - 1) // batch_size
+        for batch_index, batch in enumerate(_iter_batches(flattened, batch_size), start=1):
+            LOGGER.info("Persisting incidences batch %s/%s", batch_index, total_batches)
+            for cita_id, entry in batch:
                 confirmer_id = staff_ids[cita_id % len(staff_ids)]
-                self._incidencias_repo.create(
-                    Incidencia(
-                        tipo=entry.incidence_type,
-                        severidad=entry.severity,
-                        estado=entry.status,
-                        fecha_hora=entry.occurred_at.strftime("%Y-%m-%d %H:%M:%S"),
-                        descripcion=entry.description,
-                        cita_id=cita_id,
-                        confirmado_por_personal_id=confirmer_id,
-                        nota_override=entry.override_note,
-                    )
+                self._connection.execute(
+                    """
+                    INSERT INTO incidencias (
+                        tipo, severidad, estado, fecha_hora, descripcion,
+                        cita_id, confirmado_por_personal_id, nota_override
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        entry.incidence_type,
+                        entry.severity,
+                        entry.status,
+                        entry.occurred_at.strftime("%Y-%m-%d %H:%M:%S"),
+                        entry.description,
+                        cita_id,
+                        confirmer_id,
+                        entry.override_note or "seed-demo",
+                    ),
                 )
                 total += 1
+            self._connection.commit()
         return total
+
+
+def _iter_batches(items: list, batch_size: int):
+    for start in range(0, len(items), batch_size):
+        yield items[start:start + batch_size]
 
 
 def _to_medico(dto: DoctorCreateDTO) -> Medico:

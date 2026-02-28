@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import UTC, date, datetime, timedelta
 
+from clinicdesk.app.bootstrap_logging import get_logger
 from clinicdesk.app.application.demo_data.generator import (
     AppointmentGenerationConfig,
     generate_appointments,
@@ -12,6 +13,8 @@ from clinicdesk.app.application.demo_data.generator import (
     generate_personal,
 )
 from clinicdesk.app.infrastructure.sqlite.demo_data_seeder import DemoDataSeeder
+
+LOGGER = get_logger(__name__)
 
 
 @dataclass(slots=True)
@@ -23,6 +26,7 @@ class SeedDemoDataRequest:
     from_date: str | None = None
     to_date: str | None = None
     incidence_rate: float = 0.15
+    batch_size: int = 500
 
 
 @dataclass(slots=True)
@@ -42,10 +46,15 @@ class SeedDemoData:
         self._seeder = seeder
 
     def execute(self, request: SeedDemoDataRequest) -> SeedDemoDataResponse:
+        started_at = datetime.now(UTC)
         start_date, end_date = _resolve_dates(request.from_date, request.to_date)
+        LOGGER.info("Generating doctors... count=%s", request.n_doctors)
         doctors = generate_doctors(request.n_doctors, request.seed)
+        LOGGER.info("Generating patients... count=%s", request.n_patients)
         patients = generate_patients(request.n_patients, request.seed)
+        LOGGER.info("Generating staff... count=%s", max(3, request.n_doctors // 2))
         staff = generate_personal(max(3, request.n_doctors // 2), request.seed)
+        LOGGER.info("Generating appointments... count=%s", request.n_appointments)
         appointments = generate_appointments(
             patients,
             doctors,
@@ -56,8 +65,23 @@ class SeedDemoData:
             ),
             request.seed,
         )
+        LOGGER.info("Generating incidences... rate=%.3f", request.incidence_rate)
         incidences = generate_incidences(appointments, request.incidence_rate, request.seed)
-        result = self._seeder.persist(doctors, patients, staff, appointments, incidences)
+        generation_seconds = (datetime.now(UTC) - started_at).total_seconds()
+        LOGGER.info("Generation done in %.2fs", generation_seconds)
+        persist_started = datetime.now(UTC)
+        result = self._seeder.persist(
+            doctors,
+            patients,
+            staff,
+            appointments,
+            incidences,
+            batch_size=request.batch_size,
+        )
+        persist_seconds = (datetime.now(UTC) - persist_started).total_seconds()
+        total_seconds = (datetime.now(UTC) - started_at).total_seconds()
+        LOGGER.info("Persisting done in %.2fs", persist_seconds)
+        LOGGER.info("Seed demo total duration %.2fs", total_seconds)
         return SeedDemoDataResponse(
             doctors=result.doctors,
             patients=result.patients,
@@ -82,4 +106,3 @@ def _resolve_dates(from_date: str | None, to_date: str | None) -> tuple[date, da
 def _dataset_version(seed: int) -> str:
     stamp = datetime.now(UTC).strftime("%Y%m%d%H%M%S")
     return f"demo_{stamp}_s{seed}"
-

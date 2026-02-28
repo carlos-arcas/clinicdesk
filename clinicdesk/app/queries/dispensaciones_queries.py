@@ -84,7 +84,13 @@ class DispensacionesQueries:
                        (p.nombre || ' ' || p.apellidos) AS paciente,
                        (per.nombre || ' ' || per.apellidos) AS personal,
                        m.nombre_comercial AS medicamento,
-                       d.cantidad, d.receta_id, d.incidencia
+                       d.cantidad, d.receta_id,
+                       EXISTS(
+                           SELECT 1
+                           FROM incidencias i
+                           WHERE i.dispensacion_id = d.id
+                             AND i.activo = 1
+                       ) AS incidencia
                 FROM dispensaciones d
                 JOIN recetas r ON r.id = d.receta_id
                 JOIN pacientes p ON p.id = r.paciente_id
