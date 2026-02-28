@@ -21,11 +21,6 @@
       "reason": "Deuda temporal aceptada: script de tooling, fuera del core clínico"
     },
     {
-      "path": "scripts/ml_cli.py",
-      "max_file_loc": 500,
-      "reason": "Deuda temporal aceptada: CLI de soporte para flujos ML"
-    },
-    {
       "path": "clinicdesk/app/infrastructure/sqlite/demo_data_seeder.py",
       "max_file_loc": 450,
       "max_function_loc": 80,
