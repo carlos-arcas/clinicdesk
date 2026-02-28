@@ -36,7 +36,8 @@ class MedicosQueries:
         self,
         *,
         activo: Optional[bool] = True,
-        limit: int = 500,
+        limit: Optional[int] = None,
+        offset: int = 0,
     ) -> List[MedicoRow]:
         clauses = []
         params: List[object] = []
@@ -49,8 +50,15 @@ class MedicosQueries:
         if clauses:
             sql += " WHERE " + " AND ".join(clauses)
         sql += " GROUP BY id, documento, nombre, apellidos, telefono, activo"
-        sql += " ORDER BY apellidos, nombre LIMIT ?"
-        params.append(int(limit))
+        sql += " ORDER BY apellidos, nombre, id"
+        if limit is not None:
+            sql += " LIMIT ?"
+            params.append(int(limit))
+        if offset > 0:
+            if limit is None:
+                sql += " LIMIT -1"
+            sql += " OFFSET ?"
+            params.append(int(offset))
 
         try:
             rows = self._conn.execute(sql, params).fetchall()
@@ -75,7 +83,8 @@ class MedicosQueries:
         texto: Optional[str] = None,
         especialidad: Optional[str] = None,
         activo: Optional[bool] = True,
-        limit: int = 500,
+        limit: Optional[int] = None,
+        offset: int = 0,
     ) -> List[MedicoRow]:
         texto = normalize_search_text(texto)
         especialidad = normalize_search_text(especialidad)
@@ -112,8 +121,15 @@ class MedicosQueries:
         if clauses:
             sql += " WHERE " + " AND ".join(clauses)
         sql += " GROUP BY id, documento, nombre, apellidos, telefono, activo"
-        sql += " ORDER BY apellidos, nombre LIMIT ?"
-        params.append(int(limit))
+        sql += " ORDER BY apellidos, nombre, id"
+        if limit is not None:
+            sql += " LIMIT ?"
+            params.append(int(limit))
+        if offset > 0:
+            if limit is None:
+                sql += " LIMIT -1"
+            sql += " OFFSET ?"
+            params.append(int(offset))
 
         try:
             rows = self._conn.execute(sql, params).fetchall()

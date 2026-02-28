@@ -30,7 +30,8 @@ class PersonalQueries:
         self,
         *,
         activo: Optional[bool] = True,
-        limit: int = 500,
+        limit: Optional[int] = None,
+        offset: int = 0,
     ) -> List[PersonalRow]:
         clauses = []
         params: List[object] = []
@@ -42,8 +43,15 @@ class PersonalQueries:
         sql = "SELECT id, documento, nombre, apellidos, telefono, puesto, activo FROM personal"
         if clauses:
             sql += " WHERE " + " AND ".join(clauses)
-        sql += " ORDER BY apellidos, nombre LIMIT ?"
-        params.append(int(limit))
+        sql += " ORDER BY apellidos, nombre, id"
+        if limit is not None:
+            sql += " LIMIT ?"
+            params.append(int(limit))
+        if offset > 0:
+            if limit is None:
+                sql += " LIMIT -1"
+            sql += " OFFSET ?"
+            params.append(int(offset))
 
         try:
             rows = self._conn.execute(sql, params).fetchall()
@@ -68,7 +76,8 @@ class PersonalQueries:
         texto: Optional[str] = None,
         puesto: Optional[str] = None,
         activo: Optional[bool] = True,
-        limit: int = 500,
+        limit: Optional[int] = None,
+        offset: int = 0,
     ) -> List[PersonalRow]:
         texto = normalize_search_text(texto)
         puesto = normalize_search_text(puesto)
@@ -104,8 +113,15 @@ class PersonalQueries:
         sql = "SELECT id, documento, nombre, apellidos, telefono, puesto, activo FROM personal"
         if clauses:
             sql += " WHERE " + " AND ".join(clauses)
-        sql += " ORDER BY apellidos, nombre LIMIT ?"
-        params.append(int(limit))
+        sql += " ORDER BY apellidos, nombre, id"
+        if limit is not None:
+            sql += " LIMIT ?"
+            params.append(int(limit))
+        if offset > 0:
+            if limit is None:
+                sql += " LIMIT -1"
+            sql += " OFFSET ?"
+            params.append(int(offset))
 
         try:
             rows = self._conn.execute(sql, params).fetchall()

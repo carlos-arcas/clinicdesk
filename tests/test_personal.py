@@ -78,3 +78,36 @@ def test_personal_crud_and_search(container, seed_data, assert_expected_actual) 
     inactivos = personal_repo.search(activo=False)
     inactivos_ids = [p.id for p in inactivos]
     assert seed_data["personal_inactivo_id"] in inactivos_ids, "Personal inactivo debe aparecer en activo=False"
+
+
+def test_personal_queries_support_offset_limit_and_stable_order(container) -> None:
+    queries = PersonalQueries(container.connection)
+    repo = container.personal_repo
+
+    created_ids = []
+    for idx in range(3):
+        personal = Personal(
+            tipo_documento=TipoDocumento.DNI,
+            documento=f"8877665{idx}",
+            nombre="Orden",
+            apellidos="Estable",
+            telefono=f"65512345{idx}",
+            email=None,
+            fecha_nacimiento=date(1990, 3, idx + 1),
+            direccion=None,
+            activo=True,
+            puesto="Recepcion",
+            turno=None,
+        )
+        created_ids.append(repo.create(personal))
+
+    ordered_rows = [
+        row for row in queries.search(texto="Orden", activo=True, limit=None) if row.documento.startswith("8877665")
+    ]
+    assert [row.id for row in ordered_rows] == sorted(created_ids)
+
+    first_page = queries.search(texto="Orden", activo=True, limit=2, offset=0)
+    second_page = queries.search(texto="Orden", activo=True, limit=2, offset=2)
+
+    paged_ids = [row.id for row in first_page + second_page if row.documento.startswith("8877665")]
+    assert paged_ids[:3] == sorted(created_ids)
