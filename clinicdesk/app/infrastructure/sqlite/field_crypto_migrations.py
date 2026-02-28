@@ -7,13 +7,19 @@ _PROTECTED_COLUMNS = ("documento", "email", "telefono", "direccion")
 
 
 def ensure_pacientes_field_crypto_columns(con: sqlite3.Connection) -> None:
-    columns = _table_columns(con, table="pacientes")
+    _ensure_table_field_crypto_columns(con, table="pacientes")
+
+
+def ensure_medicos_field_crypto_columns(con: sqlite3.Connection) -> None:
+    _ensure_table_field_crypto_columns(con, table="medicos")
+
+
+def _ensure_table_field_crypto_columns(con: sqlite3.Connection, *, table: str) -> None:
+    columns = _table_columns(con, table=table)
     for name in _PROTECTED_COLUMNS:
-        _ensure_text_column(con, columns, table="pacientes", column=f"{name}_enc")
-        _ensure_text_column(con, columns, table="pacientes", column=f"{name}_hash")
-        con.execute(
-            f"CREATE INDEX IF NOT EXISTS idx_pacientes_{name}_hash ON pacientes({name}_hash)"
-        )
+        _ensure_text_column(con, columns, table=table, column=f"{name}_enc")
+        _ensure_text_column(con, columns, table=table, column=f"{name}_hash")
+        con.execute(f"CREATE INDEX IF NOT EXISTS idx_{table}_{name}_hash ON {table}({name}_hash)")
 
 
 def _table_columns(con: sqlite3.Connection, *, table: str) -> set[str]:
