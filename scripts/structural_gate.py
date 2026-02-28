@@ -6,10 +6,13 @@ from __future__ import annotations
 import ast
 import json
 import logging
+from itertools import chain
 from dataclasses import dataclass
 from fnmatch import fnmatch
 from pathlib import Path
 from typing import Any
+
+from scripts.structural_report import render_report
 
 DEFAULT_THRESHOLDS: dict[str, Any] = {
     "max_file_loc": 400,
@@ -154,6 +157,10 @@ def _iter_python_files(repo_root: Path, exclude_paths: list[str]) -> list[Path]:
     return sorted(files)
 
 
+def scan_files(repo_root: Path, exclude_paths: list[str]) -> list[Path]:
+    return _iter_python_files(repo_root, exclude_paths)
+
+
 def _build_allowlist(entries: list[dict[str, Any]]) -> list[AllowlistEntry]:
     allowlist: list[AllowlistEntry] = []
     for entry in entries:
@@ -232,6 +239,135 @@ def _file_metrics(path: Path) -> tuple[int, list[FunctionMetric], list[ClassMetr
     return _count_code_loc(source_lines), functions, classes
 
 
+def analyze_file(
+    path: Path,
+    max_file_loc_threshold: float,
+    max_cc_threshold: float,
+) -> tuple[int, list[FunctionMetric], list[ClassMetric], int, float, float, bool]:
+    file_loc, functions, classes = _file_metrics(path)
+    max_function_cc = max((function.cc for function in functions), default=0)
+    avg_cc = sum(function.cc for function in functions) / len(functions) if functions else 0.0
+    file_score = (file_loc / max_file_loc_threshold) * 0.4 + (max_function_cc / max_cc_threshold) * 0.6
+    hotspot = (
+        file_score > 1.0
+        or file_loc > max_file_loc_threshold
+        or max_function_cc > max_cc_threshold
+    )
+    return file_loc, functions, classes, max_function_cc, avg_cc, file_score, hotspot
+
+
+def _resolve_limit(allow: AllowlistEntry | None, key: str, default: float) -> float:
+    value = getattr(allow, key) if allow else None
+    return float(value) if value is not None else float(default)
+
+
+def _resolve_limits(allow: AllowlistEntry | None, thresholds: dict[str, Any]) -> dict[str, float]:
+    return {
+        "max_file_loc": _resolve_limit(allow, "max_file_loc", thresholds["max_file_loc"]),
+        "max_function_loc": _resolve_limit(allow, "max_function_loc", thresholds["max_function_loc"]),
+        "max_class_loc": _resolve_limit(allow, "max_class_loc", thresholds["max_class_loc"]),
+        "max_cc": _resolve_limit(allow, "max_cc", thresholds["max_cc"]),
+        "max_avg_cc_per_file": _resolve_limit(allow, "max_avg_cc_per_file", thresholds["max_avg_cc_per_file"]),
+    }
+
+
+def _file_level_violations(
+    path: Path,
+    file_loc: int,
+    avg_cc: float,
+    limits: dict[str, float],
+    allowlisted: bool,
+    allow_reason: str,
+) -> list[Violation]:
+    rules = [
+        ("file_loc", "<file>", float(file_loc), float(limits["max_file_loc"])),
+        ("avg_cc_per_file", "<file>", float(avg_cc), float(limits["max_avg_cc_per_file"])),
+    ]
+    return [
+        Violation(kind, path, symbol, actual, threshold, allowlisted, allow_reason)
+        for kind, symbol, actual, threshold in rules
+        if actual > threshold
+    ]
+
+
+def _function_violations(
+    path: Path,
+    functions: list[FunctionMetric],
+    limits: dict[str, float],
+    allowlisted: bool,
+    allow_reason: str,
+) -> list[Violation]:
+    return [
+        Violation(kind, path, function.qualname, actual, threshold, allowlisted, allow_reason)
+        for function in functions
+        for kind, actual, threshold in (
+            ("function_loc", float(function.loc), float(limits["max_function_loc"])),
+            ("function_cc", float(function.cc), float(limits["max_cc"])),
+        )
+        if actual > threshold
+    ]
+
+
+def _class_violations(
+    path: Path,
+    classes: list[ClassMetric],
+    limits: dict[str, float],
+    allowlisted: bool,
+    allow_reason: str,
+) -> list[Violation]:
+    return [
+        Violation(
+            "class_loc",
+            path,
+            class_metric.qualname,
+            float(class_metric.loc),
+            float(limits["max_class_loc"]),
+            allowlisted,
+            allow_reason,
+        )
+        for class_metric in classes
+        if class_metric.loc > limits["max_class_loc"]
+    ]
+
+
+def apply_thresholds(
+    path: Path,
+    repo_root: Path,
+    thresholds: dict[str, Any],
+    analyzed: tuple[int, list[FunctionMetric], list[ClassMetric], int, float, float, bool],
+) -> tuple[FileMetrics, list[Violation]]:
+    file_loc, functions, classes, max_cc, avg_cc, file_score, hotspot = analyzed
+    allow = _find_allowlist(path, repo_root, thresholds["allowlist"])
+    allowlisted = allow is not None
+    allow_reason = allow.reason if allow else ""
+    limits = _resolve_limits(allow, thresholds)
+
+    metric = FileMetrics(
+        path=path,
+        file_loc=file_loc,
+        functions=functions,
+        classes=classes,
+        avg_cc=avg_cc,
+        max_cc=max_cc,
+        file_score=file_score,
+        hotspot=hotspot,
+        allowlisted=allowlisted,
+        allowlist_reason=allow_reason,
+    )
+    violations = list(
+        chain(
+            _file_level_violations(path, file_loc, avg_cc, limits, allowlisted, allow_reason),
+            _function_violations(path, functions, limits, allowlisted, allow_reason),
+            _class_violations(path, classes, limits, allowlisted, allow_reason),
+        )
+    )
+    return metric, violations
+
+
+def compute_hotspots(metrics: list[FileMetrics]) -> list[FileMetrics]:
+    return sorted((metric for metric in metrics if metric.hotspot), key=lambda item: item.file_score, reverse=True)
+
+
 def load_thresholds(config_path: Path | None) -> dict[str, Any]:
     merged = dict(DEFAULT_THRESHOLDS)
     if config_path and config_path.exists():
@@ -242,119 +378,23 @@ def load_thresholds(config_path: Path | None) -> dict[str, Any]:
 
 
 def analyze_repo(repo_root: Path, thresholds: dict[str, Any]) -> StructuralGateResult:
-    files = _iter_python_files(repo_root, thresholds["exclude_paths"])
+    files = scan_files(repo_root, thresholds["exclude_paths"])
     violations: list[Violation] = []
     metrics: list[FileMetrics] = []
 
     for path in files:
-        file_loc, functions, classes = _file_metrics(path)
-        max_cc = max((function.cc for function in functions), default=0)
-        avg_cc = sum(function.cc for function in functions) / len(functions) if functions else 0.0
-
-        allow = _find_allowlist(path, repo_root, thresholds["allowlist"])
-        allowlisted = allow is not None
-        allow_reason = allow.reason if allow else ""
-
-        max_file_loc = allow.max_file_loc if allow and allow.max_file_loc is not None else thresholds["max_file_loc"]
-        max_function_loc = (
-            allow.max_function_loc if allow and allow.max_function_loc is not None else thresholds["max_function_loc"]
+        metric, file_violations = apply_thresholds(
+            path,
+            repo_root,
+            thresholds,
+            analyze_file(path, thresholds["max_file_loc"], thresholds["max_cc"]),
         )
-        max_class_loc = allow.max_class_loc if allow and allow.max_class_loc is not None else thresholds["max_class_loc"]
-        max_cc_allowed = allow.max_cc if allow and allow.max_cc is not None else thresholds["max_cc"]
-        max_avg_cc = allow.max_avg_cc_per_file if allow and allow.max_avg_cc_per_file is not None else thresholds["max_avg_cc_per_file"]
+        metrics.append(metric)
+        violations.extend(file_violations)
 
-        file_score = (file_loc / thresholds["max_file_loc"]) * 0.4 + (max_cc / thresholds["max_cc"]) * 0.6
-        hotspot = file_score > 1.0 or file_loc > thresholds["max_file_loc"] or max_cc > thresholds["max_cc"]
-
-        metrics.append(
-            FileMetrics(
-                path=path,
-                file_loc=file_loc,
-                functions=functions,
-                classes=classes,
-                avg_cc=avg_cc,
-                max_cc=max_cc,
-                file_score=file_score,
-                hotspot=hotspot,
-                allowlisted=allowlisted,
-                allowlist_reason=allow_reason,
-            )
-        )
-
-        if file_loc > max_file_loc:
-            violations.append(
-                Violation("file_loc", path, "<file>", float(file_loc), float(max_file_loc), allowlisted, allow_reason)
-            )
-        if avg_cc > max_avg_cc:
-            violations.append(
-                Violation("avg_cc_per_file", path, "<file>", float(avg_cc), float(max_avg_cc), allowlisted, allow_reason)
-            )
-
-        for function in functions:
-            if function.loc > max_function_loc:
-                violations.append(
-                    Violation(
-                        "function_loc",
-                        path,
-                        function.qualname,
-                        float(function.loc),
-                        float(max_function_loc),
-                        allowlisted,
-                        allow_reason,
-                    )
-                )
-            if function.cc > max_cc_allowed:
-                violations.append(
-                    Violation(
-                        "function_cc",
-                        path,
-                        function.qualname,
-                        float(function.cc),
-                        float(max_cc_allowed),
-                        allowlisted,
-                        allow_reason,
-                    )
-                )
-
-        for class_metric in classes:
-            if class_metric.loc > max_class_loc:
-                violations.append(
-                    Violation(
-                        "class_loc",
-                        path,
-                        class_metric.qualname,
-                        float(class_metric.loc),
-                        float(max_class_loc),
-                        allowlisted,
-                        allow_reason,
-                    )
-                )
-
-    hotspots = sorted((metric for metric in metrics if metric.hotspot), key=lambda item: item.file_score, reverse=True)
+    hotspots = compute_hotspots(metrics)
     return StructuralGateResult(files_scanned=len(files), violations=violations, hotspots=hotspots)
 
-
-def _format_violations(violations: list[Violation], repo_root: Path) -> list[str]:
-    rows = []
-    for violation in violations:
-        rel = violation.path.relative_to(repo_root).as_posix()
-        allow = "sí" if violation.allowlisted else "no"
-        reason = f" ({violation.reason})" if violation.reason else ""
-        rows.append(
-            f"- `{rel}` :: `{violation.symbol}` -> {violation.actual:.2f} > {violation.threshold:.2f} "
-            f"(allowlisted: {allow}{reason})"
-        )
-    return rows
-
-
-def _group_violations(violations: list[Violation], kind: str) -> list[Violation]:
-    return [item for item in violations if item.kind == kind]
-
-
-def _worst_function(metric: FileMetrics) -> FunctionMetric | None:
-    if not metric.functions:
-        return None
-    return sorted(metric.functions, key=lambda item: (item.cc, item.loc), reverse=True)[0]
 
 
 def generate_report(
@@ -363,91 +403,8 @@ def generate_report(
     repo_root: Path,
     report_path: Path,
 ) -> None:
-    top_hotspots = result.hotspots[:10]
-    lines: list[str] = [
-        "# Structural Quality Report",
-        "",
-        "## 1) Resumen",
-        f"- total_files_scanned: **{result.files_scanned}**",
-        f"- violations_count: **{len(result.violations)}**",
-        f"- blocking_violations_count: **{len(result.blocking_violations)}**",
-        f"- top_hotspots: **{len(top_hotspots)}**",
-        "",
-        "### Umbrales aplicados",
-        f"- max_file_loc: {thresholds['max_file_loc']}",
-        f"- max_function_loc: {thresholds['max_function_loc']}",
-        f"- max_class_loc: {thresholds['max_class_loc']}",
-        f"- max_cc: {thresholds['max_cc']}",
-        f"- max_avg_cc_per_file: {thresholds['max_avg_cc_per_file']}",
-        f"- max_hotspots: {thresholds['max_hotspots']}",
-        "",
-        "## 2) Violaciones por tipo",
-        "",
-        "### Files over LOC",
-    ]
-    lines.extend(_format_violations(_group_violations(result.violations, "file_loc"), repo_root) or ["- Ninguna."])
-    lines.extend(["", "### Functions over LOC"])
-    lines.extend(_format_violations(_group_violations(result.violations, "function_loc"), repo_root) or ["- Ninguna."])
-    lines.extend(["", "### Classes over LOC"])
-    lines.extend(_format_violations(_group_violations(result.violations, "class_loc"), repo_root) or ["- Ninguna."])
-    lines.extend(["", "### Functions over CC"])
-    lines.extend(_format_violations(_group_violations(result.violations, "function_cc"), repo_root) or ["- Ninguna."])
-
-    lines.extend(
-        [
-            "",
-            "## 3) Hotspots (top 10)",
-            "",
-            "| file | file_loc | max_cc | avg_cc | worst_function | score | allowlisted? |",
-            "| --- | ---: | ---: | ---: | --- | ---: | --- |",
-        ]
-    )
-
-    for metric in top_hotspots:
-        rel = metric.path.relative_to(repo_root).as_posix()
-        worst = _worst_function(metric)
-        if worst:
-            worst_label = f"{worst.qualname} (cc={worst.cc}, loc={worst.loc})"
-        else:
-            worst_label = "n/a"
-        allowlisted_label = "sí" if metric.allowlisted else "no"
-        lines.append(
-            f"| `{rel}` | {metric.file_loc} | {metric.max_cc} | {metric.avg_cc:.2f} | "
-            f"{worst_label} | {metric.file_score:.2f} | {allowlisted_label} |"
-        )
-
-    if not top_hotspots:
-        lines.append("| n/a | 0 | 0 | 0.00 | n/a | 0.00 | no |")
-
-    lines.extend(["", "## 4) Recomendaciones automáticas", ""])
-    if not top_hotspots:
-        lines.append("- No hay hotspots activos.")
-    else:
-        for metric in top_hotspots:
-            rel = metric.path.relative_to(repo_root).as_posix()
-            worst = _worst_function(metric)
-            symbol = worst.qualname if worst else "<module>"
-            lines.append(
-                f"- `{rel}` / `{symbol}`: extrae funciones puras para separar ramas condicionales y bajar CC."
-            )
-            lines.append(
-                f"- `{rel}`: divide el módulo en submódulos cohesivos por bounded context para reducir LOC del archivo."
-            )
-            lines.append(
-                f"- `{rel}` / `{symbol}`: introduce use cases/ports para desacoplar orquestación de detalles de infraestructura."
-            )
-
-    if thresholds["allowlist"]:
-        lines.extend(["", "## Allowlist / deuda controlada", ""])
-        for entry in thresholds["allowlist"]:
-            lines.append(
-                f"- `{entry.path}` -> overrides: max_cc={entry.max_cc}, max_function_loc={entry.max_function_loc}, "
-                f"max_class_loc={entry.max_class_loc}, max_file_loc={entry.max_file_loc}, "
-                f"max_avg_cc_per_file={entry.max_avg_cc_per_file}; reason: {entry.reason or 'n/a'}"
-            )
-
     report_path.parent.mkdir(parents=True, exist_ok=True)
-    report_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    report_path.write_text(render_report(result, thresholds, repo_root), encoding="utf-8")
 
 
 def run_structural_gate(

@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 import textwrap
 
-from scripts.structural_gate import analyze_repo, load_thresholds
+from scripts.structural_gate import analyze_repo, load_thresholds, render_report
 
 
 BASE_THRESHOLDS = {
@@ -114,3 +114,45 @@ def test_allowlist_overrides_are_applied(tmp_path: Path) -> None:
     result = analyze_repo(tmp_path, thresholds)
     assert not any(violation.kind == "function_loc" and not violation.allowlisted for violation in result.violations)
     assert any(violation.path.name == "legacy.py" and violation.allowlisted for violation in result.violations)
+
+
+def test_render_report_contains_expected_sections(tmp_path: Path) -> None:
+    _write_file(tmp_path, "clinicdesk/app/module.py", "def ok():\n    return 1")
+
+    result = analyze_repo(tmp_path, dict(BASE_THRESHOLDS))
+    report = render_report(result, dict(BASE_THRESHOLDS), tmp_path)
+
+    assert "# Structural Quality Report" in report
+    assert "## 1) Resumen" in report
+    assert "## 2) Violaciones por tipo" in report
+    assert "## 3) Hotspots (top 10)" in report
+    assert "## 4) Recomendaciones automáticas" in report
+
+
+def test_fixture_counts_violations_and_hotspots_are_stable(tmp_path: Path) -> None:
+    _write_file(tmp_path, "clinicdesk/app/core.py", "def clean():\n    return 1")
+
+    heavy_function_body = "\n".join([f"    total += {index}" for index in range(11)])
+    hotspot_source = (
+        "def heavy(flag_a, flag_b, values):\n"
+        "    total = 0\n"
+        "    if flag_a and flag_b:\n"
+        "        for value in values:\n"
+        "            if value > 0 or value < -5:\n"
+        "                total += value\n"
+        "    else:\n"
+        "        while total < 2:\n"
+        "            total += 1\n"
+        f"{heavy_function_body}\n"
+        "    return total"
+    )
+    _write_file(tmp_path, "clinicdesk/app/hotspot.py", hotspot_source)
+
+    thresholds = dict(BASE_THRESHOLDS)
+    thresholds.update({"max_file_loc": 10, "max_function_loc": 9, "max_cc": 5})
+    result = analyze_repo(tmp_path, thresholds)
+
+    assert result.files_scanned == 2
+    assert len(result.violations) == 4
+    assert len(result.hotspots) == 1
+    assert result.hotspots[0].path.name == "hotspot.py"
