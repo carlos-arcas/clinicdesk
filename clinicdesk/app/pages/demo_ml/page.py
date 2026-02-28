@@ -3,15 +3,18 @@ from __future__ import annotations
 from dataclasses import asdict
 from typing import Any, Callable
 
-from PySide6.QtCore import QDate, QObject, QThread, Signal
+from PySide6.QtCore import QDate, QObject, QSettings, QThread, Signal
 from PySide6.QtWidgets import (
+    QApplication,
     QDateEdit,
     QFormLayout,
     QGroupBox,
     QHBoxLayout,
     QLabel,
     QLineEdit,
+    QListWidget,
     QMessageBox,
+    QProgressBar,
     QPushButton,
     QSpinBox,
     QSplitter,
@@ -24,6 +27,12 @@ from PySide6.QtWidgets import (
 )
 
 from clinicdesk.app.application.services.demo_ml_facade import DemoMLFacade
+from clinicdesk.app.application.services.demo_run_service import (
+    CancelToken,
+    DemoRunConfig,
+    DemoRunResult,
+    DemoRunService,
+)
 
 
 class _TaskWorker(QObject):
@@ -41,10 +50,32 @@ class _TaskWorker(QObject):
             self.failed.emit(str(exc))
 
 
+class _DemoRunWorker(QObject):
+    finished = Signal(object)
+    failed = Signal(str)
+    progress = Signal(int, str)
+
+    def __init__(self, service: DemoRunService, cfg: DemoRunConfig, token: CancelToken) -> None:
+        super().__init__()
+        self._service = service
+        self._cfg = cfg
+        self._token = token
+
+    def run(self) -> None:
+        try:
+            result = self._service.run_full_demo(self._cfg, progress_cb=self.progress.emit, cancel_token=self._token)
+            self.finished.emit(result)
+        except Exception as exc:  # noqa: BLE001
+            self.failed.emit(str(exc))
+
+
 class PageDemoML(QWidget):
     def __init__(self, facade: DemoMLFacade, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self._facade = facade
+        self._demo_runner = DemoRunService(facade)
+        self._settings = QSettings("clinicdesk", "demo_ml")
+        self._cancel_token: CancelToken | None = None
         self._last_train = None
         self._last_score = None
         self._last_drift = None
@@ -58,6 +89,7 @@ class PageDemoML(QWidget):
         splitter.addWidget(self._build_right_column())
         splitter.setSizes([700, 500])
         root.addWidget(splitter)
+        self._restore_settings()
         self._refresh_tables()
 
     def _build_left_column(self) -> QWidget:
@@ -72,6 +104,7 @@ class PageDemoML(QWidget):
         panel = QWidget()
         layout = QVBoxLayout(panel)
         layout.addWidget(self._build_ml_panel())
+        layout.addWidget(self._build_full_demo_panel())
         layout.addWidget(QLabel("Logs"))
         self.txt_logs = QTextEdit()
         self.txt_logs.setReadOnly(True)
@@ -81,6 +114,34 @@ class PageDemoML(QWidget):
         self.tbl_results.horizontalHeader().setStretchLastSection(True)
         layout.addWidget(self.tbl_results)
         return panel
+
+    def _build_full_demo_panel(self) -> QWidget:
+        box = QGroupBox("One-click Demo")
+        form = QFormLayout(box)
+        self.btn_run_full = QPushButton("Run Full Demo")
+        self.btn_cancel_full = QPushButton("Cancel")
+        self.btn_cancel_full.setEnabled(False)
+        self.btn_copy_cli = QPushButton("Copy CLI commands")
+        self.btn_copy_cli.setEnabled(False)
+        self.progress_full = QProgressBar()
+        self.progress_full.setRange(0, 100)
+        self.progress_full.setValue(0)
+        self.lbl_summary = QLabel("Sin ejecución")
+        self.lst_cli = QListWidget()
+        self.lst_exports = QListWidget()
+        row = QHBoxLayout()
+        row.addWidget(self.btn_run_full)
+        row.addWidget(self.btn_cancel_full)
+        row.addWidget(self.btn_copy_cli)
+        self.btn_run_full.clicked.connect(self._run_full_demo)
+        self.btn_cancel_full.clicked.connect(self._cancel_full_demo)
+        self.btn_copy_cli.clicked.connect(self._copy_cli_commands)
+        form.addRow(row)
+        form.addRow("Progreso", self.progress_full)
+        form.addRow("Resumen", self.lbl_summary)
+        form.addRow("Exports", self.lst_exports)
+        form.addRow("CLI", self.lst_cli)
+        return box
 
     def _build_seed_panel(self) -> QWidget:
         box = QGroupBox("Seed Demo")
@@ -161,6 +222,110 @@ class PageDemoML(QWidget):
         form.addRow(row_buttons)
         return box
 
+    def _run_full_demo(self) -> None:
+        if self._is_running():
+            return
+        self.progress_full.setValue(0)
+        self.lst_cli.clear()
+        self.lst_exports.clear()
+        self.btn_copy_cli.setEnabled(False)
+        cfg = self._build_full_demo_config()
+        self._cancel_token = CancelToken()
+        self._set_full_demo_running(True)
+        self._thread = QThread(self)
+        worker = _DemoRunWorker(self._demo_runner, cfg, self._cancel_token)
+        worker.moveToThread(self._thread)
+        self._thread.started.connect(worker.run)
+        worker.progress.connect(self._on_full_demo_progress)
+        worker.finished.connect(self._on_full_demo_done)
+        worker.finished.connect(self._thread.quit)
+        worker.finished.connect(worker.deleteLater)
+        worker.failed.connect(self._on_task_error)
+        worker.failed.connect(self._thread.quit)
+        worker.failed.connect(worker.deleteLater)
+        self._thread.finished.connect(self._thread.deleteLater)
+        self._thread.finished.connect(lambda: self._set_full_demo_running(False))
+        self._thread.start()
+
+    def _build_full_demo_config(self) -> DemoRunConfig:
+        return DemoRunConfig(
+            seed=self.seed_seed.value(),
+            n_doctors=self.seed_doctors.value(),
+            n_patients=self.seed_patients.value(),
+            n_appointments=self.seed_appointments.value(),
+            from_date=self.seed_from.date().toString("yyyy-MM-dd"),
+            to_date=self.seed_to.date().toString("yyyy-MM-dd"),
+            incidence_rate=float(self.seed_incidence.text() or "0.15"),
+            export_dir=self.ml_export_dir.text().strip() or "./exports",
+            feature_store_path="./data/feature_store",
+            model_store_path="./data/model_store",
+            score_limit=self.ml_limit.value(),
+            prev_dataset_version=self._settings.value("prev_dataset_version", "", str) or None,
+        )
+
+    def _cancel_full_demo(self) -> None:
+        if self._cancel_token is not None:
+            self._cancel_token.cancel()
+            self._log("Cancel solicitado para Run Full Demo")
+
+    def _on_full_demo_progress(self, pct: int, message: str) -> None:
+        self.progress_full.setValue(pct)
+        self._log(message)
+
+    def _on_full_demo_done(self, result: DemoRunResult) -> None:
+        if not result.ok:
+            self.lbl_summary.setText("Run Full Demo cancelado o incompleto")
+            return
+        self.ml_dataset.setText(result.dataset_version)
+        self.ml_model.setText(result.model_version)
+        self.ml_from_version.setText(self._settings.value("prev_dataset_version", "", str) or result.dataset_version)
+        self.ml_to_version.setText(result.dataset_version)
+        self._persist_result_settings(result)
+        self._render_full_demo_result(result)
+        self._refresh_tables()
+
+    def _persist_result_settings(self, result: DemoRunResult) -> None:
+        prev_dataset = self._settings.value("last_dataset_version", "", str) or ""
+        if prev_dataset:
+            self._settings.setValue("prev_dataset_version", prev_dataset)
+        self._settings.setValue("last_dataset_version", result.dataset_version)
+        self._settings.setValue("last_model_version", result.model_version)
+        self._settings.setValue("last_export_dir", self.ml_export_dir.text().strip() or "./exports")
+
+    def _render_full_demo_result(self, result: DemoRunResult) -> None:
+        self.lbl_summary.setText(
+            f"dataset={result.dataset_version} | model={result.model_version} | exports={len(result.export_paths)}"
+        )
+        self.lst_exports.clear()
+        for name, path in result.export_paths.items():
+            self.lst_exports.addItem(f"{name}: {path}")
+        self.lst_cli.clear()
+        for command in result.cli_commands:
+            self.lst_cli.addItem(command)
+        self.btn_copy_cli.setEnabled(bool(result.cli_commands))
+        self._log("Run Full Demo finalizado")
+
+    def _copy_cli_commands(self) -> None:
+        lines = [self.lst_cli.item(i).text() for i in range(self.lst_cli.count())]
+        QApplication.clipboard().setText("\n".join(lines))
+        self._log(f"CLI copiado ({len(lines)} comandos)")
+
+    def _set_full_demo_running(self, running: bool) -> None:
+        self.btn_run_full.setEnabled(not running)
+        self.btn_cancel_full.setEnabled(running)
+
+    def _restore_settings(self) -> None:
+        self.ml_dataset.setText(self._settings.value("last_dataset_version", "", str) or "")
+        self.ml_model.setText(self._settings.value("last_model_version", "m_demo_ui", str) or "m_demo_ui")
+        self.ml_export_dir.setText(self._settings.value("last_export_dir", "./exports", str) or "./exports")
+        self.ml_from_version.setText(self._settings.value("prev_dataset_version", "", str) or "")
+
+    def _is_running(self) -> bool:
+        if self._thread is not None and self._thread.isRunning():
+            QMessageBox.information(self, "Demo & ML", "Hay una operación en curso")
+            return True
+        return False
+
     def _mk_table(self, headers: list[str]) -> QTableWidget:
         table = QTableWidget(0, len(headers))
         table.setHorizontalHeaderLabels(headers)
@@ -238,7 +403,15 @@ class PageDemoML(QWidget):
     def _on_score_done(self, response: Any) -> None:
         self._last_score = response
         self._log(f"score ok: version={response.version} total={response.total}")
-        rows = [{"cita": item.cita_id, "score": f"{item.score:.3f}", "label": item.label, "reasons": ", ".join(item.reasons)} for item in response.items]
+        rows = [
+            {
+                "cita": item.cita_id,
+                "score": f"{item.score:.3f}",
+                "label": item.label,
+                "reasons": ", ".join(item.reasons),
+            }
+            for item in response.items
+        ]
         self._fill_generic_results(["cita", "score", "label", "reasons"], rows)
 
     def _run_drift(self) -> None:
@@ -294,8 +467,7 @@ class PageDemoML(QWidget):
         self._fill_table(self.tbl_results, rows)
 
     def _run_async(self, fn: Callable[[], Any], on_done: Callable[[Any], None]) -> None:
-        if self._thread is not None and self._thread.isRunning():
-            QMessageBox.information(self, "Demo & ML", "Hay una operación en curso")
+        if self._is_running():
             return
         self._thread = QThread(self)
         worker = _TaskWorker(fn)
