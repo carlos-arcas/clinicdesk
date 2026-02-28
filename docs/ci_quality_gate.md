@@ -4,7 +4,8 @@
 Asegurar calidad continua sin bloquear por UI. El gate bloqueante aplica al **core clínico bajo control en Paso 2** (flujo de citas end-to-end).
 
 ## Comando único (local y CI)
-- `python scripts/quality_gate.py`
+- `python scripts/quality_gate.py --strict`
+- `python scripts/quality_gate.py --report-only`
 
 ## Qué ejecuta el gate
 1. **Lint/format opcional (solo si ya existe configuración)**
@@ -14,8 +15,15 @@ Asegurar calidad continua sin bloquear por UI. El gate bloqueante aplica al **co
    - Ejecuta `pytest` con `-m "not ui"`.
 3. **Coverage SOLO core**
    - Calcula cobertura mediante trazado de ejecución sobre los módulos core definidos en el script.
-4. **Umbral**
+4. **Structural gate (LOC + CC + hotspots)**
+   - Analiza Python con `ast` (sin dependencias externas) excluyendo `app/ui/**`, `tests/**`, `migrations/**` y `sql/**`.
+   - Detecta monolitos por tamaño de archivo/función/clase.
+   - Calcula complejidad ciclomática (CC) por función/método.
+   - Calcula hotspots por score combinado de tamaño y CC.
+   - Genera siempre `docs/quality_report.md`.
+5. **Umbral de cobertura core**
    - Falla si cobertura core `< 85%`.
+
 
 ## Definición de “core” (Paso 2)
 Módulos incluidos en cobertura bloqueante:
@@ -93,3 +101,48 @@ Notas:
 - `--turbo` activa PRAGMAs de rendimiento solo durante el seed.
 - `--reset` solo borra automáticamente en rutas consideradas seguras de demo (por defecto se auto-activa únicamente en rutas seguras).
 - Si la ruta no es segura, se bloquea el borrado con error explícito para evitar pérdida de datos.
+
+
+## Structural Gate (detalle)
+
+### Definición de CC
+CC por función/método se calcula como:
+- Base `1`
+- `+1` por `if`, `for`, `async for`, `while`, `if` ternario (`IfExp`)
+- `+N` por `try` según cantidad de `except`
+- `+ (n-1)` por operadores booleanos `and/or` (`BoolOp`)
+- `+N` por `match` según cantidad de `case`
+- `+N` por `ifs` en comprensiones
+
+No suma por `with`, `raise` ni `assert`.
+
+### Umbrales y configuración
+Los umbrales viven en `scripts/quality_thresholds.json`:
+- `max_file_loc = 400`
+- `max_function_loc = 60`
+- `max_class_loc = 200`
+- `max_cc = 10`
+- `max_avg_cc_per_file = 6`
+- `max_hotspots = 0`
+
+Se puede pasar archivo alterno con `--thresholds`.
+
+### Allowlist / deuda controlada
+`allowlist` permite override por ruta con motivo explícito:
+
+```json
+{
+  "path": "clinicdesk/app/legacy/*.py",
+  "max_cc": 15,
+  "max_function_loc": 90,
+  "reason": "deuda temporal planificada"
+}
+```
+
+Cada override aparece en `docs/quality_report.md` para facilitar su reducción gradual.
+
+### Estrategia de reducción gradual de deuda
+1. Ejecutar en `--report-only` para obtener baseline.
+2. Priorizar top hotspots del reporte y bajar CC/LOC por módulo.
+3. Reducir allowlist iterativamente (subir exigencia por sprint).
+4. Mantener `--strict` como gate final en CI.
