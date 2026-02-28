@@ -19,6 +19,11 @@ from PySide6.QtWidgets import (
 )
 
 from clinicdesk.app.container import AppContainer
+from clinicdesk.app.application.usecases.pacientes_crud import (
+    CrearPacienteUseCase,
+    DesactivarPacienteUseCase,
+    EditarPacienteUseCase,
+)
 from clinicdesk.app.common.search_utils import has_search_values, normalize_search_text
 from clinicdesk.app.pages.pacientes.dialogs.paciente_form import PacienteFormDialog
 from clinicdesk.app.pages.shared.filtro_listado import FiltroListadoWidget
@@ -33,6 +38,10 @@ class PagePacientes(QWidget):
         super().__init__(parent)
         self._container = container
         self._queries = PacientesQueries(container.connection)
+        self._can_write = container.user_context.can_write
+        self._uc_crear = CrearPacienteUseCase(container.pacientes_repo, container.user_context)
+        self._uc_editar = EditarPacienteUseCase(container.pacientes_repo, container.user_context)
+        self._uc_desactivar = DesactivarPacienteUseCase(container.pacientes_repo, container.user_context)
 
         self._build_ui()
         self._connect_signals()
@@ -50,6 +59,7 @@ class PagePacientes(QWidget):
         self.btn_csv = QPushButton("Importar/Exportar CSV…")
         self.btn_editar.setEnabled(False)
         self.btn_desactivar.setEnabled(False)
+        self.btn_nuevo.setEnabled(self._can_write)
         actions.addWidget(self.btn_nuevo)
         actions.addWidget(self.btn_editar)
         actions.addWidget(self.btn_desactivar)
@@ -114,6 +124,10 @@ class PagePacientes(QWidget):
             apply_row_style(self.table, row, inactive=not p.activo, tooltip=tooltip)
 
     def _update_buttons(self) -> None:
+        if not self._can_write:
+            self.btn_editar.setEnabled(False)
+            self.btn_desactivar.setEnabled(False)
+            return
         set_buttons_enabled(
             has_selection=self._selected_id() is not None,
             buttons=[self.btn_editar, self.btn_desactivar],
@@ -127,7 +141,7 @@ class PagePacientes(QWidget):
         if not data:
             return
         try:
-            self._container.pacientes_repo.create(data.paciente)
+            self._uc_crear.execute(data.paciente)
         except Exception as exc:
             context = (
                 f"Tipo documento: {data.paciente.tipo_documento.value}\n"
@@ -153,7 +167,7 @@ class PagePacientes(QWidget):
         if not data:
             return
         try:
-            self._container.pacientes_repo.update(data.paciente)
+            self._uc_editar.execute(data.paciente)
         except Exception as exc:
             context = (
                 f"Tipo documento: {data.paciente.tipo_documento.value}\n"
@@ -169,7 +183,7 @@ class PagePacientes(QWidget):
             return
         if not confirm_deactivation(self, module_title="Pacientes", entity_label="paciente"):
             return
-        self._container.pacientes_repo.delete(paciente_id)
+        self._uc_desactivar.execute(paciente_id)
         self._refresh()
 
     def _selected_id(self) -> Optional[int]:
@@ -215,6 +229,10 @@ class PagePacientes(QWidget):
         has_selection = self._selected_id() is not None
         action_edit.setEnabled(has_selection)
         action_delete.setEnabled(has_selection)
+        if not self._can_write:
+            action_new.setEnabled(False)
+            action_edit.setEnabled(False)
+            action_delete.setEnabled(False)
         action = menu.exec(self.table.viewport().mapToGlobal(pos))
         if action == action_new:
             self._on_nuevo()

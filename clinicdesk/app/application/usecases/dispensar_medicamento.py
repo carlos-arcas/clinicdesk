@@ -135,6 +135,7 @@ class DispensarMedicamentoUseCase:
         self._c = container
 
     def execute(self, req: DispensarMedicamentoRequest) -> DispensarMedicamentoResult:
+        self._c.user_context.require_write("farmacia.dispensar")
         self._validate_request(req)
         state = self._load_state(req)
         warnings, incidencia_flag, notas_incidencia = self._compute_changes(req, state)

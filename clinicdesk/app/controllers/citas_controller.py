@@ -7,6 +7,7 @@ from PySide6.QtWidgets import QMessageBox, QWidget, QDialog
 from clinicdesk.app.container import AppContainer
 from clinicdesk.app.queries.citas_queries import CitaRow, CitasQueries
 from clinicdesk.app.application.usecases.crear_cita import CrearCitaRequest, CrearCitaUseCase, PendingWarningsError
+from clinicdesk.app.application.usecases.eliminar_cita import EliminarCitaUseCase
 
 from clinicdesk.app.pages.citas.dialogs.dialog_cita_form import CitaFormDialog
 from clinicdesk.app.pages.dialog_override import OverrideDialog
@@ -21,6 +22,7 @@ class CitasController:
         self._c = container
         self._q = CitasQueries(container)
         self._uc_crear = CrearCitaUseCase(container)
+        self._uc_eliminar = EliminarCitaUseCase(container.citas_repo, container.user_context)
 
     def load_citas_for_date(self, yyyy_mm_dd: str) -> List[CitaRow]:
         return self._q.list_by_date(yyyy_mm_dd)
@@ -90,7 +92,7 @@ class CitasController:
             return False
 
         try:
-            self._c.citas_repo.delete(cita_id)
+            self._uc_eliminar.execute(cita_id)
             return True
         except Exception as e:
             present_error(self._parent, e)
