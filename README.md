@@ -197,3 +197,21 @@ python -m scripts.ml_cli seed-demo --reset --meds 200 --materials 120 --recipes 
 ```
 
 Después del seed, las pantallas muestran datos visibles y, si alguna queda vacía, la UI ofrece estado vacío con botón **"Generar datos demo"**.
+
+## Demo no técnica (2 minutos)
+
+En la pantalla **Analítica (Demo)** un usuario no técnico puede ejecutar el flujo completo sin términos de ingeniería:
+
+1. Revisa rango de fechas y activa (opcional) **Generar datos demo si faltan**.
+2. Pulsa **Ejecutar Demo Completa**.
+3. Observa el diálogo de progreso con pasos humanos:
+   - Preparar análisis
+   - Entrenar
+   - Calcular riesgo
+   - Detectar cambios
+4. Si lo necesitas, usa **Cancelar** en cualquier momento.
+5. Al terminar, revisa **Último análisis** y exporta para Power BI.
+
+Notas UX:
+- Las versiones internas (`dataset_version`, `model_version`) están ocultas por defecto dentro de **Avanzado**.
+- La UI no ejecuta lógica técnica; delega el flujo al `AnalyticsWorkflowService`.

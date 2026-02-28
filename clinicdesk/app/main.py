@@ -19,10 +19,18 @@ from clinicdesk.app.ui.theme import load_qss
 LOGGER = get_logger(__name__)
 
 
+class _UIRunIdFilter(logging.Filter):
+    def filter(self, record: logging.LogRecord) -> bool:
+        if not hasattr(record, "run_id"):
+            record.run_id = "-"
+        return True
+
+
 def _install_ui_log_buffer() -> LogBufferHandler:
     handler = LogBufferHandler(capacity=300)
-    formatter = logging.Formatter("%(asctime)s %(levelname)s %(name)s %(message)s")
+    formatter = logging.Formatter("%(asctime)s %(levelname)s [%(run_id)s] %(name)s %(message)s")
     handler.setFormatter(formatter)
+    handler.addFilter(_UIRunIdFilter())
     logging.getLogger().addHandler(handler)
     return handler
 

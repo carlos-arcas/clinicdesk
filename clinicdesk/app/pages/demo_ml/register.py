@@ -10,7 +10,7 @@ def register(registry: PageRegistry, container: AppContainer) -> None:
     registry.register(
         PageDef(
             key="demo_ml",
-            title="Demo & ML",
+            title="Analítica (Demo)",
             factory=lambda: PageDemoML(container.demo_ml_facade),
         )
     )
