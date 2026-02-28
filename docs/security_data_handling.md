@@ -83,12 +83,12 @@ Estas transformaciones no cifran ni hashean, pero son precondiciones para que ha
 - [x] Definir módulo `common/crypto_field_protection.py` con interfaz estable (`encrypt/decrypt/hash_lookup`) para PACIENTES.
 - [x] Introducir secret management mínimo por entorno (`CLINICDESK_CRYPTO_KEY`) y flag (`CLINICDESK_FIELD_CRYPTO`) para PACIENTES.
 - [x] Crear migraciones SQL no destructivas para PACIENTES: columnas `*_hash`, `*_enc` (idempotentes en bootstrap).
-- [ ] Backfill incremental y reversible (batch + checkpoints).
+- [x] Backfill incremental y reversible para PACIENTES (`scripts/crypto_migrate_patients.py`).
 
 ## Repositorios y casos de uso
 - [ ] Canonicalizar dato antes de hash/cifrado (trim, casefold, normalización local definida).
 - [x] Escribir en dual mode para PACIENTES con flag de activación y fallback legacy de lectura.
-- [ ] Leer preferentemente de protegido y fallback controlado a claro.
+- [x] Leer preferentemente de protegido y fallback controlado a claro.
 - [ ] Añadir feature flag `SECURITY_FIELD_PROTECTION_ENABLED`.
 
 ## Seguridad operativa
@@ -106,6 +106,39 @@ Estas transformaciones no cifran ni hashean, pero son precondiciones para que ha
 
 ## 4) Decisiones explícitas para esta fase
 - ✅ PACIENTES cifrado implementado (incremental por campo con feature flag).
+- ✅ Escritura endurecida en modo cifrado: en PACIENTES solo se persiste `*_enc + *_hash` para `documento/email/telefono/direccion`.
 - No se introduce SQLCipher todavía.
 - No se agregan dependencias criptográficas pesadas en este PR.
 - Este PR documenta política y valida precondiciones de transformación ya existentes para facilitar la implementación del cifrado real en el siguiente ciclo.
+
+---
+
+## 5) How-to migrate (PACIENTES)
+
+### Prerrequisitos
+- Exportar clave de cifrado de campo (`CLINICDESK_CRYPTO_KEY`).
+- Activar modo de cifrado por campo (`CLINICDESK_FIELD_CRYPTO=1`).
+- Ejecutar sobre una base con esquema aplicado (el bootstrap añade columnas `*_enc`/`*_hash` en `pacientes`).
+
+### Paso 1 — Backfill seguro (dual-write)
+Este paso rellena `documento_enc/documento_hash`, `telefono_enc/telefono_hash`, `email_enc/email_hash`, `direccion_enc/direccion_hash` sin borrar legado.
+
+```bash
+python -m scripts.crypto_migrate_patients \
+  --db-path ./data/clinicdesk.sqlite
+```
+
+### Paso 2 — Limpieza de columnas legacy (opcional, irreversible)
+Solo permitido para rutas dentro de `./data` y requiere confirmación explícita.
+
+```bash
+python -m scripts.crypto_migrate_patients \
+  --db-path ./data/clinicdesk.sqlite \
+  --wipe-legacy \
+  --confirm-wipe WIPE-LEGACY
+```
+
+### Controles de seguridad del script
+- Nunca emite payloads sensibles por consola (solo métricas agregadas por logging).
+- Si se solicita `--wipe-legacy`, bloquea rutas fuera de `./data`.
+- Si falta `CLINICDESK_FIELD_CRYPTO=1` o `CLINICDESK_CRYPTO_KEY`, aborta antes de escribir.

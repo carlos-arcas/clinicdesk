@@ -58,7 +58,7 @@ class PacientesRepository:
         Inserta un nuevo paciente y devuelve su id.
         """
         paciente.validar()
-        if self._field_protection.has_columns:
+        if self._field_protection.enabled:
             paciente_id = self._create_with_field_protection(paciente)
         else:
             paciente_id = self._create_legacy(paciente)
@@ -78,7 +78,7 @@ class PacientesRepository:
             raise ValidationError("No se puede actualizar un paciente sin id.")
 
         paciente.validar()
-        if self._field_protection.has_columns:
+        if self._field_protection.enabled:
             self._update_with_field_protection(paciente)
         else:
             self._update_legacy(paciente)
