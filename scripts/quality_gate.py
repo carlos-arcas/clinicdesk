@@ -15,13 +15,13 @@ import trace
 from pathlib import Path
 from typing import Iterable
 
-import pytest
-from scripts.structural_gate import run_structural_gate
-
 REPO_ROOT = Path(__file__).resolve().parents[1]
 os.chdir(REPO_ROOT)
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
+
+import pytest
+from scripts.structural_gate import run_structural_gate
 
 CORE_PATHS = [
     REPO_ROOT / "clinicdesk" / "app" / "domain" / "enums.py",
