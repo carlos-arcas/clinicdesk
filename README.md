@@ -172,3 +172,17 @@ PYTHONPATH=. python scripts/ml_cli.py train --dataset-version <version> --model-
 PYTHONPATH=. python scripts/ml_cli.py score --dataset-version <version> --predictor trained --model-version m_demo --feature-store-path ./data/feature_store --model-store-path ./data/model_store --limit 20
 PYTHONPATH=. python scripts/ml_cli.py drift --from-version <v1> --to-version <v2> --feature-store-path ./data/feature_store
 ```
+
+## 💾 Storage único SQLite (app + seed-demo)
+
+- Fuente única por defecto: `./data/clinicdesk.db`.
+- La app (`clinicdesk.app.main`) y `scripts/ml_cli.py seed-demo` usan el mismo bootstrap de SQLite.
+- Override soportado:
+  - CLI: `--sqlite-path /ruta/al/archivo.db`
+  - Variable de entorno: `CLINICDESK_DB_PATH=/ruta/al/archivo.db`
+
+Ejemplo:
+
+```bash
+CLINICDESK_DB_PATH=./data/clinicdesk.db PYTHONPATH=. python scripts/ml_cli.py seed-demo --appointments 5000 --batch-size 500
+```

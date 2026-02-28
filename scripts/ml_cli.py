@@ -138,6 +138,7 @@ def _add_seed_demo_parser(subparsers: argparse._SubParsersAction) -> None:
     parser.add_argument("--to", dest="to_date", type=str, default=None)
     parser.add_argument("--incidence-rate", type=float, default=0.15)
     parser.add_argument("--sqlite-path", type=str, default=None)
+    parser.add_argument("--batch-size", type=int, default=500)
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -398,6 +399,7 @@ def _handle_seed_demo(args: argparse.Namespace) -> int:
                 from_date=args.from_date,
                 to_date=args.to_date,
                 incidence_rate=args.incidence_rate,
+                batch_size=args.batch_size,
             )
         )
     finally:
@@ -415,16 +417,7 @@ def _handle_seed_demo(args: argparse.Namespace) -> int:
 
 
 def _open_sqlite_connection(sqlite_path: str | None) -> sqlite3.Connection:
-    if not sqlite_path:
-        return bootstrap_database(apply_schema=True)
-    path = Path(sqlite_path)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    connection = sqlite3.connect(path.as_posix())
-    connection.row_factory = sqlite3.Row
-    schema_sql = (Path(__file__).resolve().parents[1] / "clinicdesk" / "app" / "infrastructure" / "sqlite" / "schema.sql")
-    connection.executescript(schema_sql.read_text(encoding="utf-8"))
-    connection.commit()
-    return connection
+    return bootstrap_database(apply_schema=True, sqlite_path=sqlite_path)
 
 
 if __name__ == "__main__":

@@ -15,6 +15,7 @@ No contiene lógica de dominio ni de aplicación.
 from __future__ import annotations
 
 import sqlite3
+from os import getenv
 from pathlib import Path
 
 
@@ -30,12 +31,15 @@ def project_root() -> Path:
 
 def data_dir() -> Path:
     """Directorio donde se guarda la base de datos."""
-    return project_root() / "data"
+    return Path("./data")
 
 
 def db_path() -> Path:
     """Ruta al archivo SQLite."""
-    return data_dir() / "clinicdesk.sqlite"
+    configured = getenv("CLINICDESK_DB_PATH")
+    if configured:
+        return Path(configured)
+    return data_dir() / "clinicdesk.db"
 
 
 def schema_path() -> Path:
@@ -103,7 +107,7 @@ def _ensure_stock_column(con: sqlite3.Connection, *, table: str) -> None:
 # ---------------------------------------------------------------------
 
 
-def bootstrap_database(apply_schema: bool = True) -> sqlite3.Connection:
+def bootstrap_database(apply_schema: bool = True, sqlite_path: str | None = None) -> sqlite3.Connection:
     """
     Inicializa la base de datos de la aplicación.
 
@@ -116,7 +120,9 @@ def bootstrap_database(apply_schema: bool = True) -> sqlite3.Connection:
     """
     data_dir().mkdir(parents=True, exist_ok=True)
 
-    con = sqlite3.connect(db_path().as_posix())
+    target_path = Path(sqlite_path) if sqlite_path else db_path()
+    target_path.parent.mkdir(parents=True, exist_ok=True)
+    con = sqlite3.connect(target_path.as_posix())
     con.row_factory = sqlite3.Row
 
     _apply_pragmas(con)
