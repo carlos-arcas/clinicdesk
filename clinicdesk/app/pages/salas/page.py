@@ -25,6 +25,7 @@ from clinicdesk.app.common.search_utils import has_search_values, normalize_sear
 from clinicdesk.app.domain.enums import TipoSala
 from clinicdesk.app.domain.exceptions import ValidationError
 from clinicdesk.app.pages.salas.dialogs.sala_form import SalaFormDialog
+from clinicdesk.app.pages.shared.crud_page_helpers import confirm_deactivation, set_buttons_enabled
 from clinicdesk.app.pages.shared.table_utils import apply_row_style, set_item
 from clinicdesk.app.queries.salas_queries import SalasQueries, SalaRow
 from clinicdesk.app.ui.error_presenter import present_error
@@ -86,7 +87,8 @@ class PageSalas(QWidget):
     def _connect_signals(self) -> None:
         self.btn_buscar.clicked.connect(self._refresh)
         self.txt_buscar.returnPressed.connect(self._refresh)
-        self.table.itemSelectionChanged.connect(self._on_selection_changed)
+        self.table.itemSelectionChanged.connect(self._update_buttons)
+        self.table.itemDoubleClicked.connect(lambda _: self._on_editar())
         self.table.customContextMenuRequested.connect(self._open_context_menu)
         self.btn_nuevo.clicked.connect(self._on_nuevo)
         self.btn_editar.clicked.connect(self._on_editar)
@@ -110,6 +112,7 @@ class PageSalas(QWidget):
                 activa=activa,
             )
         self._render(rows)
+        self._update_buttons()
 
     def _render(self, rows: list[SalaRow]) -> None:
         self.table.setRowCount(0)
@@ -129,10 +132,11 @@ class PageSalas(QWidget):
             )
             apply_row_style(self.table, row, inactive=not s.activa, tooltip=tooltip)
 
-    def _on_selection_changed(self) -> None:
-        has_selection = self._selected_id() is not None
-        self.btn_editar.setEnabled(has_selection)
-        self.btn_desactivar.setEnabled(has_selection)
+    def _update_buttons(self) -> None:
+        set_buttons_enabled(
+            has_selection=self._selected_id() is not None,
+            buttons=[self.btn_editar, self.btn_desactivar],
+        )
 
     def _on_nuevo(self) -> None:
         dialog = SalaFormDialog(self)
@@ -174,7 +178,7 @@ class PageSalas(QWidget):
         sala_id = self._selected_id()
         if not sala_id:
             return
-        if QMessageBox.question(self, "Salas", "¿Desactivar sala?") != QMessageBox.Yes:
+        if not confirm_deactivation(self, module_title="Salas", entity_label="sala"):
             return
         self._container.salas_repo.delete(sala_id)
         self._refresh()

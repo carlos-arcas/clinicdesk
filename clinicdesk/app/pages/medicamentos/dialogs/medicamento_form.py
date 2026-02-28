@@ -34,8 +34,9 @@ class MedicamentoFormDialog(QDialog):
         self.txt_nombre_compuesto = QLineEdit()
         self.spn_stock = QSpinBox()
         self.spn_stock.setRange(0, 1_000_000)
-        self.chk_activo = QCheckBox("Activo")
+        self.chk_activo = QCheckBox("Registro activo")
         self.chk_activo.setChecked(True)
+        self.chk_activo.setToolTip("Si se desmarca, el registro quedará inactivo y oculto en filtros de activos.")
 
         form = QFormLayout()
         form.addRow(required_label("Nombre comercial"), self.txt_nombre_comercial)
