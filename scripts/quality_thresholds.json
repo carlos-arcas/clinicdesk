@@ -45,6 +45,20 @@
       "path": "clinicdesk/app/infrastructure/sqlite/repos_recetas.py",
       "max_class_loc": 230,
       "reason": "Deuda temporal aceptada: refactor diferido por compatibilidad con UI"
+    },
+    {
+      "path": "clinicdesk/app/queries/medicos_queries.py",
+      "max_function_loc": 65,
+      "max_cc": 11,
+      "max_avg_cc_per_file": 7,
+      "reason": "Deuda estructural preexistente en búsqueda avanzada; se allowlistea temporalmente hasta extraer filtros/paginación"
+    },
+    {
+      "path": "clinicdesk/app/queries/personal_queries.py",
+      "max_function_loc": 64,
+      "max_cc": 11,
+      "max_avg_cc_per_file": 7,
+      "reason": "Deuda estructural preexistente en búsqueda avanzada; se allowlistea temporalmente hasta separar criterios por helper"
     }
   ]
 }

@@ -142,6 +142,28 @@ Se puede pasar archivo alterno con `--thresholds`.
 
 Cada override aparece en `docs/quality_report.md` para facilitar su reducción gradual.
 
+#### Baseline allowlisted vigente (structural gate)
+
+| Archivo | Motivo |
+| --- | --- |
+| `scripts/structural_gate.py` | Script de tooling fuera del core clínico; refactor pendiente por tamaño/CC. |
+| `scripts/ml_cli.py` | CLI de soporte ML con flujo operativo amplio; deuda temporal controlada. |
+| `clinicdesk/app/infrastructure/sqlite/demo_data_seeder.py` | Seeder demo legado concentrado en un módulo único. |
+| `clinicdesk/app/infrastructure/sqlite/repos_pacientes.py` | Repositorio legacy pendiente de partición por mixins/cohesión. |
+| `clinicdesk/app/infrastructure/sqlite/repos_personal.py` | Repositorio legacy pendiente de segmentación por responsabilidades. |
+| `clinicdesk/app/infrastructure/sqlite/repos_recetas.py` | Refactor diferido por compatibilidad con UI actual. |
+| `clinicdesk/app/queries/medicos_queries.py` | Deuda preexistente en búsqueda avanzada (filtros + paginación + ordenación en una sola función). |
+| `clinicdesk/app/queries/personal_queries.py` | Deuda preexistente en búsqueda avanzada análoga; requiere extracción de helpers por criterio. |
+
+#### Plan de reducción de deuda
+
+- Mantener `--strict` como modo esperado en CI sin subir umbrales globales.
+- Objetivo operativo: retirar **1–2 entradas de allowlist por sprint**.
+- Priorización sugerida:
+  1. `clinicdesk/app/queries/medicos_queries.py` y `clinicdesk/app/queries/personal_queries.py` (impacto directo en violaciones activas de LOC/CC/avg-CC).
+  2. `clinicdesk/app/infrastructure/sqlite/demo_data_seeder.py` (alto LOC y hotspot).
+  3. Repositorios legacy `repos_*` por partición incremental de clases grandes.
+
 ### Estrategia de reducción gradual de deuda
 1. Ejecutar en `--report-only` para obtener baseline.
 2. Priorizar top hotspots del reporte y bajar CC/LOC por módulo.
