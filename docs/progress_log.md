@@ -206,3 +206,20 @@ Formato por entrada:
 - **Qué queda**:
   - Incorporar persistencia opcional del drift report como artefacto versionado y alarmas automáticas de CI/CD.
   - Evaluar thresholds dinámicos por segmento operativo (especialidad/sede) cuando existan labels reales.
+
+- **DATE/TIME**: 2026-02-27 00:00 UTC
+- **Paso**: Paso 12: CLI ML operativa
+- **Qué se hizo**:
+  - Se creó `scripts/ml_cli.py` con `argparse` (stdlib) y subcomandos `build-features`, `train`, `score` y `drift`, manteniendo el script como capa de orquestación sin lógica de negocio de dominio.
+  - `build-features` ejecuta pipeline completo (`BuildCitasDataset` -> `build_citas_features` -> `compute_citas_quality_report` -> `FeatureStoreService.save_citas_features_with_artifacts`) y reporta `saved_version`, `row_count`, `suspicious_count`.
+  - Se incorporó wiring de infraestructura para modo real vía SQLite (`bootstrap_database` + `SqliteCitasReadAdapter`) y fallback explícito `--demo-fake` con dataset determinista sintético (40 citas).
+  - `train` orquesta `TrainCitasModel` con `LocalJsonFeatureStore` + `LocalJsonModelStore`; imprime versión y métricas principales con threshold calibrado.
+  - `score` orquesta `ScoreCitas` baseline/trained, imprime tabla estable (`cita_id | score | label | reasons`) y resumen agregado por labels.
+  - `drift` orquesta `DriftCitasFeatures` e imprime `psi_by_feature` + `overall_flag`.
+  - Se añadió `tests/test_ml_cli_smoke.py` para smoke determinista llamando `main()` directamente (sin subprocess) sobre build/train/score/drift en `tmp_path`.
+- **Decisiones de wiring**:
+  - Se mantiene la CLI aislada en `scripts/` y solo instancia adaptadores concretos (`LocalJsonFeatureStore`, `LocalJsonModelStore`, `SqliteCitasReadAdapter`).
+  - Se validó `model-name` contra el contrato actual (`citas_nb_v1`) para evitar rutas ambiguas mientras el use case de entrenamiento mantiene nombre fijo.
+- **Modo demo-fake**:
+  - Se añadió `--demo-fake` como fallback seguro y reproducible cuando no se use/disponga SQLite real.
+  - Se añadió `--demo-profile baseline|shifted` para generar dos distribuciones distintas y habilitar demos de drift en segundos.
