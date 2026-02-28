@@ -159,6 +159,11 @@ def main(argv: Sequence[str] | None = None) -> int:
     return 0
 
 
+def run_cli(argv: Sequence[str] | None = None) -> int:
+    """Punto de entrada invocable desde otros módulos sin subprocess."""
+    return main(argv)
+
+
 def _handle_build_features(args: argparse.Namespace) -> int:
     desde, hasta = _resolve_range(args.from_date, args.to_date)
     read_adapter = _build_read_adapter(args.demo_fake, args.demo_profile, desde, hasta)
