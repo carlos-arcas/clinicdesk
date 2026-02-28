@@ -64,6 +64,52 @@ class _TaskWorker(QObject):
             self.failed.emit(str(exc))
 
 
+class _WorkflowWorker(QObject):
+    progress = Signal(int, str)
+    finished = Signal(object)
+    error = Signal(str)
+
+    def __init__(
+        self,
+        run_id: str,
+        workflow: AnalyticsWorkflowService,
+        from_date: str,
+        to_date: str,
+        config: AnalyticsWorkflowConfig,
+        previous_dataset_version: str | None,
+        seed_request: SeedDemoDataRequest | None,
+        cancel_token: CancelToken | None,
+    ) -> None:
+        super().__init__()
+        self._run_id = run_id
+        self._workflow = workflow
+        self._from_date = from_date
+        self._to_date = to_date
+        self._config = config
+        self._previous_dataset_version = previous_dataset_version
+        self._seed_request = seed_request
+        self._cancel_token = cancel_token
+
+    def run(self) -> None:
+        set_run_context(self._run_id)
+        try:
+            result = self._workflow.run_full_workflow(
+                self._from_date,
+                self._to_date,
+                self._config,
+                previous_dataset_version=self._previous_dataset_version,
+                seed_request=self._seed_request,
+                cancel_token=self._cancel_token,
+                progress_callback=self._emit_progress,
+            )
+            self.finished.emit(result)
+        except Exception as exc:  # noqa: BLE001
+            self.error.emit(str(exc))
+
+    def _emit_progress(self, percent: int, message: str) -> None:
+        self.progress.emit(percent, message)
+
+
 class PageDemoML(QWidget):
     _STEPS = [
         "Preparar datos para análisis",
@@ -78,6 +124,7 @@ class PageDemoML(QWidget):
         self._workflow = AnalyticsWorkflowService(facade)
         self._settings = QSettings("clinicdesk", "analytics_demo")
         self._thread: QThread | None = None
+        self._workflow_worker: _WorkflowWorker | None = None
         self._cancel_token: CancelToken | None = None
         self._run_id = ""
         self._last_result: AnalyticsWorkflowResult | None = None
@@ -233,32 +280,42 @@ class PageDemoML(QWidget):
         self._run_background("Detectar cambios en comportamiento", fn, self._on_drift_done)
 
     def _run_full_workflow(self) -> None:
+        if self._is_running():
+            return
         config = AnalyticsWorkflowConfig(
             export_dir=self.export_dir.text().strip() or "./exports",
             score_limit=self.score_limit.value(),
             drift_enabled=True,
             seed_if_missing=self.chk_seed_full.isChecked(),
         )
-        seed_request = self._seed_request()
+        self._run_id = uuid.uuid4().hex[:8]
+        self._cancel_token = CancelToken()
+        LOGGER.info("analytics_action_started", extra={"action": "Demo completa", "run_id": self._run_id})
+        self._open_progress_dialog(self._STEPS)
 
-        def _execute() -> AnalyticsWorkflowResult:
-            return self._workflow.run_full_workflow(
-                self._from(),
-                self._to(),
-                config,
-                previous_dataset_version=self.adv_prev_dataset.text().strip() or None,
-                seed_request=seed_request,
-                cancel_token=self._cancel_token,
-                progress_cb=self._on_workflow_progress,
-            )
-
-        self._run_background(
-            "Demo completa",
-            _execute,
-            self._on_workflow_done,
-            close_dialog=False,
-            on_started=lambda: self._open_progress_dialog(self._STEPS),
+        self._thread = QThread(self)
+        self._workflow_worker = _WorkflowWorker(
+            run_id=self._run_id,
+            workflow=self._workflow,
+            from_date=self._from(),
+            to_date=self._to(),
+            config=config,
+            previous_dataset_version=self.adv_prev_dataset.text().strip() or None,
+            seed_request=self._seed_request(),
+            cancel_token=self._cancel_token,
         )
+        self._workflow_worker.moveToThread(self._thread)
+        self._thread.started.connect(self._workflow_worker.run)
+        self._workflow_worker.progress.connect(self._on_workflow_progress)
+        self._workflow_worker.finished.connect(self._on_workflow_done)
+        self._workflow_worker.finished.connect(self._thread.quit)
+        self._workflow_worker.finished.connect(self._workflow_worker.deleteLater)
+        self._workflow_worker.error.connect(self._on_task_error)
+        self._workflow_worker.error.connect(self._thread.quit)
+        self._workflow_worker.error.connect(self._workflow_worker.deleteLater)
+        self._thread.finished.connect(self._on_workflow_thread_finished)
+        self._thread.finished.connect(self._thread.deleteLater)
+        self._thread.start()
 
     def _run_background(
         self,
@@ -307,14 +364,18 @@ class PageDemoML(QWidget):
         if dialog is not None:
             dialog.mark_cancel_requested()
 
-    def _on_workflow_progress(self, percent: int, status: str, message: str) -> None:
+    def _on_workflow_progress(self, percent: int, message: str) -> None:
         dialog = getattr(self, "progress_dialog", None)
         if dialog is None:
             return
         dialog.set_progress(percent)
         step_index = min(3, max(0, percent // 25))
-        dialog.update(step_index, "running" if status == "running" else "done", message)
+        dialog.update(step_index, "done" if percent >= 100 else "running", message)
         LOGGER.info("analytics_progress", extra={"run_id": self._run_id, "progress": percent, "message": message})
+
+    def _on_workflow_thread_finished(self) -> None:
+        self._workflow_worker = None
+        self._thread = None
 
     def _on_prepare_done(self, version: str) -> None:
         self.adv_dataset.setText(version)

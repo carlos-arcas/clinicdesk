@@ -109,7 +109,7 @@ def test_cancel_token_interrupts_workflow() -> None:
     service = AnalyticsWorkflowService(facade)
     token = CancelToken()
 
-    def _progress(pct: int, _status: str, _message: str) -> None:
+    def _progress(pct: int, _message: str) -> None:
         if pct >= 40:
             token.cancel()
 
@@ -119,7 +119,7 @@ def test_cancel_token_interrupts_workflow() -> None:
             "2026-02-01",
             AnalyticsWorkflowConfig(export_dir="./exports", score_limit=10, drift_enabled=True),
             cancel_token=token,
-            progress_cb=_progress,
+            progress_callback=_progress,
         )
 
 
