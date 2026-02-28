@@ -29,6 +29,12 @@ from clinicdesk.app.domain.exceptions import ValidationError
 logger = logging.getLogger(__name__)
 
 
+def _parse_dt(value: datetime | str) -> datetime:
+    if isinstance(value, datetime):
+        return value
+    return datetime.fromisoformat(str(value))
+
+
 # ---------------------------------------------------------------------
 # Repositorio
 # ---------------------------------------------------------------------
@@ -309,8 +315,8 @@ class CitasRepository:
             paciente_id=row["paciente_id"],
             medico_id=row["medico_id"],
             sala_id=row["sala_id"],
-            inicio=row["inicio"],
-            fin=row["fin"],
+            inicio=_parse_dt(row["inicio"]),
+            fin=_parse_dt(row["fin"]),
             motivo=row["motivo"],
             notas=row["notas"],
             estado=EstadoCita(row["estado"]),

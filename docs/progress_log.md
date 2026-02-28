@@ -237,3 +237,21 @@ Formato por entrada:
   - Para `export metrics`, la CLI adapta metadata del model store a DTO de export sin recalcular métricas.
 - **Limitaciones**:
   - `dataset_version` en `export metrics` se recibe por CLI; no se infiere automáticamente desde metadata para mantener contrato explícito del comando.
+
+- **DATE/TIME**: 2026-02-28 05:10 UTC
+- **Paso**: Paso 14: Demo dataset seed reproducible (médicos/pacientes/citas)
+- **Qué se hizo**:
+  - Se creó módulo puro `application/demo_data` con DTOs desacoplados de SQLite y generadores deterministas para médicos, pacientes, personal, citas e incidencias.
+  - Se añadió seeder de infraestructura `infrastructure/sqlite/demo_data_seeder.py` para persistir entidades con repos canónicos respetando FK y creando salas por defecto si faltan.
+  - Se añadió caso de uso `SeedDemoData` con request/response tipadas para orquestar generación + persistencia.
+  - Se extendió `scripts/ml_cli.py` con comando `seed-demo` y parámetros de configuración (`seed`, volúmenes, rango de fechas, incidencia y `--sqlite-path`).
+  - Se añadieron tests puros del generador y test de integración SQLite del seeder.
+  - Se documentó el flujo end-to-end para demos (seed → build-features → train → export → Power BI).
+- **Decisiones**:
+  - Mantener el script CLI como orquestador, delegando reglas de negocio de generación al módulo puro de application.
+  - Usar `random.Random(seed + offset)` por entidad para preservar reproducibilidad y permitir crecimiento modular.
+  - Incluir distribución realista base: mayoría laborables, buckets de duración y outliers controlados.
+- **Riesgos**:
+  - El comando `seed-demo` inserta incrementalmente (no limpia tablas); ejecuciones repetidas sobre la misma BD pueden acumular datos demo.
+- **Qué queda**:
+  - Evaluar comando opcional de limpieza/reset para escenarios de demo repetibles en la misma base persistente.

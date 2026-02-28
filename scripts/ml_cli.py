@@ -4,6 +4,7 @@ import argparse
 import sqlite3
 from collections import Counter
 from datetime import datetime, timedelta
+from pathlib import Path
 from typing import Sequence
 
 from clinicdesk.app.application.features.citas_features import build_citas_features, compute_citas_quality_report
@@ -20,9 +21,11 @@ from clinicdesk.app.application.usecases.export_csv import (
     ModelMetricsExportData,
 )
 from clinicdesk.app.application.usecases.score_citas import ScoreCitas, ScoreCitasRequest
+from clinicdesk.app.application.usecases.seed_demo_data import SeedDemoData, SeedDemoDataRequest
 from clinicdesk.app.application.usecases.train_citas_model import TrainCitasModel, TrainCitasModelRequest
 from clinicdesk.app.infrastructure.feature_store.local_json_feature_store import LocalJsonFeatureStore
 from clinicdesk.app.infrastructure.model_store.local_json_model_store import LocalJsonModelStore
+from clinicdesk.app.infrastructure.sqlite.demo_data_seeder import DemoDataSeeder
 from clinicdesk.app.infrastructure.sqlite.citas_read_adapter import SqliteCitasReadAdapter
 from clinicdesk.app.infrastructure.sqlite.repos_citas import CitasRepository
 from clinicdesk.app.infrastructure.sqlite.repos_incidencias import IncidenciasRepository
@@ -49,6 +52,7 @@ def build_parser() -> argparse.ArgumentParser:
     _add_score_parser(subparsers)
     _add_drift_parser(subparsers)
     _add_export_parser(subparsers)
+    _add_seed_demo_parser(subparsers)
     return parser
 
 
@@ -120,6 +124,18 @@ def _add_export_parser(subparsers: argparse._SubParsersAction) -> None:
     drift_parser.add_argument("--feature-store-path", default=_DEFAULT_FEATURE_STORE_PATH)
 
 
+def _add_seed_demo_parser(subparsers: argparse._SubParsersAction) -> None:
+    parser = subparsers.add_parser("seed-demo", help="Genera dataset demo reproducible en SQLite")
+    parser.add_argument("--seed", type=int, default=123)
+    parser.add_argument("--doctors", type=int, default=10)
+    parser.add_argument("--patients", type=int, default=80)
+    parser.add_argument("--appointments", type=int, default=300)
+    parser.add_argument("--from", dest="from_date", type=str, default=None)
+    parser.add_argument("--to", dest="to_date", type=str, default=None)
+    parser.add_argument("--incidence-rate", type=float, default=0.15)
+    parser.add_argument("--sqlite-path", type=str, default=None)
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
@@ -134,6 +150,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             return _handle_drift(args)
         if args.command == "export":
             return _handle_export(args)
+        if args.command == "seed-demo":
+            return _handle_seed_demo(args)
         parser.error("Comando no soportado")
     except Exception as exc:  # pragma: no cover - fallback de CLI
         print(f"ERROR: {exc}")
@@ -354,6 +372,47 @@ def _resolve_threshold_used(predictor_kind: str, model_version: str, model_store
         return 0.5
     _, metadata = model_store.load_model(_DEFAULT_MODEL_NAME, model_version)
     return float(metadata.get("calibrated_threshold", 0.5))
+
+
+def _handle_seed_demo(args: argparse.Namespace) -> int:
+    connection = _open_sqlite_connection(args.sqlite_path)
+    try:
+        response = SeedDemoData(DemoDataSeeder(connection)).execute(
+            SeedDemoDataRequest(
+                seed=args.seed,
+                n_doctors=args.doctors,
+                n_patients=args.patients,
+                n_appointments=args.appointments,
+                from_date=args.from_date,
+                to_date=args.to_date,
+                incidence_rate=args.incidence_rate,
+            )
+        )
+    finally:
+        connection.close()
+    print(
+        "seeded "
+        f"doctors={response.doctors} patients={response.patients} personal={response.personal} "
+        f"appointments={response.appointments} incidences={response.incidences} "
+        f"range={response.from_date}:{response.to_date} dataset_version={response.dataset_version}"
+    )
+    print("next: build-features --from {0} --to {1}".format(response.from_date, response.to_date))
+    print("next: train --dataset-version <version>")
+    print("next: export features --dataset-version <version> --output ./out/features.csv")
+    return 0
+
+
+def _open_sqlite_connection(sqlite_path: str | None) -> sqlite3.Connection:
+    if not sqlite_path:
+        return bootstrap_database(apply_schema=True)
+    path = Path(sqlite_path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    connection = sqlite3.connect(path.as_posix())
+    connection.row_factory = sqlite3.Row
+    schema_sql = (Path(__file__).resolve().parents[1] / "clinicdesk" / "app" / "infrastructure" / "sqlite" / "schema.sql")
+    connection.executescript(schema_sql.read_text(encoding="utf-8"))
+    connection.commit()
+    return connection
 
 
 if __name__ == "__main__":
