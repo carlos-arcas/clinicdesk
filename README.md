@@ -1,29 +1,117 @@
-# ClinicDesk
-Portfolio de aplicación de escritorio para gestión clínica.
+# ClinicDesk ML Architecture Case Study
 
-## Cómo ejecutar
-1. Desde la raíz del repositorio, ejecuta:
-   - `python -m clinicdesk`
-   - (alternativo) `python -m clinicdesk.app`
-2. **No ejecutes módulos individuales** como `clinicdesk/app/pages/pacientes/page.py`, ya que no cargan el menú ni las acciones globales.
+Arquitectura ML reproducible para predicción de riesgo en citas clínicas, con gobernanza de artefactos y exportación de datos estable para consumo en Power BI.
 
-## Importación/Exportación CSV
-1. Abre la aplicación y ve al menú **Archivo → Importar/Exportar CSV…**.
-2. Selecciona la entidad (Pacientes, Médicos, Personal, etc.).
-3. Usa **Importar…** para cargar un CSV o **Exportar…** para generar uno.
+## 🎯 Problema
+En operación clínica, anticipar citas de riesgo (p. ej., potencial no-show o cita con fricción operativa) permite priorizar seguimiento y capacidad de respuesta. Este proyecto aborda ese problema con foco en gobernanza técnica:
 
-### CSVs de ejemplo
-En `clinicdesk/data/examples/` hay datos realistas para empezar:
-- `pacientes.csv`
-- `medicos.csv`
-- `personal.csv`
+- Predicción offline de riesgo a nivel cita.
+- Reproducibilidad del pipeline de datos/features/modelo.
+- Versionado explícito de datasets y modelos.
+- Control de drift entre versiones de features.
+- Exportación contractual de datos para analítica ejecutiva.
 
+## 🧱 Arquitectura
 
-## Estándares de arquitectura y calidad
-- Estándar consolidado: [docs/standards.md](docs/standards.md).
-- Contrato de arquitectura: [docs/architecture_contract.md](docs/architecture_contract.md).
-- Gate de calidad CI (core >= 85%): [docs/ci_quality_gate.md](docs/ci_quality_gate.md).
-- Registro de progreso: [docs/progress_log.md](docs/progress_log.md).
+```text
+Data → Dataset → Features → Feature Store → Train → Model Store → Scoring → Drift → CSV → Power BI
+```
 
-## Tests
-Consulta las instrucciones en [docs/TESTING.md](docs/TESTING.md).
+### Separación por capas (Clean Architecture)
+- **Domain**: reglas y modelos de negocio sin dependencias técnicas.
+- **Application**: casos de uso, puertos y orquestación.
+- **Infrastructure**: adaptadores (SQLite, filesystem JSON, CLI).
+- **Presentation**: UI/entrypoints desacoplados de la lógica de negocio.
+
+### Ports & Adapters
+- Los casos de uso dependen de contratos (`ports`) y no de implementaciones concretas.
+- Feature Store y Model Store se inyectan como puertos, con adaptadores locales JSON para persistencia versionada.
+
+### CI y cobertura
+- El proyecto define quality gate automatizado para tests y coverage del core.
+- Existe documentación explícita de reglas de arquitectura e imports permitidos.
+
+### Versionado con hashes
+- Feature artifacts guardan `content_hash` y `schema_hash` para trazabilidad de datos y contrato.
+- Model artifacts guardan hash de payload y metadata de entrenamiento/evaluación.
+
+## 🔁 Flujo reproducible (CLI)
+Comandos operativos principales:
+
+```bash
+PYTHONPATH=. python scripts/ml_cli.py build-features --demo-fake --version v_demo --store-path ./data/feature_store
+PYTHONPATH=. python scripts/ml_cli.py train --dataset-version v_demo --model-version m_demo --feature-store-path ./data/feature_store --model-store-path ./data/model_store
+PYTHONPATH=. python scripts/ml_cli.py score --dataset-version v_demo --predictor trained --model-version m_demo --feature-store-path ./data/feature_store --model-store-path ./data/model_store --limit 10
+PYTHONPATH=. python scripts/ml_cli.py drift --from-version v_demo --to-version v_demo2 --feature-store-path ./data/feature_store
+PYTHONPATH=. python scripts/ml_cli.py export features --dataset-version v_demo --output ./exports --feature-store-path ./data/feature_store
+PYTHONPATH=. python scripts/ml_cli.py export metrics --model-name citas_nb_v1 --model-version m_demo --dataset-version v_demo --output ./exports --model-store-path ./data/model_store
+PYTHONPATH=. python scripts/ml_cli.py export scoring --dataset-version v_demo --predictor trained --model-version m_demo --output ./exports --feature-store-path ./data/feature_store --model-store-path ./data/model_store
+PYTHONPATH=. python scripts/ml_cli.py export drift --from-version v_demo --to-version v_demo2 --output ./exports --feature-store-path ./data/feature_store
+```
+
+Qué hace cada etapa:
+- `build-features`: construye dataset de features y genera artifacts versionados (rows/schema/metadata).
+- `train`: entrena modelo Naive Bayes, evalúa train/test temporal y registra modelo + metadata.
+- `score`: ejecuta scoring (baseline o modelo entrenado) sobre versión de dataset.
+- `drift`: calcula PSI por feature entre dos versiones y emite bandera global.
+- `export`: genera CSV contractuales (`features`, `metrics`, `scoring`, `drift`) para BI.
+
+## 📊 Evaluación del modelo
+- **Holdout temporal**: split determinista por tiempo (`test_ratio=0.2`, `time_field=inicio_ts`) para evitar fuga temporal.
+- **Métricas Train vs Test**: accuracy, precision y recall para comparar generalización.
+- **Calibración de threshold**: selección de umbral según política explícita (`min_recall` con objetivo 0.80).
+- **Persistencia de metadata**: split config, métricas, threshold calibrado y nota de evaluación quedan registrados con el modelo.
+
+## 📉 Drift Detection
+- Drift calculado con **PSI** por feature categórica de `citas_features`.
+- Umbral de alerta configurado en **PSI ≥ 0.2**.
+- `overall_flag` se activa si alguna feature supera el umbral.
+
+## 📁 Artefactos versionados
+
+### Feature artifacts
+Por versión de dataset se almacenan:
+- `vX.json` con filas de features.
+- `vX.schema.json` con schema versionado.
+- `vX.metadata.json` con `row_count`, `content_hash`, `schema_hash`, `quality`.
+
+### Model artifacts
+Por versión de modelo se almacenan:
+- `vY.model.json` (payload entrenado).
+- `vY.metadata.json` con dataset de origen, hashes, split config, métricas y threshold calibrado.
+
+### CSV contracts estables
+Exports con columnas fijas y orden estable:
+- `features_export.csv`
+- `model_metrics_export.csv`
+- `scoring_export.csv`
+- `drift_export.csv`
+
+## 📊 Integración con Power BI
+- La CLI exporta CSV listos para ingestión en Power BI sin dependencias de `pandas`.
+- Los contratos estables permiten construir dashboards ejecutivos sin romper transformaciones al cambiar versión.
+- `dataset_version` y `model_version` habilitan comparabilidad histórica entre ejecuciones.
+
+## 🛠 Stack técnico
+- Python
+- Clean Architecture
+- Ports & Adapters contract-first
+- Versionado determinista con hashes
+- CLI operativa para pipeline ML
+- Power BI (vía contratos CSV)
+
+## 🧠 Decisiones técnicas clave
+- **Proxy label documentada**: la etiqueta offline deriva de señales operativas (`has_incidencias` / `is_suspicious`).
+- **Determinismo de artefactos**: serialización JSON canónica + hashing SHA-256.
+- **Sin dependencias externas de serving**: modelo y scoring ejecutan en código Python del proyecto.
+- **Holdout temporal**: evaluación respetando orden cronológico.
+- **Calibración basada en objetivo**: threshold seleccionado por política explícita de recall mínimo.
+- **Gobernanza de artefactos**: separación formal entre feature store, model store y exports BI.
+
+## 🚀 Qué demuestra este proyecto
+En contexto de entrevista senior, este proyecto evidencia:
+- Diseño arquitectónico con límites claros entre dominio, casos de uso y adaptadores.
+- Implementación ML reproducible, versionada y auditable.
+- Data governance aplicada a datasets, modelos y contratos de salida.
+- Backend Python orientado a mantenibilidad operativa.
+- Integración pragmática con BI empresarial (Power BI ready por CSV contractual).
