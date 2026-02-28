@@ -41,14 +41,14 @@ Data → Dataset → Features → Feature Store → Train → Model Store → Sc
 Comandos operativos principales:
 
 ```bash
-PYTHONPATH=. python scripts/ml_cli.py build-features --demo-fake --version v_demo --store-path ./data/feature_store
-PYTHONPATH=. python scripts/ml_cli.py train --dataset-version v_demo --model-version m_demo --feature-store-path ./data/feature_store --model-store-path ./data/model_store
-PYTHONPATH=. python scripts/ml_cli.py score --dataset-version v_demo --predictor trained --model-version m_demo --feature-store-path ./data/feature_store --model-store-path ./data/model_store --limit 10
-PYTHONPATH=. python scripts/ml_cli.py drift --from-version v_demo --to-version v_demo2 --feature-store-path ./data/feature_store
-PYTHONPATH=. python scripts/ml_cli.py export features --dataset-version v_demo --output ./exports --feature-store-path ./data/feature_store
-PYTHONPATH=. python scripts/ml_cli.py export metrics --model-name citas_nb_v1 --model-version m_demo --dataset-version v_demo --output ./exports --model-store-path ./data/model_store
-PYTHONPATH=. python scripts/ml_cli.py export scoring --dataset-version v_demo --predictor trained --model-version m_demo --output ./exports --feature-store-path ./data/feature_store --model-store-path ./data/model_store
-PYTHONPATH=. python scripts/ml_cli.py export drift --from-version v_demo --to-version v_demo2 --output ./exports --feature-store-path ./data/feature_store
+python scripts/ml_cli.py build-features --demo-fake --version v_demo --store-path ./data/feature_store
+python scripts/ml_cli.py train --dataset-version v_demo --model-version m_demo --feature-store-path ./data/feature_store --model-store-path ./data/model_store
+python scripts/ml_cli.py score --dataset-version v_demo --predictor trained --model-version m_demo --feature-store-path ./data/feature_store --model-store-path ./data/model_store --limit 10
+python scripts/ml_cli.py drift --from-version v_demo --to-version v_demo2 --feature-store-path ./data/feature_store
+python scripts/ml_cli.py export features --dataset-version v_demo --output ./exports --feature-store-path ./data/feature_store
+python scripts/ml_cli.py export metrics --model-name citas_nb_v1 --model-version m_demo --dataset-version v_demo --output ./exports --model-store-path ./data/model_store
+python scripts/ml_cli.py export scoring --dataset-version v_demo --predictor trained --model-version m_demo --output ./exports --feature-store-path ./data/feature_store --model-store-path ./data/model_store
+python scripts/ml_cli.py export drift --from-version v_demo --to-version v_demo2 --output ./exports --feature-store-path ./data/feature_store
 ```
 
 Qué hace cada etapa:
@@ -158,25 +158,25 @@ CSV listos para Power BI:
 Comandos CLI equivalentes (referencia):
 
 ```bash
-PYTHONPATH=. python scripts/ml_cli.py seed-demo --seed 123 --doctors 10 --patients 80 --appointments 300 --from 2026-01-01 --to 2026-02-28 --incidence-rate 0.15
-PYTHONPATH=. python scripts/ml_cli.py build-features --version demo_ui_<timestamp> --from 2026-01-01 --to 2026-02-28 --store-path ./data/feature_store
-PYTHONPATH=. python scripts/ml_cli.py train --dataset-version demo_ui_<timestamp> --model-version m_demo_ui_<timestamp> --feature-store-path ./data/feature_store --model-store-path ./data/model_store
-PYTHONPATH=. python scripts/ml_cli.py score --dataset-version demo_ui_<timestamp> --predictor trained --model-version m_demo_ui_<timestamp> --feature-store-path ./data/feature_store --model-store-path ./data/model_store --limit 20
-PYTHONPATH=. python scripts/ml_cli.py drift --from-version <prev_or_same> --to-version demo_ui_<timestamp> --feature-store-path ./data/feature_store
-PYTHONPATH=. python scripts/ml_cli.py export features --dataset-version demo_ui_<timestamp> --output ./exports --feature-store-path ./data/feature_store
-PYTHONPATH=. python scripts/ml_cli.py export metrics --model-name citas_nb_v1 --model-version m_demo_ui_<timestamp> --dataset-version demo_ui_<timestamp> --output ./exports --model-store-path ./data/model_store
-PYTHONPATH=. python scripts/ml_cli.py export scoring --dataset-version demo_ui_<timestamp> --predictor trained --model-version m_demo_ui_<timestamp> --output ./exports --feature-store-path ./data/feature_store --model-store-path ./data/model_store
-PYTHONPATH=. python scripts/ml_cli.py export drift --from-version <prev_or_same> --to-version demo_ui_<timestamp> --output ./exports --feature-store-path ./data/feature_store
+python scripts/ml_cli.py seed-demo --seed 123 --doctors 10 --patients 80 --appointments 300 --from 2026-01-01 --to 2026-02-28 --incidence-rate 0.15
+python scripts/ml_cli.py build-features --version demo_ui_<timestamp> --from 2026-01-01 --to 2026-02-28 --store-path ./data/feature_store
+python scripts/ml_cli.py train --dataset-version demo_ui_<timestamp> --model-version m_demo_ui_<timestamp> --feature-store-path ./data/feature_store --model-store-path ./data/model_store
+python scripts/ml_cli.py score --dataset-version demo_ui_<timestamp> --predictor trained --model-version m_demo_ui_<timestamp> --feature-store-path ./data/feature_store --model-store-path ./data/model_store --limit 20
+python scripts/ml_cli.py drift --from-version <prev_or_same> --to-version demo_ui_<timestamp> --feature-store-path ./data/feature_store
+python scripts/ml_cli.py export features --dataset-version demo_ui_<timestamp> --output ./exports --feature-store-path ./data/feature_store
+python scripts/ml_cli.py export metrics --model-name citas_nb_v1 --model-version m_demo_ui_<timestamp> --dataset-version demo_ui_<timestamp> --output ./exports --model-store-path ./data/model_store
+python scripts/ml_cli.py export scoring --dataset-version demo_ui_<timestamp> --predictor trained --model-version m_demo_ui_<timestamp> --output ./exports --feature-store-path ./data/feature_store --model-store-path ./data/model_store
+python scripts/ml_cli.py export drift --from-version <prev_or_same> --to-version demo_ui_<timestamp> --output ./exports --feature-store-path ./data/feature_store
 ```
 
 ### Demo rápida por CLI (alternativa)
 
 ```bash
-PYTHONPATH=. python scripts/ml_cli.py seed-demo --seed 123 --doctors 10 --patients 80 --appointments 300 --from 2026-01-01 --to 2026-02-28 --incidence-rate 0.15
-PYTHONPATH=. python scripts/ml_cli.py build-features --from 2026-01-01 --to 2026-02-28 --store-path ./data/feature_store
-PYTHONPATH=. python scripts/ml_cli.py train --dataset-version <version> --model-version m_demo --feature-store-path ./data/feature_store --model-store-path ./data/model_store
-PYTHONPATH=. python scripts/ml_cli.py score --dataset-version <version> --predictor trained --model-version m_demo --feature-store-path ./data/feature_store --model-store-path ./data/model_store --limit 20
-PYTHONPATH=. python scripts/ml_cli.py drift --from-version <v1> --to-version <v2> --feature-store-path ./data/feature_store
+python scripts/ml_cli.py seed-demo --seed 123 --doctors 10 --patients 80 --appointments 300 --from 2026-01-01 --to 2026-02-28 --incidence-rate 0.15
+python scripts/ml_cli.py build-features --from 2026-01-01 --to 2026-02-28 --store-path ./data/feature_store
+python scripts/ml_cli.py train --dataset-version <version> --model-version m_demo --feature-store-path ./data/feature_store --model-store-path ./data/model_store
+python scripts/ml_cli.py score --dataset-version <version> --predictor trained --model-version m_demo --feature-store-path ./data/feature_store --model-store-path ./data/model_store --limit 20
+python scripts/ml_cli.py drift --from-version <v1> --to-version <v2> --feature-store-path ./data/feature_store
 ```
 
 
@@ -207,7 +207,7 @@ Sugerencia de páginas en Power BI:
 Ejemplo:
 
 ```bash
-CLINICDESK_DB_PATH=./data/clinicdesk.db PYTHONPATH=. python scripts/ml_cli.py seed-demo --appointments 5000 --batch-size 500
+CLINICDESK_DB_PATH=./data/clinicdesk.db python scripts/ml_cli.py seed-demo --appointments 5000 --batch-size 500
 ```
 
 
@@ -229,7 +229,7 @@ Ejemplo:
 ```bash
 export CLINICDESK_PII_ENCRYPTION_ENABLED=true
 export CLINICDESK_PII_ENCRYPTION_KEY='cambia-esta-clave-en-tu-entorno'
-PYTHONPATH=. python -m clinicdesk.app.main
+python -m clinicdesk.app.main
 ```
 
 ### Compatibilidad con DB existente

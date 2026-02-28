@@ -39,7 +39,7 @@ MAX_SCAN_BYTES = 1_000_000
 SECRET_PATTERNS: tuple[re.Pattern[str], ...] = (
     re.compile(r"AKIA[0-9A-Z]{16}"),
     re.compile(r"-----BEGIN (?:RSA |EC |OPENSSH |DSA )?PRIVATE KEY-----"),
-    re.compile(r"(?i)(?:password|passwd|secret|api[_-]?key|token)\s*[:=]\s*['\"]?[A-Za-z0-9_\-+/=]{12,}"),
+    re.compile(r"(?i)(?:password|passwd|secret|api[_-]?key|token)\s*[:=]\s*['\"]?(?=[A-Za-z0-9_\-+/=]*\d)[A-Za-z0-9_\-+/=]{12,}"),
 )
 _LOGGER = logging.getLogger(__name__)
 
