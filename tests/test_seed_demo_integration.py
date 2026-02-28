@@ -41,5 +41,5 @@ def test_seed_demo_logs_progress(caplog) -> None:
 
     messages = [record.getMessage() for record in caplog.records]
     assert any("Generating doctors" in message for message in messages)
-    assert any("Persisting appointments batch" in message for message in messages)
+    assert any("seed_progress" in message for message in messages)
     assert any("Seed demo total duration" in message for message in messages)
