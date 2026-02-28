@@ -6,10 +6,24 @@
   "max_avg_cc_per_file": 6,
   "max_hotspots": 0,
   "exclude_paths": [
-    "app/ui/**",
+    "clinicdesk/app/ui/**",
+    "clinicdesk/app/pages/**",
     "tests/**",
     "migrations/**",
     "sql/**"
   ],
-  "allowlist": []
+  "allowlist": [
+    {
+      "path": "scripts/structural_gate.py",
+      "max_cc": 30,
+      "max_function_loc": 100,
+      "max_file_loc": 500,
+      "reason": "Deuda temporal aceptada: script de tooling, fuera del core clínico"
+    },
+    {
+      "path": "scripts/ml_cli.py",
+      "max_file_loc": 500,
+      "reason": "Deuda temporal aceptada: CLI de soporte para flujos ML"
+    }
+  ]
 }

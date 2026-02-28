@@ -416,3 +416,21 @@ Formato por entrada:
   - La CC implementada es una aproximación AST; puede diferir de herramientas especializadas en casos límite.
 - **Qué queda**:
   - Ajustar allowlist inicial con deuda real del repositorio y reducirla de forma incremental por sprint.
+
+- **DATE/TIME**: 2026-02-28 10:35 UTC
+- **Paso**: PR 1 — Bajar hotspots sin dolor
+- **Qué se hizo**:
+  - Se corrigieron exclusiones del structural gate para ignorar UI real (`clinicdesk/app/ui/**`, `clinicdesk/app/pages/**`) y se mantuvieron exclusiones de `tests/**`, `migrations/**` y `sql/**` en thresholds/defaults.
+  - Se añadió allowlist temporal y acotada solo para `scripts/structural_gate.py` y `scripts/ml_cli.py` con justificación explícita de deuda técnica controlada.
+  - Se dividió `csv_service` en módulos cohesivos (`csv_parsing`, `csv_mapping`, `csv_resolver`, `csv_errors`) dejando `CsvService` como orquestador fino y manteniendo API pública.
+  - Se redujo CC de `read_csv` en `csv_io.py` extrayendo fases de headers/requeridos/normalización de filas.
+  - Se redujo tamaño de `SeedDemoData.execute` con extracción de etapas de generación, persistencia y armado de respuesta sin alterar lógica de negocio.
+  - Se regeneró `docs/quality_report.md` para reflejar el nuevo estado de violaciones/hotspots.
+  - Métrica structural gate: antes `violations_count=38`, `blocking_violations_count=38`, `top_hotspots=10`; después `violations_count=21`, `blocking_violations_count=21`, `top_hotspots=9`.
+- **Decisiones**:
+  - No se allowlisteó ninguna ruta de application/domain/infrastructure para mantener pressure de mejora en core.
+  - Se priorizó refactor de bajo riesgo con extracción de helpers/mixins puros y sin cambios de contratos de entrada/salida.
+- **Riesgos**:
+  - El structural gate estricto aún falla por hotspots/violaciones preexistentes fuera del alcance de este PR incremental.
+- **Qué queda**:
+  - Reducir CC/LOC en use cases de stock/dispensación/crear cita y repositorios SQLite grandes para cerrar el gate estricto completamente.

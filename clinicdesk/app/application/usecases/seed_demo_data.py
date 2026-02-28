@@ -63,6 +63,23 @@ class SeedDemoData:
     def execute(self, request: SeedDemoDataRequest) -> SeedDemoDataResponse:
         started_at = datetime.now(UTC)
         start_date, end_date = _resolve_dates(request.from_date, request.to_date)
+        doctors, patients, staff, appointments, incidences = self._generate_entities(request, start_date, end_date)
+        self._log_generation_duration(started_at)
+
+        persist_started = datetime.now(UTC)
+        result = self._persist_entities(request, start_date, end_date, doctors, patients, staff, appointments, incidences)
+        persist_seconds = (datetime.now(UTC) - persist_started).total_seconds()
+        total_seconds = (datetime.now(UTC) - started_at).total_seconds()
+        LOGGER.info("Persisting done in %.2fs", persist_seconds)
+        LOGGER.info("Seed demo total duration %.2fs", total_seconds)
+        return self._build_response(request, result, start_date, end_date)
+
+    def _generate_entities(
+        self,
+        request: SeedDemoDataRequest,
+        start_date: date,
+        end_date: date,
+    ):
         LOGGER.info("Generating doctors... count=%s", request.n_doctors)
         doctors = generate_doctors(request.n_doctors, request.seed)
         LOGGER.info("Generating patients... count=%s", request.n_patients)
@@ -82,10 +99,24 @@ class SeedDemoData:
         )
         LOGGER.info("Generating incidences... rate=%.3f", request.incidence_rate)
         incidences = generate_incidences(appointments, request.incidence_rate, request.seed)
+        return doctors, patients, staff, appointments, incidences
+
+    def _log_generation_duration(self, started_at: datetime) -> None:
         generation_seconds = (datetime.now(UTC) - started_at).total_seconds()
         LOGGER.info("Generation done in %.2fs", generation_seconds)
-        persist_started = datetime.now(UTC)
-        result = self._seeder.persist(
+
+    def _persist_entities(
+        self,
+        request: SeedDemoDataRequest,
+        start_date: date,
+        end_date: date,
+        doctors,
+        patients,
+        staff,
+        appointments,
+        incidences,
+    ):
+        return self._seeder.persist(
             doctors,
             patients,
             staff,
@@ -102,10 +133,14 @@ class SeedDemoData:
             n_ausencias=request.n_ausencias,
             batch_size=request.batch_size,
         )
-        persist_seconds = (datetime.now(UTC) - persist_started).total_seconds()
-        total_seconds = (datetime.now(UTC) - started_at).total_seconds()
-        LOGGER.info("Persisting done in %.2fs", persist_seconds)
-        LOGGER.info("Seed demo total duration %.2fs", total_seconds)
+
+    def _build_response(
+        self,
+        request: SeedDemoDataRequest,
+        result,
+        start_date: date,
+        end_date: date,
+    ) -> SeedDemoDataResponse:
         return SeedDemoDataResponse(
             doctors=result.doctors,
             patients=result.patients,

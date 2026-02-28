@@ -18,7 +18,7 @@ DEFAULT_THRESHOLDS: dict[str, Any] = {
     "max_cc": 10,
     "max_avg_cc_per_file": 6,
     "max_hotspots": 0,
-    "exclude_paths": ["app/ui/**", "tests/**", "migrations/**", "sql/**"],
+    "exclude_paths": ["clinicdesk/app/ui/**", "clinicdesk/app/pages/**", "tests/**", "migrations/**", "sql/**"],
     "allowlist": [],
 }
 
