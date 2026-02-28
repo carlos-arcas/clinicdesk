@@ -5,7 +5,12 @@ from pathlib import Path
 import pytest
 
 from clinicdesk.app.bootstrap import bootstrap_database
-from clinicdesk.app.infrastructure.sqlite.reset_safety import UnsafeDatabaseResetError, reset_demo_database
+from clinicdesk.app.infrastructure.sqlite.reset_safety import (
+    UnsafeDatabaseResetError,
+    build_reset_confirmation_help,
+    evaluate_reset_safety,
+    reset_demo_database,
+)
 
 
 def test_reset_demo_database_allows_safe_path_and_recreates_db(tmp_path) -> None:
@@ -40,3 +45,26 @@ def test_reset_demo_database_blocks_unsafe_path(tmp_path) -> None:
 
     with pytest.raises(UnsafeDatabaseResetError):
         reset_demo_database(unsafe_path)
+
+
+def test_reset_demo_database_requires_strong_confirmation_for_demo_name_outside_data(tmp_path) -> None:
+    suspicious_path = tmp_path / "demo-like.db"
+    suspicious_path.write_text("placeholder", encoding="utf-8")
+
+    safety = evaluate_reset_safety(suspicious_path)
+    assert safety.is_allowed is True
+    assert safety.requires_strong_confirmation is True
+    assert safety.reason_code == "safe_by_demo_name_only"
+
+    with pytest.raises(UnsafeDatabaseResetError, match="missing_strong_confirmation"):
+        reset_demo_database(suspicious_path)
+
+
+def test_reset_demo_database_accepts_strong_confirmation_for_suspicious_path(tmp_path) -> None:
+    suspicious_path = tmp_path / "demo-force.db"
+    suspicious_path.write_text("placeholder", encoding="utf-8")
+
+    confirmation = build_reset_confirmation_help(suspicious_path)
+    reset_demo_database(suspicious_path, confirmation_token=confirmation)
+
+    assert suspicious_path.exists()
