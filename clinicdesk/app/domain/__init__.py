@@ -1,19 +1,14 @@
-from clinicdesk.app.domain.entities import (
-    Cita,
+from clinicdesk.app.domain.citas import Cita, Incidencia, Sala
+from clinicdesk.app.domain.farmacia import (
     Dispensacion,
-    Incidencia,
     Material,
-    Medico,
     Medicamento,
     MovimientoMaterial,
     MovimientoMedicamento,
-    Paciente,
-    Persona,
-    Personal,
     Receta,
     RecetaLinea,
-    Sala,
 )
+from clinicdesk.app.domain.personas import Medico, Paciente, Persona, Personal
 from clinicdesk.app.domain.enums import *  # noqa: F401,F403
 from clinicdesk.app.domain.exceptions import *  # noqa: F401,F403
 
