@@ -115,3 +115,29 @@ En contexto de entrevista senior, este proyecto evidencia:
 - Data governance aplicada a datasets, modelos y contratos de salida.
 - Backend Python orientado a mantenibilidad operativa.
 - Integración pragmática con BI empresarial (Power BI ready por CSV contractual).
+
+## Demo & ML desde UI (Paso 15)
+
+La app incluye la pantalla **Demo & ML** en el menú lateral para ejecutar el flujo completo sin scripts:
+
+1. **Seed Demo**: configura seed, volúmenes y rango, luego pulsa `Ejecutar SeedDemoData`.
+2. **Exploración**: usa la caja de búsqueda y revisa tabs de Médicos, Pacientes, Citas e Incidencias.
+3. **ML actions**:
+   - `build-features` con rango fecha.
+   - `train` con `dataset_version` y `model_version`.
+   - `score` (`baseline` o `trained`) con límite.
+   - `drift` entre dos versiones.
+   - `export` para generar CSV de features/métricas/scoring/drift en `./exports` (o ruta indicada).
+4. **Resultados**: logs en tiempo real + tabla de salida para score/drift.
+
+> La UI solo consume `application.services.DemoMLFacade`; no accede a SQLite ni stores desde la capa de presentación.
+
+### Demo rápida por CLI (alternativa)
+
+```bash
+PYTHONPATH=. python scripts/ml_cli.py seed-demo --seed 123 --doctors 10 --patients 80 --appointments 300 --from 2026-01-01 --to 2026-02-28 --incidence-rate 0.15
+PYTHONPATH=. python scripts/ml_cli.py build-features --from 2026-01-01 --to 2026-02-28 --store-path ./data/feature_store
+PYTHONPATH=. python scripts/ml_cli.py train --dataset-version <version> --model-version m_demo --feature-store-path ./data/feature_store --model-store-path ./data/model_store
+PYTHONPATH=. python scripts/ml_cli.py score --dataset-version <version> --predictor trained --model-version m_demo --feature-store-path ./data/feature_store --model-store-path ./data/model_store --limit 20
+PYTHONPATH=. python scripts/ml_cli.py drift --from-version <v1> --to-version <v2> --feature-store-path ./data/feature_store
+```
