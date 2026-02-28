@@ -12,6 +12,7 @@ from clinicdesk.app.application.demo_data.dtos import (
     PersonalCreateDTO,
 )
 from clinicdesk.app.bootstrap_logging import get_logger
+from clinicdesk.app.infrastructure.sqlite.sqlite_datetime_codecs import serialize_datetime
 from clinicdesk.app.domain.enums import TipoDocumento, TipoSala
 from clinicdesk.app.domain.modelos import Medico, Paciente, Personal, Sala
 from clinicdesk.app.infrastructure.sqlite.repos_medicos import MedicosRepository
@@ -262,8 +263,8 @@ def persist_appointments_rows(
                     patient_ids[dto.patient_index],
                     doctor_ids[dto.doctor_index],
                     room_ids[(dto.patient_index + dto.doctor_index) % len(room_ids)],
-                    dto.starts_at,
-                    dto.ends_at,
+                    serialize_datetime(dto.starts_at),
+                    serialize_datetime(dto.ends_at),
                     dto.status,
                     dto.reason,
                     dto.notes,

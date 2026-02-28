@@ -3,6 +3,10 @@ from __future__ import annotations
 import sqlite3
 from pathlib import Path
 
+from clinicdesk.app.infrastructure.sqlite.sqlite_datetime_codecs import (
+    register_sqlite_datetime_codecs,
+)
+
 
 def obtener_conexion(db_path: str = "data/clinicdesk.sqlite") -> sqlite3.Connection:
     """
@@ -22,6 +26,7 @@ def obtener_conexion(db_path: str = "data/clinicdesk.sqlite") -> sqlite3.Connect
     p = Path(db_path)
     p.parent.mkdir(parents=True, exist_ok=True)
 
+    register_sqlite_datetime_codecs()
     conn = sqlite3.connect(str(p))
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys = ON")

@@ -24,15 +24,17 @@ from typing import List, Optional
 from clinicdesk.app.domain.enums import EstadoCita
 from clinicdesk.app.domain.modelos import Cita
 from clinicdesk.app.domain.exceptions import ValidationError
+from clinicdesk.app.infrastructure.sqlite.sqlite_datetime_codecs import (
+    deserialize_datetime,
+    serialize_datetime,
+)
 
 
 logger = logging.getLogger(__name__)
 
 
 def _parse_dt(value: datetime | str) -> datetime:
-    if isinstance(value, datetime):
-        return value
-    return datetime.fromisoformat(str(value))
+    return deserialize_datetime(value)
 
 
 # ---------------------------------------------------------------------
@@ -76,8 +78,8 @@ class CitasRepository:
                 cita.paciente_id,
                 cita.medico_id,
                 cita.sala_id,
-                cita.inicio,
-                cita.fin,
+                serialize_datetime(cita.inicio),
+                serialize_datetime(cita.fin),
                 cita.motivo,
                 cita.notas,
                 cita.estado.value,
@@ -112,8 +114,8 @@ class CitasRepository:
                 cita.paciente_id,
                 cita.medico_id,
                 cita.sala_id,
-                cita.inicio,
-                cita.fin,
+                serialize_datetime(cita.inicio),
+                serialize_datetime(cita.fin),
                 cita.motivo,
                 cita.notas,
                 cita.estado.value,
@@ -219,7 +221,7 @@ class CitasRepository:
                   AND inicio <= ?
                 ORDER BY inicio
                 """,
-                (desde, hasta),
+                (serialize_datetime(desde), serialize_datetime(hasta)),
             ).fetchall()
         except sqlite3.Error as exc:
             logger.error("Error SQL en CitasRepository.list_in_range: %s", exc)
