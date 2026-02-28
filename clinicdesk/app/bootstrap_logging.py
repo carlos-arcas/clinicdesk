@@ -8,6 +8,8 @@ from logging.handlers import RotatingFileHandler
 from pathlib import Path
 from typing import Any
 
+from clinicdesk.app.common.log_redaction import redact_text, redact_value
+
 _RUN_ID: contextvars.ContextVar[str] = contextvars.ContextVar("run_id", default="-")
 _USER: contextvars.ContextVar[str | None] = contextvars.ContextVar("user", default=None)
 _REQUEST_ID: contextvars.ContextVar[str] = contextvars.ContextVar("request_id", default="-")
@@ -44,11 +46,12 @@ class _StructuredFormatter(logging.Formatter):
         self._json_mode = json_mode
 
     def format(self, record: logging.LogRecord) -> str:
+        message = redact_text(record.getMessage())
         payload = {
             "timestamp": self.formatTime(record, "%Y-%m-%dT%H:%M:%S"),
             "level": record.levelname,
             "logger": record.name,
-            "message": record.getMessage(),
+            "message": message,
             "run_id": getattr(record, "run_id", "-"),
             "request_id": getattr(record, "request_id", "-"),
             "module": record.module,
@@ -57,7 +60,7 @@ class _StructuredFormatter(logging.Formatter):
             "user": getattr(record, "user", "-"),
         }
         if record.exc_info:
-            payload["traceback"] = self.formatException(record.exc_info)
+            payload["traceback"] = redact_text(self.formatException(record.exc_info))
         if self._json_mode:
             return json.dumps(payload, ensure_ascii=False)
         return " ".join(f"{key}={value}" for key, value in payload.items())
@@ -67,8 +70,8 @@ class ContextLoggerAdapter(logging.LoggerAdapter):
     def process(self, msg: Any, kwargs: dict[str, Any]) -> tuple[Any, dict[str, Any]]:
         extra = kwargs.get("extra", {})
         merged = {"run_id": _RUN_ID.get(), "request_id": _REQUEST_ID.get(), "user": _USER.get() or "-", **extra}
-        kwargs["extra"] = merged
-        return msg, kwargs
+        kwargs["extra"] = redact_value(merged)
+        return redact_value(msg), kwargs
 
 
 def configure_logging(app_name: str, log_dir: Path, level: str = "INFO", json: bool = True) -> None:
