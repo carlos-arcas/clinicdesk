@@ -26,6 +26,48 @@ class PersonalQueries:
     def __init__(self, connection: sqlite3.Connection) -> None:
         self._conn = connection
 
+    @staticmethod
+    def _build_texto_clause(texto: Optional[str]) -> tuple[Optional[str], List[object]]:
+        if not texto:
+            return None, []
+
+        like = like_value(texto)
+        conditions = [
+            "nombre LIKE ? COLLATE NOCASE",
+            "apellidos LIKE ? COLLATE NOCASE",
+            "documento LIKE ? COLLATE NOCASE",
+            "telefono LIKE ? COLLATE NOCASE",
+            "puesto LIKE ? COLLATE NOCASE",
+        ]
+        params: List[object] = [like, like, like, like, like]
+
+        cleaned = texto.replace(" ", "").replace("-", "")
+        if cleaned:
+            conditions.append("REPLACE(REPLACE(telefono, ' ', ''), '-', '') LIKE ? COLLATE NOCASE")
+            params.append(like_value(cleaned))
+
+        return "(" + " OR ".join(conditions) + ")", params
+
+    @staticmethod
+    def _build_puesto_clause(puesto: Optional[str]) -> tuple[Optional[str], List[object]]:
+        if not puesto:
+            return None, []
+        return "puesto LIKE ? COLLATE NOCASE", [like_value(puesto)]
+
+    @staticmethod
+    def _build_activo_clause(activo: Optional[bool]) -> tuple[Optional[str], List[object]]:
+        if activo is None:
+            return None, []
+        return "activo = ?", [int(activo)]
+
+    @staticmethod
+    def _build_where(*parts: tuple[Optional[str], List[object]]) -> tuple[str, List[object]]:
+        clauses = [clause for clause, _ in parts if clause]
+        params = [param for _, values in parts for param in values]
+        if not clauses:
+            return "", params
+        return " WHERE " + " AND ".join(clauses), params
+
     def list_all(
         self,
         *,
@@ -82,37 +124,14 @@ class PersonalQueries:
         texto = normalize_search_text(texto)
         puesto = normalize_search_text(puesto)
 
-        clauses = []
-        params: List[object] = []
-
-        if texto:
-            like = like_value(texto)
-            clauses.append(
-                "(nombre LIKE ? COLLATE NOCASE OR apellidos LIKE ? COLLATE NOCASE "
-                "OR documento LIKE ? COLLATE NOCASE OR telefono LIKE ? COLLATE NOCASE "
-                "OR puesto LIKE ? COLLATE NOCASE)"
-            )
-            params.extend([like, like, like, like, like])
-
-            cleaned = texto.replace(" ", "").replace("-", "")
-            if cleaned:
-                clauses[-1] = (
-                    clauses[-1][:-1]
-                    + " OR REPLACE(REPLACE(telefono, ' ', ''), '-', '') LIKE ? COLLATE NOCASE)"
-                )
-                params.append(like_value(cleaned))
-
-        if puesto:
-            clauses.append("puesto LIKE ? COLLATE NOCASE")
-            params.append(like_value(puesto))
-
-        if activo is not None:
-            clauses.append("activo = ?")
-            params.append(int(activo))
+        where_sql, params = self._build_where(
+            self._build_texto_clause(texto),
+            self._build_puesto_clause(puesto),
+            self._build_activo_clause(activo),
+        )
 
         sql = "SELECT id, documento, nombre, apellidos, telefono, puesto, activo FROM personal"
-        if clauses:
-            sql += " WHERE " + " AND ".join(clauses)
+        sql += where_sql
         sql += " ORDER BY apellidos, nombre, id"
         if limit is not None:
             sql += " LIMIT ?"

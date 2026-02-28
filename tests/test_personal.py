@@ -111,3 +111,18 @@ def test_personal_queries_support_offset_limit_and_stable_order(container) -> No
 
     paged_ids = [row.id for row in first_page + second_page if row.documento.startswith("8877665")]
     assert paged_ids[:3] == sorted(created_ids)
+
+
+def test_personal_search_texto_puesto_y_activo_filters(container, seed_data) -> None:
+    queries = PersonalQueries(container.connection)
+
+    texto_rows = queries.search(texto="Carla", activo=True)
+    assert any(row.documento == "11223344" for row in texto_rows)
+
+    puesto_rows = queries.search(puesto="Enfermeria", activo=True)
+    assert puesto_rows
+    assert all(row.puesto == "Enfermeria" for row in puesto_rows)
+
+    inactive_rows = queries.search(texto="Raul", activo=False)
+    assert inactive_rows
+    assert all(not row.activo for row in inactive_rows)

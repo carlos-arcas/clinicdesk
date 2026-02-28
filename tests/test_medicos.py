@@ -112,3 +112,18 @@ def test_medicos_queries_support_offset_limit_and_stable_order(container) -> Non
 
     paged_ids = [row.id for row in first_page + second_page if row.documento.startswith("9988776")]
     assert paged_ids[:3] == sorted(created_ids)
+
+
+def test_medicos_search_texto_especialidad_y_activo_filters(container, seed_data) -> None:
+    queries = MedicosQueries(container.connection)
+
+    texto_rows = queries.search(texto="Elena", activo=True)
+    assert any(row.documento == "87654321" for row in texto_rows)
+
+    especialidad_rows = queries.search(especialidad="Pediatria", activo=True)
+    assert especialidad_rows
+    assert all("Pediatria" in row.especialidad for row in especialidad_rows)
+
+    inactive_rows = queries.search(texto="Luis", activo=False)
+    assert inactive_rows
+    assert all(not row.activo for row in inactive_rows)
