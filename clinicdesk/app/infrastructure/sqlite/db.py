@@ -19,6 +19,10 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
 
+from clinicdesk.app.infrastructure.sqlite.sqlite_datetime_codecs import (
+    register_sqlite_datetime_codecs,
+)
+
 
 @dataclass(frozen=True)
 class SqliteConfig:
@@ -36,6 +40,7 @@ def connect(config: SqliteConfig) -> sqlite3.Connection:
     Abre conexión SQLite y aplica PRAGMAs recomendados.
     """
     config.db_path.parent.mkdir(parents=True, exist_ok=True)
+    register_sqlite_datetime_codecs()
 
     con = sqlite3.connect(config.db_path.as_posix())
     con.row_factory = sqlite3.Row  # devuelve filas tipo dict-like

@@ -19,6 +19,9 @@ from os import getenv
 from pathlib import Path
 
 from clinicdesk.app.bootstrap_logging import get_logger
+from clinicdesk.app.infrastructure.sqlite.sqlite_datetime_codecs import (
+    register_sqlite_datetime_codecs,
+)
 
 
 LOGGER = get_logger(__name__)
@@ -145,6 +148,7 @@ def bootstrap_database(apply_schema: bool = True, sqlite_path: str | None = None
 
     target_path = resolve_db_path(sqlite_path)
     target_path.parent.mkdir(parents=True, exist_ok=True)
+    register_sqlite_datetime_codecs()
     con = sqlite3.connect(target_path.as_posix())
     LOGGER.info("db_opened path=%s", target_path)
     con.row_factory = sqlite3.Row

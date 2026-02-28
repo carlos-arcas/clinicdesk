@@ -526,3 +526,21 @@ Formato por entrada:
   - Se añadió indicador `Cargando...` + refresco programado para evitar bloqueo percibido en UI durante recarga.
 - **Riesgos / notas**:
   - `quality_gate.py --strict` continúa fallando por deuda estructural preexistente fuera de este alcance (`demo_data_seeder.py`, `repos_pacientes.py`).
+
+- **DATE/TIME**: 2026-02-28 13:10 UTC
+- **Paso**: Eliminación de `DeprecationWarning` de sqlite3 datetime (Py3.12) sin cambio funcional
+- **Offenders detectados (before)**:
+  - `clinicdesk/app/infrastructure/sqlite/repos_citas.py`: `INSERT/UPDATE/list_in_range` enviaban `datetime` directo al driver.
+  - `clinicdesk/app/infrastructure/sqlite/demo_data_seeder.py`: `persist_appointments_rows` enviaba `AppointmentCreateDTO.starts_at/ends_at` como `datetime` directo.
+  - Conexiones SQLite se abrían sin registrar adapters/converters explícitos, quedando dependientes del adapter por defecto deprecado.
+- **Decisión técnica**:
+  - Se centralizó una receta explícita en `clinicdesk/app/infrastructure/sqlite/sqlite_datetime_codecs.py` con:
+    - `register_sqlite_datetime_codecs()` (idempotente),
+    - adapters/converters para `datetime`, `date` y `time`,
+    - helpers `serialize_datetime` / `deserialize_datetime` para persistencia y lectura determinista ISO.
+  - Se invoca el registro en fábricas de conexión (`bootstrap.py`, `infrastructure/sqlite/db.py`, `infrastructure/sqlite_db.py`).
+  - Se eliminó dependencia del adapter implícito en los offenders, serializando datetime de forma explícita.
+- **After / impacto**:
+  - Misma representación de dominio (`datetime` en `Cita`) y mismo formato persistido (ISO con separador espacio).
+  - Se añadió test de round-trip `datetime` en citas y test dedicado para asegurar que no reaparece el warning de adapter por defecto.
+  - Sin cambios de comportamiento funcional esperados; cambio acotado a infraestructura de serialización datetime.

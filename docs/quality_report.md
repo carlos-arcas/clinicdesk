@@ -1,7 +1,7 @@
 # Structural Quality Report
 
 ## 1) Resumen
-- total_files_scanned: **128**
+- total_files_scanned: **129**
 - violations_count: **5**
 - blocking_violations_count: **5**
 - top_hotspots: **3**
@@ -17,7 +17,7 @@
 ## 2) Violaciones por tipo
 
 ### Files over LOC
-- `clinicdesk/app/infrastructure/sqlite/demo_data_seeder.py` :: `<file>` -> 409.00 > 400.00 (allowlisted: no)
+- `clinicdesk/app/infrastructure/sqlite/demo_data_seeder.py` :: `<file>` -> 410.00 > 400.00 (allowlisted: no)
 
 ### Functions over LOC
 - `clinicdesk/app/infrastructure/sqlite/demo_data_seeder.py` :: `_persist_demo_data` -> 65.00 > 60.00 (allowlisted: no)
@@ -35,7 +35,7 @@
 | file | file_loc | max_cc | avg_cc | worst_function | score | allowlisted? |
 | --- | ---: | ---: | ---: | --- | ---: | --- |
 | `scripts/structural_gate.py` | 418 | 24 | 3.17 | analyze_repo (cc=24, loc=82) | 1.86 | sí |
-| `clinicdesk/app/infrastructure/sqlite/demo_data_seeder.py` | 409 | 9 | 2.31 | persist_incidences_rows (cc=9, loc=48) | 0.95 | no |
+| `clinicdesk/app/infrastructure/sqlite/demo_data_seeder.py` | 410 | 9 | 2.31 | persist_incidences_rows (cc=9, loc=48) | 0.95 | no |
 | `scripts/ml_cli.py` | 463 | 8 | 1.84 | main (cc=8, loc=24) | 0.94 | sí |
 
 ## 4) Recomendaciones automáticas
