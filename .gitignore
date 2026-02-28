@@ -10,3 +10,6 @@ data/
 *.db 
 dist/ 
 build/ 
+
+# Evitar artefacto empaquetado no auditado
+/clinicdesk.zip
