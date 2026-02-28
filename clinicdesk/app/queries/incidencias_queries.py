@@ -34,6 +34,16 @@ class IncidenciaRow:
     dispensacion_id: Optional[int]
 
 
+@dataclass(frozen=True, slots=True)
+class _IncidenciasListParams:
+    tipo: Optional[str]
+    estado: Optional[str]
+    severidad: Optional[str]
+    fecha_desde: Optional[str]
+    fecha_hasta: Optional[str]
+    texto: Optional[str]
+
+
 class IncidenciasQueries:
     def __init__(self, connection: sqlite3.Connection) -> None:
         self._conn = connection
@@ -44,45 +54,21 @@ class IncidenciasQueries:
         tipo: Optional[str] = None,
         estado: Optional[str] = None,
         severidad: Optional[str] = None,
-        fecha_desde: Optional[str] = None,  # YYYY-MM-DD
-        fecha_hasta: Optional[str] = None,  # YYYY-MM-DD
+        fecha_desde: Optional[str] = None,
+        fecha_hasta: Optional[str] = None,
         texto: Optional[str] = None,
         limit: int = 500,
     ) -> List[IncidenciaRow]:
-        tipo = normalize_search_text(tipo)
-        estado = normalize_search_text(estado)
-        severidad = normalize_search_text(severidad)
-        fecha_desde = normalize_search_text(fecha_desde)
-        fecha_hasta = normalize_search_text(fecha_hasta)
-        texto = normalize_search_text(texto)
-
-        where = ["i.activo = 1"]
-        params: List[object] = []
-
-        if tipo:
-            where.append("i.tipo LIKE ? COLLATE NOCASE")
-            params.append(like_value(tipo))
-        if estado:
-            where.append("i.estado LIKE ? COLLATE NOCASE")
-            params.append(like_value(estado))
-        if severidad:
-            where.append("i.severidad LIKE ? COLLATE NOCASE")
-            params.append(like_value(severidad))
-        if fecha_desde:
-            where.append("i.fecha_hora >= ?")
-            params.append(f"{fecha_desde} 00:00:00")
-        if fecha_hasta:
-            where.append("i.fecha_hora <= ?")
-            params.append(f"{fecha_hasta} 23:59:59")
-        if texto:
-            like = like_value(texto)
-            where.append(
-                "(i.descripcion LIKE ? COLLATE NOCASE OR i.nota_override LIKE ? COLLATE NOCASE "
-                "OR cp.nombre LIKE ? COLLATE NOCASE OR cp.apellidos LIKE ? COLLATE NOCASE)"
-            )
-            params.extend([like, like, like, like])
-
-        where_sql = ("WHERE " + " AND ".join(where)) if where else ""
+        params = _IncidenciasListParams(
+            tipo=normalize_search_text(tipo),
+            estado=normalize_search_text(estado),
+            severidad=normalize_search_text(severidad),
+            fecha_desde=normalize_search_text(fecha_desde),
+            fecha_hasta=normalize_search_text(fecha_hasta),
+            texto=normalize_search_text(texto),
+        )
+        where_sql = self._build_where(params)
+        sql_params = (*self._build_params(params), int(limit))
 
         try:
             rows = self._conn.execute(
@@ -115,35 +101,69 @@ class IncidenciasQueries:
                 ORDER BY i.fecha_hora DESC, i.id DESC
                 LIMIT ?
                 """,
-                (*params, int(limit)),
+                sql_params,
             ).fetchall()
         except sqlite3.Error as exc:
             logger.error("Error SQL en IncidenciasQueries.list: %s", exc)
             return []
 
-        out: List[IncidenciaRow] = []
-        for r in rows:
-            out.append(
-                IncidenciaRow(
-                    id=int(r["id"]),
-                    tipo=r["tipo"],
-                    severidad=r["severidad"],
-                    estado=r["estado"],
-                    fecha_hora=r["fecha_hora"],
-                    descripcion=r["descripcion"],
-                    nota_override=r["nota_override"],
-                    confirmado_por_personal_id=int(r["confirmado_por_personal_id"]),
-                    confirmado_por_nombre=r["confirmado_por_nombre"],
-                    medico_id=r["medico_id"],
-                    medico_nombre=r["medico_nombre"],
-                    personal_id=r["personal_id"],
-                    personal_nombre=r["personal_nombre"],
-                    cita_id=r["cita_id"],
-                    receta_id=r["receta_id"],
-                    dispensacion_id=r["dispensacion_id"],
-                )
+        return [self._row_to_model(row) for row in rows]
+
+    def _build_where(self, params: _IncidenciasListParams) -> str:
+        clauses = ["i.activo = 1"]
+        if params.tipo:
+            clauses.append("i.tipo LIKE ? COLLATE NOCASE")
+        if params.estado:
+            clauses.append("i.estado LIKE ? COLLATE NOCASE")
+        if params.severidad:
+            clauses.append("i.severidad LIKE ? COLLATE NOCASE")
+        if params.fecha_desde:
+            clauses.append("i.fecha_hora >= ?")
+        if params.fecha_hasta:
+            clauses.append("i.fecha_hora <= ?")
+        if params.texto:
+            clauses.append(
+                "(i.descripcion LIKE ? COLLATE NOCASE OR i.nota_override LIKE ? COLLATE NOCASE "
+                "OR cp.nombre LIKE ? COLLATE NOCASE OR cp.apellidos LIKE ? COLLATE NOCASE)"
             )
+        return "WHERE " + " AND ".join(clauses)
+
+    def _build_params(self, params: _IncidenciasListParams) -> List[object]:
+        out: List[object] = []
+        if params.tipo:
+            out.append(like_value(params.tipo))
+        if params.estado:
+            out.append(like_value(params.estado))
+        if params.severidad:
+            out.append(like_value(params.severidad))
+        if params.fecha_desde:
+            out.append(f"{params.fecha_desde} 00:00:00")
+        if params.fecha_hasta:
+            out.append(f"{params.fecha_hasta} 23:59:59")
+        if params.texto:
+            like = like_value(params.texto)
+            out.extend([like, like, like, like])
         return out
+
+    def _row_to_model(self, row: sqlite3.Row) -> IncidenciaRow:
+        return IncidenciaRow(
+            id=int(row["id"]),
+            tipo=row["tipo"],
+            severidad=row["severidad"],
+            estado=row["estado"],
+            fecha_hora=row["fecha_hora"],
+            descripcion=row["descripcion"],
+            nota_override=row["nota_override"],
+            confirmado_por_personal_id=int(row["confirmado_por_personal_id"]),
+            confirmado_por_nombre=row["confirmado_por_nombre"],
+            medico_id=row["medico_id"],
+            medico_nombre=row["medico_nombre"],
+            personal_id=row["personal_id"],
+            personal_nombre=row["personal_nombre"],
+            cita_id=row["cita_id"],
+            receta_id=row["receta_id"],
+            dispensacion_id=row["dispensacion_id"],
+        )
 
     def get_by_id(self, incidencia_id: int) -> Optional[IncidenciaRow]:
         try:
@@ -183,22 +203,4 @@ class IncidenciasQueries:
 
         if not row:
             return None
-
-        return IncidenciaRow(
-            id=int(row["id"]),
-            tipo=row["tipo"],
-            severidad=row["severidad"],
-            estado=row["estado"],
-            fecha_hora=row["fecha_hora"],
-            descripcion=row["descripcion"],
-            nota_override=row["nota_override"],
-            confirmado_por_personal_id=int(row["confirmado_por_personal_id"]),
-            confirmado_por_nombre=row["confirmado_por_nombre"],
-            medico_id=row["medico_id"],
-            medico_nombre=row["medico_nombre"],
-            personal_id=row["personal_id"],
-            personal_nombre=row["personal_nombre"],
-            cita_id=row["cita_id"],
-            receta_id=row["receta_id"],
-            dispensacion_id=row["dispensacion_id"],
-        )
+        return self._row_to_model(row)
