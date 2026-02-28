@@ -223,3 +223,17 @@ Formato por entrada:
 - **Modo demo-fake**:
   - Se añadió `--demo-fake` como fallback seguro y reproducible cuando no se use/disponga SQLite real.
   - Se añadió `--demo-profile baseline|shifted` para generar dos distribuciones distintas y habilitar demos de drift en segundos.
+
+- **DATE/TIME**: 2026-02-28 03:45 UTC
+- **Paso**: Paso 13: Capa de exportación CSV estable + CLI `export`
+- **Qué se hizo**:
+  - Se añadió `clinicdesk/app/application/usecases/export_csv.py` con casos de uso de exportación determinista (`ExportFeaturesCSV`, `ExportModelMetricsCSV`, `ExportScoringCSV`, `ExportDriftCSV`) usando solo stdlib (`csv`, `pathlib`).
+  - Se definieron contratos de columnas estables y orden fijo para `features_export.csv`, `model_metrics_export.csv`, `scoring_export.csv` y `drift_export.csv`.
+  - Se integró la CLI con comando `export` y subcomandos `features`, `metrics`, `scoring`, `drift`, manteniendo scripts como orquestación sin lógica de negocio.
+  - Se añadió smoke de CLI y pruebas unitarias de export en `tests/test_csv_exports.py` usando `tmp_path` (sin tocar filesystem real).
+  - Se documentó integración Power BI en `docs/ci_quality_gate.md` con comandos listos para copy/paste.
+- **Decisiones**:
+  - CSV con serialización determinista (`float` con 6 decimales, `bool` como `0/1`) para estabilidad de ingestion.
+  - Para `export metrics`, la CLI adapta metadata del model store a DTO de export sin recalcular métricas.
+- **Limitaciones**:
+  - `dataset_version` en `export metrics` se recibe por CLI; no se infiere automáticamente desde metadata para mantener contrato explícito del comando.
