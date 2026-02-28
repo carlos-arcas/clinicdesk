@@ -23,6 +23,7 @@ from clinicdesk.app.application.usecases.export_csv import (
     ExportModelMetricsCSV,
     ExportScoringCSV,
 )
+from clinicdesk.app.application.usecases.export_kpis_csv import ExportKpisCSV, ExportKpisRequest
 from clinicdesk.app.application.usecases.score_citas import (
     ScoreCitas,
     ScoreCitasRequest,
@@ -118,6 +119,7 @@ class DemoMLFacade:
         self._export_metrics = ExportModelMetricsCSV()
         self._export_scoring = ExportScoringCSV()
         self._export_drift = ExportDriftCSV()
+        self._export_kpis = ExportKpisCSV()
 
     def seed_demo(self, req: SeedDemoDataRequest) -> SeedDemoDataResponse:
         return self._seed_demo_uc.execute(req)
@@ -199,6 +201,27 @@ class DemoMLFacade:
 
     def export_drift(self, report: DriftReport, output_path: str | Path) -> str:
         return self._export_drift.execute(report, output_path).as_posix()
+
+    def export_kpis(
+        self,
+        dataset_version: str,
+        predictor_kind: str,
+        train_response: TrainCitasModelResponse,
+        score_response: ScoreCitasResponse,
+        drift_report: DriftReport | None,
+        output_path: str | Path,
+        run_ts: str | None = None,
+    ) -> dict[str, str]:
+        request = ExportKpisRequest(
+            dataset_version=dataset_version,
+            predictor_kind=predictor_kind,
+            exports_dir=output_path,
+            train_response=train_response,
+            score_response=score_response,
+            drift_report=drift_report,
+            run_ts=run_ts,
+        )
+        return self._export_kpis.execute(request)
 
     def default_baseline_threshold(self) -> float:
         return BaselineCitasPredictor().threshold

@@ -66,6 +66,15 @@ class FakeDemoMLFacade:
         self.calls.append("export_drift")
         return f"{output_path}/drift.csv"
 
+    def export_kpis(self, dataset_version: str, predictor_kind: str, train_response, score_response, drift_report, output_path: str, run_ts: str | None = None) -> dict[str, str]:
+        self.calls.append("export_kpis")
+        return {
+            "kpi_overview": f"{output_path}/kpi_overview.csv",
+            "kpi_scores_by_bucket": f"{output_path}/kpi_scores_by_bucket.csv",
+            "kpi_drift_by_feature": f"{output_path}/kpi_drift_by_feature.csv",
+            "kpi_training_metrics": f"{output_path}/kpi_training_metrics.csv",
+        }
+
 
 def _seed_request() -> SeedDemoDataRequest:
     return SeedDemoDataRequest(

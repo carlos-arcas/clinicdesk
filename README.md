@@ -148,6 +148,10 @@ CSV listos para Power BI:
 - `model_metrics_export.csv`
 - `scoring_export.csv`
 - `drift_export.csv`
+- `kpi_overview.csv`
+- `kpi_scores_by_bucket.csv`
+- `kpi_drift_by_feature.csv`
+- `kpi_training_metrics.csv`
 
 Comandos CLI equivalentes (referencia):
 
@@ -172,6 +176,22 @@ PYTHONPATH=. python scripts/ml_cli.py train --dataset-version <version> --model-
 PYTHONPATH=. python scripts/ml_cli.py score --dataset-version <version> --predictor trained --model-version m_demo --feature-store-path ./data/feature_store --model-store-path ./data/model_store --limit 20
 PYTHONPATH=. python scripts/ml_cli.py drift --from-version <v1> --to-version <v2> --feature-store-path ./data/feature_store
 ```
+
+
+## 📈 Power BI KPIs (CSV)
+
+Además de los exports detallados, el flujo **Analítica (Demo)** genera 4 contratos agregados para tableros ejecutivos:
+
+- `kpi_overview.csv`: 1 fila por ejecución (`citas_count`, `% riesgo alto`, `threshold`, `drift_severity`, `drift_psi_max`).
+- `kpi_scores_by_bucket.csv`: distribución de etiquetas de scoring (`label`, `count`, `pct`).
+- `kpi_drift_by_feature.csv`: PSI por feature con severidad semafórica (`GREEN/AMBER/RED`).
+- `kpi_training_metrics.csv`: métricas de entrenamiento/test en formato long (`metric_name`, `metric_value`).
+
+Sugerencia de páginas en Power BI:
+1. **Resumen ejecutivo**: tarjetas con volumen, riesgo alto y severidad de drift.
+2. **Riesgo y distribución**: barras por bucket de scoring y tendencia por versión.
+3. **Salud del modelo**: comparativa train/test de accuracy, precision, recall y f1.
+4. **Monitoreo de drift**: matriz de PSI por feature con semáforo.
 
 ## 💾 Storage único SQLite (app + seed-demo)
 
@@ -205,10 +225,10 @@ En la pantalla **Analítica (Demo)** un usuario no técnico puede ejecutar el fl
 1. Revisa rango de fechas y activa (opcional) **Generar datos demo si faltan**.
 2. Pulsa **Ejecutar Demo Completa**.
 3. Observa el diálogo de progreso con pasos humanos:
-   - Preparar análisis
-   - Entrenar
-   - Calcular riesgo
-   - Detectar cambios
+   - Preparar datos para análisis
+   - Crear modelo de predicción
+   - Analizar citas y estimar riesgo
+   - Detectar cambios en comportamiento
 4. Si lo necesitas, usa **Cancelar** en cualquier momento.
 5. Al terminar, revisa **Último análisis** y exporta para Power BI.
 

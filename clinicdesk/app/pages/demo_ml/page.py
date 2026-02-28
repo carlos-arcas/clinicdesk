@@ -1,8 +1,13 @@
 from __future__ import annotations
 
+import os
+import shutil
+import subprocess
 import uuid
+from collections import Counter
 from dataclasses import asdict
 from datetime import datetime
+from pathlib import Path
 from typing import Any, Callable
 
 from PySide6.QtCore import QDate, QObject, QSettings, QThread, Signal
@@ -26,6 +31,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from clinicdesk.app.application.ml.drift_explain import explain_drift
 from clinicdesk.app.application.services.analytics_workflow_service import (
     AnalyticsWorkflowConfig,
     AnalyticsWorkflowResult,
@@ -35,6 +41,7 @@ from clinicdesk.app.application.services.demo_ml_facade import DemoMLFacade
 from clinicdesk.app.application.services.demo_run_service import CancelToken
 from clinicdesk.app.application.usecases.seed_demo_data import SeedDemoDataRequest
 from clinicdesk.app.bootstrap_logging import get_logger, set_run_context
+from clinicdesk.app.ui.widgets.kpi_card import KpiCard
 from clinicdesk.app.ui.widgets.progress_dialog import ProgressDialog
 
 LOGGER = get_logger(__name__)
@@ -58,7 +65,12 @@ class _TaskWorker(QObject):
 
 
 class PageDemoML(QWidget):
-    _STEPS = ["Preparar análisis", "Entrenar", "Calcular riesgo", "Detectar cambios"]
+    _STEPS = [
+        "Preparar datos para análisis",
+        "Crear modelo de predicción",
+        "Analizar citas y estimar riesgo",
+        "Detectar cambios en comportamiento",
+    ]
 
     def __init__(self, facade: DemoMLFacade, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -69,6 +81,9 @@ class PageDemoML(QWidget):
         self._cancel_token: CancelToken | None = None
         self._run_id = ""
         self._last_result: AnalyticsWorkflowResult | None = None
+        self._last_train: Any | None = None
+        self._last_score: Any | None = None
+        self._last_drift: Any | None = None
         self._build_ui()
 
     def _build_ui(self) -> None:
@@ -80,6 +95,7 @@ class PageDemoML(QWidget):
         root.addWidget(splitter)
         self._restore_settings()
         self._refresh_tables()
+        self._reset_kpi_cards()
 
     def _build_left_column(self) -> QWidget:
         panel = QWidget()
@@ -91,6 +107,7 @@ class PageDemoML(QWidget):
     def _build_right_column(self) -> QWidget:
         panel = QWidget()
         layout = QVBoxLayout(panel)
+        layout.addWidget(self._build_kpi_panel())
         layout.addWidget(self._build_workflow_panel())
         layout.addWidget(self._build_advanced_panel())
         layout.addWidget(QLabel("Resumen de actividad"))
@@ -98,6 +115,17 @@ class PageDemoML(QWidget):
         self.txt_logs.setReadOnly(True)
         layout.addWidget(self.txt_logs)
         return panel
+
+    def _build_kpi_panel(self) -> QWidget:
+        box = QGroupBox("Resumen rápido")
+        row = QHBoxLayout(box)
+        self.card_citas = KpiCard("Citas analizadas")
+        self.card_risk = KpiCard("Riesgo alto")
+        self.card_threshold = KpiCard("Threshold aplicado")
+        self.card_drift = KpiCard("Drift")
+        for card in [self.card_citas, self.card_risk, self.card_threshold, self.card_drift]:
+            row.addWidget(card)
+        return box
 
     def _build_seed_panel(self) -> QWidget:
         box = QGroupBox("Datos demo")
@@ -126,13 +154,17 @@ class PageDemoML(QWidget):
         self.score_limit = QSpinBox(); self.score_limit.setRange(1, 10000); self.score_limit.setValue(20)
         self.export_dir = QLineEdit(self._settings.value("last_export_dir", "./exports", str) or "./exports")
         self.lbl_last = QLabel("Último análisis: sin ejecuciones")
-        self.btn_full = QPushButton("Ejecutar Demo Completa")
+        self.lbl_export_files = QLabel("Archivos exportados: aún no hay resultados")
+        self.lbl_export_files.setWordWrap(True)
+        self.btn_open_export = QPushButton("Abrir carpeta de exportación")
+        self.btn_open_export.clicked.connect(self._open_export_folder)
+        self.btn_full = QPushButton("Ejecutar demo completa")
         self.btn_full.clicked.connect(self._run_full_workflow)
         cards = QHBoxLayout()
-        self.btn_prepare = QPushButton("1) Preparar análisis")
-        self.btn_train = QPushButton("2) Entrenar")
-        self.btn_score = QPushButton("3) Calcular riesgo")
-        self.btn_drift = QPushButton("4) Detectar cambios")
+        self.btn_prepare = QPushButton("1) Preparar datos para análisis")
+        self.btn_train = QPushButton("2) Crear modelo de predicción")
+        self.btn_score = QPushButton("3) Analizar citas y estimar riesgo")
+        self.btn_drift = QPushButton("4) Detectar cambios en comportamiento")
         self.btn_prepare.clicked.connect(self._run_prepare)
         self.btn_train.clicked.connect(self._run_train)
         self.btn_score.clicked.connect(self._run_score)
@@ -144,6 +176,8 @@ class PageDemoML(QWidget):
         form.addRow("Límite de riesgo", self.score_limit)
         form.addRow("Exportar para Power BI", self.export_dir)
         form.addRow(cards)
+        form.addRow(self.btn_open_export)
+        form.addRow(self.lbl_export_files)
         form.addRow(self.lbl_last)
         return box
 
@@ -182,18 +216,21 @@ class PageDemoML(QWidget):
         return table
 
     def _run_prepare(self) -> None:
-        self._run_background("Preparar análisis", lambda: self._workflow.prepare_analysis(self._from(), self._to(), self.adv_dataset.text().strip() or None), self._on_prepare_done)
+        fn = lambda: self._workflow.prepare_analysis(self._from(), self._to(), self.adv_dataset.text().strip() or None)
+        self._run_background("Preparar datos para análisis", fn, self._on_prepare_done)
 
     def _run_train(self) -> None:
-        self._run_background("Entrenar", lambda: self._workflow.train(self.adv_dataset.text().strip(), self.adv_model.text().strip() or None), self._on_train_done)
+        fn = lambda: self._workflow.train(self.adv_dataset.text().strip(), self.adv_model.text().strip() or None)
+        self._run_background("Crear modelo de predicción", fn, self._on_train_done)
 
     def _run_score(self) -> None:
         fn = lambda: self._workflow.score(self.adv_dataset.text().strip(), self.adv_model.text().strip(), self.score_limit.value())
-        self._run_background("Calcular riesgo", fn, self._on_score_done)
+        self._run_background("Analizar citas y estimar riesgo", fn, self._on_score_done)
 
     def _run_drift(self) -> None:
         from_version = self.adv_prev_dataset.text().strip() or self.adv_dataset.text().strip()
-        self._run_background("Detectar cambios", lambda: self._workflow.drift(from_version, self.adv_dataset.text().strip()), self._on_drift_done)
+        fn = lambda: self._workflow.drift(from_version, self.adv_dataset.text().strip())
+        self._run_background("Detectar cambios en comportamiento", fn, self._on_drift_done)
 
     def _run_full_workflow(self) -> None:
         config = AnalyticsWorkflowConfig(
@@ -281,20 +318,25 @@ class PageDemoML(QWidget):
 
     def _on_prepare_done(self, version: str) -> None:
         self.adv_dataset.setText(version)
-        self._log(f"Preparar análisis completado: {version}")
+        self._log(f"Preparación completada: {version}")
+        self.card_citas.set_data("Listo", "Features disponibles", "ok")
 
     def _on_train_done(self, payload: tuple[Any, str]) -> None:
         train_response, model_version = payload
         self._last_train = train_response
         self.adv_model.setText(model_version)
-        self._log("Entrenamiento completado")
+        subtitle = f"Recall test {train_response.test_metrics.recall:.2f} · Precision test {train_response.test_metrics.precision:.2f}"
+        self.card_threshold.set_data(f"{train_response.calibrated_threshold:.2f}", subtitle, "ok")
+        self._log("Modelo de predicción listo")
 
     def _on_score_done(self, response: Any) -> None:
         self._last_score = response
-        self._log(f"Cálculo de riesgo completado: {response.total} casos")
+        self._update_score_cards(response)
+        self._log(f"Análisis de riesgo completado: {response.total} citas")
 
     def _on_drift_done(self, response: Any) -> None:
         self._last_drift = response
+        self._update_drift_card(response)
         self._log(f"Detección de cambios completada: {response.overall_flag}")
 
     def _on_workflow_done(self, result: AnalyticsWorkflowResult) -> None:
@@ -305,13 +347,12 @@ class PageDemoML(QWidget):
         self._persist_last_run(result)
         self._refresh_last_label()
         self._refresh_tables()
+        self._refresh_export_files(result.export_paths)
         dialog = getattr(self, "progress_dialog", None)
         if dialog is not None:
             dialog.finish(True, result.summary_text)
-            dialog.update(0, "done", "Preparar análisis")
-            dialog.update(1, "done", "Entrenar")
-            dialog.update(2, "done", "Calcular riesgo")
-            dialog.update(3, "done", "Detectar cambios")
+            for index, step in enumerate(self._STEPS):
+                dialog.update(index, "done", step)
         self._log(result.summary_text)
 
     def _on_task_error(self, message: str) -> None:
@@ -342,8 +383,10 @@ class PageDemoML(QWidget):
     def _refresh_tables(self) -> None:
         self._fill_table(self.tbl_doctors, [asdict(item) for item in self._facade.list_doctors(None, 200)])
         self._fill_table(self.tbl_patients, [asdict(item) for item in self._facade.list_patients(None, 200)])
-        self._fill_table(self.tbl_appointments, [asdict(item) for item in self._facade.list_appointments(None, None, None, 200)])
+        citas = self._facade.list_appointments(None, None, None, 200)
+        self._fill_table(self.tbl_appointments, [asdict(item) for item in citas])
         self._fill_table(self.tbl_incidences, [asdict(item) for item in self._facade.list_incidences(None, 200)])
+        self.card_citas.set_data(str(len(citas)), "Citas visibles en demo", "ok")
 
     def _fill_table(self, table: QTableWidget, rows: list[dict[str, Any]]) -> None:
         table.setRowCount(0)
@@ -373,6 +416,10 @@ class PageDemoML(QWidget):
         summary = self._settings.value("last_summary_text", "Sin ejecuciones", str) or "Sin ejecuciones"
         self.lbl_last.setText(f"Último análisis: {ts} (ver detalles) · {summary}")
 
+    def _refresh_export_files(self, exports: dict[str, str]) -> None:
+        file_list = " · ".join(sorted(Path(path).name for path in exports.values()))
+        self.lbl_export_files.setText(f"Archivos exportados: {file_list}")
+
     def _is_running(self) -> bool:
         if self._thread is not None and self._thread.isRunning():
             QMessageBox.information(self, "Analítica", "Ya hay una operación en curso")
@@ -381,3 +428,45 @@ class PageDemoML(QWidget):
 
     def _log(self, msg: str) -> None:
         self.txt_logs.append(msg)
+
+    def _reset_kpi_cards(self) -> None:
+        self.card_citas.set_data("—", "Pendiente", "neutral")
+        self.card_risk.set_data("—", "Pendiente", "neutral")
+        self.card_threshold.set_data("—", "Disponible tras crear modelo", "neutral")
+        self.card_drift.set_data("—", "Ejecute detección de cambios", "neutral")
+
+    def _update_score_cards(self, response: Any) -> None:
+        labels = Counter(item.label for item in response.items)
+        high_count = labels.get("risk", 0)
+        total = max(response.total, 1)
+        risk_pct = (high_count / total) * 100
+        subtitle = f"Riesgo alto: {high_count} / {response.total}"
+        self.card_citas.set_data(str(response.total), "Total de citas analizadas", "ok")
+        state = "bad" if risk_pct >= 30 else "warn" if risk_pct >= 15 else "ok"
+        self.card_risk.set_data(f"{risk_pct:.1f}%", subtitle, state)
+
+    def _update_drift_card(self, report: Any) -> None:
+        severity, message, psi_max = explain_drift(report)
+        state = {"GREEN": "ok", "AMBER": "warn", "RED": "bad"}[severity.value]
+        self.card_drift.set_data(severity.value, f"PSI máx: {psi_max:.3f} · {message}", state)
+
+    def _open_export_folder(self) -> None:
+        folder = Path(self.export_dir.text().strip() or "./exports").resolve()
+        if not folder.exists():
+            QMessageBox.information(self, "Exportación", "La carpeta de exportación todavía no existe.")
+            return
+        try:
+            self._open_folder_in_os(folder)
+            self._log(f"Carpeta abierta: {folder.as_posix()}")
+        except Exception as exc:  # noqa: BLE001
+            LOGGER.warning("open_export_folder_failed", extra={"path": folder.as_posix(), "error": str(exc)})
+            QMessageBox.information(self, "Exportación", "No fue posible abrir la carpeta automáticamente.")
+
+    def _open_folder_in_os(self, folder: Path) -> None:
+        if os.name == "nt":
+            os.startfile(str(folder))  # type: ignore[attr-defined]
+            return
+        command = "open" if shutil.which("open") else "xdg-open"
+        if shutil.which(command) is None:
+            raise RuntimeError("No hay comando de apertura disponible")
+        subprocess.Popen([command, folder.as_posix()])
