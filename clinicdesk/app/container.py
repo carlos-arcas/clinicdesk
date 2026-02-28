@@ -2,9 +2,11 @@ from __future__ import annotations
 
 import sqlite3
 from dataclasses import dataclass
+import os
 from pathlib import Path
 
 from clinicdesk.app.application.ml.baseline_citas_predictor import BaselineCitasPredictor
+from clinicdesk.app.application.security import Role, UserContext
 from clinicdesk.app.application.pipelines.build_citas_dataset import BuildCitasDataset
 from clinicdesk.app.application.services.demo_ml_facade import DemoMLFacade
 from clinicdesk.app.application.services.feature_store_service import FeatureStoreService
@@ -70,6 +72,7 @@ class AppContainer:
 
     citas_repo: CitasRepository
     incidencias_repo: IncidenciasRepository
+    user_context: UserContext
 
     def close(self) -> None:
         try:
@@ -102,6 +105,10 @@ def build_container(connection: sqlite3.Connection) -> AppContainer:
 
     demo_ml_facade = _build_demo_ml_facade(connection, citas_repo, incidencias_repo)
 
+    role_value = os.getenv("CLINICDESK_ROLE", Role.ADMIN.value).upper()
+    role = Role(role_value) if role_value in {r.value for r in Role} else Role.ADMIN
+    user_context = UserContext(role=role)
+
     return AppContainer(
         connection=connection,
         queries=queries,
@@ -123,6 +130,7 @@ def build_container(connection: sqlite3.Connection) -> AppContainer:
         dispensaciones_repo=dispensaciones_repo,
         citas_repo=citas_repo,
         incidencias_repo=incidencias_repo,
+        user_context=user_context,
     )
 
 

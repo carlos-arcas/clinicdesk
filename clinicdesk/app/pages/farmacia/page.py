@@ -47,6 +47,7 @@ class PageFarmacia(QWidget):
     def __init__(self, container: AppContainer, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
         self._container = container
+        self._can_write = container.user_context.can_write
         self._paciente_id: Optional[int] = None
 
         self._build_ui()
@@ -128,10 +129,12 @@ class PageFarmacia(QWidget):
 
     def _on_linea_selected(self) -> None:
         self.btn_dispensar.setEnabled(
-            self._selected_id(self.table_lineas) is not None
+            self._can_write and self._selected_id(self.table_lineas) is not None
         )
 
     def _on_dispensar(self) -> None:
+        if not self._can_write:
+            return
         linea_id = self._selected_id(self.table_lineas)
         if not linea_id:
             return

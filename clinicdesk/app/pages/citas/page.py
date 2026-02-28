@@ -36,6 +36,7 @@ class PageCitas(QWidget):
         self._container = container
         self._queries = CitasQueries(container)
         self._controller = CitasController(self, container)
+        self._can_write = container.user_context.can_write
 
         self._build_ui()
         self._bind_events()
@@ -50,6 +51,7 @@ class PageCitas(QWidget):
         self.lbl_date = QLabel("Fecha: —")
         self.btn_new = QPushButton("Nueva cita")
         self.btn_delete = QPushButton("Eliminar cita")
+        self.btn_new.setEnabled(self._can_write)
         self.btn_delete.setEnabled(False)
         self.table = self._crear_tabla_calendario()
 
@@ -236,15 +238,19 @@ class PageCitas(QWidget):
             return None
 
     def _on_selection_changed(self) -> None:
-        self.btn_delete.setEnabled(self._selected_id() is not None)
+        self.btn_delete.setEnabled(self._can_write and self._selected_id() is not None)
 
     def _on_new(self) -> None:
+        if not self._can_write:
+            return
         date_str = self.calendar.selectedDate().toString("yyyy-MM-dd")
         if self._controller.create_cita_flow(date_str):
             self._refresh_calendario()
             self._programar_refresco_lista()
 
     def _on_delete(self) -> None:
+        if not self._can_write:
+            return
         cita_id = self._selected_id()
         if not cita_id:
             return
@@ -259,7 +265,8 @@ class PageCitas(QWidget):
         menu = QMenu(self)
         action_new = menu.addAction("Nueva cita")
         action_delete = menu.addAction("Eliminar cita")
-        action_delete.setEnabled(self._selected_id() is not None)
+        action_new.setEnabled(self._can_write)
+        action_delete.setEnabled(self._can_write and self._selected_id() is not None)
         action = menu.exec(self.table.viewport().mapToGlobal(pos))
         if action == action_new:
             self._on_new()

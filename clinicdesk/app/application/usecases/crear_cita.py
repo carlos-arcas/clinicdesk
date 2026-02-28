@@ -88,6 +88,7 @@ class CrearCitaUseCase:
         self._c = container
 
     def execute(self, req: CrearCitaRequest) -> CrearCitaResult:
+        self._c.user_context.require_write("citas.crear")
         self._validate_request(req)
         inicio_dt, fin_dt, estado, notas = self._normalize_inputs(req)
         self._load_dependencies(req)

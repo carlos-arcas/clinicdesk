@@ -18,3 +18,7 @@ class ValidationError(DomainError):
 
 class BusinessRuleError(DomainError):
     """Violación de regla de negocio (p. ej., solape de cita detectado en un caso de uso)."""
+
+
+class AuthorizationError(DomainError):
+    """Operación denegada por falta de permisos del usuario actual."""
