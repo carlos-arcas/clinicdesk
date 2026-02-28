@@ -1,31 +1,25 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import List
 
 from clinicdesk.app.domain.modelos import Paciente
 from clinicdesk.app.domain.repositorios import RepositorioPacientes
-# Importamos el contrato (RepositorioPacientes) para depender de abstracciones, no de SQLite.
 
 
 @dataclass(frozen=True)
 class ListarPacientes:
-    """
-    Caso de uso: listar pacientes.
-    La UI llama a ejecutar() y recibe List[Paciente].
-    """
+    """Caso de uso para listar pacientes."""
+
     repo: RepositorioPacientes
 
-    def ejecutar(self) -> List[Paciente]:
+    def ejecutar(self) -> list[Paciente]:
         return self.repo.listar_todos()
 
 
 @dataclass(frozen=True)
 class CrearPaciente:
-    """
-    Caso de uso: crear paciente con validación mínima.
-    Aquí vive la regla: nombre obligatorio.
-    """
+    """Caso de uso para crear pacientes con validación mínima."""
+
     repo: RepositorioPacientes
 
     def ejecutar(self, nombre: str, telefono: str) -> int:
