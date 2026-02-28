@@ -138,3 +138,31 @@ def test_drift_between_two_demo_versions(tmp_path: Path) -> None:
         )
         == 0
     )
+
+
+def test_seed_demo_command(tmp_path: Path) -> None:
+    cli = _load_ml_cli_module()
+    sqlite_path = tmp_path / "demo.sqlite"
+    rc = cli.main(
+        [
+            "seed-demo",
+            "--seed",
+            "321",
+            "--doctors",
+            "3",
+            "--patients",
+            "6",
+            "--appointments",
+            "20",
+            "--from",
+            "2026-01-01",
+            "--to",
+            "2026-01-31",
+            "--incidence-rate",
+            "0.2",
+            "--sqlite-path",
+            str(sqlite_path),
+        ]
+    )
+    assert rc == 0
+    assert sqlite_path.exists()

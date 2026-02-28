@@ -60,3 +60,18 @@ Archivos generados en `./exports/`:
 - `model_metrics_export.csv`
 - `scoring_export.csv`
 - `drift_export.csv`
+
+
+## Demo dataset reproducible (SQLite real, sin demo-fake)
+Flujo recomendado para demos ML + Power BI con datos coherentes:
+
+1. Seed de demo:
+   - `PYTHONPATH=. python scripts/ml_cli.py seed-demo --seed 123 --doctors 10 --patients 80 --appointments 300 --from 2026-01-01 --to 2026-02-28 --incidence-rate 0.15`
+2. Build features desde SQLite real:
+   - `PYTHONPATH=. python scripts/ml_cli.py build-features --from 2026-01-01 --to 2026-02-28 --store-path ./data/feature_store`
+3. Train:
+   - `PYTHONPATH=. python scripts/ml_cli.py train --dataset-version <version> --model-version m_demo --feature-store-path ./data/feature_store --model-store-path ./data/model_store`
+4. Export para Power BI:
+   - `PYTHONPATH=. python scripts/ml_cli.py export features --dataset-version <version> --output ./exports --feature-store-path ./data/feature_store`
+
+Secuencia completa para operación: `seed-demo -> build-features -> train -> export -> Power BI`.
