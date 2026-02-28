@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import ast
+import argparse
 import logging
 import os
 import shutil
@@ -14,6 +15,7 @@ from pathlib import Path
 from typing import Iterable
 
 import pytest
+from scripts.structural_gate import run_structural_gate
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 os.chdir(REPO_ROOT)
@@ -106,7 +108,24 @@ def _check_no_print_calls() -> int:
     return 3
 
 
+def _parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="ClinicDesk quality gate")
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument("--strict", action="store_true", help="Fail gate on structural violations (default).")
+    mode.add_argument("--report-only", action="store_true", help="Generate structural report without blocking.")
+    parser.add_argument(
+        "--thresholds",
+        type=Path,
+        default=REPO_ROOT / "scripts" / "quality_thresholds.json",
+        help="Path to structural thresholds JSON file.",
+    )
+    return parser.parse_args()
+
+
 def main() -> int:
+    args = _parse_args()
+    mode = "report-only" if args.report_only else "strict"
+
     configure_logging("clinicdesk-quality-gate", REPO_ROOT / "logs", level="INFO", json=False)
     set_run_context("qualitygate")
 
@@ -130,6 +149,17 @@ def main() -> int:
     if coverage < MIN_COVERAGE:
         _LOGGER.error("[quality-gate] ❌ Cobertura de core por debajo del umbral.")
         return 2
+
+    structural_rc = run_structural_gate(
+        repo_root=REPO_ROOT,
+        thresholds_path=args.thresholds,
+        mode=mode,
+        report_path=REPO_ROOT / "docs" / "quality_report.md",
+        logger=_LOGGER,
+    )
+    if structural_rc != 0:
+        _LOGGER.error("[quality-gate] ❌ Structural gate falló en modo %s.", mode)
+        return structural_rc
 
     _LOGGER.info("[quality-gate] ✅ Gate superado.")
     return 0

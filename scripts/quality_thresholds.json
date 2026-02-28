@@ -1,0 +1,15 @@
+{
+  "max_file_loc": 400,
+  "max_function_loc": 60,
+  "max_class_loc": 200,
+  "max_cc": 10,
+  "max_avg_cc_per_file": 6,
+  "max_hotspots": 0,
+  "exclude_paths": [
+    "app/ui/**",
+    "tests/**",
+    "migrations/**",
+    "sql/**"
+  ],
+  "allowlist": []
+}

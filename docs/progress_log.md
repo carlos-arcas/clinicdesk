@@ -398,3 +398,21 @@ Formato por entrada:
   - Captura automática de screenshot no aplica directamente a UI PySide6 desktop en este entorno headless.
 - **Qué queda**:
   - Evaluar automatización futura de snapshots de UI desktop (por ejemplo con harness Qt) en CI.
+
+
+- **DATE/TIME**: 2026-02-28 06:30 UTC
+- **Paso**: Paso XX: Structural quality gate (LOC + CC + hotspots)
+- **Qué se hizo**:
+  - Se implementó `scripts/structural_gate.py` con análisis AST (LOC, CC por función/método, LOC por clase/función, score de hotspots por archivo).
+  - Se integró el paso `STRUCTURAL_GATE` en `scripts/quality_gate.py` con modos `--strict` y `--report-only`, más `--thresholds` para configuración externa.
+  - Se creó `scripts/quality_thresholds.json` con umbrales por defecto, exclusiones y allowlist configurable por ruta.
+  - Se añadió generación obligatoria de `docs/quality_report.md` con resumen, violaciones por tipo, top hotspots y recomendaciones accionables.
+  - Se añadieron pruebas unitarias en `tests/test_structural_gate.py` para CC, LOC, exclusiones y allowlist.
+  - Se actualizó `docs/ci_quality_gate.md` para documentar métricas, umbrales y plan de reducción de deuda.
+- **Decisiones**:
+  - Se evitó dependencia externa (`radon/xenon`) para mantener reproducibilidad y tiempos de ejecución bajos.
+  - Se mantuvo el gate de UI fuera del bloqueo estructural usando exclusiones explícitas.
+- **Riesgos**:
+  - La CC implementada es una aproximación AST; puede diferir de herramientas especializadas en casos límite.
+- **Qué queda**:
+  - Ajustar allowlist inicial con deuda real del repositorio y reducirla de forma incremental por sprint.
