@@ -434,3 +434,32 @@ Formato por entrada:
   - El structural gate estricto aún falla por hotspots/violaciones preexistentes fuera del alcance de este PR incremental.
 - **Qué queda**:
   - Reducir CC/LOC en use cases de stock/dispensación/crear cita y repositorios SQLite grandes para cerrar el gate estricto completamente.
+
+- **DATE/TIME**: 2026-02-28 10:55 UTC
+- **Paso**: PR — Reduce monolitos en usecases + queries
+- **Qué se hizo**:
+  - Se refactorizaron `AjustarStockMaterialUseCase.execute`, `AjustarStockMedicamentoUseCase.execute` y `DispensarMedicamentoUseCase.execute` para convertir `execute` en orquestadores con helpers privados (`_validate_request`, `_load_state`, `_compute_changes`, `_persist`, `_build_response`).
+  - Se extrajo construcción de filtros y mapeo de filas en `IncidenciasQueries.list` y `DispensacionesQueries.list` usando `_build_where`, `_build_params`, `_row_to_model`.
+  - Se mantuvo SQL, orden y contratos públicos de DTOs/firmas.
+  - Se regeneró `docs/quality_report.md` con medición post-refactor.
+- **Decisiones**:
+  - Priorizar reducción de LOC/CC en capa application y queries antes que refactors transversales de infraestructura.
+  - Mantener los imports de infraestructura dentro de métodos de persistencia para no modificar boundaries existentes.
+  - Reutilizar las mismas reglas de warning/override, separando validación dura/blanda con early returns.
+  - Introducir dataclasses internas de parámetros/estado solo para reducir complejidad accidental del orquestador.
+  - Reutilizar `_row_to_model` también en `get_by_id` de incidencias para evitar duplicación.
+  - No se añadió allowlist para módulos de `application/domain/infrastructure`.
+- **Riesgos**:
+  - `quality_gate.py --strict` sigue fallando por deuda estructural preexistente fuera del alcance de este PR (p. ej. `crear_cita.py`, `modelos.py`, repositorios sqlite grandes).
+- **Qué queda**:
+  - Cerrar offenders estructurales remanentes de domain/infrastructure para llevar `violations` y `hotspots` a cero bajo thresholds actuales.
+  - Before: violations=21, hotspots=9.
+  - After: violations=13, hotspots=6.
+  - Archivos tocados: 
+    - `clinicdesk/app/application/usecases/ajustar_stock_material.py`
+    - `clinicdesk/app/application/usecases/ajustar_stock_medicamento.py`
+    - `clinicdesk/app/application/usecases/dispensar_medicamento.py`
+    - `clinicdesk/app/queries/incidencias_queries.py`
+    - `clinicdesk/app/queries/dispensaciones_queries.py`
+    - `docs/quality_report.md`
+    - `docs/progress_log.md`

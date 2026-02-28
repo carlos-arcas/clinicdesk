@@ -32,7 +32,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
 from clinicdesk.app.domain.exceptions import ValidationError
 from clinicdesk.app.container import AppContainer
@@ -88,9 +88,46 @@ class DispensarMedicamentoResult:
     incidencia_id: Optional[int]
 
 
+@dataclass(frozen=True, slots=True)
+class _DispenseState:
+    fecha_hora: str
+    fecha: str
+    medicamento_id: int
+    stock_nuevo: int
+
+
 # ---------------------------------------------------------------------
 # Use case
 # ---------------------------------------------------------------------
+
+
+
+
+def _max_severidad(warnings: List[WarningItem]) -> str:
+    order = {"BAJA": 1, "MEDIA": 2, "ALTA": 3}
+    return max((w.severidad for w in warnings), key=lambda sev: order.get(sev, 0))
+
+
+def _build_incidencia_descripcion(
+    req: DispensarMedicamentoRequest,
+    warnings: List[WarningItem],
+    fecha_hora: str,
+    medicamento_id: int,
+    dispensacion_id: int,
+) -> str:
+    warn_lines = "\n".join([f"- [{w.severidad}] {w.codigo}: {w.mensaje}" for w in warnings])
+    return (
+        "Dispensación registrada con override.\n"
+        f"Dispensación ID: {dispensacion_id}\n"
+        f"Receta ID: {req.receta_id}\n"
+        f"Línea ID: {req.receta_linea_id}\n"
+        f"Medicamento ID: {medicamento_id}\n"
+        f"Personal ID: {req.personal_id}\n"
+        f"Cantidad: {req.cantidad}\n"
+        f"FechaHora: {fecha_hora}\n"
+        "Warnings:\n"
+        f"{warn_lines}"
+    )
 
 
 class DispensarMedicamentoUseCase:
@@ -98,7 +135,25 @@ class DispensarMedicamentoUseCase:
         self._c = container
 
     def execute(self, req: DispensarMedicamentoRequest) -> DispensarMedicamentoResult:
-        # ---------- Validaciones duras básicas ----------
+        self._validate_request(req)
+        state = self._load_state(req)
+        warnings, incidencia_flag, notas_incidencia = self._compute_changes(req, state)
+        dispensacion_id, movimiento_id, incidencia_id = self._persist(
+            req=req,
+            state=state,
+            warnings=warnings,
+            incidencia_flag=incidencia_flag,
+            notas_incidencia=notas_incidencia,
+        )
+        return self._build_response(
+            dispensacion_id=dispensacion_id,
+            movimiento_id=movimiento_id,
+            stock_nuevo=state.stock_nuevo,
+            warnings=warnings,
+            incidencia_id=incidencia_id,
+        )
+
+    def _validate_request(self, req: DispensarMedicamentoRequest) -> None:
         if req.receta_id <= 0:
             raise ValidationError("receta_id inválido.")
         if req.receta_linea_id <= 0:
@@ -108,44 +163,105 @@ class DispensarMedicamentoUseCase:
         if req.cantidad <= 0:
             raise ValidationError("cantidad debe ser mayor que 0.")
 
+    def _load_state(self, req: DispensarMedicamentoRequest) -> _DispenseState:
         fecha_hora = req.fecha_hora or self._now_iso()
-        fecha = fecha_hora[:10]  # YYYY-MM-DD
-
-        # ---------- Receta existe ----------
+        fecha = fecha_hora[:10]
         receta = self._c.recetas_repo.get_receta_by_id(req.receta_id)
         if not receta:
             raise ValidationError("La receta no existe.")
+        linea = self._get_linea_or_fail(req)
+        medicamento_id, stock_actual = self._resolve_medicamento_id(req, linea)
+        stock_nuevo = self._compute_stock_nuevo(stock_actual, req.cantidad)
+        return _DispenseState(
+            fecha_hora=fecha_hora,
+            fecha=fecha,
+            medicamento_id=medicamento_id,
+            stock_nuevo=stock_nuevo,
+        )
 
-        # ---------- Línea existe y pertenece a la receta ----------
+    def _compute_changes(
+        self, req: DispensarMedicamentoRequest, state: _DispenseState
+    ) -> Tuple[List[WarningItem], bool, Optional[str]]:
+        warnings = self._collect_warnings(req, state)
+        self._validate_override(req, warnings)
+        if not warnings:
+            return warnings, False, None
+        return warnings, True, req.nota_override.strip() if req.nota_override else None
+
+    def _persist(
+        self,
+        *,
+        req: DispensarMedicamentoRequest,
+        state: _DispenseState,
+        warnings: List[WarningItem],
+        incidencia_flag: bool,
+        notas_incidencia: Optional[str],
+    ) -> Tuple[int, int, Optional[int]]:
+        from clinicdesk.app.infrastructure.sqlite.repos_dispensaciones import Dispensacion
+
+        disp = Dispensacion(
+            receta_id=req.receta_id,
+            receta_linea_id=req.receta_linea_id,
+            medicamento_id=state.medicamento_id,
+            personal_id=req.personal_id,
+            cantidad=req.cantidad,
+            fecha_hora=state.fecha_hora,
+            incidencia=incidencia_flag,
+            notas_incidencia=notas_incidencia,
+        )
+        dispensacion_id = self._c.dispensaciones_repo.create(disp)
+        self._c.medicamentos_repo.update_stock(state.medicamento_id, state.stock_nuevo)
+        movimiento_id = self._create_movement(req, state, dispensacion_id)
+        incidencia_id = self._create_incidencia_if_needed(req, state, warnings, dispensacion_id)
+        return dispensacion_id, movimiento_id, incidencia_id
+
+    def _build_response(
+        self,
+        *,
+        dispensacion_id: int,
+        movimiento_id: int,
+        stock_nuevo: int,
+        warnings: List[WarningItem],
+        incidencia_id: Optional[int],
+    ) -> DispensarMedicamentoResult:
+        return DispensarMedicamentoResult(
+            dispensacion_id=dispensacion_id,
+            movimiento_id=movimiento_id,
+            stock_nuevo=stock_nuevo,
+            warnings=warnings,
+            incidencia_id=incidencia_id,
+        )
+
+    def _get_linea_or_fail(self, req: DispensarMedicamentoRequest):
         linea = self._get_linea_by_id(req.receta_linea_id)
         if not linea:
             raise ValidationError("La línea de receta no existe.")
         if linea["receta_id"] != req.receta_id:
             raise ValidationError("La línea no pertenece a la receta indicada.")
+        return linea
 
-        medicamento_id = req.medicamento_id or int(linea["medicamento_id"])
-        if req.medicamento_id and int(linea["medicamento_id"]) != req.medicamento_id:
+    def _resolve_medicamento_id(self, req: DispensarMedicamentoRequest, linea) -> Tuple[int, int]:
+        linea_medicamento_id = int(linea["medicamento_id"])
+        if req.medicamento_id and linea_medicamento_id != req.medicamento_id:
             raise ValidationError("medicamento_id no coincide con el de la línea de receta.")
-
-        # ---------- Medicamento existe e inactivo ----------
+        medicamento_id = req.medicamento_id or linea_medicamento_id
         medicamento = self._c.medicamentos_repo.get_by_id(medicamento_id)
         if not medicamento or not medicamento.activo:
             raise ValidationError("El medicamento no existe o está inactivo.")
+        return medicamento_id, int(medicamento.cantidad_en_almacen)
 
-        # ---------- Stock (DURO) ----------
-        stock_actual = int(medicamento.cantidad_en_almacen)
-        stock_nuevo = stock_actual - req.cantidad
+    def _compute_stock_nuevo(self, stock_actual: int, cantidad: int) -> int:
+        stock_nuevo = stock_actual - cantidad
         if stock_nuevo < 0:
             raise ValidationError(
-                f"Stock insuficiente. Stock actual={stock_actual}, solicitado={req.cantidad}."
+                f"Stock insuficiente. Stock actual={stock_actual}, solicitado={cantidad}."
             )
+        return stock_nuevo
 
-        # ---------- Warnings ----------
+    def _collect_warnings(self, req: DispensarMedicamentoRequest, state: _DispenseState) -> List[WarningItem]:
         warnings: List[WarningItem] = []
-
-        # Calendario no estricto del personal: si no hay bloque ese día -> warning
         hay_calendario = self._c.calendario_personal_repo.exists_for_personal_fecha(
-            req.personal_id, fecha, solo_activos=True
+            req.personal_id, state.fecha, solo_activos=True
         )
         if not hay_calendario:
             warnings.append(
@@ -155,9 +271,7 @@ class DispensarMedicamentoUseCase:
                     severidad="MEDIA",
                 )
             )
-
-        # Ausencias personal: warning ALTA (por defecto no debería dispensar)
-        if self._c.ausencias_personal_repo.exists_overlap(req.personal_id, fecha_hora, fecha_hora):
+        if self._c.ausencias_personal_repo.exists_overlap(req.personal_id, state.fecha_hora, state.fecha_hora):
             warnings.append(
                 WarningItem(
                     codigo="PERSONAL_CON_AUSENCIA",
@@ -165,123 +279,70 @@ class DispensarMedicamentoUseCase:
                     severidad="ALTA",
                 )
             )
+        return warnings
 
-        # ---------- Guardado consciente ----------
-        incidencia_id: Optional[int] = None
-        incidencia_flag = False
-        notas_incidencia: Optional[str] = None
+    def _validate_override(self, req: DispensarMedicamentoRequest, warnings: List[WarningItem]) -> None:
+        if not warnings:
+            return
+        if not req.override:
+            raise PendingWarningsError(warnings)
+        if not req.nota_override or not req.nota_override.strip():
+            raise ValidationError("Para guardar con incidencia/warning es obligatorio rellenar nota_override.")
+        if not req.confirmado_por_personal_id or req.confirmado_por_personal_id <= 0:
+            raise ValidationError("confirmado_por_personal_id es obligatorio al guardar con override.")
 
-        if warnings:
-            if not req.override:
-                raise PendingWarningsError(warnings)
-
-            if not req.nota_override or not req.nota_override.strip():
-                raise ValidationError("Para guardar con incidencia/warning es obligatorio rellenar nota_override.")
-
-            if not req.confirmado_por_personal_id or req.confirmado_por_personal_id <= 0:
-                raise ValidationError("confirmado_por_personal_id es obligatorio al guardar con override.")
-
-            incidencia_flag = True
-            notas_incidencia = req.nota_override.strip()
-
-        # ---------- Insertar dispensación ----------
-        from clinicdesk.app.infrastructure.sqlite.repos_dispensaciones import Dispensacion
-
-        disp = Dispensacion(
-            receta_id=req.receta_id,
-            receta_linea_id=req.receta_linea_id,
-            medicamento_id=medicamento_id,
-            personal_id=req.personal_id,
-            cantidad=req.cantidad,
-            fecha_hora=fecha_hora,
-            incidencia=incidencia_flag,
-            notas_incidencia=notas_incidencia,
-        )
-        dispensacion_id = self._c.dispensaciones_repo.create(disp)
-
-        # ---------- Actualizar stock ----------
-        self._c.medicamentos_repo.update_stock(medicamento_id, stock_nuevo)
-
-        # ---------- Registrar movimiento ----------
+    def _create_movement(self, req: DispensarMedicamentoRequest, state: _DispenseState, dispensacion_id: int) -> int:
         from clinicdesk.app.infrastructure.sqlite.repos_movimientos_medicamentos import MovimientoMedicamento
 
         mov = MovimientoMedicamento(
-            medicamento_id=medicamento_id,
+            medicamento_id=state.medicamento_id,
             tipo="SALIDA",
-            cantidad=req.cantidad,  # SALIDA con cantidad positiva
-            fecha_hora=fecha_hora,
+            cantidad=req.cantidad,
+            fecha_hora=state.fecha_hora,
             personal_id=req.personal_id,
             motivo="DISPENSACION",
             referencia=f"dispensacion:{dispensacion_id};receta:{req.receta_id};linea:{req.receta_linea_id}",
         )
-        movimiento_id = self._c.mov_medicamentos_repo.create(mov)
+        return self._c.mov_medicamentos_repo.create(mov)
 
-        # ---------- Incidencia central (si hubo override) ----------
-        if warnings:
-            severidad = self._max_severidad(warnings)
-            descripcion = self._build_incidencia_descripcion(req, warnings, fecha_hora, medicamento_id, dispensacion_id)
+    def _create_incidencia_if_needed(
+        self,
+        req: DispensarMedicamentoRequest,
+        state: _DispenseState,
+        warnings: List[WarningItem],
+        dispensacion_id: int,
+    ) -> Optional[int]:
+        if not warnings:
+            return None
+        from clinicdesk.app.infrastructure.sqlite.repos_incidencias import Incidencia
 
-            from clinicdesk.app.infrastructure.sqlite.repos_incidencias import Incidencia
-
-            inc = Incidencia(
-                tipo="DISPENSACION",
-                severidad=severidad,
-                estado="ABIERTA",
-                fecha_hora=fecha_hora,
-                descripcion=descripcion,
-                medico_id=None,
-                personal_id=req.personal_id,
-                cita_id=None,
-                dispensacion_id=dispensacion_id,
-                receta_id=req.receta_id,
-                confirmado_por_personal_id=req.confirmado_por_personal_id or 0,
-                nota_override=req.nota_override.strip() if req.nota_override else "",
-            )
-            incidencia_id = self._c.incidencias_repo.create(inc)
-
-        return DispensarMedicamentoResult(
+        inc = Incidencia(
+            tipo="DISPENSACION",
+            severidad=_max_severidad(warnings),
+            estado="ABIERTA",
+            fecha_hora=state.fecha_hora,
+            descripcion=_build_incidencia_descripcion(
+                req, warnings, state.fecha_hora, state.medicamento_id, dispensacion_id
+            ),
+            medico_id=None,
+            personal_id=req.personal_id,
+            cita_id=None,
             dispensacion_id=dispensacion_id,
-            movimiento_id=movimiento_id,
-            stock_nuevo=stock_nuevo,
-            warnings=warnings,
-            incidencia_id=incidencia_id,
+            receta_id=req.receta_id,
+            confirmado_por_personal_id=req.confirmado_por_personal_id or 0,
+            nota_override=req.nota_override.strip() if req.nota_override else "",
         )
+        return self._c.incidencias_repo.create(inc)
 
     # -----------------------------------------------------------------
     # Internos
     # -----------------------------------------------------------------
 
-    def _get_linea_by_id(self, receta_linea_id: int) -> Optional[sqlite3.Row]:
+    def _get_linea_by_id(self, receta_linea_id: int):
         return self._c.connection.execute(
             "SELECT * FROM receta_lineas WHERE id = ?",
             (receta_linea_id,),
         ).fetchone()
-
-    def _max_severidad(self, warnings: List[WarningItem]) -> str:
-        order = {"BAJA": 1, "MEDIA": 2, "ALTA": 3}
-        return max((w.severidad for w in warnings), key=lambda s: order.get(s, 0))
-
-    def _build_incidencia_descripcion(
-        self,
-        req: DispensarMedicamentoRequest,
-        warnings: List[WarningItem],
-        fecha_hora: str,
-        medicamento_id: int,
-        dispensacion_id: int,
-    ) -> str:
-        warn_lines = "\n".join([f"- [{w.severidad}] {w.codigo}: {w.mensaje}" for w in warnings])
-        return (
-            "Dispensación registrada con override.\n"
-            f"Dispensación ID: {dispensacion_id}\n"
-            f"Receta ID: {req.receta_id}\n"
-            f"Línea ID: {req.receta_linea_id}\n"
-            f"Medicamento ID: {medicamento_id}\n"
-            f"Personal ID: {req.personal_id}\n"
-            f"Cantidad: {req.cantidad}\n"
-            f"FechaHora: {fecha_hora}\n"
-            "Warnings:\n"
-            f"{warn_lines}"
-        )
 
     def _now_iso(self) -> str:
         return datetime.now().replace(microsecond=0).isoformat(sep=" ")
