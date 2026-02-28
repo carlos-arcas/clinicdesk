@@ -27,8 +27,10 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--to", dest="to_date", type=str, default=_DEFAULT_TO_DATE)
     parser.add_argument("--incidence-rate", type=float, default=0.15)
     parser.add_argument("--sqlite-path", type=str, default=_DEFAULT_SQLITE_PATH)
-    parser.add_argument("--reset", dest="reset", action="store_true", default=True)
+    parser.add_argument("--reset", dest="reset", action="store_true", default=None)
     parser.add_argument("--no-reset", dest="reset", action="store_false")
+    parser.add_argument("--turbo", dest="turbo", action="store_true", default=True)
+    parser.add_argument("--no-turbo", dest="turbo", action="store_false")
     return parser
 
 
@@ -39,9 +41,6 @@ def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     try:
         sqlite_path = _validate_args(args)
-        if args.reset:
-            _reset_demo_db_if_allowed(sqlite_path)
-
         cli_args = [
             "seed-demo",
             "--seed",
@@ -60,7 +59,12 @@ def main(argv: list[str] | None = None) -> int:
             str(args.incidence_rate),
             "--sqlite-path",
             str(sqlite_path),
+            "--batch-size",
+            "500",
         ]
+        if args.reset is not None:
+            cli_args.append("--reset" if args.reset else "--no-reset")
+        cli_args.append("--turbo" if args.turbo else "--no-turbo")
         rc = run_cli(cli_args)
         if rc != 0:
             return rc
@@ -95,22 +99,6 @@ def _validate_args(args: argparse.Namespace) -> Path:
     return sqlite_path
 
 
-def _reset_demo_db_if_allowed(sqlite_path: Path) -> None:
-    if not sqlite_path.exists():
-        return
-    if not _is_safe_demo_db_path(sqlite_path):
-        raise ValueError(
-            "--reset solo permite borrar bases demo bajo ./data/*.db para evitar borrados accidentales. "
-            f"Ruta recibida: {sqlite_path}"
-        )
-    sqlite_path.unlink()
-    _LOGGER.info("[reset] base demo eliminada: %s", sqlite_path)
-
-
-def _is_safe_demo_db_path(sqlite_path: Path) -> bool:
-    repo_root = Path(__file__).resolve().parent
-    data_dir = (repo_root / "data").resolve()
-    return sqlite_path.suffix == ".db" and data_dir in sqlite_path.parents
 
 
 def _fetch_counts(sqlite_path: Path) -> dict[str, int]:

@@ -319,3 +319,20 @@ Formato por entrada:
   - Existen componentes legacy que aún asumen columnas históricas en dispensaciones fuera del alcance de este ajuste.
 - **Qué queda**:
   - Evaluar migración gradual de paths legacy `*.sqlite` en scripts/docs secundarios para eliminar ambigüedad histórica.
+
+- **DATE/TIME**: 2026-02-28 09:05 UTC
+- **Paso**: Paso 18: seed turbo + ETA + reset seguro
+- **Qué se hizo**:
+  - Se añadió `sqlite_seed_turbo(connection)` para activar PRAGMAs de seed (`journal_mode=WAL`, `synchronous=NORMAL`, `temp_store=MEMORY`, `cache_size=-20000`, `foreign_keys=ON`) y restaurar al salir los parámetros restaurables (`synchronous`, `temp_store`, `cache_size`).
+  - Se mejoró el camino caliente de persistencia masiva con logs estructurados `seed_progress` por lote, incluyendo `phase`, `batch_index`, `batch_total`, `done`, `total`, `elapsed_s`, `rate` y `eta_s`.
+  - Se implementó reset seguro de base demo con `UnsafeDatabaseResetError`, validación de ruta segura y recreación de schema tras borrado.
+  - `scripts/ml_cli.py seed-demo` ahora soporta `--turbo/--no-turbo` y `--reset/--no-reset`; por defecto `reset` se activa solo en rutas seguras de demo.
+  - Se alineó `seed_demo_data.py` para delegar turbo/reset al comando `seed-demo` sin lógica paralela de borrado.
+  - Se agregaron tests de no-regresión para turbo pragmas, seguridad de reset y logs de progreso con ETA.
+- **Decisiones**:
+  - Se priorizó cambio mínimo sin refactor masivo: el control de turbo/reset vive en infraestructura y el orquestador CLI.
+  - Se usa tasa global `done/elapsed` para ETA estable y determinista (1 log por lote).
+- **Riesgos**:
+  - `journal_mode` puede permanecer en WAL tras seed (comportamiento documentado y aceptable para uso normal en SQLite desktop).
+- **Qué queda**:
+  - Evaluar si conviene parametrizar `cache_size` turbo por volumen de dataset o perfil de máquina.

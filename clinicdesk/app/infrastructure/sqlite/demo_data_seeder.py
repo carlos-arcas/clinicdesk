@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import sqlite3
 from dataclasses import dataclass
+from datetime import UTC, datetime
 
 from clinicdesk.app.application.demo_data.dtos import (
     AppointmentCreateDTO,
@@ -28,6 +29,33 @@ class DemoSeedPersistResult:
     personal: int
     appointments: int
     incidences: int
+
+
+@dataclass(slots=True)
+class _BatchProgress:
+    phase: str
+    total_items: int
+    total_batches: int
+    started_at: datetime
+
+    def log_batch(self, batch_index: int, done: int) -> None:
+        elapsed_s = max((datetime.now(UTC) - self.started_at).total_seconds(), 1e-6)
+        rate = done / elapsed_s
+        pending = max(0, self.total_items - done)
+        eta_s = pending / rate if rate > 0 else 0.0
+        LOGGER.info(
+            "seed_progress",
+            extra={
+                "phase": self.phase,
+                "batch_index": batch_index,
+                "batch_total": self.total_batches,
+                "done": done,
+                "total": self.total_items,
+                "elapsed_s": round(elapsed_s, 2),
+                "rate": round(rate, 2),
+                "eta_s": round(eta_s, 2),
+            },
+        )
 
 
 class DemoDataSeeder:
@@ -109,8 +137,8 @@ class DemoDataSeeder:
         if total == 0:
             return appointment_id_map
         total_batches = (total + batch_size - 1) // batch_size
+        tracker = _BatchProgress("persist_appointments", total, total_batches, datetime.now(UTC))
         for batch_index, batch in enumerate(_iter_batches(appointments, batch_size), start=1):
-            LOGGER.info("Persisting appointments batch %s/%s", batch_index, total_batches)
             for dto in batch:
                 cur = self._connection.execute(
                     """
@@ -131,6 +159,7 @@ class DemoDataSeeder:
                 )
                 appointment_id_map[dto.external_id] = int(cur.lastrowid)
             self._connection.commit()
+            tracker.log_batch(batch_index, len(appointment_id_map))
         return appointment_id_map
 
     def _persist_incidences(
@@ -155,8 +184,8 @@ class DemoDataSeeder:
         if total_rows == 0:
             return 0
         total_batches = (total_rows + batch_size - 1) // batch_size
+        tracker = _BatchProgress("persist_incidences", total_rows, total_batches, datetime.now(UTC))
         for batch_index, batch in enumerate(_iter_batches(flattened, batch_size), start=1):
-            LOGGER.info("Persisting incidences batch %s/%s", batch_index, total_batches)
             for cita_id, entry in batch:
                 confirmer_id = staff_ids[cita_id % len(staff_ids)]
                 self._connection.execute(
@@ -179,6 +208,7 @@ class DemoDataSeeder:
                 )
                 total += 1
             self._connection.commit()
+            tracker.log_batch(batch_index, total)
         return total
 
 

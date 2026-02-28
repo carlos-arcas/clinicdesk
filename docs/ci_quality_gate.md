@@ -83,3 +83,13 @@ Secuencia completa para operación: `seed-demo -> build-features -> train -> exp
   - `logs/crash_fatal.log` (excepciones no controladas / critical)
 - Se agregó una validación bloqueante en `scripts/quality_gate.py` para fallar si aparece `print` en archivos Python fuera de allowlist mínima.
 - Todos los scripts CLI deben enrutar salida de consola por `logging` (handler de consola a `stderr`), no por `print`.
+
+## Seed demo rápido y seguro
+Para poblar dataset demo grande con feedback real de progreso por batch + ETA, turbo SQLite y reset seguro:
+
+- `CLINICDESK_DB_PATH=./data/clinicdesk.db PYTHONPATH=. python scripts/ml_cli.py seed-demo --appointments 5000 --batch-size 500 --turbo --reset`
+
+Notas:
+- `--turbo` activa PRAGMAs de rendimiento solo durante el seed.
+- `--reset` solo borra automáticamente en rutas consideradas seguras de demo (por defecto se auto-activa únicamente en rutas seguras).
+- Si la ruta no es segura, se bloquea el borrado con error explícito para evitar pérdida de datos.

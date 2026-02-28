@@ -5,6 +5,7 @@ import sqlite3
 import uuid
 from collections import Counter
 from datetime import datetime, timedelta
+from os import getenv
 from pathlib import Path
 from typing import Sequence
 
@@ -27,10 +28,16 @@ from clinicdesk.app.application.usecases.train_citas_model import TrainCitasMode
 from clinicdesk.app.infrastructure.feature_store.local_json_feature_store import LocalJsonFeatureStore
 from clinicdesk.app.infrastructure.model_store.local_json_model_store import LocalJsonModelStore
 from clinicdesk.app.infrastructure.sqlite.demo_data_seeder import DemoDataSeeder
+from clinicdesk.app.infrastructure.sqlite.reset_safety import (
+    UnsafeDatabaseResetError,
+    is_safe_demo_db_path,
+    reset_demo_database,
+)
+from clinicdesk.app.infrastructure.sqlite.sqlite_tuning import sqlite_seed_turbo
 from clinicdesk.app.infrastructure.sqlite.citas_read_adapter import SqliteCitasReadAdapter
 from clinicdesk.app.infrastructure.sqlite.repos_citas import CitasRepository
 from clinicdesk.app.infrastructure.sqlite.repos_incidencias import IncidenciasRepository
-from clinicdesk.app.bootstrap import bootstrap_database
+from clinicdesk.app.bootstrap import bootstrap_database, db_path
 from clinicdesk.app.bootstrap_logging import configure_logging, get_logger, log_soft_exception, set_run_context
 from clinicdesk.app.crash_handler import install_global_exception_hook
 
@@ -139,6 +146,10 @@ def _add_seed_demo_parser(subparsers: argparse._SubParsersAction) -> None:
     parser.add_argument("--incidence-rate", type=float, default=0.15)
     parser.add_argument("--sqlite-path", type=str, default=None)
     parser.add_argument("--batch-size", type=int, default=500)
+    parser.add_argument("--turbo", dest="turbo", action="store_true", default=True)
+    parser.add_argument("--no-turbo", dest="turbo", action="store_false")
+    parser.add_argument("--reset", dest="reset", action="store_true", default=None)
+    parser.add_argument("--no-reset", dest="reset", action="store_false")
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -161,7 +172,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         if args.command == "seed-demo":
             return _handle_seed_demo(args)
         parser.error("Comando no soportado")
-    except ValueError as exc:
+    except (ValueError, UnsafeDatabaseResetError) as exc:
         log_soft_exception(_LOGGER, exc, {"command": getattr(args, "command", "-")})
         return 2
     return 0
@@ -388,20 +399,14 @@ def _resolve_threshold_used(predictor_kind: str, model_version: str, model_store
 
 
 def _handle_seed_demo(args: argparse.Namespace) -> int:
-    connection = _open_sqlite_connection(args.sqlite_path)
+    target_path = _resolve_sqlite_path(args.sqlite_path)
+    should_reset = _resolve_reset_flag(args.reset, target_path)
+    if should_reset:
+        _LOGGER.info("seed_demo_reset_requested path=%s", target_path)
+        reset_demo_database(target_path)
+    connection = _open_sqlite_connection(target_path)
     try:
-        response = SeedDemoData(DemoDataSeeder(connection)).execute(
-            SeedDemoDataRequest(
-                seed=args.seed,
-                n_doctors=args.doctors,
-                n_patients=args.patients,
-                n_appointments=args.appointments,
-                from_date=args.from_date,
-                to_date=args.to_date,
-                incidence_rate=args.incidence_rate,
-                batch_size=args.batch_size,
-            )
-        )
+        response = _run_seed_demo_use_case(args, connection)
     finally:
         connection.close()
     _LOGGER.info(
@@ -416,8 +421,42 @@ def _handle_seed_demo(args: argparse.Namespace) -> int:
     return 0
 
 
-def _open_sqlite_connection(sqlite_path: str | None) -> sqlite3.Connection:
-    return bootstrap_database(apply_schema=True, sqlite_path=sqlite_path)
+def _run_seed_demo_use_case(args: argparse.Namespace, connection: sqlite3.Connection):
+    request = SeedDemoDataRequest(
+        seed=args.seed,
+        n_doctors=args.doctors,
+        n_patients=args.patients,
+        n_appointments=args.appointments,
+        from_date=args.from_date,
+        to_date=args.to_date,
+        incidence_rate=args.incidence_rate,
+        batch_size=args.batch_size,
+    )
+    if not args.turbo:
+        _LOGGER.info("seed_demo_turbo_disabled")
+        return SeedDemoData(DemoDataSeeder(connection)).execute(request)
+    _LOGGER.info("seed_demo_turbo_enabled")
+    with sqlite_seed_turbo(connection):
+        return SeedDemoData(DemoDataSeeder(connection)).execute(request)
+
+
+def _resolve_sqlite_path(raw_sqlite_path: str | None) -> Path:
+    if raw_sqlite_path:
+        return Path(raw_sqlite_path).expanduser().resolve()
+    configured = getenv("CLINICDESK_DB_PATH")
+    if configured:
+        return Path(configured).expanduser().resolve()
+    return db_path().expanduser().resolve()
+
+
+def _resolve_reset_flag(reset_arg: bool | None, sqlite_path: Path) -> bool:
+    if reset_arg is not None:
+        return reset_arg
+    return is_safe_demo_db_path(sqlite_path)
+
+
+def _open_sqlite_connection(sqlite_path: Path) -> sqlite3.Connection:
+    return bootstrap_database(apply_schema=True, sqlite_path=sqlite_path.as_posix())
 
 
 if __name__ == "__main__":
