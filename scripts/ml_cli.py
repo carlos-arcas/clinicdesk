@@ -5,7 +5,6 @@ import sqlite3
 import uuid
 from collections import Counter
 from datetime import datetime, timedelta
-from os import getenv
 from pathlib import Path
 from typing import Sequence
 
@@ -37,7 +36,7 @@ from clinicdesk.app.infrastructure.sqlite.sqlite_tuning import sqlite_seed_turbo
 from clinicdesk.app.infrastructure.sqlite.citas_read_adapter import SqliteCitasReadAdapter
 from clinicdesk.app.infrastructure.sqlite.repos_citas import CitasRepository
 from clinicdesk.app.infrastructure.sqlite.repos_incidencias import IncidenciasRepository
-from clinicdesk.app.bootstrap import bootstrap_database, db_path
+from clinicdesk.app.bootstrap import bootstrap_database, resolve_db_path
 from clinicdesk.app.bootstrap_logging import configure_logging, get_logger, log_soft_exception, set_run_context
 from clinicdesk.app.crash_handler import install_global_exception_hook
 
@@ -441,12 +440,7 @@ def _run_seed_demo_use_case(args: argparse.Namespace, connection: sqlite3.Connec
 
 
 def _resolve_sqlite_path(raw_sqlite_path: str | None) -> Path:
-    if raw_sqlite_path:
-        return Path(raw_sqlite_path).expanduser().resolve()
-    configured = getenv("CLINICDESK_DB_PATH")
-    if configured:
-        return Path(configured).expanduser().resolve()
-    return db_path().expanduser().resolve()
+    return resolve_db_path(raw_sqlite_path)
 
 
 def _resolve_reset_flag(reset_arg: bool | None, sqlite_path: Path) -> bool:

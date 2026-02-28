@@ -336,3 +336,20 @@ Formato por entrada:
   - `journal_mode` puede permanecer en WAL tras seed (comportamiento documentado y aceptable para uso normal en SQLite desktop).
 - **Qué queda**:
   - Evaluar si conviene parametrizar `cache_size` turbo por volumen de dataset o perfil de máquina.
+
+- **DATE/TIME**: 2026-02-28 10:25 UTC
+- **Paso**: Fix path único SQLite seed/app + trazabilidad db_path_resolved/db_opened
+- **Qué se hizo**:
+  - Se centralizó la resolución de ruta SQLite en `resolve_db_path()` dentro de `clinicdesk/app/bootstrap.py` con precedencia `--sqlite-path` > `CLINICDESK_DB_PATH` > default oficial `./data/clinicdesk.db`.
+  - Se instrumentó logging estructurado en bootstrap para registrar `db_path_resolved path=<...> source=<arg|env|default>` al resolver y `db_opened path=<...>` al abrir conexión.
+  - `bootstrap_database()` ahora utiliza siempre `resolve_db_path()`, garantizando trazabilidad y evitando divergencias entre app y seed/CLI.
+  - `scripts/ml_cli.py` pasó a reutilizar `resolve_db_path()` (se eliminó resolución duplicada local).
+  - `seed_demo_data.py` dejó de apuntar por defecto a `./data/demo.db`; ahora delega resolución al bootstrap compartido y abre lecturas de conteo vía `bootstrap_database` para mantener logs homogéneos.
+  - Se corrigió `SEED_DEMO.bat` para fijar `CLINICDESK_DB_PATH=%CD%\data\clinicdesk.db`, pasar `--sqlite-path` explícito y ejecutar con `--reset`.
+  - Se añadió `START_APP.bat` para arrancar la app con la misma ruta oficial de DB.
+  - Se añadió test de no regresión para `resolve_db_path()` cubriendo arg/env/default y validando default oficial.
+- **Decisiones**:
+  - Cambio mínimo orientado a observabilidad: mantener compatibilidad (`db_path()`) y centralizar solo la resolución de ruta + logs críticos.
+  - Precedencia explícita `arg > env > default` para que scripts/batch puedan fijar ruta inequívoca en ejecución.
+- **Qué queda**:
+  - Si se desea, unificar también `launch.bat/launcher.bat` legacy para que redirijan internamente a `START_APP.bat`.
