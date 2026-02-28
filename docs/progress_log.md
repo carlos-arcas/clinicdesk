@@ -379,3 +379,22 @@ Formato por entrada:
   - Terminología orientada a negocio para reducir carga técnica en demos ejecutivas.
 - **Riesgos**:
   - La validación visual del diálogo PySide6 sigue siendo manual (sin test UI automatizado en este paso).
+
+- **DATE/TIME**: 2026-02-28 15:20 UTC
+- **Paso**: Paso 21: UX polish + KPI exports para Power BI
+- **Qué se hizo**:
+  - Se mejoró **Analítica (Demo)** con copy no técnico en los 4 pasos, panel superior de KPI cards y actualización incremental tras preparar, entrenar, score y drift.
+  - Se añadió widget reutilizable `KpiCard` con estados visuales (`ok/warn/bad`) sin dependencias externas.
+  - Se incorporó semáforo de drift en capa application (`drift_explain.py`) con mensaje humano y umbrales `GREEN < 0.1`, `AMBER < 0.2`, `RED >= 0.2`.
+  - Se agregó botón **Abrir carpeta de exportación** con soporte cross-platform (`os.startfile` en Windows, `open`/`xdg-open` en Unix) y manejo friendly de error.
+  - Se implementó nuevo caso de uso `ExportKpisCSV` para generar `kpi_overview.csv`, `kpi_scores_by_bucket.csv`, `kpi_drift_by_feature.csv`, `kpi_training_metrics.csv`.
+  - Se integró export KPI en `AnalyticsWorkflowService.export_all()` y en CLI con subcomando `export kpis`.
+  - Se actualizaron README y contratos documentales para explicar uso en dashboard Power BI.
+  - Se añadieron tests de core para explicación de drift y export KPI.
+- **Decisiones**:
+  - Se mantuvo la lógica de semaforización fuera de UI para cumplir separación Clean Architecture.
+  - Se definieron contratos KPI estables en formato CSV para consumo directo por BI sin transformación adicional.
+- **Riesgos**:
+  - Captura automática de screenshot no aplica directamente a UI PySide6 desktop en este entorno headless.
+- **Qué queda**:
+  - Evaluar automatización futura de snapshots de UI desktop (por ejemplo con harness Qt) en CI.

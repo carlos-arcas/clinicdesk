@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any, Callable
 
+from clinicdesk.app.application.ml.drift_explain import explain_drift
 from clinicdesk.app.application.services.demo_ml_facade import DemoMLFacade
 from clinicdesk.app.application.services.demo_run_service import CancelToken
 from clinicdesk.app.application.usecases.seed_demo_data import SeedDemoDataRequest
@@ -61,6 +62,7 @@ class AnalyticsWorkflowService:
         config: AnalyticsWorkflowConfig,
     ) -> dict[str, str]:
         threshold = train_response.calibrated_threshold
+        run_ts = datetime.now(tz=timezone.utc).isoformat()
         paths = {
             "features": self._facade.export_features(dataset_version, config.export_dir),
             "metrics": self._facade.export_metrics(train_response, config.export_dir),
@@ -74,6 +76,17 @@ class AnalyticsWorkflowService:
         }
         if drift_report is not None:
             paths["drift"] = self._facade.export_drift(drift_report, config.export_dir)
+        paths.update(
+            self._facade.export_kpis(
+                dataset_version=dataset_version,
+                predictor_kind=config.predictor_kind,
+                train_response=train_response,
+                score_response=score_response,
+                drift_report=drift_report,
+                output_path=config.export_dir,
+                run_ts=run_ts,
+            )
+        )
         return paths
 
     def run_full_workflow(
@@ -149,3 +162,9 @@ class AnalyticsWorkflowService:
     def _build_summary(self, scored: int, exports: dict[str, str], drift_flag: bool) -> str:
         drift_text = "Se detectaron cambios" if drift_flag else "Sin cambios relevantes"
         return f"Se analizaron {scored} citas. {drift_text}. Archivos exportados: {len(exports)}"
+
+    def summarize_drift(self, drift_report: Any | None) -> tuple[str, float]:
+        if drift_report is None:
+            return "GREEN", 0.0
+        severity, _, psi_max = explain_drift(drift_report)
+        return severity.value, psi_max

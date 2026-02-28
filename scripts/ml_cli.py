@@ -21,9 +21,15 @@ from clinicdesk.app.application.usecases.export_csv import (
     ExportScoringCSV,
     ModelMetricsExportData,
 )
+from clinicdesk.app.application.usecases.export_kpis_csv import ExportKpisCSV, ExportKpisRequest
 from clinicdesk.app.application.usecases.score_citas import ScoreCitas, ScoreCitasRequest
 from clinicdesk.app.application.usecases.seed_demo_data import SeedDemoData, SeedDemoDataRequest
-from clinicdesk.app.application.usecases.train_citas_model import TrainCitasModel, TrainCitasModelRequest
+from clinicdesk.app.application.usecases.train_citas_model import (
+    TrainCitasModel,
+    TrainCitasModelRequest,
+    TrainCitasModelResponse,
+)
+from clinicdesk.app.application.ml.evaluation import EvalMetrics
 from clinicdesk.app.infrastructure.feature_store.local_json_feature_store import LocalJsonFeatureStore
 from clinicdesk.app.infrastructure.model_store.local_json_model_store import LocalJsonModelStore
 from clinicdesk.app.infrastructure.sqlite.demo_data_seeder import DemoDataSeeder
@@ -132,6 +138,15 @@ def _add_export_parser(subparsers: argparse._SubParsersAction) -> None:
     drift_parser.add_argument("--to-version", required=True)
     drift_parser.add_argument("--output", required=True)
     drift_parser.add_argument("--feature-store-path", default=_DEFAULT_FEATURE_STORE_PATH)
+
+    kpis_parser = export_subparsers.add_parser("kpis", help="Exporta CSV agregados KPI")
+    kpis_parser.add_argument("--dataset-version", required=True)
+    kpis_parser.add_argument("--model-version", required=True)
+    kpis_parser.add_argument("--predictor", choices=("baseline", "trained"), default="trained")
+    kpis_parser.add_argument("--from-version", default=None)
+    kpis_parser.add_argument("--output", required=True)
+    kpis_parser.add_argument("--feature-store-path", default=_DEFAULT_FEATURE_STORE_PATH)
+    kpis_parser.add_argument("--model-store-path", default=_DEFAULT_MODEL_STORE_PATH)
 
 
 def _add_seed_demo_parser(subparsers: argparse._SubParsersAction) -> None:
@@ -325,6 +340,8 @@ def _handle_export(args: argparse.Namespace) -> int:
         return _export_scoring(args)
     if args.export_command == "drift":
         return _export_drift(args)
+    if args.export_command == "kpis":
+        return _export_kpis(args)
     raise ValueError(f"Subcomando export no soportado: {args.export_command}")
 
 
@@ -378,6 +395,68 @@ def _export_drift(args: argparse.Namespace) -> int:
     return 0
 
 
+
+
+def _export_kpis(args: argparse.Namespace) -> int:
+    feature_store = FeatureStoreService(LocalJsonFeatureStore(args.feature_store_path))
+    model_store = LocalJsonModelStore(args.model_store_path)
+    score_response = ScoreCitas(feature_store, BaselineCitasPredictor(), model_store=model_store).execute(
+        ScoreCitasRequest(
+            dataset_version=args.dataset_version,
+            predictor_kind=args.predictor,
+            model_version=args.model_version,
+        )
+    )
+    _, metadata = model_store.load_model(_DEFAULT_MODEL_NAME, args.model_version)
+    train_response = _build_train_response_from_metadata(args.dataset_version, args.model_version, metadata)
+    drift_report = None
+    if args.from_version:
+        drift_report = DriftCitasFeatures(feature_store).execute(
+            DriftCitasFeaturesRequest(from_version=args.from_version, to_version=args.dataset_version)
+        )
+    request = ExportKpisRequest(
+        dataset_version=args.dataset_version,
+        predictor_kind=args.predictor,
+        exports_dir=args.output,
+        train_response=train_response,
+        score_response=score_response,
+        drift_report=drift_report,
+    )
+    outputs = ExportKpisCSV().execute(request)
+    for path in outputs.values():
+        _LOGGER.info(path)
+    return 0
+
+
+def _build_train_response_from_metadata(
+    dataset_version: str,
+    model_version: str,
+    metadata: dict,
+) -> TrainCitasModelResponse:
+    train_metrics = metadata.get("train_metrics", {})
+    test_metrics = metadata.get("test_metrics", {})
+    calibrated_metrics = metadata.get("test_metrics_at_calibrated_threshold", test_metrics)
+    return TrainCitasModelResponse(
+        model_name=_DEFAULT_MODEL_NAME,
+        model_version=model_version,
+        dataset_version=dataset_version,
+        train_metrics=_metrics_from_dict(train_metrics),
+        test_metrics=_metrics_from_dict(test_metrics),
+        calibrated_threshold=float(metadata.get("calibrated_threshold", 0.5)),
+        test_metrics_at_calibrated_threshold=_metrics_from_dict(calibrated_metrics),
+    )
+
+
+def _metrics_from_dict(values: dict) -> EvalMetrics:
+    return EvalMetrics(
+        accuracy=float(values.get("accuracy", 0.0)),
+        precision=float(values.get("precision", 0.0)),
+        recall=float(values.get("recall", 0.0)),
+        tp=int(values.get("tp", 0)),
+        fp=int(values.get("fp", 0)),
+        tn=int(values.get("tn", 0)),
+        fn=int(values.get("fn", 0)),
+    )
 def _build_metrics_export_data(args: argparse.Namespace, metadata: dict) -> ModelMetricsExportData:
     train_metrics = metadata.get("train_metrics", {})
     test_metrics = metadata.get("test_metrics", {})
