@@ -100,7 +100,7 @@ class MainWindow(QMainWindow):
         self._factory_by_key: Dict[str, Callable[[], QWidget]] = {}
         self._sidebar_item_by_key: Dict[str, QListWidgetItem] = {}
 
-        for p in get_pages(container):
+        for p in get_pages(container, self._i18n):
             self._factory_by_key[p.key] = p.factory
             item = QListWidgetItem(p.title)
             item.setData(Qt.UserRole, p.key)
@@ -155,6 +155,9 @@ class MainWindow(QMainWindow):
 
         labels = _PAGE_TITLES_BY_LANG.get(self._i18n.language, _PAGE_TITLES_BY_LANG["es"])
         for key, item in self._sidebar_item_by_key.items():
+            if key == "prediccion_ausencias":
+                item.setText(self._i18n.t("nav.prediccion_ausencias"))
+                continue
             item.setText(labels.get(key, item.text()))
 
     def _on_csv_imported(self, entity: str) -> None:
