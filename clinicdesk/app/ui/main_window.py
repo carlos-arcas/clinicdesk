@@ -19,7 +19,7 @@ from clinicdesk.app.controllers.csv_controller import CsvController
 from clinicdesk.app.container import AppContainer
 from clinicdesk.app.i18n import I18nManager
 from clinicdesk.app.pages.pages_registry import get_pages
-from clinicdesk.app.ui.vistas.main_window import validacion_preventiva
+from clinicdesk.app.ui.vistas.main_window import state_controller, validacion_preventiva
 
 
 
@@ -240,6 +240,10 @@ class MainWindow(QMainWindow):
 
         self.stack.setCurrentIndex(index)
         self._call_on_show_index(index)
+
+
+    def _normalize_input_heights(self) -> None:
+        state_controller._normalize_input_heights(self)
 
     def _bind_preventive_validation_events(self) -> None:
         validacion_preventiva._bind_preventive_validation_events(self)
