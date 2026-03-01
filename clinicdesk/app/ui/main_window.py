@@ -40,6 +40,7 @@ _PAGE_TITLES_BY_LANG = {
         "ausencias": "Ausencias",
         "incidencias": "Incidencias",
         "demo_ml": "Demo ML",
+        "auditoria": "Auditoría",
     },
     "en": {
         "home": "Home",
@@ -57,6 +58,7 @@ _PAGE_TITLES_BY_LANG = {
         "ausencias": "Absences",
         "incidencias": "Incidents",
         "demo_ml": "ML Demo",
+        "auditoria": "Audit",
     },
 }
 
