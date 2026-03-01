@@ -20,6 +20,7 @@ from PySide6.QtWidgets import (
 )
 
 from clinicdesk.app.application.prediccion_ausencias.riesgo_agenda import RIESGO_NO_DISPONIBLE
+from clinicdesk.app.application.services.citas_privacidad_presentacion import FormateadorPrivacidadCitas
 from clinicdesk.app.bootstrap_logging import get_logger
 from clinicdesk.app.container import AppContainer
 from clinicdesk.app.controllers.citas_controller import CitasController
@@ -32,7 +33,6 @@ from clinicdesk.app.pages.citas.riesgo_ausencia_ui import (
     construir_dtos_desde_calendario,
     construir_dtos_desde_listado,
     resolver_texto_riesgo,
-    tooltip_riesgo,
 )
 from clinicdesk.app.pages.shared.filtro_listado import FiltroListadoWidget
 from clinicdesk.app.queries.citas_queries import CitaListadoRow, CitaRow, CitasQueries
@@ -51,6 +51,7 @@ class PageCitas(QWidget):
         self._can_write = container.user_context.can_write
         self._riesgo_enabled = False
         self._citas_lista_ids: list[int] = []
+        self._formateador_privacidad = FormateadorPrivacidadCitas()
 
         self._build_ui()
         self._bind_events()
@@ -198,13 +199,16 @@ class PageCitas(QWidget):
                 c.medico_nombre,
                 c.sala_nombre,
                 etiqueta_estado_cita(c.estado),
-                c.motivo or "",
+                self._formateador_privacidad.formatear_valor("motivo", c.motivo),
             ]
             for col, value in enumerate(values):
                 item = QTableWidgetItem(value)
-                if self._riesgo_enabled:
-                    item.setToolTip(tooltip_riesgo(riesgos.get(c.id, RIESGO_NO_DISPONIBLE), self._i18n))
+                item.setToolTip(self._tooltip_calendario(c, riesgos))
                 self.table.setItem(row_index, col, item)
+
+    def _tooltip_calendario(self, cita: CitaRow, riesgos: dict[int, str]) -> str:
+        resultado = resolver_texto_riesgo(riesgos.get(cita.id, RIESGO_NO_DISPONIBLE), self._i18n)
+        return self._formateador_privacidad.construir_tooltip_calendario(cita, self._i18n, resultado.texto)
 
     def _obtener_riesgo_citas_calendario(self, rows: list[CitaRow]) -> dict[int, str]:
         dtos = construir_dtos_desde_calendario(rows, datetime.now())

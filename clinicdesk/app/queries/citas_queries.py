@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import date
 from typing import List, Optional
 
 import logging
@@ -25,6 +26,7 @@ class CitaRow:
     sala_nombre: str
     estado: str
     motivo: Optional[str]
+    notas_len: int
 
 
 @dataclass(frozen=True, slots=True)
@@ -45,6 +47,8 @@ class CitaListadoRow:
 
 class CitasQueries:
     """Consultas de lectura para Citas (UI/auditoría)."""
+
+    _MAX_DIAS_RANGO_LISTADO = 93
 
     def __init__(self, container: AppContainer) -> None:
         self._c = container
@@ -71,45 +75,64 @@ class CitasQueries:
     ) -> List[CitaListadoRow]:
         texto_norm = normalize_search_text(texto)
         estado_norm = normalize_search_text(estado).upper()
-        if not desde or not hasta or desde > hasta:
+        if not self._rango_listado_permitido(desde, hasta):
             logger.info("Citas search_listado skipped (rango inválido).")
             return []
-
-        where_sql, params = self._build_listado_filters(
-            desde=desde,
-            hasta=hasta,
-            texto=texto_norm,
-            estado=estado_norm,
+        like = f"%{texto_norm}%" if texto_norm else ""
+        params = self._params_listado(desde, hasta, estado_norm, texto_norm, like)
+        logger.info(
+            "citas_search_listado",
+            extra={
+                "desde": desde,
+                "hasta": hasta,
+                "estado": estado_norm or "TODOS",
+                "texto_busqueda": self._texto_busqueda_redactado(texto_norm),
+            },
         )
-        sql = self._sql_listado(where_sql)
 
         try:
-            rows = self._c.connection.execute(sql, params).fetchall()
+            rows = self._c.connection.execute(self._sql_listado(), params).fetchall()
         except Exception as exc:
             logger.error("Error SQL en CitasQueries.search_listado: %s", exc)
             return []
         return [self._map_listado_row(row) for row in rows]
 
-    def _build_listado_filters(
-        self,
-        *,
-        desde: str,
-        hasta: str,
-        texto: str,
-        estado: str,
-    ) -> tuple[str, tuple[object, ...]]:
-        clauses = ["c.activo = 1", "date(c.inicio) >= date(?)", "date(c.inicio) <= date(?)"]
-        params: list[object] = [desde, hasta]
+    def _rango_listado_permitido(self, desde: str, hasta: str) -> bool:
+        if not desde or not hasta:
+            return False
+        try:
+            fecha_desde = date.fromisoformat(desde)
+            fecha_hasta = date.fromisoformat(hasta)
+        except ValueError:
+            return False
+        if fecha_desde > fecha_hasta:
+            return False
+        return (fecha_hasta - fecha_desde).days <= self._MAX_DIAS_RANGO_LISTADO
 
-        if estado and estado != "TODOS":
-            clauses.append("c.estado = ?")
-            params.append(estado)
-        if texto:
-            like = f"%{texto}%"
-            clauses.append(self._sql_text_search())
-            params.extend([like, like, like, like, like])
+    @staticmethod
+    def _params_listado(desde: str, hasta: str, estado: str, texto: str, like: str) -> tuple[object, ...]:
+        estado_filtrado = estado or "TODOS"
+        texto_filtrado = texto or ""
+        return (
+            desde,
+            hasta,
+            estado_filtrado,
+            estado_filtrado,
+            texto_filtrado,
+            like,
+            like,
+            like,
+            like,
+            like,
+        )
 
-        return " AND ".join(clauses), tuple(params)
+    @staticmethod
+    def _texto_busqueda_redactado(texto: str) -> str:
+        if not texto:
+            return ""
+        if len(texto) <= 3:
+            return "***"
+        return f"{texto[:3]}***({len(texto)})"
 
     @staticmethod
     def _sql_by_date() -> str:
@@ -125,7 +148,8 @@ class CitasQueries:
                 c.sala_id,
                 s.nombre AS sala_nombre,
                 c.estado,
-                c.motivo
+                c.motivo,
+                length(coalesce(c.notas, '')) AS notas_len
             FROM citas c
             JOIN pacientes p ON p.id = c.paciente_id
             JOIN medicos m ON m.id = c.medico_id
@@ -134,20 +158,9 @@ class CitasQueries:
             ORDER BY c.inicio
         """
 
-    @staticmethod
-    def _sql_text_search() -> str:
-        return (
-            "(" 
-            "lower(c.motivo) LIKE ? OR "
-            "lower(c.notas) LIKE ? OR "
-            "lower(p.nombre || ' ' || p.apellidos) LIKE ? OR "
-            "lower(m.nombre || ' ' || m.apellidos) LIKE ? OR "
-            "lower(s.nombre) LIKE ?"
-            ")"
-        )
 
     @staticmethod
-    def _sql_listado(where_sql: str) -> str:
+    def _sql_listado() -> str:
         return (
             "SELECT c.id, "
             "c.paciente_id, "
@@ -167,7 +180,16 @@ class CitasQueries:
             "JOIN pacientes p ON p.id = c.paciente_id "
             "JOIN medicos m ON m.id = c.medico_id "
             "JOIN salas s ON s.id = c.sala_id "
-            f"WHERE {where_sql} "
+            "WHERE c.activo = 1 "
+            "AND date(c.inicio) >= date(?) "
+            "AND date(c.inicio) <= date(?) "
+            "AND (? = 'TODOS' OR c.estado = ?) "
+            "AND (? = '' OR "
+            "(lower(c.motivo) LIKE ? OR "
+            "lower(c.notas) LIKE ? OR "
+            "lower(p.nombre || ' ' || p.apellidos) LIKE ? OR "
+            "lower(m.nombre || ' ' || m.apellidos) LIKE ? OR "
+            "lower(s.nombre) LIKE ?)) "
             "ORDER BY c.inicio"
         )
 
@@ -185,6 +207,7 @@ class CitasQueries:
             sala_nombre=r["sala_nombre"],
             estado=r["estado"],
             motivo=r["motivo"],
+            notas_len=int(r["notas_len"]),
         )
 
     @staticmethod
