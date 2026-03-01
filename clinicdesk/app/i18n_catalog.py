@@ -1,7 +1,6 @@
 from __future__ import annotations
-
+from clinicdesk.app.i18n_prediccion_resultados_catalog import PREDICCION_RESULTADOS_TRANSLATIONS
 from clinicdesk.app.i18n_recordatorio_catalog import RECORDATORIO_TRANSLATIONS
-
 _TRANSLATIONS = {
     "es": {
         "app.title": "ClinicDesk",
@@ -157,12 +156,8 @@ _TRANSLATIONS = {
         "prediccion_ausencias.riesgo.medio": "MEDIO",
         "prediccion_ausencias.riesgo.alto": "ALTO",
         "prediccion_ausencias.resultados.titulo": "Resultados recientes",
-        "prediccion_ausencias.resultados.subtitulo": "En las últimas {semanas} semanas, basado en citas cerradas.",
+        "prediccion_ausencias.resultados.subtitulo": "Basado en citas cerradas de las últimas {semanas} semanas.",
         "prediccion_ausencias.resultados.fila": "Riesgo {riesgo}: Total: {total} — No vinieron: {no_vino}",
-        "prediccion_ausencias.resultados.estado.ok": "Resumen actualizado con citas cerradas recientes.",
-        "prediccion_ausencias.resultados.estado.sin_datos": "Aún no hay suficientes citas cerradas para comparar.",
-        "prediccion_ausencias.resultados.accion.completar_resultado": "Marca el resultado final de las citas (vino / no vino) y vuelve más tarde.",
-
         "citas.riesgo.columna": "Riesgo de ausencia",
         "citas.riesgo.valor.bajo": "Bajo",
         "citas.riesgo.valor.medio": "Medio",
@@ -351,12 +346,8 @@ _TRANSLATIONS = {
         "prediccion_ausencias.riesgo.medio": "MEDIUM",
         "prediccion_ausencias.riesgo.alto": "HIGH",
         "prediccion_ausencias.resultados.titulo": "Recent outcomes",
-        "prediccion_ausencias.resultados.subtitulo": "In the last {semanas} weeks, based on closed appointments.",
+        "prediccion_ausencias.resultados.subtitulo": "Based on closed appointments from the last {semanas} weeks.",
         "prediccion_ausencias.resultados.fila": "Risk {riesgo}: Total: {total} — Did not come: {no_vino}",
-        "prediccion_ausencias.resultados.estado.ok": "Updated summary with recent closed appointments.",
-        "prediccion_ausencias.resultados.estado.sin_datos": "There are not enough closed appointments yet to compare.",
-        "prediccion_ausencias.resultados.accion.completar_resultado": "Mark the final outcome for appointments (came / did not come) and check again later.",
-
         "citas.riesgo.columna": "No-show risk",
         "citas.riesgo.valor.bajo": "Low",
         "citas.riesgo.valor.medio": "Medium",
@@ -392,7 +383,7 @@ _TRANSLATIONS = {
         "auditoria.entidad.receta": "PRESCRIPTION",
     },
 }
-
-
+for _lang, _entries in PREDICCION_RESULTADOS_TRANSLATIONS.items():
+    _TRANSLATIONS.setdefault(_lang, {}).update(_entries)
 for _lang, _entries in RECORDATORIO_TRANSLATIONS.items():
     _TRANSLATIONS.setdefault(_lang, {}).update(_entries)
