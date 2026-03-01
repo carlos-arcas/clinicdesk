@@ -285,7 +285,8 @@ class PageCitas(QWidget):
 
     def _abrir_dialogo_riesgo(self, cita_id: int) -> None:
         explicacion = self._container.prediccion_ausencias_facade.obtener_explicacion_riesgo_uc.ejecutar(cita_id)
-        dialog = RiesgoAusenciaDialog(self._i18n, explicacion, self)
+        salud = self._container.prediccion_ausencias_facade.obtener_salud_uc.ejecutar()
+        dialog = RiesgoAusenciaDialog(self._i18n, explicacion, salud, self)
         dialog.btn_ir_prediccion.clicked.connect(self._ir_a_prediccion)
         dialog.exec()
 

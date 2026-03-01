@@ -58,6 +58,19 @@ class PrediccionAusenciasQueries:
         ).fetchone()
         return int(row["total"]) if row else 0
 
+    def contar_citas_validas_recientes(self, dias: int = 90) -> int:
+        row = self._con.execute(
+            """
+            SELECT COUNT(1) AS total
+            FROM citas c
+            WHERE c.activo = 1
+              AND c.estado IN (?, ?)
+              AND datetime(c.inicio) >= datetime('now', ?)
+            """,
+            (*_ESTADOS_VALIDOS, f"-{dias} days"),
+        ).fetchone()
+        return int(row["total"]) if row else 0
+
     def obtener_dataset_entrenamiento(self) -> list[FilaEntrenamientoPrediccion]:
         rows = self._con.execute(
             """

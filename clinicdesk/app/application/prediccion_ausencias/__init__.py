@@ -5,6 +5,7 @@ from clinicdesk.app.application.prediccion_ausencias.dtos import (
     MotivoRiesgoDTO,
     PrediccionCitaDTO,
     ResultadoComprobacionDatos,
+    SaludPrediccionDTO,
 )
 from clinicdesk.app.application.prediccion_ausencias.riesgo_agenda import (
     ObtenerRiesgoAusenciaParaCitas,
@@ -17,6 +18,7 @@ from clinicdesk.app.application.prediccion_ausencias.usecases import (
     PrevisualizarPrediccionAusencias,
     ResultadoEntrenamientoPrediccion,
 )
+from clinicdesk.app.application.prediccion_ausencias.salud_prediccion import ObtenerSaludPrediccionAusencias
 
 __all__ = [
     "CitaParaPrediccionDTO",
@@ -32,4 +34,6 @@ __all__ = [
     "RIESGO_NO_DISPONIBLE",
     "ResultadoComprobacionDatos",
     "ResultadoEntrenamientoPrediccion",
+    "SaludPrediccionDTO",
+    "ObtenerSaludPrediccionAusencias",
 ]

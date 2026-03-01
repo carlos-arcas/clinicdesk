@@ -40,41 +40,55 @@ class PagePrediccionAusencias(QWidget):
 
     def _build_ui(self) -> None:
         root = QVBoxLayout(self)
+        root.addWidget(self._build_salud())
         root.addWidget(self._build_paso_1())
         root.addWidget(self._build_paso_2())
         root.addWidget(self._build_paso_3())
         root.addWidget(self._build_activacion())
 
+    def _build_salud(self) -> QWidget:
+        self.box_salud = QGroupBox()
+        layout = QVBoxLayout(self.box_salud)
+        self.lbl_salud_estado = QLabel()
+        self.lbl_salud_mensaje = QLabel()
+        self.lbl_salud_mensaje.setWordWrap(True)
+        self.btn_salud_entrenar = QPushButton()
+        self.btn_salud_entrenar.clicked.connect(self._entrenar)
+        layout.addWidget(self.lbl_salud_estado)
+        layout.addWidget(self.lbl_salud_mensaje)
+        layout.addWidget(self.btn_salud_entrenar)
+        return self.box_salud
+
     def _build_paso_1(self) -> QWidget:
-        box = QGroupBox()
-        form = QFormLayout(box)
+        self.box_paso_1 = QGroupBox()
+        form = QFormLayout(self.box_paso_1)
         self.lbl_paso_1_estado = QLabel()
         self.lbl_paso_1_mensaje = QLabel()
         self.lbl_paso_1_mensaje.setWordWrap(True)
         form.addRow(self.lbl_paso_1_estado)
         form.addRow(self.lbl_paso_1_mensaje)
-        return box
+        return self.box_paso_1
 
     def _build_paso_2(self) -> QWidget:
-        box = QGroupBox()
-        layout = QVBoxLayout(box)
+        self.box_paso_2 = QGroupBox()
+        layout = QVBoxLayout(self.box_paso_2)
         self.btn_entrenar = QPushButton()
         self.btn_entrenar.clicked.connect(self._entrenar)
         self.lbl_paso_2_estado = QLabel()
         layout.addWidget(self.btn_entrenar)
         layout.addWidget(self.lbl_paso_2_estado)
-        return box
+        return self.box_paso_2
 
     def _build_paso_3(self) -> QWidget:
-        box = QGroupBox()
-        layout = QVBoxLayout(box)
+        self.box_paso_3 = QGroupBox()
+        layout = QVBoxLayout(self.box_paso_3)
         self.lbl_paso_3_estado = QLabel()
         self.lbl_paso_3_estado.setWordWrap(True)
         self.tabla = QTableWidget(0, 5)
         self.tabla.horizontalHeader().setStretchLastSection(True)
         layout.addWidget(self.lbl_paso_3_estado)
         layout.addWidget(self.tabla)
-        return box
+        return self.box_paso_3
 
     def _build_activacion(self) -> QWidget:
         panel = QWidget()
@@ -86,6 +100,7 @@ class PagePrediccionAusencias(QWidget):
         return panel
 
     def _comprobar_datos(self) -> None:
+        self._actualizar_salud()
         result = self._facade.comprobar_datos_uc.ejecutar()
         self._datos_aptos = result.apto_para_entrenar
         self.lbl_paso_1_estado.setText(
@@ -96,6 +111,14 @@ class PagePrediccionAusencias(QWidget):
         )
         self.btn_entrenar.setEnabled(self._datos_aptos)
 
+    def _actualizar_salud(self) -> None:
+        salud = self._facade.obtener_salud_uc.ejecutar()
+        self.lbl_salud_estado.setText(self._i18n.t(f"prediccion_ausencias.salud.estado.{salud.estado.lower()}"))
+        self.lbl_salud_mensaje.setText(
+            self._i18n.t(salud.mensaje_i18n_key).format(citas=salud.citas_validas_recientes)
+        )
+        self.btn_salud_entrenar.setVisible(salud.estado in {"AMARILLO", "ROJO"})
+
     def _entrenar(self) -> None:
         if not self._datos_aptos:
             return
@@ -104,6 +127,7 @@ class PagePrediccionAusencias(QWidget):
             self.lbl_paso_2_estado.setText(self._i18n.t("prediccion_ausencias.estado.preparando"))
             self._facade.entrenar_uc.ejecutar()
             self.lbl_paso_2_estado.setText(self._i18n.t("prediccion_ausencias.estado.entrenado_ok"))
+            self._actualizar_salud()
             self._cargar_previsualizacion()
         except ValueError:
             self.lbl_paso_2_estado.setText(self._i18n.t("prediccion_ausencias.estado.datos_insuficientes").format(minimo=50))
@@ -144,9 +168,11 @@ class PagePrediccionAusencias(QWidget):
         self.chk_activar.setChecked(checked)
 
     def _retranslate(self) -> None:
-        self.findChildren(QGroupBox)[0].setTitle(self._i18n.t("prediccion_ausencias.paso_1.titulo"))
-        self.findChildren(QGroupBox)[1].setTitle(self._i18n.t("prediccion_ausencias.paso_2.titulo"))
-        self.findChildren(QGroupBox)[2].setTitle(self._i18n.t("prediccion_ausencias.paso_3.titulo"))
+        self.box_salud.setTitle(self._i18n.t("prediccion_ausencias.salud.titulo"))
+        self.box_paso_1.setTitle(self._i18n.t("prediccion_ausencias.paso_1.titulo"))
+        self.box_paso_2.setTitle(self._i18n.t("prediccion_ausencias.paso_2.titulo"))
+        self.box_paso_3.setTitle(self._i18n.t("prediccion_ausencias.paso_3.titulo"))
+        self.btn_salud_entrenar.setText(self._i18n.t("prediccion_ausencias.accion.entrenar"))
         self.btn_entrenar.setText(self._i18n.t("prediccion_ausencias.accion.entrenar"))
         self.chk_activar.setText(self._i18n.t("prediccion_ausencias.accion.activar_agenda"))
         self.tabla.setHorizontalHeaderLabels(

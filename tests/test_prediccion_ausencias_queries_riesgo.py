@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from datetime import datetime, timedelta
+
 from clinicdesk.app.queries.prediccion_ausencias_queries import PrediccionAusenciasQueries
 
 
@@ -37,3 +39,27 @@ def test_obtener_resumen_historial_paciente_cuenta_realizadas_y_no_presentadas(c
 
     assert resumen.citas_realizadas == 1
     assert resumen.citas_no_presentadas == 1
+
+
+def test_contar_citas_validas_recientes_aplica_ventana_dias(container, seed_data) -> None:
+    ahora = datetime.now()
+    _insertar_cita(
+        container.connection,
+        paciente_id=seed_data["paciente_activo_id"],
+        medico_id=seed_data["medico_activo_id"],
+        sala_id=seed_data["sala_activa_id"],
+        inicio=(ahora - timedelta(days=5)).strftime("%Y-%m-%d %H:%M:%S"),
+        estado="REALIZADA",
+    )
+    _insertar_cita(
+        container.connection,
+        paciente_id=seed_data["paciente_activo_id"],
+        medico_id=seed_data["medico_activo_id"],
+        sala_id=seed_data["sala_activa_id"],
+        inicio=(ahora - timedelta(days=140)).strftime("%Y-%m-%d %H:%M:%S"),
+        estado="NO_PRESENTADO",
+    )
+
+    queries = PrediccionAusenciasQueries(container.connection)
+
+    assert queries.contar_citas_validas_recientes(90) == 1
