@@ -3,11 +3,15 @@ from __future__ import annotations
 from typing import Callable
 
 from clinicdesk.app.i18n_catalog import _TRANSLATIONS
+from clinicdesk.app.i18n_citas_validacion_catalog import TRADUCCIONES_CITAS_VALIDACION
 from clinicdesk.app.i18n_confirmaciones_catalog import CONFIRMACIONES_TRANSLATIONS
 from clinicdesk.app.i18n_prediccion_cierre import TRADUCCIONES_CIERRE_PREDICCION
 from clinicdesk.app.i18n_prediccion_entrenar_catalog import TRANSLATIONS_PREDICCION_ENTRENAR
 
 for idioma, traducciones in TRADUCCIONES_CIERRE_PREDICCION.items():
+    _TRANSLATIONS.setdefault(idioma, {}).update(traducciones)
+
+for idioma, traducciones in TRADUCCIONES_CITAS_VALIDACION.items():
     _TRANSLATIONS.setdefault(idioma, {}).update(traducciones)
 
 for idioma, traducciones in CONFIRMACIONES_TRANSLATIONS.items():

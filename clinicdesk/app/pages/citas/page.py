@@ -20,9 +20,15 @@ from PySide6.QtWidgets import (
 )
 
 from clinicdesk.app.application.prediccion_ausencias.riesgo_agenda import RIESGO_NO_DISPONIBLE
+from clinicdesk.app.application.citas_filtros_validacion import (
+    normalizar_filtros_citas,
+    resolver_columnas_cita,
+    validar_filtros_citas,
+)
 from clinicdesk.app.bootstrap_logging import get_logger
 from clinicdesk.app.container import AppContainer
 from clinicdesk.app.controllers.citas_controller import CitasController
+from clinicdesk.app.domain.citas_atributos import ATRIBUTOS_CITA
 from clinicdesk.app.i18n import I18nManager
 from clinicdesk.app.pages.citas.estado_cita_presentacion import ESTADOS_FILTRO_CITAS, etiqueta_estado_cita
 from clinicdesk.app.pages.citas.recordatorio_cita_dialog import RecordatorioCitaDialog
@@ -51,6 +57,8 @@ class PageCitas(QWidget):
         self._can_write = container.user_context.can_write
         self._riesgo_enabled = False
         self._citas_lista_ids: list[int] = []
+        self._columnas_restauradas = False
+        self._columnas_lista = self._cargar_columnas_lista()
 
         self._build_ui()
         self._bind_events()
@@ -92,6 +100,8 @@ class PageCitas(QWidget):
         self.hasta_date = QDateEdit(tab_lista)
         self.hasta_date.setCalendarPopup(True)
         self.lbl_cargando = QLabel("", tab_lista)
+        self.lbl_error_filtros = QLabel("", tab_lista)
+        self.lbl_error_filtros.setObjectName("citas-filtros-error")
         self.lbl_aviso_prediccion = QLabel("", tab_lista)
         self.btn_ir_prediccion = QPushButton(self._i18n.t("citas.riesgo.ir_prediccion"), tab_lista)
         self.btn_ir_prediccion.clicked.connect(self._ir_a_prediccion)
@@ -110,6 +120,7 @@ class PageCitas(QWidget):
         barra_rango.addWidget(self.lbl_cargando)
 
         barra_aviso = QHBoxLayout()
+        barra_aviso.addWidget(self.lbl_error_filtros)
         barra_aviso.addWidget(self.lbl_aviso_prediccion)
         barra_aviso.addWidget(self.btn_ir_prediccion)
         barra_aviso.addStretch(1)
@@ -133,10 +144,8 @@ class PageCitas(QWidget):
         return tabla
 
     def _crear_tabla_lista(self) -> QTableWidget:
-        tabla = QTableWidget(0, 9)
-        tabla.setHorizontalHeaderLabels(
-            ["Fecha", "Hora inicio", "Hora fin", "Paciente", "Médico", "Sala", "Estado", "Notas len", "Incidencias"]
-        )
+        tabla = QTableWidget(0, len(self._columnas_lista))
+        tabla.setHorizontalHeaderLabels(self._headers_lista(self._columnas_lista))
         tabla.setEditTriggers(QTableWidget.NoEditTriggers)
         tabla.setContextMenuPolicy(Qt.CustomContextMenu)
         return tabla
@@ -158,6 +167,8 @@ class PageCitas(QWidget):
         self.table_lista.customContextMenuRequested.connect(self._on_lista_context_menu)
 
     def on_show(self) -> None:
+        if self._columnas_restauradas:
+            self.lbl_error_filtros.setText(self._i18n.t("citas.validacion.columnas_invalidas_restauradas"))
         self._riesgo_enabled = self._mostrar_riesgo_agenda()
         self._sync_columna_riesgo_lista()
         self._refresh_calendario()
@@ -168,7 +179,7 @@ class PageCitas(QWidget):
         return bool(int(value))
 
     def _sync_columna_riesgo_lista(self) -> None:
-        headers = ["Fecha", "Hora inicio", "Hora fin", "Paciente", "Médico", "Sala", "Estado", "Notas len", "Incidencias"]
+        headers = self._headers_lista(self._columnas_lista)
         if self._riesgo_enabled:
             headers.append(self._i18n.t("citas.riesgo.columna"))
         self.table_lista.setColumnCount(len(headers))
@@ -217,11 +228,28 @@ class PageCitas(QWidget):
         QTimer.singleShot(0, self._refresh_lista)
 
     def _refresh_lista(self) -> None:
+        filtros_norm = normalizar_filtros_citas(
+            {
+                "desde": self.desde_date.date().toString("yyyy-MM-dd"),
+                "hasta": self.hasta_date.date().toString("yyyy-MM-dd"),
+                "texto_busqueda": self.filtros.texto(),
+                "estado": self.filtros.estado(),
+            }
+        )
+        resultado = validar_filtros_citas(filtros_norm)
+        if not resultado.ok:
+            self._mostrar_error_validacion(resultado)
+            self._cargar_tabla_lista([])
+            self.filtros.set_contador(0, 0)
+            self.lbl_cargando.setText("")
+            return
+
+        self.lbl_error_filtros.setText("")
         rows = self._queries.search_listado(
-            desde=self.desde_date.date().toString("yyyy-MM-dd"),
-            hasta=self.hasta_date.date().toString("yyyy-MM-dd"),
-            texto=self.filtros.texto(),
-            estado=self.filtros.estado(),
+            desde=filtros_norm["desde"],
+            hasta=filtros_norm["hasta"],
+            texto=filtros_norm["texto_busqueda"] or "",
+            estado=filtros_norm["estado"] or "TODOS",
         )
         self._cargar_tabla_lista(rows)
         self.filtros.set_contador(len(rows), len(rows))
@@ -236,15 +264,7 @@ class PageCitas(QWidget):
             row_index = self.table_lista.rowCount()
             self.table_lista.insertRow(row_index)
             values = [
-                cita.fecha,
-                cita.hora_inicio,
-                cita.hora_fin,
-                cita.paciente,
-                cita.medico,
-                cita.sala,
-                etiqueta_estado_cita(cita.estado),
-                str(cita.notas_len),
-                self._i18n.t("comun.si") if cita.tiene_incidencias else self._i18n.t("comun.no"),
+                self._valor_columna_lista(clave, cita) for clave in self._columnas_lista
             ]
             if self._riesgo_enabled:
                 resultado = resolver_texto_riesgo(riesgos.get(cita.id, RIESGO_NO_DISPONIBLE), self._i18n)
@@ -253,6 +273,48 @@ class PageCitas(QWidget):
             for col, value in enumerate(values):
                 self.table_lista.setItem(row_index, col, QTableWidgetItem(value))
         self._actualizar_aviso_no_disponible(hay_no_disponible)
+
+    def _mostrar_error_validacion(self, resultado) -> None:
+        mensaje = self._i18n.t(resultado.errores[0].i18n_key)
+        self.lbl_error_filtros.setText(mensaje)
+
+    def _valor_columna_lista(self, clave: str, cita: CitaListadoRow) -> str:
+        mapa = {
+            "fecha": cita.fecha,
+            "hora_inicio": cita.hora_inicio,
+            "hora_fin": cita.hora_fin,
+            "paciente": cita.paciente,
+            "medico": cita.medico,
+            "sala": cita.sala,
+            "estado": etiqueta_estado_cita(cita.estado),
+            "notas_len": str(cita.notas_len),
+            "incidencias": self._i18n.t("comun.si") if cita.tiene_incidencias else self._i18n.t("comun.no"),
+        }
+        return mapa.get(clave, "")
+
+    def _headers_lista(self, columnas: list[str]) -> list[str]:
+        etiquetas = {atributo.clave: atributo.etiqueta for atributo in ATRIBUTOS_CITA}
+        return [etiquetas[clave] for clave in columnas]
+
+    def _cargar_columnas_lista(self) -> list[str]:
+        qsettings = QSettings("clinicdesk", "ui")
+        raw = qsettings.value("citas/listado/columnas")
+        columnas = self._normalizar_columnas(raw)
+        resultado = resolver_columnas_cita(columnas)
+        self._columnas_restauradas = resultado.restauradas
+        if resultado.restauradas:
+            qsettings.setValue("citas/listado/columnas", list(resultado.columnas))
+        return list(resultado.columnas)
+
+    @staticmethod
+    def _normalizar_columnas(raw) -> list[str] | None:
+        if raw is None:
+            return None
+        if isinstance(raw, str):
+            return [parte.strip() for parte in raw.split(",") if parte.strip()]
+        if isinstance(raw, list):
+            return [str(parte).strip() for parte in raw if str(parte).strip()]
+        return None
 
     def _obtener_riesgo_citas_lista(self, rows: list[CitaListadoRow]) -> dict[int, str]:
         dtos = construir_dtos_desde_listado(rows, datetime.now())
