@@ -46,3 +46,40 @@
   - lógica de UI dentro de use cases,
   - acceso directo a SQLite desde use cases,
   - side effects no declarados por puertos.
+
+## 5) Reglas obligatorias de tamaño y complejidad
+Estas reglas son de cumplimiento obligatorio para código nuevo y refactorizaciones:
+- **Archivo**: máximo **299 LOC** (`archivo < 300 LOC`).
+- **Función o método**: máximo **39 LOC** (`función < 40 LOC`).
+- **Complejidad ciclomática (CC)**: máximo **10** por función/método (`CC ≤ 10`).
+- **Responsabilidad única**: cada módulo/clase/función debe tener una única razón de cambio. Si una pieza combina lectura/escritura, mapeo, validación y orquestación, debe particionarse.
+
+## 6) Convenciones de naming y lenguaje
+- Se usan **nombres en español técnico** consistentes con el dominio clínico.
+- Se permiten siglas aceptadas (`DTO`, `SQL`, `UI`, `ML`) cuando mejoran legibilidad.
+- Nombres deben ser explícitos sobre intención y contexto (`repositorio_pacientes`, `normalizar_telefono`, `registrar_auditoria`).
+- Evitar nombres ambiguos o genéricos (`utils`, `data`, `manager`, `helper`) salvo en casos acotados y documentados.
+
+## 7) i18n centralizada
+- Todo literal visible en UI o reportes de usuario debe resolverse desde un **catálogo centralizado de i18n**.
+- No hardcodear mensajes en controladores, casos de uso o repositorios.
+- Claves de traducción deben seguir namespace por capa/feature (`ui.citas.estado.cancelada`, `errores.validacion.telefono`).
+
+## 8) Logging estructurado y trazabilidad
+- El logging debe ser **estructurado** (campos clave-valor), no solo texto libre.
+- Campos mínimos recomendados: `evento`, `entidad`, `entidad_id`, `caso_uso`, `resultado`, `duracion_ms`, `correlation_id`.
+- No registrar datos sensibles en claro (PII/secretos/tokens).
+- Errores deben conservar contexto técnico mínimo para observabilidad sin filtrar información confidencial.
+
+## 9) Política de testing obligatoria
+- Todo cambio funcional o de infraestructura debe incluir pruebas automáticas.
+- Cobertura mínima esperada en **core (domain + application)**: **≥ 85%**.
+- Cada bug corregido debe acompañarse de test de regresión.
+- Refactors estructurales deben mantener o mejorar cobertura y no degradar la suite existente.
+
+## 10) Criterio de salida para refactorizaciones
+- No se considera terminado un refactor si:
+  - rompe contratos públicos sin plan de migración,
+  - aumenta acoplamiento entre capas,
+  - reduce cobertura en core por debajo de 85%,
+  - introduce deuda estructural evitable frente a las reglas de tamaño/CC.
