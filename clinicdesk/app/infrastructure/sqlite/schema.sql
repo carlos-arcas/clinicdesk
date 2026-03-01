@@ -239,6 +239,21 @@ CREATE INDEX IF NOT EXISTS idx_citas_activo_estado_inicio ON citas(activo, estad
 -- PREDICCION AUSENCIAS (registro de riesgos por versión)
 -- ============================================================
 
+
+
+CREATE TABLE IF NOT EXISTS recordatorios_citas (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    cita_id INTEGER NOT NULL,
+    canal TEXT NOT NULL CHECK(canal IN ('WHATSAPP', 'EMAIL', 'LLAMADA')),
+    estado TEXT NOT NULL CHECK(estado IN ('PREPARADO', 'ENVIADO')),
+    created_at_utc TEXT NOT NULL,
+    updated_at_utc TEXT NOT NULL,
+    UNIQUE(cita_id, canal),
+    FOREIGN KEY (cita_id) REFERENCES citas(id) ON DELETE CASCADE
+);
+CREATE INDEX IF NOT EXISTS idx_recordatorios_citas_cita_id ON recordatorios_citas(cita_id);
+CREATE INDEX IF NOT EXISTS idx_recordatorios_citas_updated_at_utc ON recordatorios_citas(updated_at_utc);
+
 CREATE TABLE IF NOT EXISTS predicciones_ausencias_log (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     timestamp_utc TEXT NOT NULL,
