@@ -10,6 +10,7 @@ from clinicdesk.app.application.security import Role, UserContext
 from clinicdesk.app.application.pipelines.build_citas_dataset import BuildCitasDataset
 from clinicdesk.app.application.services.demo_ml_facade import DemoMLFacade
 from clinicdesk.app.application.services.feature_store_service import FeatureStoreService
+from clinicdesk.app.application.services.prediccion_ausencias_facade import PrediccionAusenciasFacade
 from clinicdesk.app.application.usecases.drift_citas_features import DriftCitasFeatures
 from clinicdesk.app.application.usecases.score_citas import ScoreCitas
 from clinicdesk.app.application.usecases.seed_demo_data import SeedDemoData
@@ -51,6 +52,7 @@ class AppContainer:
     connection: sqlite3.Connection
     queries: QueriesHub
     demo_ml_facade: DemoMLFacade
+    prediccion_ausencias_facade: PrediccionAusenciasFacade
 
     pacientes_repo: PacientesRepository
     medicos_repo: MedicosRepository
@@ -107,6 +109,7 @@ def build_container(connection: sqlite3.Connection) -> AppContainer:
     auditoria_accesos_repo = RepositorioAuditoriaAccesoSqlite(connection)
 
     demo_ml_facade = _build_demo_ml_facade(connection, citas_repo, incidencias_repo)
+    prediccion_ausencias_facade = _build_prediccion_ausencias_facade(connection)
 
     role_value = os.getenv("CLINICDESK_ROLE", Role.ADMIN.value).upper()
     role = Role(role_value) if role_value in {r.value for r in Role} else Role.ADMIN
@@ -116,6 +119,7 @@ def build_container(connection: sqlite3.Connection) -> AppContainer:
         connection=connection,
         queries=queries,
         demo_ml_facade=demo_ml_facade,
+        prediccion_ausencias_facade=prediccion_ausencias_facade,
         pacientes_repo=pacientes_repo,
         medicos_repo=medicos_repo,
         personal_repo=personal_repo,
@@ -159,3 +163,28 @@ def _build_demo_ml_facade(
         score_uc=ScoreCitas(feature_service, BaselineCitasPredictor(), model_store=model_store),
         drift_uc=DriftCitasFeatures(feature_service),
     )
+
+
+def _build_prediccion_ausencias_facade(connection: sqlite3.Connection) -> PrediccionAusenciasFacade:
+    from clinicdesk.app.application.prediccion_ausencias.usecases import (
+        ComprobarDatosPrediccionAusencias,
+        EntrenarPrediccionAusencias,
+        PrevisualizarPrediccionAusencias,
+    )
+    from clinicdesk.app.infrastructure.prediccion_ausencias import (
+        AlmacenamientoModeloPrediccion,
+        PredictorAusenciasBaseline,
+    )
+    from clinicdesk.app.queries.prediccion_ausencias_queries import PrediccionAusenciasQueries
+
+    queries = PrediccionAusenciasQueries(connection)
+    almacenamiento = AlmacenamientoModeloPrediccion()
+    comprobar_uc = ComprobarDatosPrediccionAusencias(queries, minimo_requerido=50)
+    entrenar_uc = EntrenarPrediccionAusencias(
+        comprobar_datos_uc=comprobar_uc,
+        queries=queries,
+        predictor=PredictorAusenciasBaseline(),
+        almacenamiento=almacenamiento,
+    )
+    previsualizar_uc = PrevisualizarPrediccionAusencias(queries, almacenamiento)
+    return PrediccionAusenciasFacade(comprobar_uc, entrenar_uc, previsualizar_uc)

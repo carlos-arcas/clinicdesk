@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
 from typing import Dict, List
 
 from clinicdesk.app.container import AppContainer
@@ -43,8 +42,8 @@ def register_pages(registry: PageRegistry, container: AppContainer) -> None:
     register_farmacia(registry, container)
 
 
-def get_pages(container: AppContainer) -> List[PageDef]:
+def get_pages(container: AppContainer, i18n) -> List[PageDef]:
     """Bootstrap UI: reúne todas las páginas registradas por feature."""
     from clinicdesk.app.ui.bootstrap_ui import get_pages as get_ui_pages
 
-    return get_ui_pages(container)
+    return get_ui_pages(container, i18n)
