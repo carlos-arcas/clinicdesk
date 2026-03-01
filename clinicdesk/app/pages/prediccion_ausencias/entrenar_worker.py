@@ -1,14 +1,35 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
+
 from PySide6.QtCore import QObject, QThread, Signal
 
 from clinicdesk.app.application.prediccion_ausencias import EntrenamientoPrediccionError
 
 
+@dataclass(frozen=True, slots=True)
+class EntrenamientoFailPayload:
+    reason_code: str
+    error_type: str
+    error_message: str
+
+
+def construir_payload_error_entrenamiento(exc: Exception) -> EntrenamientoFailPayload:
+    if isinstance(exc, EntrenamientoPrediccionError):
+        reason_code = exc.reason_code
+    else:
+        reason_code = "unexpected_error"
+    return EntrenamientoFailPayload(
+        reason_code=reason_code,
+        error_type=type(exc).__name__,
+        error_message=str(exc),
+    )
+
+
 class EntrenarPrediccionWorker(QObject):
     started = Signal()
     ok = Signal(object)
-    fail = Signal(str)
+    fail = Signal(object)
     finished = Signal()
 
     # Compatibilidad con conexiones existentes.
@@ -24,10 +45,8 @@ class EntrenarPrediccionWorker(QObject):
         try:
             resultado = self._entrenar_uc.ejecutar()
             self.ok.emit(resultado)
-        except EntrenamientoPrediccionError as exc:
-            self.fail.emit(exc.reason_code)
-        except Exception:  # noqa: BLE001
-            self.fail.emit("unexpected_error")
+        except Exception as exc:  # noqa: BLE001
+            self.fail.emit(construir_payload_error_entrenamiento(exc))
         finally:
             self.finished.emit()
 
@@ -35,7 +54,7 @@ class EntrenarPrediccionWorker(QObject):
 class RunnerEntrenamientoPrediccion(QObject):
     started = Signal()
     ok = Signal(object)
-    fail = Signal(str)
+    fail = Signal(object)
     finished = Signal()
 
     success = ok
