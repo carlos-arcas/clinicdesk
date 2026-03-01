@@ -20,8 +20,11 @@ from clinicdesk.app.bootstrap_logging import get_contexto_log, get_logger
 from clinicdesk.app.i18n import I18nManager
 from clinicdesk.app.infrastructure.prediccion_ausencias.incidentes import escribir_incidente_entrenamiento
 from clinicdesk.app.pages.prediccion_ausencias.cerrar_citas_antiguas_dialog import CerrarCitasAntiguasDialog
-from clinicdesk.app.pages.prediccion_ausencias.entrenar_worker import EntrenarPrediccionWorker
-from clinicdesk.app.pages.prediccion_ausencias.error_handling import ErrorEntrenamientoNormalizado, normalizar_error_entrenamiento
+from clinicdesk.app.pages.prediccion_ausencias.entrenar_worker import (
+    EntrenamientoFailPayload,
+    EntrenarPrediccionWorker,
+)
+from clinicdesk.app.pages.prediccion_ausencias.error_handling import normalizar_error_entrenamiento
 LOGGER = get_logger(__name__)
 class PagePrediccionAusencias(QWidget):
     def __init__(self, facade: PrediccionAusenciasFacade, i18n: I18nManager, parent: QWidget | None = None) -> None:
@@ -211,25 +214,63 @@ class PagePrediccionAusencias(QWidget):
         except Exception:  # noqa: BLE001
             LOGGER.exception("prediccion_entrenar_ok_handler_crash", extra={"action": "prediccion_entrenar_ok_handler_crash", "page": "prediccion_ausencias"})
             self._set_estado_error("unexpected_error")
-    def _on_entrenar_fail(self, reason_code: str) -> None:
-        normalizado = normalizar_error_entrenamiento(reason_code)
+    def _on_entrenar_fail(self, fail_payload: EntrenamientoFailPayload | str) -> None:
+        error_ctx = self._normalizar_contexto_fallo(fail_payload)
+        normalizado = normalizar_error_entrenamiento(error_ctx.reason_code)
         try:
             self._set_estado_error(normalizado.reason_code)
-            self._escribir_incidente_fallo(normalizado)
-            LOGGER.error("prediccion_entrenar_fail", extra={"action": "prediccion_entrenar_fail", "page": "prediccion_ausencias", "reason_code": normalizado.reason_code})
+            self._escribir_incidente_fallo(
+                reason_code=normalizado.reason_code,
+                error_type=error_ctx.error_type,
+                error_message=error_ctx.error_message,
+            )
+            LOGGER.error(
+                "prediccion_entrenar_fail",
+                extra={
+                    "action": "prediccion_entrenar_fail",
+                    "page": "prediccion_ausencias",
+                    "reason_code": normalizado.reason_code,
+                    "error_type": error_ctx.error_type,
+                    "error_message": error_ctx.error_message,
+                },
+            )
         except Exception:  # noqa: BLE001
-            LOGGER.exception("prediccion_entrenar_fail_handler_crash", extra={"action": "prediccion_entrenar_fail_handler_crash", "page": "prediccion_ausencias"})
+            LOGGER.exception(
+                "prediccion_entrenar_fail_handler_crash",
+                extra={"action": "prediccion_entrenar_fail_handler_crash", "page": "prediccion_ausencias"},
+            )
             self._set_estado_error("unexpected_error")
-    def _escribir_incidente_fallo(self, normalizado: ErrorEntrenamientoNormalizado) -> None:
-        run_id, request_id = get_contexto_log()
-        ruta = escribir_incidente_entrenamiento(
-            Path("./logs"),
-            run_id=run_id,
-            request_id=request_id,
-            reason_code=normalizado.reason_code,
-            mensaje_usuario=self._i18n.t(normalizado.mensaje_i18n_key),
+
+    def _normalizar_contexto_fallo(self, fail_payload: EntrenamientoFailPayload | str) -> EntrenamientoFailPayload:
+        if isinstance(fail_payload, EntrenamientoFailPayload):
+            return fail_payload
+        return EntrenamientoFailPayload(
+            reason_code=str(fail_payload) if str(fail_payload).strip() else "unexpected_error",
+            error_type="UnknownError",
+            error_message=str(fail_payload),
         )
-        LOGGER.error("prediccion_entrenar_incidente", extra={"action": "prediccion_entrenar_incidente", "reason_code": normalizado.reason_code, "incident_path": str(ruta)})
+
+    def _escribir_incidente_fallo(self, *, reason_code: str, error_type: str, error_message: str) -> None:
+        try:
+            run_id, request_id = get_contexto_log()
+            ruta = escribir_incidente_entrenamiento(
+                Path("./logs"),
+                run_id=run_id,
+                request_id=request_id,
+                reason_code=reason_code,
+                error_type=error_type,
+                error_message=error_message,
+                stage="entrenar",
+            )
+            LOGGER.error(
+                "prediccion_entrenar_incidente",
+                extra={"action": "prediccion_entrenar_incidente", "reason_code": reason_code, "incident_path": str(ruta)},
+            )
+        except Exception:  # noqa: BLE001
+            LOGGER.exception(
+                "prediccion_entrenar_incidente_fail",
+                extra={"action": "prediccion_entrenar_incidente_fail", "reason_code": reason_code},
+            )
     def _on_entrenar_finish(self) -> None:
         self._entrenamiento_activo = False
         self._actualizar_estado_botones()
