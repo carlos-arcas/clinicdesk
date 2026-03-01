@@ -1,10 +1,14 @@
 from __future__ import annotations
 
+import json
 from datetime import datetime, timedelta
 from pathlib import Path
 
+import pytest
+
 from clinicdesk.app.application.prediccion_ausencias.usecases import (
     ComprobarDatosPrediccionAusencias,
+    EntrenamientoPrediccionError,
     EntrenarPrediccionAusencias,
     PrevisualizarPrediccionAusencias,
 )
@@ -63,7 +67,7 @@ def test_comprobar_datos_prediccion_detecta_minimo(db_connection) -> None:
     assert resultado.mensaje_clave == "prediccion_ausencias.estado.datos_insuficientes"
 
 
-def test_entrenar_guarda_modelo_y_recarga_predice(db_connection, tmp_path: Path) -> None:
+def test_entrenar_guarda_modelo_actualiza_metadata_y_recarga_predice(db_connection, tmp_path: Path) -> None:
     paciente_id, medico_id, sala_id = _seed_base_tablas(db_connection)
     for idx in range(60):
         estado = "NO_PRESENTADO" if idx % 3 == 0 else "REALIZADA"
@@ -85,10 +89,50 @@ def test_entrenar_guarda_modelo_y_recarga_predice(db_connection, tmp_path: Path)
     resultado = entrenar_uc.ejecutar()
     predictor, metadata = almacenamiento.cargar()
     predicciones = predictor.predecir([])
+    metadata_path = almacenamiento.carpeta_modelo / "metadata.json"
+    metadata_json = json.loads(metadata_path.read_text(encoding="utf-8"))
 
     assert resultado.citas_usadas == 60
     assert metadata.citas_usadas == 60
+    assert metadata_json["citas_usadas"] == 60
+    assert datetime.fromisoformat(metadata_json["fecha_entrenamiento"])
     assert predicciones == []
+
+
+def test_entrenar_sin_datos_lanza_error_funcional_tipado(db_connection, tmp_path: Path) -> None:
+    _, _, _ = _seed_base_tablas(db_connection)
+    queries = PrediccionAusenciasQueries(db_connection)
+    almacenamiento = AlmacenamientoModeloPrediccion(tmp_path)
+    comprobar_uc = ComprobarDatosPrediccionAusencias(queries, minimo_requerido=50)
+    entrenar_uc = EntrenarPrediccionAusencias(comprobar_uc, queries, PredictorAusenciasBaseline(), almacenamiento)
+
+    with pytest.raises(EntrenamientoPrediccionError) as exc_info:
+        entrenar_uc.ejecutar()
+
+    assert exc_info.value.reason_code == "dataset_insuficiente"
+
+
+def test_entrenar_io_error_lanza_reason_code_save_failed(db_connection, tmp_path: Path) -> None:
+    paciente_id, medico_id, sala_id = _seed_base_tablas(db_connection)
+    for idx in range(60):
+        _insert_cita(
+            db_connection,
+            paciente_id=paciente_id,
+            medico_id=medico_id,
+            sala_id=sala_id,
+            inicio=datetime.now() - timedelta(days=100 - idx),
+            estado="REALIZADA",
+        )
+    db_connection.commit()
+
+    queries = PrediccionAusenciasQueries(db_connection)
+    comprobar_uc = ComprobarDatosPrediccionAusencias(queries, minimo_requerido=50)
+    entrenar_uc = EntrenarPrediccionAusencias(comprobar_uc, queries, PredictorAusenciasBaseline(), _AlmacenamientoQueFalla())
+
+    with pytest.raises(EntrenamientoPrediccionError) as exc_info:
+        entrenar_uc.ejecutar()
+
+    assert exc_info.value.reason_code == "save_failed"
 
 
 def test_previsualizar_sin_y_con_modelo(db_connection, tmp_path: Path) -> None:
@@ -130,3 +174,8 @@ def test_previsualizar_sin_y_con_modelo(db_connection, tmp_path: Path) -> None:
     assert con_modelo.estado == "LISTO"
     assert len(con_modelo.items) == 3
     assert {item.riesgo for item in con_modelo.items}.issubset({"BAJO", "MEDIO", "ALTO"})
+
+
+class _AlmacenamientoQueFalla:
+    def guardar(self, predictor_entrenado, *, citas_usadas: int, version: str):  # noqa: ARG002
+        raise OSError("disk_full")

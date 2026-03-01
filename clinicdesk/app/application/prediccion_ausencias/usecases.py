@@ -34,6 +34,12 @@ class ResultadoEntrenamientoPrediccion:
     fecha_entrenamiento: str
 
 
+class EntrenamientoPrediccionError(Exception):
+    def __init__(self, reason_code: str) -> None:
+        super().__init__(reason_code)
+        self.reason_code = reason_code
+
+
 class ComprobarDatosPrediccionAusencias:
     def __init__(self, queries: PrediccionAusenciasQueries, minimo_requerido: int = 50) -> None:
         self._queries = queries
@@ -67,15 +73,28 @@ class EntrenarPrediccionAusencias:
     def ejecutar(self) -> ResultadoEntrenamientoPrediccion:
         chequeo = self._comprobar_datos_uc.ejecutar()
         if not chequeo.apto_para_entrenar:
-            raise ValueError("datos_insuficientes")
+            raise EntrenamientoPrediccionError("dataset_insuficiente")
 
         dataset = self._construir_dataset(self._queries.obtener_dataset_entrenamiento())
+        if not dataset:
+            raise EntrenamientoPrediccionError("dataset_empty")
+
         predictor_entrenado = self._predictor.entrenar(dataset)
-        metadata = self._almacenamiento.guardar(
-            predictor_entrenado,
-            citas_usadas=len(dataset),
-            version="prediccion_ausencias_v1",
-        )
+        try:
+            metadata = self._almacenamiento.guardar(
+                predictor_entrenado,
+                citas_usadas=len(dataset),
+                version="prediccion_ausencias_v1",
+            )
+        except OSError as exc:
+            LOGGER.error(
+                "prediccion_entrenamiento_no_guardado",
+                extra={"reason_code": "save_failed", "error": str(exc)},
+            )
+            raise EntrenamientoPrediccionError("save_failed") from exc
+
+        if not metadata.fecha_entrenamiento:
+            raise EntrenamientoPrediccionError("metadata_invalid")
         return ResultadoEntrenamientoPrediccion(
             citas_usadas=metadata.citas_usadas,
             fecha_entrenamiento=metadata.fecha_entrenamiento,
