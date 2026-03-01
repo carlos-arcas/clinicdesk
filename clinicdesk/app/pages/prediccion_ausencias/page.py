@@ -18,6 +18,7 @@ from PySide6.QtWidgets import (
 from clinicdesk.app.application.services.prediccion_ausencias_facade import PrediccionAusenciasFacade
 from clinicdesk.app.bootstrap_logging import get_logger
 from clinicdesk.app.i18n import I18nManager
+from clinicdesk.app.pages.prediccion_ausencias.cerrar_citas_antiguas_dialog import CerrarCitasAntiguasDialog
 
 LOGGER = get_logger(__name__)
 
@@ -55,9 +56,15 @@ class PagePrediccionAusencias(QWidget):
         self.lbl_salud_mensaje.setWordWrap(True)
         self.btn_salud_entrenar = QPushButton()
         self.btn_salud_entrenar.clicked.connect(self._entrenar)
+        self.lbl_salud_ayuda_cierre = QLabel()
+        self.lbl_salud_ayuda_cierre.setWordWrap(True)
+        self.btn_cerrar_citas_antiguas = QPushButton()
+        self.btn_cerrar_citas_antiguas.clicked.connect(self._abrir_asistente_cierre)
         layout.addWidget(self.lbl_salud_estado)
         layout.addWidget(self.lbl_salud_mensaje)
         layout.addWidget(self.btn_salud_entrenar)
+        layout.addWidget(self.btn_cerrar_citas_antiguas)
+        layout.addWidget(self.lbl_salud_ayuda_cierre)
         return self.box_salud
 
 
@@ -141,7 +148,9 @@ class PagePrediccionAusencias(QWidget):
             self._i18n.t(salud.mensaje_i18n_key).format(citas=salud.citas_validas_recientes)
         )
         self.btn_salud_entrenar.setVisible(salud.estado in {"AMARILLO", "ROJO"})
-
+        mostrar_cierre = salud.estado in {"AMARILLO", "ROJO"} and salud.citas_validas_recientes < 50
+        self.btn_cerrar_citas_antiguas.setVisible(mostrar_cierre)
+        self.lbl_salud_ayuda_cierre.setVisible(mostrar_cierre)
 
     def _actualizar_resultados_recientes(self) -> None:
         resultado = self._facade.obtener_resultados_recientes_uc.ejecutar()
@@ -222,6 +231,8 @@ class PagePrediccionAusencias(QWidget):
         self.btn_salud_entrenar.setText(self._i18n.t("prediccion_ausencias.accion.entrenar"))
         self.btn_entrenar.setText(self._i18n.t("prediccion_ausencias.accion.entrenar"))
         self.chk_activar.setText(self._i18n.t("prediccion_ausencias.accion.activar_agenda"))
+        self.btn_cerrar_citas_antiguas.setText(self._i18n.t("prediccion_ausencias.cierre.cta"))
+        self.lbl_salud_ayuda_cierre.setText(self._i18n.t("prediccion_ausencias.cierre.cta_ayuda"))
         self.tabla.setHorizontalHeaderLabels(
             [
                 self._i18n.t("prediccion_ausencias.tabla.fecha"),
@@ -232,6 +243,14 @@ class PagePrediccionAusencias(QWidget):
             ]
         )
         self._actualizar_resultados_recientes()
+
+
+    def _abrir_asistente_cierre(self) -> None:
+        dialog = CerrarCitasAntiguasDialog(self._facade, self._i18n, self)
+        if dialog.exec():
+            self._actualizar_salud()
+            self._actualizar_resultados_recientes()
+            self._comprobar_datos()
 
     def _set_bloqueo(self, enabled: bool) -> None:
         self.btn_entrenar.setDisabled(enabled)

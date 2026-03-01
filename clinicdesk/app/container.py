@@ -166,6 +166,10 @@ def _build_demo_ml_facade(
 
 
 def _build_prediccion_ausencias_facade(connection: sqlite3.Connection) -> PrediccionAusenciasFacade:
+    from clinicdesk.app.application.prediccion_ausencias.cierre_citas_usecases import (
+        CerrarCitasPendientes,
+        ListarCitasPendientesCierre,
+    )
     from clinicdesk.app.application.prediccion_ausencias.usecases import (
         ComprobarDatosPrediccionAusencias,
         EntrenarPrediccionAusencias,
@@ -203,6 +207,8 @@ def _build_prediccion_ausencias_facade(connection: sqlite3.Connection) -> Predic
     obtener_salud_uc = ObtenerSaludPrediccionAusencias(lector_metadata=almacenamiento, queries=queries)
     registrar_predicciones_agenda_uc = RegistrarPrediccionesAusenciasAgenda(resultados_queries)
     obtener_resultados_recientes_uc = ObtenerResultadosRecientesPrediccionAusencias(resultados_queries)
+    listar_pendientes_uc = ListarCitasPendientesCierre(queries)
+    cerrar_pendientes_uc = CerrarCitasPendientes(queries)
     return PrediccionAusenciasFacade(
         comprobar_uc,
         entrenar_uc,
@@ -212,4 +218,6 @@ def _build_prediccion_ausencias_facade(connection: sqlite3.Connection) -> Predic
         obtener_salud_uc,
         registrar_predicciones_agenda_uc,
         obtener_resultados_recientes_uc,
+        listar_pendientes_uc,
+        cerrar_pendientes_uc,
     )
