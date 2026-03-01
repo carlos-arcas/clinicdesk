@@ -3,6 +3,11 @@ from __future__ import annotations
 from typing import Callable
 
 from clinicdesk.app.i18n_catalog import _TRANSLATIONS
+from clinicdesk.app.i18n_prediccion_cierre import TRADUCCIONES_CIERRE_PREDICCION
+
+for idioma, traducciones in TRADUCCIONES_CIERRE_PREDICCION.items():
+    _TRANSLATIONS.setdefault(idioma, {}).update(traducciones)
+
 
 class I18nManager:
     def __init__(self, language: str = "es") -> None:

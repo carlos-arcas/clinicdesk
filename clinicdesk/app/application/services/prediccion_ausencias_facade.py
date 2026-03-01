@@ -5,6 +5,10 @@ from dataclasses import dataclass
 from clinicdesk.app.application.prediccion_ausencias.riesgo_agenda import (
     ObtenerRiesgoAusenciaParaCitas,
 )
+from clinicdesk.app.application.prediccion_ausencias.cierre_citas_usecases import (
+    CerrarCitasPendientes,
+    ListarCitasPendientesCierre,
+)
 from clinicdesk.app.application.prediccion_ausencias.usecases import (
     ComprobarDatosPrediccionAusencias,
     EntrenarPrediccionAusencias,
@@ -28,3 +32,5 @@ class PrediccionAusenciasFacade:
     obtener_salud_uc: ObtenerSaludPrediccionAusencias
     registrar_predicciones_agenda_uc: RegistrarPrediccionesAusenciasAgenda
     obtener_resultados_recientes_uc: ObtenerResultadosRecientesPrediccionAusencias
+    listar_citas_pendientes_cierre_uc: ListarCitasPendientesCierre
+    cerrar_citas_pendientes_uc: CerrarCitasPendientes

@@ -72,3 +72,25 @@ class SaludPrediccionDTO:
     acciones_i18n_keys: tuple[str, ...]
     fecha_ultima_actualizacion: str | None
     citas_validas_recientes: int
+
+
+@dataclass(frozen=True, slots=True)
+class CitaPendienteCierreDTO:
+    cita_id: int
+    inicio_local: str
+    paciente: str
+    medico: str
+    estado_actual: str
+
+
+@dataclass(frozen=True, slots=True)
+class ListadoCitasPendientesCierreDTO:
+    items: list[CitaPendienteCierreDTO]
+    total: int
+
+
+@dataclass(frozen=True, slots=True)
+class ResultadoCierreCitasDTO:
+    actualizadas: int
+    ignoradas: int
+    errores: int

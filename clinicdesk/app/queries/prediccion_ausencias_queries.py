@@ -5,6 +5,7 @@ import sqlite3
 
 
 _ESTADOS_VALIDOS = ("REALIZADA", "NO_PRESENTADO")
+_ESTADOS_FINALES_CIERRE = ("REALIZADA", "NO_PRESENTADO", "CANCELADA")
 
 
 @dataclass(frozen=True, slots=True)
@@ -38,6 +39,15 @@ class ResumenHistorialPaciente:
     paciente_id: int
     citas_realizadas: int
     citas_no_presentadas: int
+
+
+@dataclass(frozen=True, slots=True)
+class FilaCitaPendienteCierre:
+    cita_id: int
+    inicio_local: str
+    paciente: str
+    medico: str
+    estado_actual: str
 
 
 class PrediccionAusenciasQueries:
@@ -186,3 +196,62 @@ class PrediccionAusenciasQueries:
             citas_realizadas=int(row["citas_realizadas"] or 0),
             citas_no_presentadas=int(row["citas_no_presentadas"] or 0),
         )
+
+    def listar_citas_pendientes_cierre(self, limite: int, offset: int) -> tuple[list[FilaCitaPendienteCierre], int]:
+        total_row = self._con.execute(
+            """
+            SELECT COUNT(1) AS total
+            FROM citas c
+            WHERE c.activo = 1
+              AND datetime(c.inicio) < datetime('now', '-24 hours')
+              AND c.estado NOT IN (?, ?, ?)
+            """,
+            _ESTADOS_FINALES_CIERRE,
+        ).fetchone()
+        rows = self._con.execute(
+            """
+            SELECT
+                c.id AS cita_id,
+                datetime(c.inicio) AS inicio_local,
+                (p.nombre || ' ' || p.apellidos) AS paciente,
+                (m.nombre || ' ' || m.apellidos) AS medico,
+                c.estado AS estado_actual
+            FROM citas c
+            JOIN pacientes p ON p.id = c.paciente_id
+            JOIN medicos m ON m.id = c.medico_id
+            WHERE c.activo = 1
+              AND datetime(c.inicio) < datetime('now', '-24 hours')
+              AND c.estado NOT IN (?, ?, ?)
+            ORDER BY datetime(c.inicio) ASC
+            LIMIT ? OFFSET ?
+            """,
+            (*_ESTADOS_FINALES_CIERRE, limite, offset),
+        ).fetchall()
+        items = [
+            FilaCitaPendienteCierre(
+                cita_id=int(r["cita_id"]),
+                inicio_local=str(r["inicio_local"]),
+                paciente=str(r["paciente"]),
+                medico=str(r["medico"]),
+                estado_actual=str(r["estado_actual"]),
+            )
+            for r in rows
+        ]
+        total = int(total_row["total"]) if total_row else 0
+        return items, total
+
+    def cerrar_citas_en_lote(self, items: list[tuple[int, str]]) -> int:
+        if not items:
+            return 0
+        cursor = self._con.cursor()
+        cursor.executemany(
+            """
+            UPDATE citas
+            SET estado = ?
+            WHERE id = ?
+              AND activo = 1
+            """,
+            [(estado, cita_id) for cita_id, estado in items],
+        )
+        self._con.commit()
+        return int(cursor.rowcount)
