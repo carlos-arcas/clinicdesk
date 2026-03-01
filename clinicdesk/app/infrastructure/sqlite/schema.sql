@@ -432,3 +432,22 @@ CREATE INDEX IF NOT EXISTS idx_incidencias_medico_fecha ON incidencias(medico_id
 CREATE INDEX IF NOT EXISTS idx_incidencias_personal_fecha ON incidencias(personal_id, fecha_hora);
 CREATE INDEX IF NOT EXISTS idx_incidencias_activo ON incidencias(activo);
 CREATE INDEX IF NOT EXISTS idx_incidencias_activo_estado_fecha ON incidencias(activo, estado, fecha_hora);
+
+-- ============================================================
+-- AUDITORÍA DE ACCESOS A DATOS SENSIBLES
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS auditoria_accesos (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    timestamp_utc TEXT NOT NULL,
+    usuario TEXT NOT NULL,
+    modo_demo INTEGER NOT NULL,
+    accion TEXT NOT NULL,
+    entidad_tipo TEXT NOT NULL,
+    entidad_id TEXT NOT NULL,
+    metadata_json TEXT,
+    created_at_utc TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_auditoria_accesos_timestamp ON auditoria_accesos(timestamp_utc);
+CREATE INDEX IF NOT EXISTS idx_auditoria_accesos_accion_entidad ON auditoria_accesos(accion, entidad_tipo, entidad_id);

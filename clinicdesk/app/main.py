@@ -40,7 +40,8 @@ def _install_ui_log_buffer() -> LogBufferHandler:
 
 def main() -> int:
     configure_logging("clinicdesk-ui", Path("./logs"), level="INFO", json=True)
-    set_run_context(uuid.uuid4().hex[:8])
+    run_id = uuid.uuid4().hex[:8]
+    set_run_context(run_id)
     install_global_exception_hook(LOGGER)
     _install_ui_log_buffer()
 
@@ -62,6 +63,10 @@ def main() -> int:
         login = LoginDialog(auth, i18n, demo_allowed=demo_allowed)
         if login.exec() != QDialog.Accepted:
             return False
+
+        container.user_context.demo_mode = login.outcome.demo_mode
+        container.user_context.username = login.outcome.username
+        container.user_context.run_id = run_id
 
         if login.outcome.demo_mode:
             LOGGER.warning("auth_mode=DEMO access_granted")

@@ -14,6 +14,9 @@ class Role(str, Enum):
 @dataclass(slots=True)
 class UserContext:
     role: Role = Role.ADMIN
+    username: str = "system"
+    demo_mode: bool = False
+    run_id: str | None = None
 
     @property
     def can_write(self) -> bool:
