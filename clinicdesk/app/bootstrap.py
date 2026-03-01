@@ -19,6 +19,7 @@ from os import getenv
 from pathlib import Path
 
 from clinicdesk.app.bootstrap_logging import get_logger
+from clinicdesk.app.common.field_crypto_flags import validate_field_crypto_configuration
 from clinicdesk.app.infrastructure.sqlite.sqlite_datetime_codecs import (
     register_sqlite_datetime_codecs,
 )
@@ -155,6 +156,7 @@ def bootstrap_database(apply_schema: bool = True, sqlite_path: str | None = None
     - Aplica schema.sql
     - Devuelve la conexión
     """
+    validate_field_crypto_configuration()
     data_dir().mkdir(parents=True, exist_ok=True)
 
     target_path = resolve_db_path(sqlite_path)
