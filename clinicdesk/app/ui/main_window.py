@@ -158,6 +158,9 @@ class MainWindow(QMainWindow):
             if key == "prediccion_ausencias":
                 item.setText(self._i18n.t("nav.prediccion_ausencias"))
                 continue
+            if key == "confirmaciones":
+                item.setText(self._i18n.t("nav.confirmaciones"))
+                continue
             item.setText(labels.get(key, item.text()))
 
     def _on_csv_imported(self, entity: str) -> None:

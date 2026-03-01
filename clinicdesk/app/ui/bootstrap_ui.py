@@ -1,6 +1,7 @@
 # clinicdesk/app/ui/bootstrap_ui.py
 
 from clinicdesk.app.pages.citas.register import register as register_citas
+from clinicdesk.app.pages.confirmaciones.register import register as register_confirmaciones
 from clinicdesk.app.pages.farmacia.register import register as register_farmacia
 from clinicdesk.app.pages.home.register import register as register_home
 from clinicdesk.app.pages.incidencias.register import register as register_incidencias
@@ -27,6 +28,7 @@ def get_pages(container, i18n: I18nManager):
     register_home(registry, container)
     register_pacientes(registry, container)
     register_citas(registry, container, i18n)
+    register_confirmaciones(registry, container, i18n)
     register_medicos(registry, container)
     register_personal(registry, container)
     register_salas(registry, container)
