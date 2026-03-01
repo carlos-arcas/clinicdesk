@@ -121,6 +121,10 @@ def set_run_context(run_id: str, user: str | None = None) -> None:
     _REQUEST_ID.set(run_id)
 
 
+def get_contexto_log() -> tuple[str, str]:
+    return _RUN_ID.get(), _REQUEST_ID.get()
+
+
 def log_soft_exception(logger: logging.LoggerAdapter, exc: Exception, context: dict[str, Any]) -> None:
     logger.error(
         "soft_exception",
