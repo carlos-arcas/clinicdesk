@@ -73,11 +73,13 @@ class RiesgoAusenciaDialog(QDialog):
     def _crear_botonera(self) -> QHBoxLayout:
         layout = QHBoxLayout()
         self.btn_ir_prediccion = QPushButton(self._i18n.t("citas.riesgo_dialogo.boton.ir_prediccion"), self)
+        self.btn_preparar_recordatorio = QPushButton(self._i18n.t("recordatorio.accion.preparar"), self)
         self.btn_cerrar = QPushButton(self._i18n.t("citas.riesgo_dialogo.boton.cerrar"), self)
         self.btn_cerrar.clicked.connect(self.reject)
         self.btn_ir_prediccion.setVisible(
             self._explicacion.metadata_simple.necesita_entrenar or self._debe_mostrar_aviso_salud()
         )
+        layout.addWidget(self.btn_preparar_recordatorio)
         layout.addWidget(self.btn_ir_prediccion)
         layout.addStretch(1)
         layout.addWidget(self.btn_cerrar)

@@ -25,6 +25,7 @@ from clinicdesk.app.container import AppContainer
 from clinicdesk.app.controllers.citas_controller import CitasController
 from clinicdesk.app.i18n import I18nManager
 from clinicdesk.app.pages.citas.estado_cita_presentacion import ESTADOS_FILTRO_CITAS, etiqueta_estado_cita
+from clinicdesk.app.pages.citas.recordatorio_cita_dialog import RecordatorioCitaDialog
 from clinicdesk.app.pages.citas.riesgo_ausencia_dialog import RiesgoAusenciaDialog
 from clinicdesk.app.pages.citas.riesgo_ausencia_ui import (
     SETTINGS_KEY_RIESGO_AGENDA,
@@ -137,6 +138,7 @@ class PageCitas(QWidget):
             ["Fecha", "Hora inicio", "Hora fin", "Paciente", "Médico", "Sala", "Estado", "Notas len", "Incidencias"]
         )
         tabla.setEditTriggers(QTableWidget.NoEditTriggers)
+        tabla.setContextMenuPolicy(Qt.CustomContextMenu)
         return tabla
 
     def _bind_events(self) -> None:
@@ -153,6 +155,7 @@ class PageCitas(QWidget):
         self.btn_semana.clicked.connect(self._set_semana)
         self.btn_mes.clicked.connect(self._set_mes)
         self.table_lista.itemClicked.connect(self._on_lista_item_clicked)
+        self.table_lista.customContextMenuRequested.connect(self._on_lista_context_menu)
 
     def on_show(self) -> None:
         self._riesgo_enabled = self._mostrar_riesgo_agenda()
@@ -292,9 +295,25 @@ class PageCitas(QWidget):
         if cita_id is not None:
             self._abrir_dialogo_riesgo(cita_id)
 
-    def _on_calendario_context_menu(self, point) -> None:
-        if not self._riesgo_enabled:
+
+    def _on_lista_context_menu(self, point) -> None:
+        item = self.table_lista.itemAt(point)
+        if item is None:
             return
+        cita_id = self._cita_id_lista(item.row())
+        if cita_id is None:
+            return
+        menu = QMenu(self)
+        action_recordatorio = QAction(self._i18n.t("recordatorio.accion.preparar"), self)
+        action_recordatorio.triggered.connect(lambda: self._abrir_dialogo_recordatorio(cita_id))
+        menu.addAction(action_recordatorio)
+        if self._riesgo_enabled:
+            action_riesgo = QAction(self._i18n.t("citas.riesgo_dialogo.menu.ver_riesgo"), self)
+            action_riesgo.triggered.connect(lambda: self._abrir_dialogo_riesgo(cita_id))
+            menu.addAction(action_riesgo)
+        menu.exec(self.table_lista.mapToGlobal(point))
+
+    def _on_calendario_context_menu(self, point) -> None:
         item = self.table.itemAt(point)
         if item is None:
             return
@@ -302,16 +321,25 @@ class PageCitas(QWidget):
         if cita_id is None:
             return
         menu = QMenu(self)
-        action = QAction(self._i18n.t("citas.riesgo_dialogo.menu.ver_riesgo"), self)
-        action.triggered.connect(lambda: self._abrir_dialogo_riesgo(cita_id))
-        menu.addAction(action)
+        action_recordatorio = QAction(self._i18n.t("recordatorio.accion.preparar"), self)
+        action_recordatorio.triggered.connect(lambda: self._abrir_dialogo_recordatorio(cita_id))
+        menu.addAction(action_recordatorio)
+        if self._riesgo_enabled:
+            action_riesgo = QAction(self._i18n.t("citas.riesgo_dialogo.menu.ver_riesgo"), self)
+            action_riesgo.triggered.connect(lambda: self._abrir_dialogo_riesgo(cita_id))
+            menu.addAction(action_riesgo)
         menu.exec(self.table.mapToGlobal(point))
 
     def _abrir_dialogo_riesgo(self, cita_id: int) -> None:
         explicacion = self._container.prediccion_ausencias_facade.obtener_explicacion_riesgo_uc.ejecutar(cita_id)
         salud = self._container.prediccion_ausencias_facade.obtener_salud_uc.ejecutar()
         dialog = RiesgoAusenciaDialog(self._i18n, explicacion, salud, self)
+        dialog.btn_preparar_recordatorio.clicked.connect(lambda: self._abrir_dialogo_recordatorio(cita_id))
         dialog.btn_ir_prediccion.clicked.connect(self._ir_a_prediccion)
+        dialog.exec()
+
+    def _abrir_dialogo_recordatorio(self, cita_id: int) -> None:
+        dialog = RecordatorioCitaDialog(self._container, self._i18n, cita_id, self)
         dialog.exec()
 
     def _columna_riesgo_lista(self) -> int:
