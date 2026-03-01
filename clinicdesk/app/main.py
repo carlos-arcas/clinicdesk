@@ -11,6 +11,7 @@ from clinicdesk.app.bootstrap import bootstrap_database, resolve_db_path
 from clinicdesk.app.bootstrap_logging import configure_logging, get_logger, set_run_context
 from clinicdesk.app.container import build_container
 from clinicdesk.app.crash_handler import install_global_exception_hook
+from clinicdesk.app.infrastructure.crash_logger import instalar_hooks_crash
 from clinicdesk.app.i18n import I18nManager
 from clinicdesk.app.security.auth import AuthService, is_demo_mode_allowed
 from clinicdesk.app.ui.log_buffer_handler import LogBufferHandler
@@ -39,6 +40,7 @@ def _install_ui_log_buffer() -> LogBufferHandler:
 
 
 def main() -> int:
+    instalar_hooks_crash(Path("./logs"))
     configure_logging("clinicdesk-ui", Path("./logs"), level="INFO", json=True)
     run_id = uuid.uuid4().hex[:8]
     set_run_context(run_id)
