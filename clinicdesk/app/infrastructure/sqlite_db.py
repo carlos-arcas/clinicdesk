@@ -6,6 +6,9 @@ from pathlib import Path
 from clinicdesk.app.infrastructure.sqlite.sqlite_datetime_codecs import (
     register_sqlite_datetime_codecs,
 )
+from clinicdesk.app.infrastructure.sqlite.sqlite_connection_config import (
+    configurar_conexion,
+)
 
 
 def obtener_conexion(db_path: str = "data/clinicdesk.sqlite") -> sqlite3.Connection:
@@ -29,7 +32,7 @@ def obtener_conexion(db_path: str = "data/clinicdesk.sqlite") -> sqlite3.Connect
     register_sqlite_datetime_codecs()
     conn = sqlite3.connect(str(p))
     conn.row_factory = sqlite3.Row
-    conn.execute("PRAGMA foreign_keys = ON")
+    configurar_conexion(conn)
     return conn
 
 

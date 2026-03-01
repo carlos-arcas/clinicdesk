@@ -17,8 +17,6 @@ from __future__ import annotations
 import sqlite3
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional
-
 from clinicdesk.app.infrastructure.sqlite.sqlite_datetime_codecs import (
     register_sqlite_datetime_codecs,
 )
@@ -30,6 +28,9 @@ from clinicdesk.app.infrastructure.sqlite.field_crypto_migrations import (
 from clinicdesk.app.infrastructure.sqlite.pii_crypto import (
     configure_connection_pii,
     migrate_existing_pii_data,
+)
+from clinicdesk.app.infrastructure.sqlite.sqlite_connection_config import (
+    configurar_conexion,
 )
 
 
@@ -51,32 +52,20 @@ def connect(config: SqliteConfig) -> sqlite3.Connection:
     config.db_path.parent.mkdir(parents=True, exist_ok=True)
     register_sqlite_datetime_codecs()
 
-    con = sqlite3.connect(config.db_path.as_posix())
+    return get_connection(config.db_path)
+
+
+def get_connection(db_path: str | Path) -> sqlite3.Connection:
+    """Abre una conexión SQLite y aplica configuración base de conexión."""
+    db_file = Path(db_path)
+    db_file.parent.mkdir(parents=True, exist_ok=True)
+    register_sqlite_datetime_codecs()
+
+    con = sqlite3.connect(db_file.as_posix())
     con.row_factory = sqlite3.Row  # devuelve filas tipo dict-like
     configure_connection_pii(con)
-
-    _apply_pragmas(con)
+    configurar_conexion(con)
     return con
-
-
-def _apply_pragmas(con: sqlite3.Connection) -> None:
-    """
-    PRAGMAs por conexión.
-
-    foreign_keys:
-    - Obligatorio para que se respeten las FKs.
-
-    journal_mode=WAL:
-    - Mejora concurrencia (muy útil en apps con UI).
-
-    synchronous=NORMAL:
-    - Buen equilibrio seguridad/rendimiento para apps de escritorio.
-    """
-    con.execute("PRAGMA foreign_keys = ON;")
-    con.execute("PRAGMA journal_mode = WAL;")
-    con.execute("PRAGMA synchronous = NORMAL;")
-    con.execute("PRAGMA temp_store = MEMORY;")
-    # con.execute("PRAGMA busy_timeout = 5000;")  # opcional, útil si hay locks
 
 
 def apply_schema(con: sqlite3.Connection, schema_path: Path) -> None:
