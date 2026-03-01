@@ -63,3 +63,12 @@ class ExplicacionRiesgoAusenciaDTO:
     motivos: tuple[MotivoRiesgoDTO, ...]
     acciones_sugeridas: tuple[str, ...]
     metadata_simple: MetadataExplicacionRiesgoDTO
+
+
+@dataclass(frozen=True, slots=True)
+class SaludPrediccionDTO:
+    estado: str
+    mensaje_i18n_key: str
+    acciones_i18n_keys: tuple[str, ...]
+    fecha_ultima_actualizacion: str | None
+    citas_validas_recientes: int

@@ -169,9 +169,10 @@ def _build_prediccion_ausencias_facade(connection: sqlite3.Connection) -> Predic
     from clinicdesk.app.application.prediccion_ausencias.usecases import (
         ComprobarDatosPrediccionAusencias,
         EntrenarPrediccionAusencias,
-        PrevisualizarPrediccionAusencias,
         ObtenerExplicacionRiesgoAusenciaCita,
+        PrevisualizarPrediccionAusencias,
     )
+    from clinicdesk.app.application.prediccion_ausencias.salud_prediccion import ObtenerSaludPrediccionAusencias
     from clinicdesk.app.application.prediccion_ausencias.riesgo_agenda import (
         ObtenerRiesgoAusenciaParaCitas,
     )
@@ -193,10 +194,12 @@ def _build_prediccion_ausencias_facade(connection: sqlite3.Connection) -> Predic
     previsualizar_uc = PrevisualizarPrediccionAusencias(queries, almacenamiento)
     obtener_riesgo_agenda_uc = ObtenerRiesgoAusenciaParaCitas(almacenamiento)
     obtener_explicacion_riesgo_uc = ObtenerExplicacionRiesgoAusenciaCita(queries, almacenamiento)
+    obtener_salud_uc = ObtenerSaludPrediccionAusencias(lector_metadata=almacenamiento, queries=queries)
     return PrediccionAusenciasFacade(
         comprobar_uc,
         entrenar_uc,
         previsualizar_uc,
         obtener_riesgo_agenda_uc,
         obtener_explicacion_riesgo_uc,
+        obtener_salud_uc,
     )

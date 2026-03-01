@@ -3,21 +3,31 @@ from __future__ import annotations
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QDialog, QHBoxLayout, QLabel, QListWidget, QPushButton, QVBoxLayout, QWidget
 
-from clinicdesk.app.application.prediccion_ausencias.dtos import ExplicacionRiesgoAusenciaDTO
+from clinicdesk.app.application.prediccion_ausencias.dtos import ExplicacionRiesgoAusenciaDTO, SaludPrediccionDTO
 from clinicdesk.app.i18n import I18nManager
 
 
 class RiesgoAusenciaDialog(QDialog):
-    def __init__(self, i18n: I18nManager, explicacion: ExplicacionRiesgoAusenciaDTO, parent: QWidget | None = None) -> None:
+    def __init__(
+        self,
+        i18n: I18nManager,
+        explicacion: ExplicacionRiesgoAusenciaDTO,
+        salud_prediccion: SaludPrediccionDTO,
+        parent: QWidget | None = None,
+    ) -> None:
         super().__init__(parent)
         self._i18n = i18n
         self._explicacion = explicacion
+        self._salud_prediccion = salud_prediccion
         self._build_ui()
 
     def _build_ui(self) -> None:
         self.setWindowTitle(self._i18n.t("citas.riesgo_dialogo.titulo"))
         self.setMinimumWidth(460)
         root = QVBoxLayout(self)
+
+        if self._debe_mostrar_aviso_salud():
+            root.addWidget(QLabel(self._i18n.t("citas.riesgo_dialogo.aviso_salud")))
 
         root.addWidget(QLabel(self._texto_nivel()))
         root.addWidget(QLabel(self._i18n.t("citas.riesgo_dialogo.seccion.por_que")))
@@ -65,8 +75,13 @@ class RiesgoAusenciaDialog(QDialog):
         self.btn_ir_prediccion = QPushButton(self._i18n.t("citas.riesgo_dialogo.boton.ir_prediccion"), self)
         self.btn_cerrar = QPushButton(self._i18n.t("citas.riesgo_dialogo.boton.cerrar"), self)
         self.btn_cerrar.clicked.connect(self.reject)
-        self.btn_ir_prediccion.setVisible(self._explicacion.metadata_simple.necesita_entrenar)
+        self.btn_ir_prediccion.setVisible(
+            self._explicacion.metadata_simple.necesita_entrenar or self._debe_mostrar_aviso_salud()
+        )
         layout.addWidget(self.btn_ir_prediccion)
         layout.addStretch(1)
         layout.addWidget(self.btn_cerrar)
         return layout
+
+    def _debe_mostrar_aviso_salud(self) -> bool:
+        return self._salud_prediccion.estado != "VERDE"

@@ -7,7 +7,11 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from clinicdesk.app.bootstrap_logging import get_logger
 from clinicdesk.app.infrastructure.prediccion_ausencias.rutas_app import carpeta_datos_app
+
+
+LOGGER = get_logger(__name__)
 
 
 @dataclass(frozen=True, slots=True)
@@ -48,9 +52,24 @@ class AlmacenamientoModeloPrediccion:
             raise ModeloPrediccionNoDisponibleError("sin_modelo")
         with self._modelo_path().open("rb") as handle:
             predictor = pickle.load(handle)
-        data = json.loads(self._metadata_path().read_text(encoding="utf-8"))
-        metadata = MetadataModeloPrediccion(**data)
+        metadata = self._leer_metadata()
         return predictor, metadata
+
+    def cargar_metadata(self) -> MetadataModeloPrediccion | None:
+        if not self._metadata_path().exists():
+            return None
+        try:
+            return self._leer_metadata()
+        except Exception as exc:  # noqa: BLE001
+            LOGGER.warning(
+                "prediccion_metadata_no_legible",
+                extra={"reason_code": "metadata_load_failed", "error": str(exc)},
+            )
+            return None
+
+    def _leer_metadata(self) -> MetadataModeloPrediccion:
+        data = json.loads(self._metadata_path().read_text(encoding="utf-8"))
+        return MetadataModeloPrediccion(**data)
 
     def _modelo_path(self) -> Path:
         return self._dir / "predictor.pkl"
