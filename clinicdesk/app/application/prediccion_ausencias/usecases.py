@@ -4,6 +4,9 @@ from dataclasses import dataclass
 
 from clinicdesk.app.application.prediccion_ausencias.dtos import (
     DatosEntrenamientoPrediccion,
+    ExplicacionRiesgoAusenciaDTO,
+    MetadataExplicacionRiesgoDTO,
+    MotivoRiesgoDTO,
     PrediccionCitaDTO,
     ResultadoComprobacionDatos,
     ResultadoPrevisualizacionPrediccion,
@@ -14,9 +17,15 @@ from clinicdesk.app.infrastructure.prediccion_ausencias import (
     AlmacenamientoModeloPrediccion,
     ModeloPrediccionNoDisponibleError,
 )
-from clinicdesk.app.queries.prediccion_ausencias_queries import PrediccionAusenciasQueries
+from clinicdesk.app.queries.prediccion_ausencias_queries import (
+    PrediccionAusenciasQueries,
+    ResumenHistorialPaciente,
+)
 
 LOGGER = get_logger(__name__)
+
+_POCOS_DATOS_MAX = 2
+_MAX_MOTIVOS = 4
 
 
 @dataclass(frozen=True, slots=True)
@@ -129,3 +138,98 @@ class PrevisualizarPrediccionAusencias:
             if r.cita_id in riesgo_por_cita
         ]
         return ResultadoPrevisualizacionPrediccion(estado="LISTO", items=items)
+
+
+class ObtenerExplicacionRiesgoAusenciaCita:
+    def __init__(self, queries: PrediccionAusenciasQueries, almacenamiento: AlmacenamientoModeloPrediccion) -> None:
+        self._queries = queries
+        self._almacenamiento = almacenamiento
+
+    def ejecutar(self, cita_id: int) -> ExplicacionRiesgoAusenciaDTO:
+        cita = self._queries.obtener_cita_para_explicacion(cita_id)
+        if cita is None:
+            return self._resultado_no_disponible(fecha_entrenamiento=None)
+
+        try:
+            predictor, metadata = self._almacenamiento.cargar()
+        except ModeloPrediccionNoDisponibleError:
+            return self._resultado_no_disponible(fecha_entrenamiento=None)
+        except Exception as exc:  # noqa: BLE001
+            LOGGER.error(
+                "prediccion_explicacion_no_disponible",
+                extra={"reason_code": "predictor_load_failed", "error": str(exc), "cita_id": cita_id},
+            )
+            return self._resultado_no_disponible(fecha_entrenamiento=None)
+
+        prediccion = predictor.predecir(
+            [CitaParaPrediccion(cita_id=cita.cita_id, paciente_id=cita.paciente_id, dias_antelacion=cita.dias_antelacion)]
+        )
+        if not prediccion:
+            return self._resultado_no_disponible(fecha_entrenamiento=metadata.fecha_entrenamiento)
+
+        historial = self._queries.obtener_resumen_historial_paciente(cita.paciente_id)
+        motivos = self._construir_motivos(historial=historial, dias_antelacion=cita.dias_antelacion)
+        return ExplicacionRiesgoAusenciaDTO(
+            nivel=prediccion[0].riesgo.value,
+            motivos=tuple(motivos[:_MAX_MOTIVOS]),
+            acciones_sugeridas=(
+                "citas.riesgo_dialogo.accion.enviar_recordatorio",
+                "citas.riesgo_dialogo.accion.confirmar_telefono",
+                "citas.riesgo_dialogo.accion.recordatorio_dia_previo",
+            ),
+            metadata_simple=MetadataExplicacionRiesgoDTO(
+                fecha_entrenamiento=metadata.fecha_entrenamiento,
+                necesita_entrenar=False,
+            ),
+        )
+
+    @staticmethod
+    def _resultado_no_disponible(fecha_entrenamiento: str | None) -> ExplicacionRiesgoAusenciaDTO:
+        return ExplicacionRiesgoAusenciaDTO(
+            nivel="NO_DISPONIBLE",
+            motivos=(
+                MotivoRiesgoDTO(
+                    code="PREDICCION_NO_DISPONIBLE",
+                    i18n_key="citas.riesgo_dialogo.motivo.prediccion_no_disponible",
+                ),
+            ),
+            acciones_sugeridas=("citas.riesgo_dialogo.accion.ir_prediccion",),
+            metadata_simple=MetadataExplicacionRiesgoDTO(
+                fecha_entrenamiento=fecha_entrenamiento,
+                necesita_entrenar=True,
+            ),
+        )
+
+    def _construir_motivos(self, *, historial: ResumenHistorialPaciente, dias_antelacion: int) -> list[MotivoRiesgoDTO]:
+        motivos: list[MotivoRiesgoDTO] = []
+        total = historial.citas_realizadas + historial.citas_no_presentadas
+        if historial.citas_no_presentadas > 0:
+            motivos.append(
+                MotivoRiesgoDTO(
+                    code="HISTORIAL_AUSENCIAS",
+                    i18n_key="citas.riesgo_dialogo.motivo.historial_ausencias",
+                )
+            )
+        if total <= _POCOS_DATOS_MAX:
+            motivos.append(
+                MotivoRiesgoDTO(
+                    code="POCOS_DATOS_PACIENTE",
+                    i18n_key="citas.riesgo_dialogo.motivo.pocos_datos",
+                    detalle_suave_key="citas.riesgo_dialogo.detalle.pocas_citas",
+                )
+            )
+        if dias_antelacion <= 2:
+            motivos.append(
+                MotivoRiesgoDTO(
+                    code="POCA_ANTELACION",
+                    i18n_key="citas.riesgo_dialogo.motivo.poca_antelacion",
+                )
+            )
+        if not motivos:
+            motivos.append(
+                MotivoRiesgoDTO(
+                    code="HISTORIAL_ASISTENCIA",
+                    i18n_key="citas.riesgo_dialogo.motivo.historial_asistencia",
+                )
+            )
+        return motivos

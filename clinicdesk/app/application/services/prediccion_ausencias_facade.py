@@ -9,6 +9,7 @@ from clinicdesk.app.application.prediccion_ausencias.usecases import (
     ComprobarDatosPrediccionAusencias,
     EntrenarPrediccionAusencias,
     PrevisualizarPrediccionAusencias,
+    ObtenerExplicacionRiesgoAusenciaCita,
 )
 
 
@@ -18,3 +19,4 @@ class PrediccionAusenciasFacade:
     entrenar_uc: EntrenarPrediccionAusencias
     previsualizar_uc: PrevisualizarPrediccionAusencias
     obtener_riesgo_agenda_uc: ObtenerRiesgoAusenciaParaCitas
+    obtener_explicacion_riesgo_uc: ObtenerExplicacionRiesgoAusenciaCita

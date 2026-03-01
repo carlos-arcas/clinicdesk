@@ -4,11 +4,13 @@ from datetime import date, datetime, timedelta
 from typing import List, Optional
 
 from PySide6.QtCore import QDate, QSettings, Qt, QTimer
+from PySide6.QtGui import QAction
 from PySide6.QtWidgets import (
     QCalendarWidget,
     QDateEdit,
     QHBoxLayout,
     QLabel,
+    QMenu,
     QPushButton,
     QTabWidget,
     QTableWidget,
@@ -17,11 +19,12 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from clinicdesk.app.application.prediccion_ausencias.riesgo_agenda import RIESGO_NO_DISPONIBLE
 from clinicdesk.app.container import AppContainer
 from clinicdesk.app.controllers.citas_controller import CitasController
 from clinicdesk.app.i18n import I18nManager
 from clinicdesk.app.pages.citas.estado_cita_presentacion import ESTADOS_FILTRO_CITAS, etiqueta_estado_cita
-from clinicdesk.app.application.prediccion_ausencias.riesgo_agenda import RIESGO_NO_DISPONIBLE
+from clinicdesk.app.pages.citas.riesgo_ausencia_dialog import RiesgoAusenciaDialog
 from clinicdesk.app.pages.citas.riesgo_ausencia_ui import (
     SETTINGS_KEY_RIESGO_AGENDA,
     construir_dtos_desde_calendario,
@@ -42,6 +45,7 @@ class PageCitas(QWidget):
         self._controller = CitasController(self, container)
         self._can_write = container.user_context.can_write
         self._riesgo_enabled = False
+        self._citas_lista_ids: list[int] = []
 
         self._build_ui()
         self._bind_events()
@@ -125,7 +129,9 @@ class PageCitas(QWidget):
 
     def _crear_tabla_lista(self) -> QTableWidget:
         tabla = QTableWidget(0, 9)
-        tabla.setHorizontalHeaderLabels(["Fecha", "Hora inicio", "Hora fin", "Paciente", "Médico", "Sala", "Estado", "Notas len", "Incidencias"])
+        tabla.setHorizontalHeaderLabels(
+            ["Fecha", "Hora inicio", "Hora fin", "Paciente", "Médico", "Sala", "Estado", "Notas len", "Incidencias"]
+        )
         tabla.setEditTriggers(QTableWidget.NoEditTriggers)
         return tabla
 
@@ -134,12 +140,15 @@ class PageCitas(QWidget):
         self.btn_new.clicked.connect(self._on_new)
         self.btn_delete.clicked.connect(self._on_delete)
         self.table.itemSelectionChanged.connect(self._on_selection_changed)
+        self.table.itemDoubleClicked.connect(self._on_calendario_item_double_clicked)
+        self.table.customContextMenuRequested.connect(self._on_calendario_context_menu)
         self.filtros.filtros_cambiados.connect(self._programar_refresco_lista)
         self.desde_date.dateChanged.connect(self._programar_refresco_lista)
         self.hasta_date.dateChanged.connect(self._programar_refresco_lista)
         self.btn_hoy.clicked.connect(self._set_hoy)
         self.btn_semana.clicked.connect(self._set_semana)
         self.btn_mes.clicked.connect(self._set_mes)
+        self.table_lista.itemClicked.connect(self._on_lista_item_clicked)
 
     def on_show(self) -> None:
         self._riesgo_enabled = self._mostrar_riesgo_agenda()
@@ -152,17 +161,7 @@ class PageCitas(QWidget):
         return bool(int(value))
 
     def _sync_columna_riesgo_lista(self) -> None:
-        headers = [
-            "Fecha",
-            "Hora inicio",
-            "Hora fin",
-            "Paciente",
-            "Médico",
-            "Sala",
-            "Estado",
-            "Notas len",
-            "Incidencias",
-        ]
+        headers = ["Fecha", "Hora inicio", "Hora fin", "Paciente", "Médico", "Sala", "Estado", "Notas len", "Incidencias"]
         if self._riesgo_enabled:
             headers.append(self._i18n.t("citas.riesgo.columna"))
         self.table_lista.setColumnCount(len(headers))
@@ -182,14 +181,23 @@ class PageCitas(QWidget):
         riesgos = self._obtener_riesgo_citas_calendario(rows) if self._riesgo_enabled else {}
         self.table.setRowCount(0)
         for c in rows:
-            r = self.table.rowCount()
-            self.table.insertRow(r)
-            values = [str(c.id), c.inicio, c.fin, c.paciente_nombre, c.medico_nombre, c.sala_nombre, etiqueta_estado_cita(c.estado), c.motivo or ""]
+            row_index = self.table.rowCount()
+            self.table.insertRow(row_index)
+            values = [
+                str(c.id),
+                c.inicio,
+                c.fin,
+                c.paciente_nombre,
+                c.medico_nombre,
+                c.sala_nombre,
+                etiqueta_estado_cita(c.estado),
+                c.motivo or "",
+            ]
             for col, value in enumerate(values):
                 item = QTableWidgetItem(value)
                 if self._riesgo_enabled:
                     item.setToolTip(tooltip_riesgo(riesgos.get(c.id, RIESGO_NO_DISPONIBLE), self._i18n))
-                self.table.setItem(r, col, item)
+                self.table.setItem(row_index, col, item)
 
     def _obtener_riesgo_citas_calendario(self, rows: list[CitaRow]) -> dict[int, str]:
         dtos = construir_dtos_desde_calendario(rows, datetime.now())
@@ -212,11 +220,12 @@ class PageCitas(QWidget):
 
     def _cargar_tabla_lista(self, rows: list[CitaListadoRow]) -> None:
         riesgos = self._obtener_riesgo_citas_lista(rows) if self._riesgo_enabled else {}
+        self._citas_lista_ids = [cita.id for cita in rows]
         self.table_lista.setRowCount(0)
         hay_no_disponible = False
         for cita in rows:
-            row = self.table_lista.rowCount()
-            self.table_lista.insertRow(row)
+            row_index = self.table_lista.rowCount()
+            self.table_lista.insertRow(row_index)
             values = [
                 cita.fecha,
                 cita.hora_inicio,
@@ -233,7 +242,7 @@ class PageCitas(QWidget):
                 values.append(resultado.texto)
                 hay_no_disponible = hay_no_disponible or resultado.no_disponible
             for col, value in enumerate(values):
-                self.table_lista.setItem(row, col, QTableWidgetItem(value))
+                self.table_lista.setItem(row_index, col, QTableWidgetItem(value))
         self._actualizar_aviso_no_disponible(hay_no_disponible)
 
     def _obtener_riesgo_citas_lista(self, rows: list[CitaListadoRow]) -> dict[int, str]:
@@ -244,6 +253,58 @@ class PageCitas(QWidget):
         mostrar = self._riesgo_enabled and visible
         self.lbl_aviso_prediccion.setText(self._i18n.t("citas.riesgo.aviso_no_disponible") if mostrar else "")
         self.btn_ir_prediccion.setVisible(mostrar)
+
+    def _on_lista_item_clicked(self, item: QTableWidgetItem) -> None:
+        if not self._riesgo_enabled or item.column() != self._columna_riesgo_lista():
+            return
+        cita_id = self._cita_id_lista(item.row())
+        if cita_id is not None:
+            self._abrir_dialogo_riesgo(cita_id)
+
+    def _on_calendario_item_double_clicked(self, item: QTableWidgetItem) -> None:
+        if not self._riesgo_enabled:
+            return
+        cita_id = self._cita_id_calendario(item.row())
+        if cita_id is not None:
+            self._abrir_dialogo_riesgo(cita_id)
+
+    def _on_calendario_context_menu(self, point) -> None:
+        if not self._riesgo_enabled:
+            return
+        item = self.table.itemAt(point)
+        if item is None:
+            return
+        cita_id = self._cita_id_calendario(item.row())
+        if cita_id is None:
+            return
+        menu = QMenu(self)
+        action = QAction(self._i18n.t("citas.riesgo_dialogo.menu.ver_riesgo"), self)
+        action.triggered.connect(lambda: self._abrir_dialogo_riesgo(cita_id))
+        menu.addAction(action)
+        menu.exec(self.table.mapToGlobal(point))
+
+    def _abrir_dialogo_riesgo(self, cita_id: int) -> None:
+        explicacion = self._container.prediccion_ausencias_facade.obtener_explicacion_riesgo_uc.ejecutar(cita_id)
+        dialog = RiesgoAusenciaDialog(self._i18n, explicacion, self)
+        dialog.btn_ir_prediccion.clicked.connect(self._ir_a_prediccion)
+        dialog.exec()
+
+    def _columna_riesgo_lista(self) -> int:
+        return self.table_lista.columnCount() - 1
+
+    def _cita_id_lista(self, row: int) -> int | None:
+        if row < 0 or row >= len(self._citas_lista_ids):
+            return None
+        return self._citas_lista_ids[row]
+
+    def _cita_id_calendario(self, row: int) -> int | None:
+        item = self.table.item(row, 0)
+        if item is None:
+            return None
+        try:
+            return int(item.text())
+        except ValueError:
+            return None
 
     def _ir_a_prediccion(self) -> None:
         window = self.window()
@@ -294,4 +355,3 @@ class PageCitas(QWidget):
         if self._can_write and cita_id and self._controller.delete_cita(cita_id):
             self._refresh_calendario()
             self._programar_refresco_lista()
-

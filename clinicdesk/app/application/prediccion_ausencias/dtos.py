@@ -42,3 +42,24 @@ class CitaParaPrediccionDTO:
     paciente_id: int
     medico_id: int
     antelacion_dias: int
+
+
+@dataclass(frozen=True, slots=True)
+class MotivoRiesgoDTO:
+    code: str
+    i18n_key: str
+    detalle_suave_key: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class MetadataExplicacionRiesgoDTO:
+    fecha_entrenamiento: str | None
+    necesita_entrenar: bool
+
+
+@dataclass(frozen=True, slots=True)
+class ExplicacionRiesgoAusenciaDTO:
+    nivel: str
+    motivos: tuple[MotivoRiesgoDTO, ...]
+    acciones_sugeridas: tuple[str, ...]
+    metadata_simple: MetadataExplicacionRiesgoDTO
