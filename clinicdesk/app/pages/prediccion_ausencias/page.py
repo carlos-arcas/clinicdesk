@@ -41,6 +41,7 @@ class PagePrediccionAusencias(QWidget):
     def _build_ui(self) -> None:
         root = QVBoxLayout(self)
         root.addWidget(self._build_salud())
+        root.addWidget(self._build_resultados_recientes())
         root.addWidget(self._build_paso_1())
         root.addWidget(self._build_paso_2())
         root.addWidget(self._build_paso_3())
@@ -58,6 +59,27 @@ class PagePrediccionAusencias(QWidget):
         layout.addWidget(self.lbl_salud_mensaje)
         layout.addWidget(self.btn_salud_entrenar)
         return self.box_salud
+
+
+    def _build_resultados_recientes(self) -> QWidget:
+        self.box_resultados = QGroupBox()
+        layout = QVBoxLayout(self.box_resultados)
+        self.lbl_resultados_subtitulo = QLabel()
+        self.lbl_resultados_subtitulo.setWordWrap(True)
+        self.lbl_resultados_estado = QLabel()
+        self.lbl_resultados_estado.setWordWrap(True)
+        self.lbl_resultados_accion = QLabel()
+        self.lbl_resultados_accion.setWordWrap(True)
+        self.lbl_resultado_bajo = QLabel()
+        self.lbl_resultado_medio = QLabel()
+        self.lbl_resultado_alto = QLabel()
+        layout.addWidget(self.lbl_resultados_subtitulo)
+        layout.addWidget(self.lbl_resultados_estado)
+        layout.addWidget(self.lbl_resultados_accion)
+        layout.addWidget(self.lbl_resultado_bajo)
+        layout.addWidget(self.lbl_resultado_medio)
+        layout.addWidget(self.lbl_resultado_alto)
+        return self.box_resultados
 
     def _build_paso_1(self) -> QWidget:
         self.box_paso_1 = QGroupBox()
@@ -101,6 +123,7 @@ class PagePrediccionAusencias(QWidget):
 
     def _comprobar_datos(self) -> None:
         self._actualizar_salud()
+        self._actualizar_resultados_recientes()
         result = self._facade.comprobar_datos_uc.ejecutar()
         self._datos_aptos = result.apto_para_entrenar
         self.lbl_paso_1_estado.setText(
@@ -119,6 +142,28 @@ class PagePrediccionAusencias(QWidget):
         )
         self.btn_salud_entrenar.setVisible(salud.estado in {"AMARILLO", "ROJO"})
 
+
+    def _actualizar_resultados_recientes(self) -> None:
+        resultado = self._facade.obtener_resultados_recientes_uc.ejecutar()
+        semanas = max(1, resultado.ventana_dias // 7)
+        self.lbl_resultados_subtitulo.setText(
+            self._i18n.t("prediccion_ausencias.resultados.subtitulo").format(semanas=semanas)
+        )
+        self.lbl_resultados_estado.setText(self._i18n.t(resultado.mensaje_i18n_key))
+        acciones = [self._i18n.t(key) for key in resultado.acciones_i18n_keys]
+        self.lbl_resultados_accion.setText(" ".join(acciones))
+        textos = {
+            fila.riesgo: self._i18n.t("prediccion_ausencias.resultados.fila").format(
+                riesgo=self._i18n.t(f"prediccion_ausencias.riesgo.{fila.riesgo.lower()}"),
+                total=fila.total_predichas,
+                no_vino=fila.total_no_vino,
+            )
+            for fila in resultado.filas
+        }
+        self.lbl_resultado_bajo.setText(textos.get("BAJO", ""))
+        self.lbl_resultado_medio.setText(textos.get("MEDIO", ""))
+        self.lbl_resultado_alto.setText(textos.get("ALTO", ""))
+
     def _entrenar(self) -> None:
         if not self._datos_aptos:
             return
@@ -128,6 +173,7 @@ class PagePrediccionAusencias(QWidget):
             self._facade.entrenar_uc.ejecutar()
             self.lbl_paso_2_estado.setText(self._i18n.t("prediccion_ausencias.estado.entrenado_ok"))
             self._actualizar_salud()
+            self._actualizar_resultados_recientes()
             self._cargar_previsualizacion()
         except ValueError:
             self.lbl_paso_2_estado.setText(self._i18n.t("prediccion_ausencias.estado.datos_insuficientes").format(minimo=50))
@@ -169,6 +215,7 @@ class PagePrediccionAusencias(QWidget):
 
     def _retranslate(self) -> None:
         self.box_salud.setTitle(self._i18n.t("prediccion_ausencias.salud.titulo"))
+        self.box_resultados.setTitle(self._i18n.t("prediccion_ausencias.resultados.titulo"))
         self.box_paso_1.setTitle(self._i18n.t("prediccion_ausencias.paso_1.titulo"))
         self.box_paso_2.setTitle(self._i18n.t("prediccion_ausencias.paso_2.titulo"))
         self.box_paso_3.setTitle(self._i18n.t("prediccion_ausencias.paso_3.titulo"))
@@ -184,6 +231,7 @@ class PagePrediccionAusencias(QWidget):
                 self._i18n.t("prediccion_ausencias.tabla.riesgo"),
             ]
         )
+        self._actualizar_resultados_recientes()
 
     def _set_bloqueo(self, enabled: bool) -> None:
         self.btn_entrenar.setDisabled(enabled)

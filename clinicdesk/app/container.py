@@ -176,13 +176,19 @@ def _build_prediccion_ausencias_facade(connection: sqlite3.Connection) -> Predic
     from clinicdesk.app.application.prediccion_ausencias.riesgo_agenda import (
         ObtenerRiesgoAusenciaParaCitas,
     )
+    from clinicdesk.app.application.prediccion_ausencias.resultados_recientes import (
+        ObtenerResultadosRecientesPrediccionAusencias,
+        RegistrarPrediccionesAusenciasAgenda,
+    )
     from clinicdesk.app.infrastructure.prediccion_ausencias import (
         AlmacenamientoModeloPrediccion,
         PredictorAusenciasBaseline,
     )
     from clinicdesk.app.queries.prediccion_ausencias_queries import PrediccionAusenciasQueries
+    from clinicdesk.app.queries.prediccion_ausencias_resultados_queries import PrediccionAusenciasResultadosQueries
 
     queries = PrediccionAusenciasQueries(connection)
+    resultados_queries = PrediccionAusenciasResultadosQueries(connection)
     almacenamiento = AlmacenamientoModeloPrediccion()
     comprobar_uc = ComprobarDatosPrediccionAusencias(queries, minimo_requerido=50)
     entrenar_uc = EntrenarPrediccionAusencias(
@@ -195,6 +201,8 @@ def _build_prediccion_ausencias_facade(connection: sqlite3.Connection) -> Predic
     obtener_riesgo_agenda_uc = ObtenerRiesgoAusenciaParaCitas(almacenamiento)
     obtener_explicacion_riesgo_uc = ObtenerExplicacionRiesgoAusenciaCita(queries, almacenamiento)
     obtener_salud_uc = ObtenerSaludPrediccionAusencias(lector_metadata=almacenamiento, queries=queries)
+    registrar_predicciones_agenda_uc = RegistrarPrediccionesAusenciasAgenda(resultados_queries)
+    obtener_resultados_recientes_uc = ObtenerResultadosRecientesPrediccionAusencias(resultados_queries)
     return PrediccionAusenciasFacade(
         comprobar_uc,
         entrenar_uc,
@@ -202,4 +210,6 @@ def _build_prediccion_ausencias_facade(connection: sqlite3.Connection) -> Predic
         obtener_riesgo_agenda_uc,
         obtener_explicacion_riesgo_uc,
         obtener_salud_uc,
+        registrar_predicciones_agenda_uc,
+        obtener_resultados_recientes_uc,
     )
