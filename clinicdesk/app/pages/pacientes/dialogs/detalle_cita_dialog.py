@@ -17,7 +17,10 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from clinicdesk.app.application.auditoria_acceso import AccionAuditoriaAcceso, EntidadAuditoriaAcceso
+from clinicdesk.app.application.security import UserContext
 from clinicdesk.app.application.usecases.obtener_detalle_cita import DetalleCitaDTO, DetalleCitaNoEncontradaError, ObtenerDetalleCita
+from clinicdesk.app.application.usecases.registrar_auditoria_acceso import RegistrarAuditoriaAcceso
 from clinicdesk.app.i18n import I18nManager
 
 
@@ -26,15 +29,20 @@ class DetalleCitaDialog(QDialog):
         self,
         i18n: I18nManager,
         usecase: ObtenerDetalleCita,
+        auditoria_uc: RegistrarAuditoriaAcceso,
+        contexto_usuario: UserContext,
         cita_id: int,
         parent: Optional[QWidget] = None,
     ) -> None:
         super().__init__(parent)
         self._i18n = i18n
         self._usecase = usecase
+        self._auditoria_uc = auditoria_uc
+        self._contexto_usuario = contexto_usuario
         self._cita_id = cita_id
         self._build_ui()
         self._cargar_detalle()
+        self._registrar_apertura()
 
     def _build_ui(self) -> None:
         self.setMinimumSize(860, 580)
@@ -125,12 +133,26 @@ class DetalleCitaDialog(QDialog):
             self.table_incidencias.setItem(row, 1, QTableWidgetItem(incidencia.estado))
             self.table_incidencias.setItem(row, 2, QTableWidgetItem(incidencia.resumen))
 
+    def _registrar_apertura(self) -> None:
+        self._auditoria_uc.execute(
+            contexto_usuario=self._contexto_usuario,
+            accion=AccionAuditoriaAcceso.VER_DETALLE_CITA,
+            entidad_tipo=EntidadAuditoriaAcceso.CITA,
+            entidad_id=self._cita_id,
+        )
+
     def _render_error(self, mensaje: str) -> None:
         self.lbl_estado.setText(mensaje)
         self.btn_copiar.setEnabled(False)
 
     def _copiar_informe(self) -> None:
         QApplication.clipboard().setText(self.txt_informe.toPlainText())
+        self._auditoria_uc.execute(
+            contexto_usuario=self._contexto_usuario,
+            accion=AccionAuditoriaAcceso.COPIAR_INFORME_CITA,
+            entidad_tipo=EntidadAuditoriaAcceso.CITA,
+            entidad_id=self._cita_id,
+        )
         QMessageBox.information(
             self,
             self._i18n.t("pacientes.historial.citas.detalle.titulo"),

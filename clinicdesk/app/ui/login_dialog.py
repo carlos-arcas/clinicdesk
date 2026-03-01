@@ -22,6 +22,7 @@ from clinicdesk.app.security.auth import AuthService
 @dataclass(frozen=True)
 class LoginOutcome:
     demo_mode: bool
+    username: str
 
 
 LOGGER = get_logger(__name__)
@@ -33,7 +34,7 @@ class LoginDialog(QDialog):
         self._auth_service = auth_service
         self._i18n = i18n
         self._demo_allowed = demo_allowed
-        self.outcome = LoginOutcome(demo_mode=False)
+        self.outcome = LoginOutcome(demo_mode=False, username="system")
 
         self._build_ui()
         self._i18n.subscribe(self._retranslate)
@@ -131,7 +132,7 @@ class LoginDialog(QDialog):
         result = self._auth_service.verify(username, password)
         if result.ok:
             LOGGER.info("auth_login_success")
-            self.outcome = LoginOutcome(demo_mode=False)
+            self.outcome = LoginOutcome(demo_mode=False, username=username)
             self.accept()
             return
         if result.locked:
@@ -146,5 +147,5 @@ class LoginDialog(QDialog):
             QMessageBox.warning(self, self.windowTitle(), self._i18n.t("login.error.demo_disabled"))
             return
         LOGGER.warning("auth_login_demo_selected")
-        self.outcome = LoginOutcome(demo_mode=True)
+        self.outcome = LoginOutcome(demo_mode=True, username="demo")
         self.accept()

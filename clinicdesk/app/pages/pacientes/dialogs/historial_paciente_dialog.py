@@ -16,18 +16,30 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from clinicdesk.app.application.auditoria_acceso import AccionAuditoriaAcceso, EntidadAuditoriaAcceso
+from clinicdesk.app.application.security import UserContext
 from clinicdesk.app.application.usecases.obtener_detalle_cita import ObtenerDetalleCita
 from clinicdesk.app.application.usecases.obtener_historial_paciente import HistorialPacienteResultado, RecetaResumen
+from clinicdesk.app.application.usecases.registrar_auditoria_acceso import RegistrarAuditoriaAcceso
 from clinicdesk.app.i18n import I18nManager
 from clinicdesk.app.pages.pacientes.dialogs.detalle_cita_dialog import DetalleCitaDialog
 from clinicdesk.app.pages.pacientes.dialogs.detalle_receta_dialog import DetalleRecetaDialog
 
 
 class HistorialPacienteDialog(QDialog):
-    def __init__(self, i18n: I18nManager, detalle_cita_uc: ObtenerDetalleCita, parent: Optional[QWidget] = None) -> None:
+    def __init__(
+        self,
+        i18n: I18nManager,
+        detalle_cita_uc: ObtenerDetalleCita,
+        auditoria_uc: RegistrarAuditoriaAcceso,
+        contexto_usuario: UserContext,
+        parent: Optional[QWidget] = None,
+    ) -> None:
         super().__init__(parent)
         self._i18n = i18n
         self._detalle_cita_uc = detalle_cita_uc
+        self._auditoria_uc = auditoria_uc
+        self._contexto_usuario = contexto_usuario
         self._historial: HistorialPacienteResultado | None = None
         self._build_ui()
 
@@ -183,7 +195,14 @@ class HistorialPacienteDialog(QDialog):
         cita_id = self._cita_id_seleccionada()
         if cita_id is None:
             return
-        dialog = DetalleCitaDialog(self._i18n, usecase=self._detalle_cita_uc, cita_id=cita_id, parent=self)
+        dialog = DetalleCitaDialog(
+            self._i18n,
+            usecase=self._detalle_cita_uc,
+            auditoria_uc=self._auditoria_uc,
+            contexto_usuario=self._contexto_usuario,
+            cita_id=cita_id,
+            parent=self,
+        )
         dialog.exec()
 
     def _cita_id_seleccionada(self) -> int | None:
@@ -251,6 +270,12 @@ class HistorialPacienteDialog(QDialog):
         if receta is None:
             return
         lineas = self._historial.detalle_por_receta.get(receta_id, ())
+        self._auditoria_uc.execute(
+            contexto_usuario=self._contexto_usuario,
+            accion=AccionAuditoriaAcceso.VER_DETALLE_RECETA,
+            entidad_tipo=EntidadAuditoriaAcceso.RECETA,
+            entidad_id=receta_id,
+        )
         dialog = DetalleRecetaDialog(self._i18n, receta=receta, lineas=lineas, parent=self)
         dialog.exec()
 

@@ -20,6 +20,7 @@ from clinicdesk.app.infrastructure.model_store.local_json_model_store import Loc
 from clinicdesk.app.infrastructure.sqlite.citas_read_adapter import SqliteCitasReadAdapter
 from clinicdesk.app.infrastructure.sqlite.demo_data_seeder import DemoDataSeeder
 from clinicdesk.app.infrastructure.sqlite.demo_ml_read_gateway import SqliteDemoMLReadGateway
+from clinicdesk.app.infrastructure.sqlite.repos_auditoria_accesos import RepositorioAuditoriaAccesoSqlite
 from clinicdesk.app.infrastructure.sqlite.repos_ausencias_medico import AusenciasMedicoRepository
 from clinicdesk.app.infrastructure.sqlite.repos_ausencias_personal import AusenciasPersonalRepository
 from clinicdesk.app.infrastructure.sqlite.repos_calendario_medico import CalendarioMedicoRepository
@@ -72,6 +73,7 @@ class AppContainer:
 
     citas_repo: CitasRepository
     incidencias_repo: IncidenciasRepository
+    auditoria_accesos_repo: RepositorioAuditoriaAccesoSqlite
     user_context: UserContext
 
     def close(self) -> None:
@@ -102,6 +104,7 @@ def build_container(connection: sqlite3.Connection) -> AppContainer:
     dispensaciones_repo = DispensacionesRepository(connection)
     citas_repo = CitasRepository(connection)
     incidencias_repo = IncidenciasRepository(connection)
+    auditoria_accesos_repo = RepositorioAuditoriaAccesoSqlite(connection)
 
     demo_ml_facade = _build_demo_ml_facade(connection, citas_repo, incidencias_repo)
 
@@ -130,6 +133,7 @@ def build_container(connection: sqlite3.Connection) -> AppContainer:
         dispensaciones_repo=dispensaciones_repo,
         citas_repo=citas_repo,
         incidencias_repo=incidencias_repo,
+        auditoria_accesos_repo=auditoria_accesos_repo,
         user_context=user_context,
     )
 

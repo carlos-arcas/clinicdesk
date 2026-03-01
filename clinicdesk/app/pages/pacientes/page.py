@@ -25,7 +25,9 @@ from clinicdesk.app.application.usecases.pacientes_crud import (
 )
 from clinicdesk.app.application.services.pacientes_listado_contrato import ContratoListadoPacientesService
 from clinicdesk.app.application.usecases.obtener_detalle_cita import ObtenerDetalleCita
+from clinicdesk.app.application.auditoria_acceso import AccionAuditoriaAcceso, EntidadAuditoriaAcceso
 from clinicdesk.app.application.usecases.obtener_historial_paciente import ObtenerHistorialPaciente
+from clinicdesk.app.application.usecases.registrar_auditoria_acceso import RegistrarAuditoriaAcceso
 from clinicdesk.app.common.search_utils import has_search_values, normalize_search_text
 from clinicdesk.app.pages.pacientes.dialogs.historial_paciente_dialog import HistorialPacienteDialog
 from clinicdesk.app.pages.pacientes.dialogs.paciente_form import PacienteFormDialog
@@ -57,6 +59,7 @@ class PagePacientes(QWidget):
         )
 
         self._uc_detalle_cita = ObtenerDetalleCita(HistorialPacienteQueries(container.connection))
+        self._uc_auditoria_acceso = RegistrarAuditoriaAcceso(container.auditoria_accesos_repo)
 
         self._build_ui()
         self._connect_signals()
@@ -250,7 +253,19 @@ class PagePacientes(QWidget):
         paciente_id = self._selected_id()
         if not paciente_id:
             return
-        dialog = HistorialPacienteDialog(self._i18n, detalle_cita_uc=self._uc_detalle_cita, parent=self)
+        self._uc_auditoria_acceso.execute(
+            contexto_usuario=self._container.user_context,
+            accion=AccionAuditoriaAcceso.VER_HISTORIAL_PACIENTE,
+            entidad_tipo=EntidadAuditoriaAcceso.PACIENTE,
+            entidad_id=paciente_id,
+        )
+        dialog = HistorialPacienteDialog(
+            self._i18n,
+            detalle_cita_uc=self._uc_detalle_cita,
+            auditoria_uc=self._uc_auditoria_acceso,
+            contexto_usuario=self._container.user_context,
+            parent=self,
+        )
         dialog.setWindowTitle(self._i18n.t("pacientes.historial.titulo"))
         dialog.render_cargando()
         resultado = self._uc_historial.execute(paciente_id)
