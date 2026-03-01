@@ -1,0 +1,1 @@
+"""Helpers internos para PacientesRepository."""
