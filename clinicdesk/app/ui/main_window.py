@@ -19,6 +19,7 @@ from clinicdesk.app.controllers.csv_controller import CsvController
 from clinicdesk.app.container import AppContainer
 from clinicdesk.app.i18n import I18nManager
 from clinicdesk.app.pages.pages_registry import get_pages
+from clinicdesk.app.ui.vistas.main_window import validacion_preventiva
 
 
 
@@ -231,6 +232,39 @@ class MainWindow(QMainWindow):
 
         self.stack.setCurrentIndex(index)
         self._call_on_show_index(index)
+
+    def _bind_preventive_validation_events(self) -> None:
+        validacion_preventiva._bind_preventive_validation_events(self)
+
+    def _mark_field_touched(self, field_name: str) -> None:
+        validacion_preventiva._mark_field_touched(self, field_name)
+
+    def _schedule_preventive_validation(self) -> None:
+        validacion_preventiva._schedule_preventive_validation(self)
+
+    def _run_preventive_validation(self):
+        return validacion_preventiva._run_preventive_validation(self)
+
+    def _collect_base_preventive_errors(self):
+        return validacion_preventiva._collect_base_preventive_errors(self)
+
+    def _collect_preventive_validation(self):
+        return validacion_preventiva._collect_preventive_validation(self)
+
+    def _collect_preventive_business_rules(self):
+        return validacion_preventiva._collect_preventive_business_rules(self)
+
+    def _collect_pending_duplicates_warning(self):
+        return validacion_preventiva._collect_pending_duplicates_warning(self)
+
+    def _on_go_to_existing_duplicate(self) -> None:
+        validacion_preventiva._on_go_to_existing_duplicate(self)
+
+    def _render_preventive_validation(self, result) -> None:
+        validacion_preventiva._render_preventive_validation(self, result)
+
+    def _run_preconfirm_checks(self) -> bool:
+        return validacion_preventiva._run_preconfirm_checks(self)
 
     def closeEvent(self, event):
         self.container.close()
