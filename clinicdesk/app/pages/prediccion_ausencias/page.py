@@ -2,23 +2,25 @@ from __future__ import annotations
 
 from PySide6.QtCore import QSettings, Qt
 from PySide6.QtWidgets import (
-    QApplication,
     QCheckBox,
     QFormLayout,
     QGroupBox,
     QHBoxLayout,
     QLabel,
     QPushButton,
+    QProgressBar,
     QTableWidget,
     QTableWidgetItem,
     QVBoxLayout,
     QWidget,
 )
 
+from clinicdesk.app.application.prediccion_ausencias import ResultadoEntrenamientoPrediccion
 from clinicdesk.app.application.services.prediccion_ausencias_facade import PrediccionAusenciasFacade
 from clinicdesk.app.bootstrap_logging import get_logger
 from clinicdesk.app.i18n import I18nManager
 from clinicdesk.app.pages.prediccion_ausencias.cerrar_citas_antiguas_dialog import CerrarCitasAntiguasDialog
+from clinicdesk.app.pages.prediccion_ausencias.entrenar_worker import RunnerEntrenamientoPrediccion
 
 LOGGER = get_logger(__name__)
 
@@ -29,6 +31,8 @@ class PagePrediccionAusencias(QWidget):
         self._facade = facade
         self._i18n = i18n
         self._datos_aptos = False
+        self._entrenamiento_activo = False
+        self._runner_entrenamiento: RunnerEntrenamientoPrediccion | None = None
         self._settings_key = "prediccion_ausencias/mostrar_riesgo_agenda"
         self._build_ui()
         self._i18n.subscribe(self._retranslate)
@@ -67,7 +71,6 @@ class PagePrediccionAusencias(QWidget):
         layout.addWidget(self.lbl_salud_ayuda_cierre)
         return self.box_salud
 
-
     def _build_resultados_recientes(self) -> QWidget:
         self.box_resultados = QGroupBox()
         layout = QVBoxLayout(self.box_resultados)
@@ -104,8 +107,17 @@ class PagePrediccionAusencias(QWidget):
         self.btn_entrenar = QPushButton()
         self.btn_entrenar.clicked.connect(self._entrenar)
         self.lbl_paso_2_estado = QLabel()
+        self.lbl_paso_2_estado.setWordWrap(True)
+        self.progress_entrenamiento = QProgressBar()
+        self.progress_entrenamiento.setRange(0, 0)
+        self.progress_entrenamiento.setVisible(False)
+        self.btn_reintentar = QPushButton()
+        self.btn_reintentar.clicked.connect(self._entrenar)
+        self.btn_reintentar.setVisible(False)
         layout.addWidget(self.btn_entrenar)
         layout.addWidget(self.lbl_paso_2_estado)
+        layout.addWidget(self.progress_entrenamiento)
+        layout.addWidget(self.btn_reintentar)
         return self.box_paso_2
 
     def _build_paso_3(self) -> QWidget:
@@ -133,20 +145,16 @@ class PagePrediccionAusencias(QWidget):
         self._actualizar_resultados_recientes()
         result = self._facade.comprobar_datos_uc.ejecutar()
         self._datos_aptos = result.apto_para_entrenar
-        self.lbl_paso_1_estado.setText(
-            self._i18n.t("prediccion_ausencias.paso_1.total").format(total=result.citas_validas)
-        )
-        self.lbl_paso_1_mensaje.setText(
-            self._i18n.t(result.mensaje_clave).format(minimo=result.minimo_requerido)
-        )
-        self.btn_entrenar.setEnabled(self._datos_aptos)
+        self.lbl_paso_1_estado.setText(self._i18n.t("prediccion_ausencias.paso_1.total").format(total=result.citas_validas))
+        self.lbl_paso_1_mensaje.setText(self._i18n.t(result.mensaje_clave).format(minimo=result.minimo_requerido))
+        if not self._entrenamiento_activo and not self._datos_aptos:
+            self._set_estado_error("dataset_insuficiente")
+        self._actualizar_estado_botones()
 
     def _actualizar_salud(self) -> None:
         salud = self._facade.obtener_salud_uc.ejecutar()
         self.lbl_salud_estado.setText(self._i18n.t(f"prediccion_ausencias.salud.estado.{salud.estado.lower()}"))
-        self.lbl_salud_mensaje.setText(
-            self._i18n.t(salud.mensaje_i18n_key).format(citas=salud.citas_validas_recientes)
-        )
+        self.lbl_salud_mensaje.setText(self._i18n.t(salud.mensaje_i18n_key).format(citas=salud.citas_validas_recientes))
         self.btn_salud_entrenar.setVisible(salud.estado in {"AMARILLO", "ROJO"})
         mostrar_cierre = salud.estado in {"AMARILLO", "ROJO"} and salud.citas_validas_recientes < 50
         self.btn_cerrar_citas_antiguas.setVisible(mostrar_cierre)
@@ -155,12 +163,9 @@ class PagePrediccionAusencias(QWidget):
     def _actualizar_resultados_recientes(self) -> None:
         resultado = self._facade.obtener_resultados_recientes_uc.ejecutar()
         semanas = max(1, resultado.ventana_dias // 7)
-        self.lbl_resultados_subtitulo.setText(
-            self._i18n.t("prediccion_ausencias.resultados.subtitulo").format(semanas=semanas)
-        )
+        self.lbl_resultados_subtitulo.setText(self._i18n.t("prediccion_ausencias.resultados.subtitulo").format(semanas=semanas))
         self.lbl_resultados_estado.setText(self._i18n.t(resultado.mensaje_i18n_key))
-        acciones = [self._i18n.t(key) for key in resultado.acciones_i18n_keys]
-        self.lbl_resultados_accion.setText(" ".join(acciones))
+        self.lbl_resultados_accion.setText(" ".join(self._i18n.t(key) for key in resultado.acciones_i18n_keys))
         textos = {
             fila.riesgo: self._i18n.t("prediccion_ausencias.resultados.fila").format(
                 riesgo=self._i18n.t(f"prediccion_ausencias.riesgo.{fila.riesgo.lower()}"),
@@ -174,26 +179,65 @@ class PagePrediccionAusencias(QWidget):
         self.lbl_resultado_alto.setText(textos.get("ALTO", ""))
 
     def _entrenar(self) -> None:
-        if not self._datos_aptos:
+        reason_code = self._validar_entrenamiento()
+        LOGGER.info("prediccion_entrenar_click", extra={"action": "prediccion_entrenar_click", "page": "prediccion_ausencias", "reason_code": reason_code})
+        if reason_code is not None:
+            self._set_estado_error(reason_code)
             return
-        self._set_bloqueo(True)
-        try:
-            self.lbl_paso_2_estado.setText(self._i18n.t("prediccion_ausencias.estado.preparando"))
-            self._facade.entrenar_uc.ejecutar()
-            self.lbl_paso_2_estado.setText(self._i18n.t("prediccion_ausencias.estado.entrenado_ok"))
-            self._actualizar_salud()
-            self._actualizar_resultados_recientes()
-            self._cargar_previsualizacion()
-        except ValueError:
-            self.lbl_paso_2_estado.setText(self._i18n.t("prediccion_ausencias.estado.datos_insuficientes").format(minimo=50))
-        except Exception as exc:  # noqa: BLE001
-            LOGGER.error(
-                "prediccion_entrenamiento_fallido",
-                extra={"reason_code": "train_failed", "error": str(exc)},
-            )
-            self.lbl_paso_2_estado.setText(self._i18n.t("prediccion_ausencias.estado.entrenamiento_error"))
-        finally:
-            self._set_bloqueo(False)
+        self._set_estado_running()
+        self._runner_entrenamiento = RunnerEntrenamientoPrediccion(self._facade.entrenar_uc)
+        self._runner_entrenamiento.success.connect(self._on_entrenar_ok)
+        self._runner_entrenamiento.error.connect(self._on_entrenar_fail)
+        self._runner_entrenamiento.finished.connect(self._on_entrenar_finish)
+        self._runner_entrenamiento.start()
+
+    def _validar_entrenamiento(self) -> str | None:
+        if self._entrenamiento_activo:
+            return "already_running"
+        if not self._datos_aptos:
+            return "dataset_insuficiente"
+        return None
+
+    def _on_entrenar_ok(self, resultado: ResultadoEntrenamientoPrediccion) -> None:
+        self._set_estado_success()
+        self._actualizar_salud()
+        self._actualizar_resultados_recientes()
+        self._cargar_previsualizacion()
+        LOGGER.info("prediccion_entrenar_ok", extra={"action": "prediccion_entrenar_ok", "page": "prediccion_ausencias", "citas_usadas": resultado.citas_usadas, "fecha_metadata": resultado.fecha_entrenamiento})
+
+    def _on_entrenar_fail(self, reason_code: str) -> None:
+        self._set_estado_error(reason_code)
+        LOGGER.error("prediccion_entrenar_fail", extra={"action": "prediccion_entrenar_fail", "page": "prediccion_ausencias", "reason_code": reason_code})
+
+    def _on_entrenar_finish(self) -> None:
+        self._entrenamiento_activo = False
+        self._actualizar_estado_botones()
+        self._runner_entrenamiento = None
+
+    def _set_estado_running(self) -> None:
+        self._entrenamiento_activo = True
+        self.lbl_paso_2_estado.setText(self._i18n.t("prediccion.entrenar.en_curso"))
+        self.progress_entrenamiento.setVisible(True)
+        self.btn_reintentar.setVisible(False)
+        self._actualizar_estado_botones()
+
+    def _set_estado_success(self) -> None:
+        self.lbl_paso_2_estado.setText(self._i18n.t("prediccion.entrenar.ok"))
+        self.progress_entrenamiento.setVisible(False)
+        self.btn_reintentar.setVisible(False)
+
+    def _set_estado_error(self, reason_code: str) -> None:
+        key = "prediccion.entrenar.error"
+        if reason_code == "dataset_insuficiente":
+            key = "prediccion.entrenar.bloqueado_por_datos"
+        self.lbl_paso_2_estado.setText(self._i18n.t(key))
+        self.progress_entrenamiento.setVisible(False)
+        self.btn_reintentar.setVisible(reason_code != "dataset_insuficiente")
+
+    def _actualizar_estado_botones(self) -> None:
+        habilitar = (not self._entrenamiento_activo) and self._datos_aptos
+        self.btn_entrenar.setEnabled(habilitar)
+        self.btn_salud_entrenar.setEnabled(habilitar)
 
     def _cargar_previsualizacion(self) -> None:
         result = self._facade.previsualizar_uc.ejecutar(limite=30)
@@ -205,11 +249,10 @@ class PagePrediccionAusencias(QWidget):
             self.lbl_paso_3_estado.setText(self._i18n.t("prediccion_ausencias.estado.carga_error"))
             self.tabla.setRowCount(0)
             return
-
         self.lbl_paso_3_estado.setText(self._i18n.t("prediccion_ausencias.estado.previsualizacion_lista"))
         self.tabla.setRowCount(len(result.items))
         for row, item in enumerate(result.items):
-            values = [item.fecha, item.hora, item.paciente, item.medico, self._i18n.t(f"prediccion_ausencias.riesgo.{item.riesgo.lower()}")]
+            values = [item.fecha, item.hora, item.paciente, item.medico, self._i18n.t(f"prediccion_ausencias.riesgo.{item.riesgo.lower()}"),]
             for col, value in enumerate(values):
                 self.tabla.setItem(row, col, QTableWidgetItem(value))
 
@@ -230,20 +273,12 @@ class PagePrediccionAusencias(QWidget):
         self.box_paso_3.setTitle(self._i18n.t("prediccion_ausencias.paso_3.titulo"))
         self.btn_salud_entrenar.setText(self._i18n.t("prediccion_ausencias.accion.entrenar"))
         self.btn_entrenar.setText(self._i18n.t("prediccion_ausencias.accion.entrenar"))
+        self.btn_reintentar.setText(self._i18n.t("prediccion.entrenar.reintentar"))
         self.chk_activar.setText(self._i18n.t("prediccion_ausencias.accion.activar_agenda"))
         self.btn_cerrar_citas_antiguas.setText(self._i18n.t("prediccion_ausencias.cierre.cta"))
         self.lbl_salud_ayuda_cierre.setText(self._i18n.t("prediccion_ausencias.cierre.cta_ayuda"))
-        self.tabla.setHorizontalHeaderLabels(
-            [
-                self._i18n.t("prediccion_ausencias.tabla.fecha"),
-                self._i18n.t("prediccion_ausencias.tabla.hora"),
-                self._i18n.t("prediccion_ausencias.tabla.paciente"),
-                self._i18n.t("prediccion_ausencias.tabla.medico"),
-                self._i18n.t("prediccion_ausencias.tabla.riesgo"),
-            ]
-        )
+        self.tabla.setHorizontalHeaderLabels([self._i18n.t("prediccion_ausencias.tabla.fecha"), self._i18n.t("prediccion_ausencias.tabla.hora"), self._i18n.t("prediccion_ausencias.tabla.paciente"), self._i18n.t("prediccion_ausencias.tabla.medico"), self._i18n.t("prediccion_ausencias.tabla.riesgo")])
         self._actualizar_resultados_recientes()
-
 
     def _abrir_asistente_cierre(self) -> None:
         dialog = CerrarCitasAntiguasDialog(self._facade, self._i18n, self)
@@ -251,7 +286,3 @@ class PagePrediccionAusencias(QWidget):
             self._actualizar_salud()
             self._actualizar_resultados_recientes()
             self._comprobar_datos()
-
-    def _set_bloqueo(self, enabled: bool) -> None:
-        self.btn_entrenar.setDisabled(enabled)
-        QApplication.setOverrideCursor(Qt.WaitCursor) if enabled else QApplication.restoreOverrideCursor()
