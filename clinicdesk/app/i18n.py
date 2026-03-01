@@ -150,6 +150,15 @@ _TRANSLATIONS = {
         "prediccion_ausencias.riesgo.bajo": "BAJO",
         "prediccion_ausencias.riesgo.medio": "MEDIO",
         "prediccion_ausencias.riesgo.alto": "ALTO",
+
+        "citas.riesgo.columna": "Riesgo de ausencia",
+        "citas.riesgo.valor.bajo": "Bajo",
+        "citas.riesgo.valor.medio": "Medio",
+        "citas.riesgo.valor.alto": "Alto",
+        "citas.riesgo.no_disponible": "Predicción no disponible",
+        "citas.riesgo.aviso_no_disponible": "Predicción no disponible. Entra en Predicción y pulsa ‘Entrenar ahora’.",
+        "citas.riesgo.ir_prediccion": "Ir a Predicción",
+        "citas.riesgo.tooltip": "Riesgo de ausencia: {nivel}",
         "auditoria.entidad.receta": "RECETA",
     },
     "en": {
@@ -298,6 +307,15 @@ _TRANSLATIONS = {
         "prediccion_ausencias.riesgo.bajo": "LOW",
         "prediccion_ausencias.riesgo.medio": "MEDIUM",
         "prediccion_ausencias.riesgo.alto": "HIGH",
+
+        "citas.riesgo.columna": "No-show risk",
+        "citas.riesgo.valor.bajo": "Low",
+        "citas.riesgo.valor.medio": "Medium",
+        "citas.riesgo.valor.alto": "High",
+        "citas.riesgo.no_disponible": "Prediction not available",
+        "citas.riesgo.aviso_no_disponible": "Prediction not available. Open Prediction and click 'Train now'.",
+        "citas.riesgo.ir_prediccion": "Go to Prediction",
+        "citas.riesgo.tooltip": "No-show risk: {nivel}",
         "auditoria.entidad.receta": "PRESCRIPTION",
     },
 }

@@ -26,7 +26,7 @@ def get_pages(container, i18n: I18nManager):
 
     register_home(registry, container)
     register_pacientes(registry, container)
-    register_citas(registry, container)
+    register_citas(registry, container, i18n)
     register_medicos(registry, container)
     register_personal(registry, container)
     register_salas(registry, container)

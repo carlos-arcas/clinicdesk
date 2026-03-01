@@ -30,6 +30,8 @@ class CitaRow:
 @dataclass(frozen=True, slots=True)
 class CitaListadoRow:
     id: int
+    paciente_id: int
+    medico_id: int
     fecha: str
     hora_inicio: str
     hora_fin: str
@@ -148,6 +150,8 @@ class CitasQueries:
     def _sql_listado(where_sql: str) -> str:
         return (
             "SELECT c.id, "
+            "c.paciente_id, "
+            "c.medico_id, "
             "date(c.inicio) AS fecha, "
             "time(c.inicio) AS hora_inicio, "
             "time(c.fin) AS hora_fin, "
@@ -187,6 +191,8 @@ class CitasQueries:
     def _map_listado_row(row) -> CitaListadoRow:
         return CitaListadoRow(
             id=int(row["id"]),
+            paciente_id=int(row["paciente_id"]),
+            medico_id=int(row["medico_id"]),
             fecha=row["fecha"],
             hora_inicio=row["hora_inicio"],
             hora_fin=row["hora_fin"],
