@@ -13,8 +13,10 @@ from PySide6.QtWidgets import (
     QTableWidgetItem,
     QVBoxLayout,
     QWidget,
+    QMessageBox,
 )
 from clinicdesk.app.application.prediccion_ausencias import ResultadoEntrenamientoPrediccion
+from clinicdesk.app.application.prediccion_ausencias.resultados_recientes import DiagnosticoResultadosRecientes
 from clinicdesk.app.application.services.prediccion_ausencias_facade import PrediccionAusenciasFacade
 from clinicdesk.app.bootstrap_logging import get_contexto_log, get_logger
 from clinicdesk.app.i18n import I18nManager
@@ -78,12 +80,21 @@ class PagePrediccionAusencias(QWidget):
         self.lbl_resultados_estado.setWordWrap(True)
         self.lbl_resultados_accion = QLabel()
         self.lbl_resultados_accion.setWordWrap(True)
+        self.btn_resultados_cerrar_citas_antiguas = QPushButton()
+        self.btn_resultados_cerrar_citas_antiguas.clicked.connect(self._on_cta_cerrar_citas_antiguas)
+        self.btn_resultados_abrir_confirmaciones = QPushButton()
+        self.btn_resultados_abrir_confirmaciones.clicked.connect(self._on_cta_abrir_confirmaciones)
+        self.btn_resultados_activar_riesgo_agenda = QPushButton()
+        self.btn_resultados_activar_riesgo_agenda.clicked.connect(self._on_cta_activar_riesgo_agenda)
         self.lbl_resultado_bajo = QLabel()
         self.lbl_resultado_medio = QLabel()
         self.lbl_resultado_alto = QLabel()
         layout.addWidget(self.lbl_resultados_subtitulo)
         layout.addWidget(self.lbl_resultados_estado)
         layout.addWidget(self.lbl_resultados_accion)
+        layout.addWidget(self.btn_resultados_cerrar_citas_antiguas)
+        layout.addWidget(self.btn_resultados_abrir_confirmaciones)
+        layout.addWidget(self.btn_resultados_activar_riesgo_agenda)
         layout.addWidget(self.lbl_resultado_bajo)
         layout.addWidget(self.lbl_resultado_medio)
         layout.addWidget(self.lbl_resultado_alto)
@@ -157,6 +168,12 @@ class PagePrediccionAusencias(QWidget):
         self.lbl_resultados_subtitulo.setText(self._i18n.t("prediccion_ausencias.resultados.subtitulo").format(semanas=semanas))
         self.lbl_resultados_estado.setText(self._i18n.t(resultado.mensaje_i18n_key))
         self.lbl_resultados_accion.setText(" ".join(self._i18n.t(key) for key in resultado.acciones_i18n_keys))
+        self._configurar_ctas_resultados(resultado.diagnostico)
+        if resultado.diagnostico is not DiagnosticoResultadosRecientes.OK:
+            self.lbl_resultado_bajo.setText("")
+            self.lbl_resultado_medio.setText("")
+            self.lbl_resultado_alto.setText("")
+            return
         textos = {
             fila.riesgo: self._i18n.t("prediccion_ausencias.resultados.fila").format(
                 riesgo=self._i18n.t(f"prediccion_ausencias.riesgo.{fila.riesgo.lower()}"),
@@ -168,6 +185,53 @@ class PagePrediccionAusencias(QWidget):
         self.lbl_resultado_bajo.setText(textos.get("BAJO", ""))
         self.lbl_resultado_medio.setText(textos.get("MEDIO", ""))
         self.lbl_resultado_alto.setText(textos.get("ALTO", ""))
+    def _configurar_ctas_resultados(self, diagnostico: DiagnosticoResultadosRecientes) -> None:
+        mostrar_cierre = diagnostico in {
+            DiagnosticoResultadosRecientes.SIN_CITAS_CERRADAS,
+            DiagnosticoResultadosRecientes.DATOS_INSUFICIENTES,
+        }
+        mostrar_confirmaciones = diagnostico in {
+            DiagnosticoResultadosRecientes.SIN_PREDICCIONES_REGISTRADAS,
+            DiagnosticoResultadosRecientes.DATOS_INSUFICIENTES,
+        }
+        mostrar_activar = diagnostico is DiagnosticoResultadosRecientes.SIN_PREDICCIONES_REGISTRADAS
+        self.btn_resultados_cerrar_citas_antiguas.setVisible(mostrar_cierre)
+        self.btn_resultados_abrir_confirmaciones.setVisible(mostrar_confirmaciones)
+        self.btn_resultados_activar_riesgo_agenda.setVisible(mostrar_activar)
+    def _on_cta_cerrar_citas_antiguas(self) -> None:
+        self._log_cta_resultados("cerrar_citas_antiguas")
+        self._abrir_asistente_cierre()
+    def _on_cta_abrir_confirmaciones(self) -> None:
+        self._log_cta_resultados("abrir_confirmaciones")
+        window = self.window()
+        if hasattr(window, "navigate"):
+            window.navigate("confirmaciones")
+    def _on_cta_activar_riesgo_agenda(self) -> None:
+        self._log_cta_resultados("activar_riesgo_agenda")
+        qsettings = QSettings("clinicdesk", "ui")
+        try:
+            qsettings.setValue(self._settings_key, 1)
+            self.chk_activar.setChecked(True)
+            QMessageBox.information(
+                self,
+                self._i18n.t("prediccion_ausencias.resultados.cta.activar_riesgo_agenda"),
+                self._i18n.t("prediccion_ausencias.resultados.cta.activar_riesgo_ok"),
+            )
+        except Exception:  # noqa: BLE001
+            LOGGER.exception(
+                "resultados_recientes_cta_activar_riesgo_error",
+                extra={"action": "resultados_recientes_cta", "cta_code": "activar_riesgo_agenda"},
+            )
+            QMessageBox.warning(
+                self,
+                self._i18n.t("prediccion_ausencias.resultados.cta.activar_riesgo_agenda"),
+                self._i18n.t("prediccion_ausencias.resultados.cta.activar_riesgo_error"),
+            )
+    def _log_cta_resultados(self, cta_code: str) -> None:
+        LOGGER.info(
+            "resultados_recientes_cta",
+            extra={"action": "resultados_recientes_cta", "cta_code": cta_code, "page": "prediccion_ausencias"},
+        )
     def _on_entrenar_click(self) -> None:
         try:
             reason_code = self._validar_entrenamiento()
@@ -330,6 +394,9 @@ class PagePrediccionAusencias(QWidget):
         self.chk_activar.setText(self._i18n.t("prediccion_ausencias.accion.activar_agenda"))
         self.btn_cerrar_citas_antiguas.setText(self._i18n.t("prediccion_ausencias.cierre.cta"))
         self.lbl_salud_ayuda_cierre.setText(self._i18n.t("prediccion_ausencias.cierre.cta_ayuda"))
+        self.btn_resultados_cerrar_citas_antiguas.setText(self._i18n.t("prediccion_ausencias.resultados.cta.cerrar_citas_antiguas"))
+        self.btn_resultados_abrir_confirmaciones.setText(self._i18n.t("prediccion_ausencias.resultados.cta.abrir_confirmaciones"))
+        self.btn_resultados_activar_riesgo_agenda.setText(self._i18n.t("prediccion_ausencias.resultados.cta.activar_riesgo_agenda"))
         self.tabla.setHorizontalHeaderLabels([self._i18n.t("prediccion_ausencias.tabla.fecha"), self._i18n.t("prediccion_ausencias.tabla.hora"), self._i18n.t("prediccion_ausencias.tabla.paciente"), self._i18n.t("prediccion_ausencias.tabla.medico"), self._i18n.t("prediccion_ausencias.tabla.riesgo")])
         self._actualizar_resultados_recientes()
     def _abrir_asistente_cierre(self) -> None:

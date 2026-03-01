@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from enum import StrEnum
 from typing import Protocol
 
 from clinicdesk.app.bootstrap_logging import get_logger
 from clinicdesk.app.queries.prediccion_ausencias_resultados_queries import (
+    DiagnosticoResultadosRecientesRaw,
     FilaResultadoRecientePrediccion,
     ItemRegistroPrediccionAusencia,
     ResultadoRecientePrediccion,
@@ -13,6 +15,13 @@ from clinicdesk.app.queries.prediccion_ausencias_resultados_queries import (
 
 LOGGER = get_logger(__name__)
 _RIESGOS_ORDEN = ("BAJO", "MEDIO", "ALTO")
+
+
+class DiagnosticoResultadosRecientes(StrEnum):
+    OK = "OK"
+    SIN_CITAS_CERRADAS = "SIN_CITAS_CERRADAS"
+    SIN_PREDICCIONES_REGISTRADAS = "SIN_PREDICCIONES_REGISTRADAS"
+    DATOS_INSUFICIENTES = "DATOS_INSUFICIENTES"
 
 
 @dataclass(frozen=True, slots=True)
@@ -28,9 +37,12 @@ class ResultadoRecientesPrediccionDTO:
     version_modelo_fecha_utc: str | None
     ventana_dias: int
     filas: tuple[FilaResultadoRecienteDTO, ...]
-    estado_evaluacion: str
+    diagnostico: DiagnosticoResultadosRecientes
     mensaje_i18n_key: str
     acciones_i18n_keys: tuple[str, ...]
+    total_citas_cerradas_en_ventana: int
+    total_predicciones_registradas_en_ventana: int
+    total_predicciones_con_resultado: int
 
 
 class RepositorioResultadosRecientesPrediccion(Protocol):
@@ -38,6 +50,9 @@ class RepositorioResultadosRecientesPrediccion(Protocol):
         ...
 
     def obtener_resultados_recientes_prediccion(self, ventana_dias: int = 60) -> ResultadoRecientePrediccion:
+        ...
+
+    def obtener_diagnostico_resultados_recientes(self, ventana_dias: int) -> DiagnosticoResultadosRecientesRaw:
         ...
 
 
@@ -78,18 +93,35 @@ class ObtenerResultadosRecientesPrediccionAusencias:
     umbral_minimo: int = 20
 
     def ejecutar(self, ventana_dias: int = 60) -> ResultadoRecientesPrediccionDTO:
-        resultado = self.repositorio.obtener_resultados_recientes_prediccion(ventana_dias=ventana_dias)
-        filas = self._normalizar_filas(resultado.filas)
-        total_predichas = sum(fila.total_predichas for fila in filas)
-        estado = "OK" if total_predichas >= self.umbral_minimo else "SIN_DATOS"
+        diagnostico_raw = self.repositorio.obtener_diagnostico_resultados_recientes(ventana_dias=ventana_dias)
+        diagnostico = self._resolver_diagnostico(diagnostico_raw)
+        filas = tuple()
+        if diagnostico is DiagnosticoResultadosRecientes.OK:
+            resultado = self.repositorio.obtener_resultados_recientes_prediccion(ventana_dias=ventana_dias)
+            filas = self._normalizar_filas(resultado.filas)
+            version_modelo = resultado.version_modelo_fecha_utc
+        else:
+            version_modelo = diagnostico_raw.version_objetivo
         return ResultadoRecientesPrediccionDTO(
-            version_modelo_fecha_utc=resultado.version_modelo_fecha_utc,
+            version_modelo_fecha_utc=version_modelo,
             ventana_dias=ventana_dias,
             filas=filas,
-            estado_evaluacion=estado,
-            mensaje_i18n_key=self._mensaje_clave(estado),
-            acciones_i18n_keys=self._acciones_clave(estado),
+            diagnostico=diagnostico,
+            mensaje_i18n_key=self._mensaje_clave(diagnostico),
+            acciones_i18n_keys=self._acciones_clave(diagnostico),
+            total_citas_cerradas_en_ventana=diagnostico_raw.total_citas_cerradas_en_ventana,
+            total_predicciones_registradas_en_ventana=diagnostico_raw.total_predicciones_registradas_en_ventana,
+            total_predicciones_con_resultado=diagnostico_raw.total_predicciones_con_resultado,
         )
+
+    def _resolver_diagnostico(self, datos: DiagnosticoResultadosRecientesRaw) -> DiagnosticoResultadosRecientes:
+        if datos.total_citas_cerradas_en_ventana < self.umbral_minimo:
+            return DiagnosticoResultadosRecientes.SIN_CITAS_CERRADAS
+        if datos.total_predicciones_registradas_en_ventana == 0:
+            return DiagnosticoResultadosRecientes.SIN_PREDICCIONES_REGISTRADAS
+        if datos.total_predicciones_con_resultado < self.umbral_minimo:
+            return DiagnosticoResultadosRecientes.DATOS_INSUFICIENTES
+        return DiagnosticoResultadosRecientes.OK
 
     @staticmethod
     def _normalizar_filas(filas: tuple[FilaResultadoRecientePrediccion, ...]) -> tuple[FilaResultadoRecienteDTO, ...]:
@@ -111,13 +143,21 @@ class ObtenerResultadosRecientesPrediccionAusencias:
         )
 
     @staticmethod
-    def _mensaje_clave(estado: str) -> str:
-        if estado == "OK":
-            return "prediccion_ausencias.resultados.estado.ok"
-        return "prediccion_ausencias.resultados.estado.sin_datos"
+    def _mensaje_clave(diagnostico: DiagnosticoResultadosRecientes) -> str:
+        return f"prediccion_ausencias.resultados.diagnostico.{diagnostico.value.lower()}"
 
     @staticmethod
-    def _acciones_clave(estado: str) -> tuple[str, ...]:
-        if estado == "OK":
-            return tuple()
-        return ("prediccion_ausencias.resultados.accion.completar_resultado",)
+    def _acciones_clave(diagnostico: DiagnosticoResultadosRecientes) -> tuple[str, ...]:
+        if diagnostico is DiagnosticoResultadosRecientes.SIN_CITAS_CERRADAS:
+            return ("prediccion_ausencias.resultados.cta.cerrar_citas_antiguas",)
+        if diagnostico is DiagnosticoResultadosRecientes.SIN_PREDICCIONES_REGISTRADAS:
+            return (
+                "prediccion_ausencias.resultados.cta.abrir_confirmaciones",
+                "prediccion_ausencias.resultados.cta.activar_riesgo_agenda",
+            )
+        if diagnostico is DiagnosticoResultadosRecientes.DATOS_INSUFICIENTES:
+            return (
+                "prediccion_ausencias.resultados.cta.cerrar_citas_antiguas",
+                "prediccion_ausencias.resultados.cta.abrir_confirmaciones",
+            )
+        return tuple()

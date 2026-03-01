@@ -32,6 +32,14 @@ class ResultadoRecientePrediccion:
     filas: tuple[FilaResultadoRecientePrediccion, ...]
 
 
+@dataclass(frozen=True, slots=True)
+class DiagnosticoResultadosRecientesRaw:
+    total_citas_cerradas_en_ventana: int
+    total_predicciones_registradas_en_ventana: int
+    total_predicciones_con_resultado: int
+    version_objetivo: str | None
+
+
 class PrediccionAusenciasResultadosQueries:
     def __init__(
         self,
@@ -104,6 +112,45 @@ class PrediccionAusenciasResultadosQueries:
                 )
                 for row in rows
             ),
+        )
+
+    def obtener_diagnostico_resultados_recientes(self, ventana_dias: int) -> DiagnosticoResultadosRecientesRaw:
+        row = self._con().execute(
+            """
+            WITH citas_ventana AS (
+                SELECT id, estado
+                FROM citas
+                WHERE activo = 1
+                  AND datetime(inicio) >= datetime('now', ?)
+            ),
+            predicciones_ventana AS (
+                SELECT DISTINCT pl.cita_id
+                FROM predicciones_ausencias_log pl
+                JOIN citas_ventana cv ON cv.id = pl.cita_id
+            )
+            SELECT
+                SUM(CASE WHEN cv.estado IN (?, ?) THEN 1 ELSE 0 END) AS total_citas_cerradas_en_ventana,
+                (SELECT COUNT(1) FROM predicciones_ventana) AS total_predicciones_registradas_en_ventana,
+                SUM(CASE WHEN cv.estado IN (?, ?) AND pv.cita_id IS NOT NULL THEN 1 ELSE 0 END)
+                    AS total_predicciones_con_resultado,
+                (SELECT MAX(modelo_fecha_utc) FROM predicciones_ausencias_log) AS version_objetivo
+            FROM citas_ventana cv
+            LEFT JOIN predicciones_ventana pv ON pv.cita_id = cv.id
+            """,
+            (f"-{ventana_dias} days", *_ESTADOS_CERRADOS, *_ESTADOS_CERRADOS),
+        ).fetchone()
+        if row is None:
+            return DiagnosticoResultadosRecientesRaw(
+                total_citas_cerradas_en_ventana=0,
+                total_predicciones_registradas_en_ventana=0,
+                total_predicciones_con_resultado=0,
+                version_objetivo=None,
+            )
+        return DiagnosticoResultadosRecientesRaw(
+            total_citas_cerradas_en_ventana=int(row["total_citas_cerradas_en_ventana"] or 0),
+            total_predicciones_registradas_en_ventana=int(row["total_predicciones_registradas_en_ventana"] or 0),
+            total_predicciones_con_resultado=int(row["total_predicciones_con_resultado"] or 0),
+            version_objetivo=str(row["version_objetivo"]) if row["version_objetivo"] else None,
         )
 
     def _obtener_version_objetivo(self) -> str | None:
