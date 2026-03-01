@@ -16,10 +16,19 @@ logger = logging.getLogger(__name__)
 @dataclass(frozen=True, slots=True)
 class PacienteRow:
     id: int
+    tipo_documento: str
     documento: str
+    nombre: str
+    apellidos: str
     nombre_completo: str
     telefono: str
+    email: str
+    fecha_nacimiento: str
+    direccion: str
     activo: bool
+    num_historia: str
+    alergias: str
+    observaciones: str
 
 
 class PacientesQueries:
@@ -119,8 +128,9 @@ class PacientesQueries:
     @staticmethod
     def _base_select_sql() -> str:
         return (
-            "SELECT id, documento, documento_enc, telefono, telefono_enc, "
-            "nombre, apellidos, activo FROM pacientes"
+            "SELECT id, tipo_documento, documento, documento_enc, nombre, apellidos, "
+            "telefono, telefono_enc, email, email_enc, fecha_nacimiento, direccion, direccion_enc, "
+            "activo, num_historia, alergias, observaciones FROM pacientes"
         )
 
     def _to_row(self, row: sqlite3.Row) -> PacienteRow:
@@ -134,10 +144,29 @@ class PacientesQueries:
             legacy=row["telefono"],
             encrypted=row["telefono_enc"],
         )
+        email = self._field_protection.decode(
+            "email",
+            legacy=row["email"],
+            encrypted=row["email_enc"],
+        )
+        direccion = self._field_protection.decode(
+            "direccion",
+            legacy=row["direccion"],
+            encrypted=row["direccion_enc"],
+        )
         return PacienteRow(
             id=row["id"],
+            tipo_documento=row["tipo_documento"],
             documento=documento or "",
+            nombre=row["nombre"],
+            apellidos=row["apellidos"],
             nombre_completo=f"{row['nombre']} {row['apellidos']}".strip(),
             telefono=telefono or "",
+            email=email or "",
+            fecha_nacimiento=row["fecha_nacimiento"] or "",
+            direccion=direccion or "",
             activo=bool(row["activo"]),
+            num_historia=row["num_historia"] or "",
+            alergias=row["alergias"] or "",
+            observaciones=row["observaciones"] or "",
         )
