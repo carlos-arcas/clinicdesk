@@ -20,6 +20,13 @@ from PySide6.QtWidgets import (
 )
 
 from clinicdesk.app.application.prediccion_ausencias.riesgo_agenda import RIESGO_NO_DISPONIBLE
+from clinicdesk.app.application.citas import (
+    BuscarCitasParaCalendario,
+    BuscarCitasParaLista,
+    FiltrosCitasDTO,
+    PaginacionCitasDTO,
+    normalizar_filtros_citas,
+)
 from clinicdesk.app.bootstrap_logging import get_logger
 from clinicdesk.app.container import AppContainer
 from clinicdesk.app.controllers.citas_controller import CitasController
@@ -47,6 +54,8 @@ class PageCitas(QWidget):
         self._container = container
         self._i18n = i18n
         self._queries = CitasQueries(container)
+        self._buscar_lista_uc = BuscarCitasParaLista(self._queries)
+        self._buscar_calendario_uc = BuscarCitasParaCalendario(self._queries)
         self._controller = CitasController(self, container)
         self._can_write = container.user_context.can_write
         self._riesgo_enabled = False
@@ -184,7 +193,29 @@ class PageCitas(QWidget):
     def _refresh_calendario(self) -> None:
         date_str = self.calendar.selectedDate().toString("yyyy-MM-dd")
         self.lbl_date.setText(f"Fecha: {date_str}")
-        rows: List[CitaRow] = self._queries.list_by_date(date_str)
+        inicio = datetime.fromisoformat(f"{date_str}T00:00:00")
+        fin = datetime.fromisoformat(f"{date_str}T23:59:59")
+        filtros = normalizar_filtros_citas(
+            FiltrosCitasDTO(rango_preset="PERSONALIZADO", desde=inicio, hasta=fin),
+            datetime.now(),
+        )
+        rows_data = self._buscar_calendario_uc.ejecutar(filtros)
+        rows: List[CitaRow] = [
+            CitaRow(
+                id=int(fila["cita_id"]),
+                inicio=f"{fila.get('fecha', date_str)} {fila.get('hora_inicio', '')}",
+                fin=f"{fila.get('fecha', date_str)} {fila.get('hora_fin', '')}",
+                paciente_id=0,
+                paciente_nombre=str(fila.get("paciente", "")),
+                medico_id=0,
+                medico_nombre=str(fila.get("medico", "")),
+                sala_id=0,
+                sala_nombre=str(fila.get("sala", "")),
+                estado=str(fila.get("estado", "")),
+                motivo=None,
+            )
+            for fila in rows_data
+        ]
         riesgos = self._obtener_riesgo_citas_calendario(rows) if self._riesgo_enabled else {}
         self.table.setRowCount(0)
         for c in rows:
@@ -217,15 +248,44 @@ class PageCitas(QWidget):
         QTimer.singleShot(0, self._refresh_lista)
 
     def _refresh_lista(self) -> None:
-        rows = self._queries.search_listado(
-            desde=self.desde_date.date().toString("yyyy-MM-dd"),
-            hasta=self.hasta_date.date().toString("yyyy-MM-dd"),
-            texto=self.filtros.texto(),
-            estado=self.filtros.estado(),
+        desde = self.desde_date.date().toString("yyyy-MM-dd")
+        hasta = self.hasta_date.date().toString("yyyy-MM-dd")
+        filtros = normalizar_filtros_citas(
+            FiltrosCitasDTO(
+                rango_preset="PERSONALIZADO",
+                desde=datetime.fromisoformat(f"{desde}T00:00:00"),
+                hasta=datetime.fromisoformat(f"{hasta}T23:59:59"),
+                texto_busqueda=self.filtros.texto(),
+                estado=self.filtros.estado(),
+            ),
+            datetime.now(),
         )
+        resultado = self._buscar_lista_uc.ejecutar(
+            filtros,
+            PaginacionCitasDTO(limit=500, offset=0),
+            ("fecha", "hora_inicio", "hora_fin", "paciente", "medico", "sala", "estado", "notas_len", "incidencias"),
+        )
+        rows = [self._mapear_fila_lista_uc(fila) for fila in resultado.items]
         self._cargar_tabla_lista(rows)
-        self.filtros.set_contador(len(rows), len(rows))
+        self.filtros.set_contador(len(rows), resultado.total)
         self.lbl_cargando.setText("")
+
+    @staticmethod
+    def _mapear_fila_lista_uc(fila: dict[str, object]) -> CitaListadoRow:
+        return CitaListadoRow(
+            id=int(fila["cita_id"]),
+            paciente_id=int(fila.get("paciente_id", 0)),
+            medico_id=int(fila.get("medico_id", 0)),
+            fecha=str(fila.get("fecha", "")),
+            hora_inicio=str(fila.get("hora_inicio", "")),
+            hora_fin=str(fila.get("hora_fin", "")),
+            paciente=str(fila.get("paciente", "")),
+            medico=str(fila.get("medico", "")),
+            sala=str(fila.get("sala", "")),
+            estado=str(fila.get("estado", "")),
+            notas_len=int(fila.get("notas_len", 0)),
+            tiene_incidencias=bool(fila.get("tiene_incidencias", 0)),
+        )
 
     def _cargar_tabla_lista(self, rows: list[CitaListadoRow]) -> None:
         riesgos = self._obtener_riesgo_citas_lista(rows) if self._riesgo_enabled else {}
