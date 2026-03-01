@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime, timezone
 import sqlite3
+from datetime import datetime, timezone
+from clinicdesk.app.infrastructure.sqlite.proveedor_conexion_sqlite import ProveedorConexionSqlitePorHilo
 
 
 _ESTADOS_CERRADOS = ("REALIZADA", "NO_PRESENTADO")
@@ -32,8 +33,16 @@ class ResultadoRecientePrediccion:
 
 
 class PrediccionAusenciasResultadosQueries:
-    def __init__(self, connection: sqlite3.Connection) -> None:
-        self._con = connection
+    def __init__(
+        self,
+        proveedor_conexion: ProveedorConexionSqlitePorHilo | sqlite3.Connection,
+    ) -> None:
+        self._proveedor_conexion = proveedor_conexion
+
+    def _con(self) -> sqlite3.Connection:
+        if isinstance(self._proveedor_conexion, sqlite3.Connection):
+            return self._proveedor_conexion
+        return self._proveedor_conexion.obtener()
 
     def registrar_predicciones_ausencias(
         self,
@@ -47,7 +56,7 @@ class PrediccionAusenciasResultadosQueries:
         ]
         if not filas:
             return 0
-        cursor = self._con.executemany(
+        cursor = self._con().executemany(
             """
             INSERT OR IGNORE INTO predicciones_ausencias_log(
                 timestamp_utc,
@@ -66,7 +75,7 @@ class PrediccionAusenciasResultadosQueries:
         version = self._obtener_version_objetivo()
         if version is None:
             return ResultadoRecientePrediccion(version_modelo_fecha_utc=None, filas=tuple())
-        rows = self._con.execute(
+        rows = self._con().execute(
             """
             SELECT
                 pl.riesgo AS riesgo,
@@ -98,7 +107,7 @@ class PrediccionAusenciasResultadosQueries:
         )
 
     def _obtener_version_objetivo(self) -> str | None:
-        row = self._con.execute("SELECT MAX(modelo_fecha_utc) AS version FROM predicciones_ausencias_log").fetchone()
+        row = self._con().execute("SELECT MAX(modelo_fecha_utc) AS version FROM predicciones_ausencias_log").fetchone()
         if row is None or row["version"] is None:
             return None
         return str(row["version"])

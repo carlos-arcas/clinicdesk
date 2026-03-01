@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from clinicdesk.app.infrastructure.sqlite.proveedor_conexion_sqlite import ProveedorConexionSqlitePorHilo
+
 from clinicdesk.app.application.prediccion_ausencias.riesgo_agenda import (
     ObtenerRiesgoAusenciaParaCitas,
 )
@@ -24,6 +26,7 @@ from clinicdesk.app.application.prediccion_ausencias.resultados_recientes import
 
 @dataclass(slots=True)
 class PrediccionAusenciasFacade:
+    proveedor_conexion: ProveedorConexionSqlitePorHilo
     comprobar_datos_uc: ComprobarDatosPrediccionAusencias
     entrenar_uc: EntrenarPrediccionAusencias
     previsualizar_uc: PrevisualizarPrediccionAusencias
