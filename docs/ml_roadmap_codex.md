@@ -126,3 +126,7 @@
 **Cambios esperados:** actualización de docs (`progress_log`, contrato, quality gate).
 **Tests a añadir:** suite de regresión de core completa.
 **Criterio de éxito:** CI verde, arquitectura respetada, pipeline+feature store+baseline activos.
+
+## Nota refactor solicitudes PDF preflight
+- `clinicdesk/app/application/use_cases/solicitudes/use_case.py` LOC antes: 0 (archivo inexistente).
+- `clinicdesk/app/application/use_cases/solicitudes/use_case.py` LOC después: 23.
