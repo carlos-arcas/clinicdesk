@@ -185,7 +185,7 @@ class PagePrediccionAusencias(QWidget):
     def _iniciar_entrenamiento_async(self) -> None:
         self._set_estado_running()
         thread = QThread(self)
-        worker = EntrenarPrediccionWorker(self._facade.entrenar_uc)
+        worker = EntrenarPrediccionWorker(self._facade.entrenar_uc, self._facade.proveedor_conexion)
         worker.moveToThread(thread)
         thread.started.connect(worker.run)
         worker.ok.connect(self._on_entrenar_ok)

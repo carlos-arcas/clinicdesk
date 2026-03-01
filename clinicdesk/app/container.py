@@ -41,6 +41,7 @@ from clinicdesk.app.infrastructure.sqlite.repos_recetas import RecetasRepository
 from clinicdesk.app.infrastructure.sqlite.repos_salas import SalasRepository
 from clinicdesk.app.infrastructure.sqlite.repos_turnos import TurnosRepository
 from clinicdesk.app.infrastructure.sqlite.recordatorios_citas_gateway import RecordatoriosCitasSqliteGateway
+from clinicdesk.app.infrastructure.sqlite.proveedor_conexion_sqlite import ProveedorConexionSqlitePorHilo
 from clinicdesk.app.queries.farmacia_queries import FarmaciaQueries
 
 
@@ -112,7 +113,8 @@ def build_container(connection: sqlite3.Connection) -> AppContainer:
     auditoria_accesos_repo = RepositorioAuditoriaAccesoSqlite(connection)
 
     demo_ml_facade = _build_demo_ml_facade(connection, citas_repo, incidencias_repo)
-    prediccion_ausencias_facade = _build_prediccion_ausencias_facade(connection)
+    proveedor_prediccion = _build_proveedor_conexion_prediccion(connection)
+    prediccion_ausencias_facade = _build_prediccion_ausencias_facade(proveedor_prediccion)
     recordatorios_citas_facade = _build_recordatorios_citas_facade(connection)
 
     role_value = os.getenv("CLINICDESK_ROLE", Role.ADMIN.value).upper()
@@ -170,7 +172,13 @@ def _build_demo_ml_facade(
     )
 
 
-def _build_prediccion_ausencias_facade(connection: sqlite3.Connection) -> PrediccionAusenciasFacade:
+
+def _build_proveedor_conexion_prediccion(connection: sqlite3.Connection) -> ProveedorConexionSqlitePorHilo:
+    row = connection.execute("PRAGMA database_list").fetchone()
+    db_path = row[2] if row and row[2] else ":memory:"
+    return ProveedorConexionSqlitePorHilo(db_path)
+
+def _build_prediccion_ausencias_facade(proveedor_conexion: ProveedorConexionSqlitePorHilo) -> PrediccionAusenciasFacade:
     from clinicdesk.app.application.prediccion_ausencias.cierre_citas_usecases import (
         CerrarCitasPendientes,
         ListarCitasPendientesCierre,
@@ -196,8 +204,8 @@ def _build_prediccion_ausencias_facade(connection: sqlite3.Connection) -> Predic
     from clinicdesk.app.queries.prediccion_ausencias_queries import PrediccionAusenciasQueries
     from clinicdesk.app.queries.prediccion_ausencias_resultados_queries import PrediccionAusenciasResultadosQueries
 
-    queries = PrediccionAusenciasQueries(connection)
-    resultados_queries = PrediccionAusenciasResultadosQueries(connection)
+    queries = PrediccionAusenciasQueries(proveedor_conexion)
+    resultados_queries = PrediccionAusenciasResultadosQueries(proveedor_conexion)
     almacenamiento = AlmacenamientoModeloPrediccion()
     comprobar_uc = ComprobarDatosPrediccionAusencias(queries, minimo_requerido=50)
     entrenar_uc = EntrenarPrediccionAusencias(
@@ -215,16 +223,17 @@ def _build_prediccion_ausencias_facade(connection: sqlite3.Connection) -> Predic
     listar_pendientes_uc = ListarCitasPendientesCierre(queries)
     cerrar_pendientes_uc = CerrarCitasPendientes(queries)
     return PrediccionAusenciasFacade(
-        comprobar_uc,
-        entrenar_uc,
-        previsualizar_uc,
-        obtener_riesgo_agenda_uc,
-        obtener_explicacion_riesgo_uc,
-        obtener_salud_uc,
-        registrar_predicciones_agenda_uc,
-        obtener_resultados_recientes_uc,
-        listar_pendientes_uc,
-        cerrar_pendientes_uc,
+        proveedor_conexion=proveedor_conexion,
+        comprobar_datos_uc=comprobar_uc,
+        entrenar_uc=entrenar_uc,
+        previsualizar_uc=previsualizar_uc,
+        obtener_riesgo_agenda_uc=obtener_riesgo_agenda_uc,
+        obtener_explicacion_riesgo_uc=obtener_explicacion_riesgo_uc,
+        obtener_salud_uc=obtener_salud_uc,
+        registrar_predicciones_agenda_uc=registrar_predicciones_agenda_uc,
+        obtener_resultados_recientes_uc=obtener_resultados_recientes_uc,
+        listar_citas_pendientes_cierre_uc=listar_pendientes_uc,
+        cerrar_citas_pendientes_uc=cerrar_pendientes_uc,
     )
 
 

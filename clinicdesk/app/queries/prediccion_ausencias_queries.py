@@ -3,6 +3,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 import sqlite3
 
+from clinicdesk.app.infrastructure.sqlite.proveedor_conexion_sqlite import ProveedorConexionSqlitePorHilo
+
 
 _ESTADOS_VALIDOS = ("REALIZADA", "NO_PRESENTADO")
 _ESTADOS_FINALES_CIERRE = ("REALIZADA", "NO_PRESENTADO", "CANCELADA")
@@ -53,11 +55,14 @@ class FilaCitaPendienteCierre:
 class PrediccionAusenciasQueries:
     """Consultas de lectura para entrenamiento y previsualización de ausencias."""
 
-    def __init__(self, connection: sqlite3.Connection) -> None:
-        self._con = connection
+    def __init__(self, proveedor_conexion: ProveedorConexionSqlitePorHilo | sqlite3.Connection) -> None:
+        self._proveedor_conexion = proveedor_conexion
+
+    def _con(self) -> sqlite3.Connection:
+        return self._proveedor_conexion if isinstance(self._proveedor_conexion, sqlite3.Connection) else self._proveedor_conexion.obtener()
 
     def contar_citas_validas(self) -> int:
-        row = self._con.execute(
+        row = self._con().execute(
             """
             SELECT COUNT(1) AS total
             FROM citas c
@@ -69,7 +74,7 @@ class PrediccionAusenciasQueries:
         return int(row["total"]) if row else 0
 
     def contar_citas_validas_recientes(self, dias: int = 90) -> int:
-        row = self._con.execute(
+        row = self._con().execute(
             """
             SELECT COUNT(1) AS total
             FROM citas c
@@ -82,7 +87,7 @@ class PrediccionAusenciasQueries:
         return int(row["total"]) if row else 0
 
     def obtener_dataset_entrenamiento(self) -> list[FilaEntrenamientoPrediccion]:
-        rows = self._con.execute(
+        rows = self._con().execute(
             """
             SELECT
                 c.id AS cita_id,
@@ -111,7 +116,7 @@ class PrediccionAusenciasQueries:
         ]
 
     def listar_proximas_citas(self, limite: int = 30) -> list[FilaCitaProximaPrediccion]:
-        rows = self._con.execute(
+        rows = self._con().execute(
             """
             SELECT
                 c.id AS cita_id,
@@ -150,7 +155,7 @@ class PrediccionAusenciasQueries:
         ]
 
     def obtener_cita_para_explicacion(self, cita_id: int) -> FilaCitaRiesgoAgenda | None:
-        row = self._con.execute(
+        row = self._con().execute(
             """
             SELECT
                 c.id AS cita_id,
@@ -175,7 +180,7 @@ class PrediccionAusenciasQueries:
         )
 
     def obtener_resumen_historial_paciente(self, paciente_id: int) -> ResumenHistorialPaciente:
-        row = self._con.execute(
+        row = self._con().execute(
             """
             SELECT
                 c.paciente_id,
@@ -198,7 +203,7 @@ class PrediccionAusenciasQueries:
         )
 
     def listar_citas_pendientes_cierre(self, limite: int, offset: int) -> tuple[list[FilaCitaPendienteCierre], int]:
-        total_row = self._con.execute(
+        total_row = self._con().execute(
             """
             SELECT COUNT(1) AS total
             FROM citas c
@@ -208,7 +213,7 @@ class PrediccionAusenciasQueries:
             """,
             _ESTADOS_FINALES_CIERRE,
         ).fetchone()
-        rows = self._con.execute(
+        rows = self._con().execute(
             """
             SELECT
                 c.id AS cita_id,
@@ -243,7 +248,8 @@ class PrediccionAusenciasQueries:
     def cerrar_citas_en_lote(self, items: list[tuple[int, str]]) -> int:
         if not items:
             return 0
-        cursor = self._con.cursor()
+        conexion = self._con()
+        cursor = conexion.cursor()
         cursor.executemany(
             """
             UPDATE citas
@@ -253,5 +259,5 @@ class PrediccionAusenciasQueries:
             """,
             [(estado, cita_id) for cita_id, estado in items],
         )
-        self._con.commit()
+        conexion.commit()
         return int(cursor.rowcount)
