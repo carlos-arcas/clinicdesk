@@ -14,6 +14,10 @@ def ensure_medicos_field_crypto_columns(con: sqlite3.Connection) -> None:
     _ensure_table_field_crypto_columns(con, table="medicos")
 
 
+def ensure_personal_field_crypto_columns(con: sqlite3.Connection) -> None:
+    _ensure_table_field_crypto_columns(con, table="personal")
+
+
 def _ensure_table_field_crypto_columns(con: sqlite3.Connection, *, table: str) -> None:
     columns = _table_columns(con, table=table)
     for name in _PROTECTED_COLUMNS:

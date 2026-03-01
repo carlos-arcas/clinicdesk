@@ -11,3 +11,8 @@ def pacientes_field_crypto_enabled() -> bool:
 def medicos_field_crypto_enabled() -> bool:
     value = os.getenv("CLINICDESK_FIELD_CRYPTO", "0").strip().lower()
     return value in {"1", "true", "yes", "on"}
+
+
+def personal_field_crypto_enabled() -> bool:
+    value = os.getenv("CLINICDESK_FIELD_CRYPTO", "0").strip().lower()
+    return value in {"1", "true", "yes", "on"}
