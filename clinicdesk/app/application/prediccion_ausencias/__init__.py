@@ -19,6 +19,11 @@ from clinicdesk.app.application.prediccion_ausencias.usecases import (
     ResultadoEntrenamientoPrediccion,
 )
 from clinicdesk.app.application.prediccion_ausencias.salud_prediccion import ObtenerSaludPrediccionAusencias
+from clinicdesk.app.application.prediccion_ausencias.resultados_recientes import (
+    ObtenerResultadosRecientesPrediccionAusencias,
+    RegistrarPrediccionesAusenciasAgenda,
+    ResultadoRecientesPrediccionDTO,
+)
 
 __all__ = [
     "CitaParaPrediccionDTO",
@@ -36,4 +41,7 @@ __all__ = [
     "ResultadoEntrenamientoPrediccion",
     "SaludPrediccionDTO",
     "ObtenerSaludPrediccionAusencias",
+    "ObtenerResultadosRecientesPrediccionAusencias",
+    "RegistrarPrediccionesAusenciasAgenda",
+    "ResultadoRecientesPrediccionDTO",
 ]

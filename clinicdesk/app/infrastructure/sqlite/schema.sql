@@ -232,7 +232,27 @@ CREATE INDEX IF NOT EXISTS idx_citas_medico_inicio ON citas(medico_id, inicio);
 CREATE INDEX IF NOT EXISTS idx_citas_sala_inicio ON citas(sala_id, inicio);
 CREATE INDEX IF NOT EXISTS idx_citas_paciente_inicio ON citas(paciente_id, inicio);
 CREATE INDEX IF NOT EXISTS idx_citas_activo ON citas(activo);
+
 CREATE INDEX IF NOT EXISTS idx_citas_activo_estado_inicio ON citas(activo, estado, inicio);
+
+-- ============================================================
+-- PREDICCION AUSENCIAS (registro de riesgos por versión)
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS predicciones_ausencias_log (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    timestamp_utc TEXT NOT NULL,
+    modelo_fecha_utc TEXT NOT NULL,
+    cita_id INTEGER NOT NULL,
+    riesgo TEXT NOT NULL,
+    source TEXT NOT NULL,
+
+    UNIQUE (cita_id, modelo_fecha_utc),
+    FOREIGN KEY (cita_id) REFERENCES citas(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_predicciones_ausencias_log_modelo_fecha ON predicciones_ausencias_log(modelo_fecha_utc);
+CREATE INDEX IF NOT EXISTS idx_predicciones_ausencias_log_cita_id ON predicciones_ausencias_log(cita_id);
 
 -- ============================================================
 -- INVENTARIO (tablas separadas)

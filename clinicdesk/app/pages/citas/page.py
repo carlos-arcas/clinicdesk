@@ -20,6 +20,7 @@ from PySide6.QtWidgets import (
 )
 
 from clinicdesk.app.application.prediccion_ausencias.riesgo_agenda import RIESGO_NO_DISPONIBLE
+from clinicdesk.app.bootstrap_logging import get_logger
 from clinicdesk.app.container import AppContainer
 from clinicdesk.app.controllers.citas_controller import CitasController
 from clinicdesk.app.i18n import I18nManager
@@ -34,6 +35,9 @@ from clinicdesk.app.pages.citas.riesgo_ausencia_ui import (
 )
 from clinicdesk.app.pages.shared.filtro_listado import FiltroListadoWidget
 from clinicdesk.app.queries.citas_queries import CitaListadoRow, CitaRow, CitasQueries
+
+
+LOGGER = get_logger(__name__)
 
 
 class PageCitas(QWidget):
@@ -201,7 +205,9 @@ class PageCitas(QWidget):
 
     def _obtener_riesgo_citas_calendario(self, rows: list[CitaRow]) -> dict[int, str]:
         dtos = construir_dtos_desde_calendario(rows, datetime.now())
-        return self._container.prediccion_ausencias_facade.obtener_riesgo_agenda_uc.ejecutar(dtos)
+        riesgos = self._container.prediccion_ausencias_facade.obtener_riesgo_agenda_uc.ejecutar(dtos)
+        self._registrar_predicciones_agenda(riesgos)
+        return riesgos
 
     def _programar_refresco_lista(self) -> None:
         self.lbl_cargando.setText("Cargando...")
@@ -247,7 +253,25 @@ class PageCitas(QWidget):
 
     def _obtener_riesgo_citas_lista(self, rows: list[CitaListadoRow]) -> dict[int, str]:
         dtos = construir_dtos_desde_listado(rows, datetime.now())
-        return self._container.prediccion_ausencias_facade.obtener_riesgo_agenda_uc.ejecutar(dtos)
+        riesgos = self._container.prediccion_ausencias_facade.obtener_riesgo_agenda_uc.ejecutar(dtos)
+        self._registrar_predicciones_agenda(riesgos)
+        return riesgos
+
+    def _registrar_predicciones_agenda(self, riesgos: dict[int, str]) -> None:
+        metadata = self._container.prediccion_ausencias_facade.obtener_riesgo_agenda_uc.almacenamiento.cargar_metadata()
+        if metadata is None:
+            return
+        try:
+            self._container.prediccion_ausencias_facade.registrar_predicciones_agenda_uc.ejecutar(
+                metadata.fecha_entrenamiento,
+                riesgos,
+                source="agenda",
+            )
+        except Exception as exc:  # noqa: BLE001
+            LOGGER.warning(
+                "registro_predicciones_agenda_fallido",
+                extra={"reason_code": "prediction_log_failed", "error": str(exc)},
+            )
 
     def _actualizar_aviso_no_disponible(self, visible: bool) -> None:
         mostrar = self._riesgo_enabled and visible
