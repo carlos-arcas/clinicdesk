@@ -24,6 +24,7 @@ from clinicdesk.app.application.usecases.pacientes_crud import (
     EditarPacienteUseCase,
 )
 from clinicdesk.app.application.services.pacientes_listado_contrato import ContratoListadoPacientesService
+from clinicdesk.app.application.usecases.obtener_detalle_cita import ObtenerDetalleCita
 from clinicdesk.app.application.usecases.obtener_historial_paciente import ObtenerHistorialPaciente
 from clinicdesk.app.common.search_utils import has_search_values, normalize_search_text
 from clinicdesk.app.pages.pacientes.dialogs.historial_paciente_dialog import HistorialPacienteDialog
@@ -54,6 +55,8 @@ class PagePacientes(QWidget):
             citas_gateway=HistorialPacienteQueries(container.connection),
             recetas_gateway=RecetasQueries(container.connection),
         )
+
+        self._uc_detalle_cita = ObtenerDetalleCita(HistorialPacienteQueries(container.connection))
 
         self._build_ui()
         self._connect_signals()
@@ -247,7 +250,7 @@ class PagePacientes(QWidget):
         paciente_id = self._selected_id()
         if not paciente_id:
             return
-        dialog = HistorialPacienteDialog(self._i18n, self)
+        dialog = HistorialPacienteDialog(self._i18n, detalle_cita_uc=self._uc_detalle_cita, parent=self)
         dialog.setWindowTitle(self._i18n.t("pacientes.historial.titulo"))
         dialog.render_cargando()
         resultado = self._uc_historial.execute(paciente_id)
