@@ -3,9 +3,13 @@ from __future__ import annotations
 from typing import Callable
 
 from clinicdesk.app.i18n_catalog import _TRANSLATIONS
+from clinicdesk.app.i18n_confirmaciones_catalog import CONFIRMACIONES_TRANSLATIONS
 from clinicdesk.app.i18n_prediccion_cierre import TRADUCCIONES_CIERRE_PREDICCION
 
 for idioma, traducciones in TRADUCCIONES_CIERRE_PREDICCION.items():
+    _TRANSLATIONS.setdefault(idioma, {}).update(traducciones)
+
+for idioma, traducciones in CONFIRMACIONES_TRANSLATIONS.items():
     _TRANSLATIONS.setdefault(idioma, {}).update(traducciones)
 
 
