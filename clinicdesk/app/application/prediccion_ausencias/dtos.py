@@ -32,3 +32,13 @@ class PrediccionCitaDTO:
 class ResultadoPrevisualizacionPrediccion:
     estado: str
     items: list[PrediccionCitaDTO]
+
+
+@dataclass(frozen=True, slots=True)
+class CitaParaPrediccionDTO:
+    id: int
+    fecha: str
+    hora: str
+    paciente_id: int
+    medico_id: int
+    antelacion_dias: int

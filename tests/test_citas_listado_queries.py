@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+from datetime import datetime
+
 from clinicdesk.app.application.usecases.crear_cita import CrearCitaRequest, CrearCitaUseCase
-from clinicdesk.app.pages.citas.estado_cita_presentacion import etiqueta_estado_cita
 from clinicdesk.app.domain.enums import EstadoCita
+from clinicdesk.app.pages.citas.estado_cita_presentacion import etiqueta_estado_cita
+from clinicdesk.app.pages.citas.riesgo_ausencia_ui import construir_dtos_desde_listado
 from clinicdesk.app.queries.citas_queries import CitasQueries
 
 
@@ -51,7 +54,6 @@ def test_citas_search_listado_filtra_por_rango_estado_y_texto(container, seed_da
     )
 
     queries = CitasQueries(container)
-
     rows = queries.search_listado(
         desde="2024-05-20",
         hasta="2024-05-31",
@@ -66,3 +68,29 @@ def test_citas_search_listado_filtra_por_rango_estado_y_texto(container, seed_da
 
 def test_etiqueta_estado_cita_mapea_no_presentado() -> None:
     assert etiqueta_estado_cita(EstadoCita.NO_PRESENTADO.value) == "No asistió"
+
+
+def test_citas_listado_incluye_ids_para_prediccion(container, seed_data) -> None:
+    cita_id = _crear_cita(
+        container,
+        seed_data,
+        inicio="2024-05-22 09:00:00",
+        fin="2024-05-22 09:30:00",
+        estado=EstadoCita.PROGRAMADA.value,
+        motivo="Control agenda",
+    )
+
+    rows = CitasQueries(container).search_listado(
+        desde="2024-05-20",
+        hasta="2024-05-31",
+        texto="",
+        estado="TODOS",
+    )
+
+    assert rows[0].id == cita_id
+    assert rows[0].paciente_id == seed_data["paciente_activo_id"]
+    assert rows[0].medico_id == seed_data["medico_activo_id"]
+
+    dtos = construir_dtos_desde_listado(rows, hoy=datetime(2024, 5, 20, 8, 0, 0))
+    assert dtos[0].id == cita_id
+    assert dtos[0].paciente_id == seed_data["paciente_activo_id"]
