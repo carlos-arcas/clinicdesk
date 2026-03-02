@@ -27,6 +27,7 @@ from clinicdesk.app.application.citas import (
     PaginacionCitasDTO,
     formatear_valor_atributo_cita,
     normalizar_y_validar_filtros_citas,
+    redactar_texto_busqueda,
     sanear_columnas_citas,
 )
 from clinicdesk.app.application.prediccion_ausencias.riesgo_agenda import RIESGO_NO_DISPONIBLE
@@ -57,6 +58,21 @@ from clinicdesk.app.pages.citas.widgets.tooltip_citas import CLAVES_TOOLTIP_POR_
 from clinicdesk.app.queries.citas_queries import CitaRow, CitasQueries
 
 LOGGER = get_logger(__name__)
+
+
+def _payload_log_filtros(filtros: FiltrosCitasDTO, contexto: str) -> dict[str, object]:
+    return {
+        "action": "citas_filtros_aplicados",
+        "contexto": contexto,
+        "preset": filtros.rango_preset,
+        "desde": filtros.desde.isoformat() if filtros.desde else None,
+        "hasta": filtros.hasta.isoformat() if filtros.hasta else None,
+        "estado": filtros.estado_cita,
+        "medico_id": filtros.medico_id,
+        "sala_id": filtros.sala_id,
+        "paciente_id": filtros.paciente_id,
+        "texto_redactado": redactar_texto_busqueda(filtros.texto_busqueda),
+    }
 
 
 class PageCitas(QWidget):
@@ -192,6 +208,7 @@ class PageCitas(QWidget):
             return
         self._ocultar_banner_validacion()
         self._filtros_aplicados = resultado.filtros_normalizados
+        LOGGER.info("citas_filtros_aplicados", extra=_payload_log_filtros(self._filtros_aplicados, self._contexto_activo()))
         self._guardar_filtros()
         self._refresh_calendario()
         self._programar_refresco_lista()
@@ -216,7 +233,7 @@ class PageCitas(QWidget):
         try:
             items = self._buscar_calendario_uc.ejecutar(filtros, CLAVES_TOOLTIP_POR_DEFECTO)
         except Exception as exc:  # noqa: BLE001
-            LOGGER.warning("citas_calendario_error", extra={"error": str(exc)})
+            LOGGER.warning("citas_calendario_error", extra={"action": "citas_calendario_error", "error": exc.__class__.__name__, "contexto": "CALENDARIO"})
             self.table.setRowCount(0)
             return
         riesgos = self._obtener_riesgo_citas_calendario([self._mapear_row_calendario(x) for x in items]) if self._riesgo_enabled else {}
@@ -236,7 +253,7 @@ class PageCitas(QWidget):
         try:
             resultado = self._buscar_lista_uc.ejecutar(validacion.filtros_normalizados, self._columnas_lista, PaginacionCitasDTO(limit=500, offset=0))
         except Exception as exc:  # noqa: BLE001
-            LOGGER.warning("citas_lista_error", extra={"error": str(exc)})
+            LOGGER.warning("citas_lista_error", extra={"action": "citas_lista_error", "error": exc.__class__.__name__, "contexto": "LISTA"})
             self._set_estado_lista("citas.ux.error", error=True)
             return
         self._ocultar_banner_validacion()

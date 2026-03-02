@@ -33,6 +33,21 @@ def _fmt_texto(clave: str) -> FormateadorAtributo:
     return _formatear
 
 
+def _fmt_notas_len(clave: str = "notas_len") -> FormateadorAtributo:
+    def _formatear(fila: dict[str, object]) -> str:
+        valor = fila.get(clave)
+        if valor is None:
+            return "—"
+        if isinstance(valor, int):
+            return str(max(valor, 0))
+        texto = str(valor).strip()
+        if not texto:
+            return "—"
+        return texto if texto.isdigit() else str(len(texto))
+
+    return _formatear
+
+
 def _fmt_datetime(clave: str, formato: str) -> FormateadorAtributo:
     def _formatear(fila: dict[str, object]) -> str:
         valor = fila.get(clave)
@@ -58,7 +73,7 @@ ATRIBUTOS_CITA: tuple[DescriptorAtributoCita, ...] = (
     DescriptorAtributoCita("estado", "citas.lista.col.estado", "citas.lista.tooltip.estado", True, SensibilidadAtributo.PUBLICO, _fmt_texto("estado")),
     DescriptorAtributoCita("riesgo_ausencia", "citas.lista.col.riesgo", "citas.lista.tooltip.riesgo", False, SensibilidadAtributo.PERSONAL, _fmt_texto("riesgo_ausencia")),
     DescriptorAtributoCita("recordatorio_estado", "citas.lista.col.recordatorio", "citas.lista.tooltip.recordatorio", False, SensibilidadAtributo.PUBLICO, _fmt_texto("recordatorio_estado")),
-    DescriptorAtributoCita("notas_len", "citas.lista.col.notas_len", "citas.lista.tooltip.notas_len", True, SensibilidadAtributo.SENSIBLE, _fmt_texto("notas_len")),
+    DescriptorAtributoCita("notas_len", "citas.lista.col.notas_len", "citas.lista.tooltip.notas_len", True, SensibilidadAtributo.SENSIBLE, _fmt_notas_len("notas_len")),
     DescriptorAtributoCita("incidencias", "citas.lista.col.incidencias", "citas.lista.tooltip.incidencias", True, SensibilidadAtributo.PUBLICO, _fmt_texto("tiene_incidencias")),
     DescriptorAtributoCita("cita_id", "citas.lista.col.cita_id", None, False, SensibilidadAtributo.PUBLICO, _fmt_texto("cita_id")),
 )
