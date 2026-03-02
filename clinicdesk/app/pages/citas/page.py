@@ -199,7 +199,10 @@ class PageCitas(QWidget):
             FiltrosCitasDTO(rango_preset="PERSONALIZADO", desde=inicio, hasta=fin),
             datetime.now(),
         )
-        rows_data = self._buscar_calendario_uc.ejecutar(filtros)
+        rows_data = self._buscar_calendario_uc.ejecutar(
+            filtros,
+            ("fecha", "hora_inicio", "hora_fin", "paciente", "medico", "sala", "estado"),
+        )
         rows: List[CitaRow] = [
             CitaRow(
                 id=int(fila["cita_id"]),
@@ -256,14 +259,14 @@ class PageCitas(QWidget):
                 desde=datetime.fromisoformat(f"{desde}T00:00:00"),
                 hasta=datetime.fromisoformat(f"{hasta}T23:59:59"),
                 texto_busqueda=self.filtros.texto(),
-                estado=self.filtros.estado(),
+                estado_cita=self.filtros.estado(),
             ),
             datetime.now(),
         )
         resultado = self._buscar_lista_uc.ejecutar(
             filtros,
-            PaginacionCitasDTO(limit=500, offset=0),
             ("fecha", "hora_inicio", "hora_fin", "paciente", "medico", "sala", "estado", "notas_len", "incidencias"),
+            PaginacionCitasDTO(limit=500, offset=0),
         )
         rows = [self._mapear_fila_lista_uc(fila) for fila in resultado.items]
         self._cargar_tabla_lista(rows)

@@ -1,14 +1,16 @@
 from clinicdesk.app.application.citas.atributos import (
     ATRIBUTOS_CITA,
+    SensibilidadAtributo,
     formatear_valor_atributo_cita,
-    obtener_atributos_cita_visibles_por_defecto,
+    obtener_columnas_default_citas,
+    sanear_columnas_citas,
 )
 from clinicdesk.app.application.citas.filtros import FiltrosCitasDTO, normalizar_filtros_citas
 from clinicdesk.app.application.citas.usecases import (
     BuscarCitasParaCalendario,
     BuscarCitasParaLista,
     PaginacionCitasDTO,
-    ResultadoBusquedaCitasDTO,
+    ResultadoListadoDTO,
 )
 
 __all__ = [
@@ -17,8 +19,10 @@ __all__ = [
     "BuscarCitasParaLista",
     "FiltrosCitasDTO",
     "PaginacionCitasDTO",
-    "ResultadoBusquedaCitasDTO",
+    "ResultadoListadoDTO",
+    "SensibilidadAtributo",
     "formatear_valor_atributo_cita",
     "normalizar_filtros_citas",
-    "obtener_atributos_cita_visibles_por_defecto",
+    "obtener_columnas_default_citas",
+    "sanear_columnas_citas",
 ]

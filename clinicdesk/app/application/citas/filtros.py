@@ -5,7 +5,6 @@ from datetime import datetime, timedelta
 
 
 _PRESETS_VALIDOS = {"HOY", "SEMANA", "MES", "PERSONALIZADO"}
-_RIESGO_VALIDO = {"TODOS", "ALTO_MEDIO", "SOLO_ALTO"}
 _RECORDATORIO_VALIDO = {"TODOS", "SIN_PREPARAR", "NO_ENVIADO"}
 _ESTADOS_VALIDOS = {
     "PROGRAMADA",
@@ -14,6 +13,9 @@ _ESTADOS_VALIDOS = {
     "REALIZADA",
     "NO_PRESENTADO",
 }
+_LIMIT_POR_DEFECTO = 50
+_OFFSET_POR_DEFECTO = 0
+_LIMIT_MAXIMO = 200
 
 
 @dataclass(frozen=True, slots=True)
@@ -22,12 +24,18 @@ class FiltrosCitasDTO:
     desde: datetime | None = None
     hasta: datetime | None = None
     texto_busqueda: str | None = None
-    estado: str | None = None
+    estado_cita: str | None = None
     medico_id: int | None = None
     sala_id: int | None = None
     paciente_id: int | None = None
-    riesgo_filtro: str | None = None
+    incluir_riesgo: bool = False
     recordatorio_filtro: str | None = None
+    limit: int = _LIMIT_POR_DEFECTO
+    offset: int = _OFFSET_POR_DEFECTO
+
+    @property
+    def estado(self) -> str | None:
+        return self.estado_cita
 
 
 def normalizar_filtros_citas(filtros: FiltrosCitasDTO, ahora: datetime) -> FiltrosCitasDTO:
@@ -38,20 +46,20 @@ def normalizar_filtros_citas(filtros: FiltrosCitasDTO, ahora: datetime) -> Filtr
         desde=desde,
         hasta=hasta,
         texto_busqueda=_normalizar_texto(filtros.texto_busqueda),
-        estado=_normalizar_estado(filtros.estado),
+        estado_cita=_normalizar_estado(filtros.estado_cita or filtros.estado),
         medico_id=_normalizar_id(filtros.medico_id),
         sala_id=_normalizar_id(filtros.sala_id),
         paciente_id=_normalizar_id(filtros.paciente_id),
-        riesgo_filtro=_normalizar_catalogo(filtros.riesgo_filtro, _RIESGO_VALIDO),
+        incluir_riesgo=bool(filtros.incluir_riesgo),
         recordatorio_filtro=_normalizar_catalogo(filtros.recordatorio_filtro, _RECORDATORIO_VALIDO),
+        limit=_normalizar_limit(filtros.limit),
+        offset=_normalizar_offset(filtros.offset),
     )
 
 
 def _normalizar_preset(preset: str) -> str:
-    preset_norm = (preset or "").strip().upper()
-    if preset_norm in _PRESETS_VALIDOS:
-        return preset_norm
-    return "HOY"
+    valor = (preset or "").strip().upper()
+    return valor if valor in _PRESETS_VALIDOS else "HOY"
 
 
 def _resolver_rango(
@@ -61,61 +69,56 @@ def _resolver_rango(
     ahora: datetime,
 ) -> tuple[datetime, datetime]:
     if preset == "PERSONALIZADO" and desde and hasta:
-        return _ordenar_y_limitar(desde, hasta)
-
+        return _ordenar_rango(desde, hasta)
     if preset == "SEMANA":
-        inicio = datetime(ahora.year, ahora.month, ahora.day)
-        return _ordenar_y_limitar(inicio, inicio + timedelta(days=6, hours=23, minutes=59, seconds=59))
-
+        inicio = _inicio_dia(ahora)
+        return inicio, inicio + timedelta(days=6, hours=23, minutes=59, seconds=59)
     if preset == "MES":
         inicio = datetime(ahora.year, ahora.month, 1)
-        if ahora.month == 12:
-            siguiente = datetime(ahora.year + 1, 1, 1)
-        else:
-            siguiente = datetime(ahora.year, ahora.month + 1, 1)
-        return _ordenar_y_limitar(inicio, siguiente - timedelta(seconds=1))
-
-    inicio_hoy = datetime(ahora.year, ahora.month, ahora.day)
-    return _ordenar_y_limitar(inicio_hoy, inicio_hoy + timedelta(hours=23, minutes=59, seconds=59))
+        siguiente = datetime(ahora.year + (ahora.month // 12), ((ahora.month % 12) + 1), 1)
+        return inicio, siguiente - timedelta(seconds=1)
+    inicio = _inicio_dia(ahora)
+    return inicio, inicio + timedelta(hours=23, minutes=59, seconds=59)
 
 
-def _ordenar_y_limitar(desde: datetime, hasta: datetime) -> tuple[datetime, datetime]:
-    if desde > hasta:
-        desde, hasta = hasta, desde
-    limite = desde + timedelta(days=366)
-    if hasta > limite:
-        hasta = limite
-    return desde, hasta
+def _inicio_dia(fecha: datetime) -> datetime:
+    return datetime(fecha.year, fecha.month, fecha.day)
+
+
+def _ordenar_rango(desde: datetime, hasta: datetime) -> tuple[datetime, datetime]:
+    return (hasta, desde) if desde > hasta else (desde, hasta)
 
 
 def _normalizar_texto(texto: str | None) -> str | None:
-    texto_norm = (texto or "").strip()
-    return texto_norm or None
+    valor = (texto or "").strip()
+    return valor or None
 
 
 def _normalizar_estado(estado: str | None) -> str | None:
-    estado_norm = (estado or "").strip().upper()
-    if not estado_norm or estado_norm == "TODOS":
+    valor = (estado or "").strip().upper()
+    if not valor or valor == "TODOS":
         return None
-    if estado_norm in _ESTADOS_VALIDOS:
-        return estado_norm
-    return None
+    return valor if valor in _ESTADOS_VALIDOS else None
 
 
 def _normalizar_id(valor: int | None) -> int | None:
-    if valor is None:
-        return None
-    if valor <= 0:
-        return None
-    return valor
+    return valor if isinstance(valor, int) and valor > 0 else None
 
 
 def _normalizar_catalogo(valor: str | None, opciones: set[str]) -> str | None:
-    if valor is None:
+    valor_norm = (valor or "").strip().upper()
+    if not valor_norm or valor_norm == "TODOS":
         return None
-    valor_norm = valor.strip().upper()
-    if not valor_norm:
-        return None
-    if valor_norm in opciones:
-        return valor_norm
-    return None
+    return valor_norm if valor_norm in opciones else None
+
+
+def _normalizar_limit(limit: int | None) -> int:
+    if not isinstance(limit, int) or limit <= 0:
+        return _LIMIT_POR_DEFECTO
+    return min(limit, _LIMIT_MAXIMO)
+
+
+def _normalizar_offset(offset: int | None) -> int:
+    if not isinstance(offset, int) or offset < 0:
+        return _OFFSET_POR_DEFECTO
+    return offset

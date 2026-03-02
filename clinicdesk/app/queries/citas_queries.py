@@ -7,7 +7,6 @@ from typing import Optional
 import logging
 
 from clinicdesk.app.application.citas.filtros import FiltrosCitasDTO, normalizar_filtros_citas
-from clinicdesk.app.application.citas.usecases import PaginacionCitasDTO
 from clinicdesk.app.common.search_utils import normalize_search_text
 from clinicdesk.app.container import AppContainer
 
@@ -56,8 +55,8 @@ _CAMPO_SQL_POR_ATRIBUTO: dict[str, str] = {
     "medico": "(m.nombre || ' ' || m.apellidos) AS medico",
     "sala": "s.nombre AS sala",
     "estado": "c.estado AS estado",
-    "riesgo": "coalesce(c.riesgo_ausencia, 'NO_DISPONIBLE') AS riesgo",
-    "recordatorio": "coalesce(r.estado_global, 'SIN_PREPARAR') AS recordatorio",
+    "riesgo_ausencia": "coalesce(c.riesgo_ausencia, 'NO_DISPONIBLE') AS riesgo_ausencia",
+    "recordatorio_estado": "coalesce(r.estado_global, 'SIN_PREPARAR') AS recordatorio_estado",
     "notas_len": "length(coalesce(c.notas, '')) AS notas_len",
     "incidencias": "CASE WHEN i.cita_id IS NULL THEN 0 ELSE 1 END AS tiene_incidencias",
 }
@@ -69,26 +68,27 @@ class CitasQueries:
     def __init__(self, container: AppContainer) -> None:
         self._c = container
 
-    def buscar_para_lista(
+    def buscar_citas_listado(
         self,
         filtros_norm: FiltrosCitasDTO,
-        paginacion: PaginacionCitasDTO,
-        columnas: tuple[str, ...],
+        campos_requeridos: tuple[str, ...],
+        limit: int,
+        offset: int,
     ) -> tuple[list[dict[str, object]], int]:
         where_sql, params = self._build_common_filters(filtros_norm)
-        campos = _resolver_select_fields(columnas)
+        campos = _resolver_select_fields(campos_requeridos)
         sql = _sql_lista(where_sql, campos)
-        rows = self._c.connection.execute(sql, (*params, paginacion.limit, paginacion.offset)).fetchall()
+        rows = self._c.connection.execute(sql, (*params, limit, offset)).fetchall()
         total = int(self._c.connection.execute(_sql_count(where_sql), params).fetchone()["total"])
         return ([dict(row) for row in rows], total)
 
-    def buscar_para_calendario(
+    def buscar_citas_calendario(
         self,
         filtros_norm: FiltrosCitasDTO,
-        columnas: tuple[str, ...],
+        campos_requeridos_tooltip: tuple[str, ...],
     ) -> list[dict[str, object]]:
         where_sql, params = self._build_common_filters(filtros_norm)
-        campos = _resolver_select_fields(columnas)
+        campos = _resolver_select_fields(campos_requeridos_tooltip)
         sql = _sql_calendario(where_sql, campos)
         rows = self._c.connection.execute(sql, params).fetchall()
         return [dict(row) for row in rows]
@@ -116,7 +116,7 @@ class CitasQueries:
                 desde=datetime.fromisoformat(f"{desde}T00:00:00"),
                 hasta=datetime.fromisoformat(f"{hasta}T23:59:59"),
                 texto_busqueda=texto,
-                estado=estado,
+                estado_cita=estado,
             ),
             datetime.now(),
         )
@@ -133,7 +133,7 @@ class CitasQueries:
             "notas_len",
             "incidencias",
         )
-        rows, _ = self.buscar_para_lista(filtros, PaginacionCitasDTO(limit=10000, offset=0), columnas)
+        rows, _ = self.buscar_citas_listado(filtros, columnas, 10000, 0)
         return [_map_listado_row(row) for row in rows]
 
     def _build_common_filters(self, filtros: FiltrosCitasDTO) -> tuple[str, tuple[object, ...]]:
@@ -143,9 +143,9 @@ class CitasQueries:
         clauses = ["c.activo = 1", "datetime(c.inicio) >= datetime(?)", "datetime(c.inicio) <= datetime(?)"]
         params: list[object] = [filtros.desde.isoformat(sep=" "), filtros.hasta.isoformat(sep=" ")]
 
-        if filtros.estado:
+        if filtros.estado_cita:
             clauses.append("c.estado = ?")
-            params.append(filtros.estado)
+            params.append(filtros.estado_cita)
         if filtros.medico_id:
             clauses.append("c.medico_id = ?")
             params.append(filtros.medico_id)

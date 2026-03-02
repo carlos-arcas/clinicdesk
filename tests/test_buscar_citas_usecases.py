@@ -13,23 +13,23 @@ from clinicdesk.app.application.citas.usecases import (
 
 @dataclass
 class FakeQueries:
-    llamada_lista: int = 0
+    llamada_listado: int = 0
     llamada_calendario: int = 0
-    ultimo_filtro_lista: FiltrosCitasDTO | None = None
-    ultimo_filtro_calendario: FiltrosCitasDTO | None = None
+    ultimo_filtro_listado: FiltrosCitasDTO | None = None
+    ultimas_columnas_listado: tuple[str, ...] = ()
 
-    def buscar_para_lista(self, filtros_norm, paginacion, columnas):
-        self.llamada_lista += 1
-        self.ultimo_filtro_lista = filtros_norm
+    def buscar_citas_listado(self, filtros_norm, campos_requeridos, limit, offset):
+        self.llamada_listado += 1
+        self.ultimo_filtro_listado = filtros_norm
+        self.ultimas_columnas_listado = campos_requeridos
         return ([{"cita_id": 10, "fecha": "2025-01-10"}], 1)
 
-    def buscar_para_calendario(self, filtros_norm, columnas):
+    def buscar_citas_calendario(self, filtros_norm, campos_requeridos_tooltip):
         self.llamada_calendario += 1
-        self.ultimo_filtro_calendario = filtros_norm
         return [{"cita_id": 11, "fecha": "2025-01-10"}]
 
 
-def test_buscar_citas_lista_recibe_filtros_normalizados() -> None:
+def test_buscar_citas_lista_recibe_filtros_normalizados_y_sanea_columnas() -> None:
     fake = FakeQueries()
     uc = BuscarCitasParaLista(fake)
     ahora = datetime(2025, 1, 10, 9, 0)
@@ -40,15 +40,16 @@ def test_buscar_citas_lista_recibe_filtros_normalizados() -> None:
 
     resultado = uc.ejecutar(
         filtros_norm,
+        ("fecha", "desconocida", "fecha"),
         PaginacionCitasDTO(limit=20, offset=0),
-        ("fecha", "hora_inicio"),
     )
 
     assert resultado.total == 1
-    assert fake.llamada_lista == 1
-    assert fake.ultimo_filtro_lista is not None
-    assert fake.ultimo_filtro_lista.desde == datetime(2025, 1, 10, 0, 0)
-    assert fake.ultimo_filtro_lista.hasta == datetime(2025, 1, 16, 23, 59, 59)
+    assert fake.llamada_listado == 1
+    assert fake.ultimo_filtro_listado is not None
+    assert fake.ultimo_filtro_listado.desde == datetime(2025, 1, 10, 0, 0)
+    assert fake.ultimo_filtro_listado.hasta == datetime(2025, 1, 16, 23, 59, 59)
+    assert fake.ultimas_columnas_listado == ("fecha", "cita_id")
 
 
 def test_buscar_citas_calendario_usa_una_llamada_por_refresco() -> None:
@@ -63,8 +64,8 @@ def test_buscar_citas_calendario_usa_una_llamada_por_refresco() -> None:
         datetime(2025, 1, 10, 12, 0),
     )
 
-    items = uc.ejecutar(filtros)
+    items = uc.ejecutar(filtros, ("fecha", "paciente"))
 
     assert len(items) == 1
     assert fake.llamada_calendario == 1
-    assert fake.llamada_lista == 0
+    assert fake.llamada_listado == 0
