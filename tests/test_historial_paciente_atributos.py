@@ -36,9 +36,17 @@ def test_columnas_default_orden_estable() -> None:
 
 
 def test_sanear_columnas_hace_fallback_si_hay_corrupcion() -> None:
-    saneadas = sanear_columnas_solicitadas(("foo", "bar"), ATRIBUTOS_HISTORIAL_CITAS)
+    saneadas, restauradas = sanear_columnas_solicitadas(("foo", "bar"), ATRIBUTOS_HISTORIAL_CITAS)
 
     assert saneadas == obtener_columnas_default_historial_citas()
+    assert restauradas is True
 
-    sanas = sanear_columnas_solicitadas(("cita_id", "estado"), ATRIBUTOS_HISTORIAL_CITAS)
+    sanas, restauradas = sanear_columnas_solicitadas(("cita_id", "estado"), ATRIBUTOS_HISTORIAL_CITAS)
     assert sanas == ("cita_id", "estado")
+    assert restauradas is False
+
+
+def test_sanear_columnas_elimina_duplicados_y_desconocidas() -> None:
+    saneadas, restauradas = sanear_columnas_solicitadas(("estado", "foo", "estado", "medico"), ATRIBUTOS_HISTORIAL_CITAS)
+    assert saneadas == ("estado", "medico")
+    assert restauradas is True

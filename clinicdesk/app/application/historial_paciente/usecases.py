@@ -67,7 +67,7 @@ class BuscarHistorialCitasPaciente:
         self._queries = queries
 
     def ejecutar(self, filtros_norm: FiltrosHistorialPacienteDTO, columnas) -> ResultadoListadoDTO:
-        columnas_saneadas = sanear_columnas_solicitadas(columnas, ATRIBUTOS_HISTORIAL_CITAS)
+        columnas_saneadas, _ = sanear_columnas_solicitadas(columnas, ATRIBUTOS_HISTORIAL_CITAS)
         items, total = self._queries.buscar_historial_citas(
             paciente_id=filtros_norm.paciente_id,
             desde=filtros_norm.desde,
@@ -85,7 +85,7 @@ class BuscarHistorialRecetasPaciente:
         self._queries = queries
 
     def ejecutar(self, filtros_norm: FiltrosHistorialPacienteDTO, columnas) -> ResultadoListadoDTO:
-        columnas_saneadas = sanear_columnas_solicitadas(columnas, ATRIBUTOS_HISTORIAL_RECETAS)
+        columnas_saneadas, _ = sanear_columnas_solicitadas(columnas, ATRIBUTOS_HISTORIAL_RECETAS)
         items, total = self._queries.buscar_historial_recetas(
             paciente_id=filtros_norm.paciente_id,
             desde=filtros_norm.desde,

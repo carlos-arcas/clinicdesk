@@ -3,11 +3,13 @@ from datetime import datetime
 from clinicdesk.app.application.historial_paciente.filtros import FiltrosHistorialPacienteDTO
 from clinicdesk.app.pages.pacientes.dialogs.widgets.persistencia_historial_settings import (
     EstadoPersistidoFiltros,
+    aplicar_columnas_seguras_desde_settings,
     deserializar_filtros,
     sanear_columnas_guardadas,
     serializar_columnas,
     serializar_filtros,
 )
+from clinicdesk.app.application.historial_paciente.atributos import ATRIBUTOS_HISTORIAL_CITAS
 
 
 def test_serializar_y_deserializar_filtros() -> None:
@@ -36,3 +38,9 @@ def test_deserializar_filtros_tolera_fecha_invalida() -> None:
 def test_saneado_columnas() -> None:
     assert sanear_columnas_guardadas("fecha,estado,fecha,") == ("fecha", "estado")
     assert serializar_columnas(("fecha", "estado")) == "fecha,estado"
+
+
+def test_aplicar_columnas_seguras_desde_settings_restauracion() -> None:
+    columnas, restauradas = aplicar_columnas_seguras_desde_settings("foo,foo", ATRIBUTOS_HISTORIAL_CITAS)
+    assert columnas
+    assert restauradas is True

@@ -2,8 +2,6 @@ from __future__ import annotations
 
 from datetime import datetime
 
-import pytest
-
 from clinicdesk.app.application.historial_paciente.filtros import (
     FiltrosHistorialPacienteDTO,
     normalizar_filtros_historial_paciente,
@@ -64,7 +62,6 @@ def test_normaliza_todo_sin_rango() -> None:
     assert normalizados.desde is None
     assert normalizados.hasta is None
 
-
-def test_falla_si_paciente_id_invalido() -> None:
-    with pytest.raises(ValueError):
-        normalizar_filtros_historial_paciente(FiltrosHistorialPacienteDTO(paciente_id=0), datetime(2026, 1, 1, 10, 0))
+def test_conserva_paciente_id_invalido_para_validacion_tipada() -> None:
+    normalizados = normalizar_filtros_historial_paciente(FiltrosHistorialPacienteDTO(paciente_id=0), datetime(2026, 1, 1, 10, 0))
+    assert normalizados.paciente_id == 0

@@ -15,3 +15,16 @@ class ResumenHistorialDTO:
     no_presentados: int
     total_recetas: int
     recetas_activas: int
+
+
+@dataclass(frozen=True, slots=True)
+class ErrorValidacionDTO:
+    code: str
+    i18n_key: str
+    campo: str | None
+
+
+@dataclass(frozen=True, slots=True)
+class ResultadoValidacionDTO:
+    ok: bool
+    errores: tuple[ErrorValidacionDTO, ...]

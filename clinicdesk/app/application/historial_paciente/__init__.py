@@ -7,11 +7,12 @@ from clinicdesk.app.application.historial_paciente.atributos import (
     obtener_columnas_default_historial_recetas,
     sanear_columnas_solicitadas,
 )
-from clinicdesk.app.application.historial_paciente.dtos import ResumenHistorialDTO, ResultadoListadoDTO
+from clinicdesk.app.application.historial_paciente.dtos import ErrorValidacionDTO, ResumenHistorialDTO, ResultadoListadoDTO, ResultadoValidacionDTO
 from clinicdesk.app.application.historial_paciente.filtros import (
     FiltrosHistorialPacienteDTO,
     normalizar_filtros_historial_paciente,
 )
+from clinicdesk.app.application.historial_paciente.validaciones import validar_filtros_historial_paciente
 from clinicdesk.app.application.historial_paciente.usecases import (
     BuscarHistorialCitasPaciente,
     BuscarHistorialRecetasPaciente,
@@ -29,8 +30,11 @@ __all__ = [
     "sanear_columnas_solicitadas",
     "ResultadoListadoDTO",
     "ResumenHistorialDTO",
+    "ErrorValidacionDTO",
+    "ResultadoValidacionDTO",
     "FiltrosHistorialPacienteDTO",
     "normalizar_filtros_historial_paciente",
+    "validar_filtros_historial_paciente",
     "BuscarHistorialCitasPaciente",
     "BuscarHistorialRecetasPaciente",
     "ObtenerResumenHistorialPaciente",

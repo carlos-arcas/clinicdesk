@@ -157,9 +157,15 @@ def _obtener_columnas_default(contrato: tuple[AtributoHistorial, ...]) -> tuple[
 def sanear_columnas_solicitadas(
     columnas: tuple[str, ...] | list[str] | None,
     contrato: tuple[AtributoHistorial, ...],
-) -> tuple[str, ...]:
+) -> tuple[tuple[str, ...], bool]:
     claves_validas = {atributo.clave for atributo in contrato}
     if not columnas:
-        return _obtener_columnas_default(contrato)
-    saneadas = tuple(clave for clave in columnas if isinstance(clave, str) and clave in claves_validas)
-    return saneadas or _obtener_columnas_default(contrato)
+        return _obtener_columnas_default(contrato), True
+    saneadas: list[str] = []
+    for clave in columnas:
+        if not isinstance(clave, str) or clave not in claves_validas or clave in saneadas:
+            continue
+        saneadas.append(clave)
+    if saneadas:
+        return tuple(saneadas), tuple(saneadas) != tuple(columnas)
+    return _obtener_columnas_default(contrato), True
