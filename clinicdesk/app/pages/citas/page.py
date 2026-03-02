@@ -1,13 +1,12 @@
 from __future__ import annotations
 
-from datetime import date, datetime, timedelta
-from typing import List, Optional
+from datetime import datetime
+from typing import Optional
 
-from PySide6.QtCore import QDate, QSettings, Qt, QTimer
+from PySide6.QtCore import QSettings, Qt, QTimer
 from PySide6.QtGui import QAction
 from PySide6.QtWidgets import (
     QCalendarWidget,
-    QDateEdit,
     QHBoxLayout,
     QLabel,
     QMenu,
@@ -19,31 +18,42 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from clinicdesk.app.application.prediccion_ausencias.riesgo_agenda import RIESGO_NO_DISPONIBLE
 from clinicdesk.app.application.citas import (
+    ATRIBUTOS_CITA,
     BuscarCitasParaCalendario,
     BuscarCitasParaLista,
     FiltrosCitasDTO,
     PaginacionCitasDTO,
+    formatear_valor_atributo_cita,
     normalizar_filtros_citas,
+    sanear_columnas_citas,
 )
+from clinicdesk.app.application.prediccion_ausencias.riesgo_agenda import RIESGO_NO_DISPONIBLE
 from clinicdesk.app.bootstrap_logging import get_logger
 from clinicdesk.app.container import AppContainer
 from clinicdesk.app.controllers.citas_controller import CitasController
 from clinicdesk.app.i18n import I18nManager
-from clinicdesk.app.pages.citas.estado_cita_presentacion import ESTADOS_FILTRO_CITAS, etiqueta_estado_cita
 from clinicdesk.app.pages.citas.recordatorio_cita_dialog import RecordatorioCitaDialog
 from clinicdesk.app.pages.citas.riesgo_ausencia_dialog import RiesgoAusenciaDialog
 from clinicdesk.app.pages.citas.riesgo_ausencia_ui import (
     SETTINGS_KEY_RIESGO_AGENDA,
     construir_dtos_desde_calendario,
-    construir_dtos_desde_listado,
     resolver_texto_riesgo,
-    tooltip_riesgo,
 )
-from clinicdesk.app.pages.shared.filtro_listado import FiltroListadoWidget
-from clinicdesk.app.queries.citas_queries import CitaListadoRow, CitaRow, CitasQueries
-
+from clinicdesk.app.pages.citas.widgets.dialogo_selector_columnas_citas import DialogoSelectorColumnasCitas
+from clinicdesk.app.pages.citas.widgets.panel_filtros_citas_widget import PanelFiltrosCitasWidget
+from clinicdesk.app.pages.citas.widgets.persistencia_citas_settings import (
+    EstadoPersistidoFiltrosCitas,
+    clave_columnas_citas,
+    claves_filtros_citas,
+    deserializar_columnas_citas,
+    deserializar_filtros_citas,
+    estado_restauracion_columnas,
+    serializar_columnas_citas,
+    serializar_filtros_citas,
+)
+from clinicdesk.app.pages.citas.widgets.tooltip_citas import CLAVES_TOOLTIP_POR_DEFECTO, construir_tooltip_cita
+from clinicdesk.app.queries.citas_queries import CitaRow, CitasQueries
 
 LOGGER = get_logger(__name__)
 
@@ -58,405 +68,257 @@ class PageCitas(QWidget):
         self._buscar_calendario_uc = BuscarCitasParaCalendario(self._queries)
         self._controller = CitasController(self, container)
         self._can_write = container.user_context.can_write
-        self._riesgo_enabled = False
+        self._settings = QSettings("clinicdesk", "ui")
+        self._filtros_aplicados = FiltrosCitasDTO()
+        self._columnas_lista: tuple[str, ...] = tuple()
         self._citas_lista_ids: list[int] = []
+        self._riesgo_enabled = False
 
         self._build_ui()
         self._bind_events()
-        self._set_hoy()
+        self._restaurar_estado_ui()
         self._refresh_calendario()
         self._programar_refresco_lista()
 
     def _build_ui(self) -> None:
         self.tabs = QTabWidget(self)
         self.calendar = QCalendarWidget()
-        self.lbl_date = QLabel("Fecha: —")
-        self.btn_new = QPushButton("Nueva cita")
-        self.btn_delete = QPushButton("Eliminar cita")
+        self.lbl_date = QLabel(self)
+        self.btn_new = QPushButton(self._i18n.t("citas.acciones.nueva"))
+        self.btn_delete = QPushButton(self._i18n.t("citas.acciones.eliminar"))
         self.btn_new.setEnabled(self._can_write)
         self.btn_delete.setEnabled(False)
-        self.table = self._crear_tabla_calendario()
+        self.table = QTableWidget(0, 8)
+        self.table.setHorizontalHeaderLabels(["ID", "", "", "", "", "", "", ""])
+        self.table.setColumnHidden(0, True)
 
         tab_calendario = QWidget(self)
-        panel_izquierdo = QVBoxLayout()
-        panel_izquierdo.addWidget(self.calendar)
-        panel_izquierdo.addWidget(self.lbl_date)
-        panel_izquierdo.addWidget(self.btn_new)
-        panel_izquierdo.addWidget(self.btn_delete)
-
-        panel_derecho = QVBoxLayout()
-        panel_derecho.addWidget(self.table)
-        layout_calendario = QHBoxLayout(tab_calendario)
-        layout_calendario.addLayout(panel_izquierdo, 1)
-        layout_calendario.addLayout(panel_derecho, 3)
+        izq = QVBoxLayout()
+        izq.addWidget(self.calendar)
+        izq.addWidget(self.lbl_date)
+        izq.addWidget(self.btn_new)
+        izq.addWidget(self.btn_delete)
+        der = QVBoxLayout()
+        der.addWidget(self.table)
+        lay_cal = QHBoxLayout(tab_calendario)
+        lay_cal.addLayout(izq, 1)
+        lay_cal.addLayout(der, 3)
 
         tab_lista = QWidget(self)
-        self.filtros = FiltroListadoWidget(tab_lista)
-        self.filtros.set_estado_items(ESTADOS_FILTRO_CITAS, default_value="TODOS")
-        self.btn_hoy = QPushButton("Hoy")
-        self.btn_semana = QPushButton("Semana")
-        self.btn_mes = QPushButton("Mes")
-        self.desde_date = QDateEdit(tab_lista)
-        self.desde_date.setCalendarPopup(True)
-        self.hasta_date = QDateEdit(tab_lista)
-        self.hasta_date.setCalendarPopup(True)
-        self.lbl_cargando = QLabel("", tab_lista)
-        self.lbl_aviso_prediccion = QLabel("", tab_lista)
-        self.btn_ir_prediccion = QPushButton(self._i18n.t("citas.riesgo.ir_prediccion"), tab_lista)
-        self.btn_ir_prediccion.clicked.connect(self._ir_a_prediccion)
-        self.btn_ir_prediccion.setVisible(False)
-        self.table_lista = self._crear_tabla_lista()
+        self.panel_filtros = PanelFiltrosCitasWidget(self._i18n, tab_lista)
+        self.btn_columnas = QPushButton(self._i18n.t("citas.lista.columnas.boton"), tab_lista)
+        self.lbl_estado = QLabel("", tab_lista)
+        self.btn_reintentar = QPushButton(self._i18n.t("citas.ux.reintentar"), tab_lista)
+        self.btn_reintentar.setVisible(False)
+        self.lbl_aviso_columnas = QLabel("", tab_lista)
+        self.table_lista = QTableWidget(0, 0, tab_lista)
+        self.table_lista.setEditTriggers(QTableWidget.NoEditTriggers)
+        self.table_lista.setContextMenuPolicy(Qt.CustomContextMenu)
 
-        barra_rango = QHBoxLayout()
-        barra_rango.addWidget(QLabel("Desde"))
-        barra_rango.addWidget(self.desde_date)
-        barra_rango.addWidget(QLabel("Hasta"))
-        barra_rango.addWidget(self.hasta_date)
-        barra_rango.addWidget(self.btn_hoy)
-        barra_rango.addWidget(self.btn_semana)
-        barra_rango.addWidget(self.btn_mes)
-        barra_rango.addStretch(1)
-        barra_rango.addWidget(self.lbl_cargando)
-
-        barra_aviso = QHBoxLayout()
-        barra_aviso.addWidget(self.lbl_aviso_prediccion)
-        barra_aviso.addWidget(self.btn_ir_prediccion)
-        barra_aviso.addStretch(1)
+        barra = QHBoxLayout()
+        barra.addWidget(self.btn_columnas)
+        barra.addStretch(1)
+        barra.addWidget(self.lbl_estado)
+        barra.addWidget(self.btn_reintentar)
 
         layout_lista = QVBoxLayout(tab_lista)
-        layout_lista.addWidget(self.filtros)
-        layout_lista.addLayout(barra_rango)
-        layout_lista.addLayout(barra_aviso)
+        layout_lista.addWidget(self.panel_filtros)
+        layout_lista.addLayout(barra)
+        layout_lista.addWidget(self.lbl_aviso_columnas)
         layout_lista.addWidget(self.table_lista)
 
-        self.tabs.addTab(tab_calendario, "Calendario")
-        self.tabs.addTab(tab_lista, "Lista")
+        self.tabs.addTab(tab_calendario, self._i18n.t("citas.tabs.calendario"))
+        self.tabs.addTab(tab_lista, self._i18n.t("citas.tabs.lista"))
         root = QVBoxLayout(self)
         root.addWidget(self.tabs)
 
-    def _crear_tabla_calendario(self) -> QTableWidget:
-        tabla = QTableWidget(0, 8)
-        tabla.setHorizontalHeaderLabels(["ID", "Inicio", "Fin", "Paciente", "Médico", "Sala", "Estado", "Motivo"])
-        tabla.setColumnHidden(0, True)
-        tabla.setContextMenuPolicy(Qt.CustomContextMenu)
-        return tabla
-
-    def _crear_tabla_lista(self) -> QTableWidget:
-        tabla = QTableWidget(0, 9)
-        tabla.setHorizontalHeaderLabels(
-            ["Fecha", "Hora inicio", "Hora fin", "Paciente", "Médico", "Sala", "Estado", "Notas len", "Incidencias"]
-        )
-        tabla.setEditTriggers(QTableWidget.NoEditTriggers)
-        tabla.setContextMenuPolicy(Qt.CustomContextMenu)
-        return tabla
-
     def _bind_events(self) -> None:
-        self.calendar.selectionChanged.connect(self._on_calendario_change)
+        self.calendar.selectionChanged.connect(self._refresh_calendario)
         self.btn_new.clicked.connect(self._on_new)
         self.btn_delete.clicked.connect(self._on_delete)
         self.table.itemSelectionChanged.connect(self._on_selection_changed)
         self.table.itemDoubleClicked.connect(self._on_calendario_item_double_clicked)
         self.table.customContextMenuRequested.connect(self._on_calendario_context_menu)
-        self.filtros.filtros_cambiados.connect(self._programar_refresco_lista)
-        self.desde_date.dateChanged.connect(self._programar_refresco_lista)
-        self.hasta_date.dateChanged.connect(self._programar_refresco_lista)
-        self.btn_hoy.clicked.connect(self._set_hoy)
-        self.btn_semana.clicked.connect(self._set_semana)
-        self.btn_mes.clicked.connect(self._set_mes)
-        self.table_lista.itemClicked.connect(self._on_lista_item_clicked)
+        self.panel_filtros.filtros_aplicados.connect(self._on_filtros_aplicados)
+        self.btn_columnas.clicked.connect(self._abrir_selector_columnas)
+        self.btn_reintentar.clicked.connect(self._programar_refresco_lista)
+        self.table_lista.itemDoubleClicked.connect(self._on_lista_item_double_clicked)
         self.table_lista.customContextMenuRequested.connect(self._on_lista_context_menu)
 
     def on_show(self) -> None:
-        self._riesgo_enabled = self._mostrar_riesgo_agenda()
-        self._sync_columna_riesgo_lista()
+        self._riesgo_enabled = bool(int(self._settings.value(SETTINGS_KEY_RIESGO_AGENDA, 0)))
         self._refresh_calendario()
         self._programar_refresco_lista()
 
-    def _mostrar_riesgo_agenda(self) -> bool:
-        value = QSettings("clinicdesk", "ui").value(SETTINGS_KEY_RIESGO_AGENDA, 0)
-        return bool(int(value))
+    def _restaurar_estado_ui(self) -> None:
+        filtros = claves_filtros_citas()
+        data = EstadoPersistidoFiltrosCitas(
+            preset=str(self._settings.value(filtros["preset"], "HOY")),
+            desde_iso=self._settings.value(filtros["desde"]),
+            hasta_iso=self._settings.value(filtros["hasta"]),
+            texto=self._settings.value(filtros["texto"]),
+            estado=self._settings.value(filtros["estado"]),
+            medico_id=self._settings.value(filtros["medico_id"]),
+            sala_id=self._settings.value(filtros["sala_id"]),
+            paciente_id=self._settings.value(filtros["paciente_id"]),
+        )
+        self._filtros_aplicados = deserializar_filtros_citas(data)
+        self.panel_filtros.set_filtros(self._filtros_aplicados)
+        saved = self._settings.value(clave_columnas_citas())
+        self._columnas_lista = deserializar_columnas_citas(saved)
+        if estado_restauracion_columnas(saved):
+            self.lbl_aviso_columnas.setText(self._i18n.t("citas.lista.columnas.restauradas"))
 
-    def _sync_columna_riesgo_lista(self) -> None:
-        headers = ["Fecha", "Hora inicio", "Hora fin", "Paciente", "Médico", "Sala", "Estado", "Notas len", "Incidencias"]
-        if self._riesgo_enabled:
-            headers.append(self._i18n.t("citas.riesgo.columna"))
-        self.table_lista.setColumnCount(len(headers))
-        self.table_lista.setHorizontalHeaderLabels(headers)
-
-    def _on_calendario_change(self) -> None:
+    def _on_filtros_aplicados(self, filtros: object) -> None:
+        if not isinstance(filtros, FiltrosCitasDTO):
+            return
+        self._filtros_aplicados = normalizar_filtros_citas(filtros, datetime.now())
+        self._guardar_filtros()
         self._refresh_calendario()
-        selected = self.calendar.selectedDate()
-        self.desde_date.setDate(selected)
-        self.hasta_date.setDate(selected)
         self._programar_refresco_lista()
 
-    def _refresh_calendario(self) -> None:
-        date_str = self.calendar.selectedDate().toString("yyyy-MM-dd")
-        self.lbl_date.setText(f"Fecha: {date_str}")
-        inicio = datetime.fromisoformat(f"{date_str}T00:00:00")
-        fin = datetime.fromisoformat(f"{date_str}T23:59:59")
-        filtros = normalizar_filtros_citas(
-            FiltrosCitasDTO(rango_preset="PERSONALIZADO", desde=inicio, hasta=fin),
-            datetime.now(),
-        )
-        rows_data = self._buscar_calendario_uc.ejecutar(
-            filtros,
-            ("fecha", "hora_inicio", "hora_fin", "paciente", "medico", "sala", "estado"),
-        )
-        rows: List[CitaRow] = [
-            CitaRow(
-                id=int(fila["cita_id"]),
-                inicio=f"{fila.get('fecha', date_str)} {fila.get('hora_inicio', '')}",
-                fin=f"{fila.get('fecha', date_str)} {fila.get('hora_fin', '')}",
-                paciente_id=0,
-                paciente_nombre=str(fila.get("paciente", "")),
-                medico_id=0,
-                medico_nombre=str(fila.get("medico", "")),
-                sala_id=0,
-                sala_nombre=str(fila.get("sala", "")),
-                estado=str(fila.get("estado", "")),
-                motivo=None,
-            )
-            for fila in rows_data
-        ]
-        riesgos = self._obtener_riesgo_citas_calendario(rows) if self._riesgo_enabled else {}
-        self.table.setRowCount(0)
-        for c in rows:
-            row_index = self.table.rowCount()
-            self.table.insertRow(row_index)
-            values = [
-                str(c.id),
-                c.inicio,
-                c.fin,
-                c.paciente_nombre,
-                c.medico_nombre,
-                c.sala_nombre,
-                etiqueta_estado_cita(c.estado),
-                c.motivo or "",
-            ]
-            for col, value in enumerate(values):
-                item = QTableWidgetItem(value)
-                if self._riesgo_enabled:
-                    item.setToolTip(tooltip_riesgo(riesgos.get(c.id, RIESGO_NO_DISPONIBLE), self._i18n))
-                self.table.setItem(row_index, col, item)
-
-    def _obtener_riesgo_citas_calendario(self, rows: list[CitaRow]) -> dict[int, str]:
-        dtos = construir_dtos_desde_calendario(rows, datetime.now())
-        riesgos = self._container.prediccion_ausencias_facade.obtener_riesgo_agenda_uc.ejecutar(dtos)
-        self._registrar_predicciones_agenda(riesgos)
-        return riesgos
+    def _guardar_filtros(self) -> None:
+        data = serializar_filtros_citas(self._filtros_aplicados)
+        for clave, key in claves_filtros_citas().items():
+            self._settings.setValue(key, getattr(data, f"{clave}_iso", None) if clave in {"desde", "hasta"} else getattr(data, clave))
 
     def _programar_refresco_lista(self) -> None:
-        self.lbl_cargando.setText("Cargando...")
+        self._set_estado_lista("citas.ux.cargando", loading=True)
         QTimer.singleShot(0, self._refresh_lista)
 
-    def _refresh_lista(self) -> None:
-        desde = self.desde_date.date().toString("yyyy-MM-dd")
-        hasta = self.hasta_date.date().toString("yyyy-MM-dd")
-        filtros = normalizar_filtros_citas(
-            FiltrosCitasDTO(
-                rango_preset="PERSONALIZADO",
-                desde=datetime.fromisoformat(f"{desde}T00:00:00"),
-                hasta=datetime.fromisoformat(f"{hasta}T23:59:59"),
-                texto_busqueda=self.filtros.texto(),
-                estado_cita=self.filtros.estado(),
-            ),
-            datetime.now(),
-        )
-        resultado = self._buscar_lista_uc.ejecutar(
-            filtros,
-            ("fecha", "hora_inicio", "hora_fin", "paciente", "medico", "sala", "estado", "notas_len", "incidencias"),
-            PaginacionCitasDTO(limit=500, offset=0),
-        )
-        rows = [self._mapear_fila_lista_uc(fila) for fila in resultado.items]
-        self._cargar_tabla_lista(rows)
-        self.filtros.set_contador(len(rows), resultado.total)
-        self.lbl_cargando.setText("")
-
-    @staticmethod
-    def _mapear_fila_lista_uc(fila: dict[str, object]) -> CitaListadoRow:
-        return CitaListadoRow(
-            id=int(fila["cita_id"]),
-            paciente_id=int(fila.get("paciente_id", 0)),
-            medico_id=int(fila.get("medico_id", 0)),
-            fecha=str(fila.get("fecha", "")),
-            hora_inicio=str(fila.get("hora_inicio", "")),
-            hora_fin=str(fila.get("hora_fin", "")),
-            paciente=str(fila.get("paciente", "")),
-            medico=str(fila.get("medico", "")),
-            sala=str(fila.get("sala", "")),
-            estado=str(fila.get("estado", "")),
-            notas_len=int(fila.get("notas_len", 0)),
-            tiene_incidencias=bool(fila.get("tiene_incidencias", 0)),
-        )
-
-    def _cargar_tabla_lista(self, rows: list[CitaListadoRow]) -> None:
-        riesgos = self._obtener_riesgo_citas_lista(rows) if self._riesgo_enabled else {}
-        self._citas_lista_ids = [cita.id for cita in rows]
-        self.table_lista.setRowCount(0)
-        hay_no_disponible = False
-        for cita in rows:
-            row_index = self.table_lista.rowCount()
-            self.table_lista.insertRow(row_index)
-            values = [
-                cita.fecha,
-                cita.hora_inicio,
-                cita.hora_fin,
-                cita.paciente,
-                cita.medico,
-                cita.sala,
-                etiqueta_estado_cita(cita.estado),
-                str(cita.notas_len),
-                self._i18n.t("comun.si") if cita.tiene_incidencias else self._i18n.t("comun.no"),
-            ]
-            if self._riesgo_enabled:
-                resultado = resolver_texto_riesgo(riesgos.get(cita.id, RIESGO_NO_DISPONIBLE), self._i18n)
-                values.append(resultado.texto)
-                hay_no_disponible = hay_no_disponible or resultado.no_disponible
-            for col, value in enumerate(values):
-                self.table_lista.setItem(row_index, col, QTableWidgetItem(value))
-        self._actualizar_aviso_no_disponible(hay_no_disponible)
-
-    def _obtener_riesgo_citas_lista(self, rows: list[CitaListadoRow]) -> dict[int, str]:
-        dtos = construir_dtos_desde_listado(rows, datetime.now())
-        riesgos = self._container.prediccion_ausencias_facade.obtener_riesgo_agenda_uc.ejecutar(dtos)
-        self._registrar_predicciones_agenda(riesgos)
-        return riesgos
-
-    def _registrar_predicciones_agenda(self, riesgos: dict[int, str]) -> None:
-        metadata = self._container.prediccion_ausencias_facade.obtener_riesgo_agenda_uc.almacenamiento.cargar_metadata()
-        if metadata is None:
-            return
+    def _refresh_calendario(self) -> None:
+        filtros = normalizar_filtros_citas(self._filtros_aplicados, datetime.now())
+        self.lbl_date.setText(self._i18n.t("citas.calendario.fecha").format(fecha=self.calendar.selectedDate().toString("yyyy-MM-dd")))
         try:
-            self._container.prediccion_ausencias_facade.registrar_predicciones_agenda_uc.ejecutar(
-                metadata.fecha_entrenamiento,
-                riesgos,
-                source="agenda",
-            )
+            items = self._buscar_calendario_uc.ejecutar(filtros, CLAVES_TOOLTIP_POR_DEFECTO)
         except Exception as exc:  # noqa: BLE001
-            LOGGER.warning(
-                "registro_predicciones_agenda_fallido",
-                extra={"reason_code": "prediction_log_failed", "error": str(exc)},
-            )
-
-    def _actualizar_aviso_no_disponible(self, visible: bool) -> None:
-        mostrar = self._riesgo_enabled and visible
-        self.lbl_aviso_prediccion.setText(self._i18n.t("citas.riesgo.aviso_no_disponible") if mostrar else "")
-        self.btn_ir_prediccion.setVisible(mostrar)
-
-    def _on_lista_item_clicked(self, item: QTableWidgetItem) -> None:
-        if not self._riesgo_enabled or item.column() != self._columna_riesgo_lista():
+            LOGGER.warning("citas_calendario_error", extra={"error": str(exc)})
+            self.table.setRowCount(0)
             return
+        riesgos = self._obtener_riesgo_citas_calendario([self._mapear_row_calendario(x) for x in items]) if self._riesgo_enabled else {}
+        self.table.setRowCount(0)
+        for item in items:
+            item = dict(item)
+            item["riesgo_ausencia"] = resolver_texto_riesgo(riesgos.get(int(item["cita_id"]), RIESGO_NO_DISPONIBLE), self._i18n).texto
+            self._agregar_fila_calendario(item)
+
+    def _refresh_lista(self) -> None:
+        try:
+            resultado = self._buscar_lista_uc.ejecutar(self._filtros_aplicados, self._columnas_lista, PaginacionCitasDTO(limit=500, offset=0))
+        except Exception as exc:  # noqa: BLE001
+            LOGGER.warning("citas_lista_error", extra={"error": str(exc)})
+            self._set_estado_lista("citas.ux.error", error=True)
+            return
+        self._render_lista(resultado.items)
+        if not resultado.items:
+            self._set_estado_lista("citas.ux.vacio")
+        else:
+            self._set_estado_lista(None)
+
+    def _render_lista(self, rows: list[dict[str, object]]) -> None:
+        self.table_lista.setRowCount(0)
+        columnas, _ = sanear_columnas_citas(self._columnas_lista)
+        visibles = [c for c in columnas if c != "cita_id"]
+        headers = {x.clave: self._i18n.t(x.i18n_key_cabecera) for x in ATRIBUTOS_CITA}
+        self.table_lista.setColumnCount(len(visibles))
+        self.table_lista.setHorizontalHeaderLabels([headers[c] for c in visibles])
+        self._citas_lista_ids = [int(row["cita_id"]) for row in rows]
+        for row in rows:
+            idx = self.table_lista.rowCount()
+            self.table_lista.insertRow(idx)
+            for col, clave in enumerate(visibles):
+                self.table_lista.setItem(idx, col, QTableWidgetItem(formatear_valor_atributo_cita(clave, row)))
+
+    def _agregar_fila_calendario(self, item: dict[str, object]) -> None:
+        idx = self.table.rowCount()
+        self.table.insertRow(idx)
+        valores = [
+            str(item.get("cita_id", "")),
+            formatear_valor_atributo_cita("fecha", item),
+            formatear_valor_atributo_cita("hora_inicio", item),
+            formatear_valor_atributo_cita("paciente", item),
+            formatear_valor_atributo_cita("medico", item),
+            formatear_valor_atributo_cita("sala", item),
+            formatear_valor_atributo_cita("estado", item),
+            formatear_valor_atributo_cita("incidencias", item),
+        ]
+        tooltip = construir_tooltip_cita(self._i18n, item)
+        for col, valor in enumerate(valores):
+            celda = QTableWidgetItem(valor)
+            celda.setToolTip(tooltip)
+            self.table.setItem(idx, col, celda)
+
+    def _set_estado_lista(self, i18n_key: str | None, loading: bool = False, error: bool = False) -> None:
+        self.lbl_estado.setText(self._i18n.t(i18n_key) if i18n_key else "")
+        self.btn_reintentar.setVisible(error)
+        self.btn_columnas.setEnabled(not loading)
+        self.panel_filtros.setEnabled(not loading)
+
+    def _abrir_selector_columnas(self) -> None:
+        dialogo = DialogoSelectorColumnasCitas(self._i18n, self._columnas_lista, self)
+        if dialogo.exec() != dialogo.Accepted:
+            return
+        self._columnas_lista = dialogo.columnas_seleccionadas()
+        self._settings.setValue(clave_columnas_citas(), serializar_columnas_citas(self._columnas_lista))
+        self._programar_refresco_lista()
+
+    def _mapear_row_calendario(self, fila: dict[str, object]) -> CitaRow:
+        return CitaRow(
+            id=int(fila.get("cita_id", 0)),
+            inicio=str(fila.get("inicio", "")),
+            fin=str(fila.get("fin", "")),
+            paciente_id=int(fila.get("paciente_id", 0)),
+            paciente_nombre=str(fila.get("paciente", "")),
+            medico_id=int(fila.get("medico_id", 0)),
+            medico_nombre=str(fila.get("medico", "")),
+            sala_id=int(fila.get("sala_id", 0)),
+            sala_nombre=str(fila.get("sala", "")),
+            estado=str(fila.get("estado", "")),
+            motivo=None,
+        )
+
+    def _obtener_riesgo_citas_calendario(self, rows: list[CitaRow]) -> dict[int, str]:
+        return self._container.prediccion_ausencias_facade.obtener_riesgo_agenda_uc.ejecutar(construir_dtos_desde_calendario(rows, datetime.now()))
+
+    def _on_lista_item_double_clicked(self, item: QTableWidgetItem) -> None:
         cita_id = self._cita_id_lista(item.row())
-        if cita_id is not None:
+        if cita_id and self._riesgo_enabled:
             self._abrir_dialogo_riesgo(cita_id)
 
     def _on_calendario_item_double_clicked(self, item: QTableWidgetItem) -> None:
-        if not self._riesgo_enabled:
-            return
-        cita_id = self._cita_id_calendario(item.row())
-        if cita_id is not None:
+        if self._riesgo_enabled and (cita_id := self._cita_id_calendario(item.row())):
             self._abrir_dialogo_riesgo(cita_id)
-
 
     def _on_lista_context_menu(self, point) -> None:
         item = self.table_lista.itemAt(point)
         if item is None:
             return
-        cita_id = self._cita_id_lista(item.row())
-        if cita_id is None:
-            return
-        menu = QMenu(self)
-        action_recordatorio = QAction(self._i18n.t("recordatorio.accion.preparar"), self)
-        action_recordatorio.triggered.connect(lambda: self._abrir_dialogo_recordatorio(cita_id))
-        menu.addAction(action_recordatorio)
-        if self._riesgo_enabled:
-            action_riesgo = QAction(self._i18n.t("citas.riesgo_dialogo.menu.ver_riesgo"), self)
-            action_riesgo.triggered.connect(lambda: self._abrir_dialogo_riesgo(cita_id))
-            menu.addAction(action_riesgo)
-        menu.exec(self.table_lista.mapToGlobal(point))
+        self._abrir_menu_cita(self._cita_id_lista(item.row()), self.table_lista.mapToGlobal(point))
 
     def _on_calendario_context_menu(self, point) -> None:
         item = self.table.itemAt(point)
         if item is None:
             return
-        cita_id = self._cita_id_calendario(item.row())
+        self._abrir_menu_cita(self._cita_id_calendario(item.row()), self.table.mapToGlobal(point))
+
+    def _abrir_menu_cita(self, cita_id: int | None, global_point) -> None:
         if cita_id is None:
             return
         menu = QMenu(self)
         action_recordatorio = QAction(self._i18n.t("recordatorio.accion.preparar"), self)
         action_recordatorio.triggered.connect(lambda: self._abrir_dialogo_recordatorio(cita_id))
         menu.addAction(action_recordatorio)
-        if self._riesgo_enabled:
-            action_riesgo = QAction(self._i18n.t("citas.riesgo_dialogo.menu.ver_riesgo"), self)
-            action_riesgo.triggered.connect(lambda: self._abrir_dialogo_riesgo(cita_id))
-            menu.addAction(action_riesgo)
-        menu.exec(self.table.mapToGlobal(point))
-
-    def _abrir_dialogo_riesgo(self, cita_id: int) -> None:
-        explicacion = self._container.prediccion_ausencias_facade.obtener_explicacion_riesgo_uc.ejecutar(cita_id)
-        salud = self._container.prediccion_ausencias_facade.obtener_salud_uc.ejecutar()
-        dialog = RiesgoAusenciaDialog(self._i18n, explicacion, salud, self)
-        dialog.btn_preparar_recordatorio.clicked.connect(lambda: self._abrir_dialogo_recordatorio(cita_id))
-        dialog.btn_ir_prediccion.clicked.connect(self._ir_a_prediccion)
-        dialog.exec()
-
-    def _abrir_dialogo_recordatorio(self, cita_id: int) -> None:
-        dialog = RecordatorioCitaDialog(self._container, self._i18n, cita_id, self)
-        dialog.exec()
-
-    def _columna_riesgo_lista(self) -> int:
-        return self.table_lista.columnCount() - 1
+        menu.exec(global_point)
 
     def _cita_id_lista(self, row: int) -> int | None:
-        if row < 0 or row >= len(self._citas_lista_ids):
-            return None
-        return self._citas_lista_ids[row]
+        return self._citas_lista_ids[row] if 0 <= row < len(self._citas_lista_ids) else None
 
     def _cita_id_calendario(self, row: int) -> int | None:
         item = self.table.item(row, 0)
-        if item is None:
-            return None
-        try:
-            return int(item.text())
-        except ValueError:
-            return None
-
-    def _ir_a_prediccion(self) -> None:
-        window = self.window()
-        if hasattr(window, "navigate"):
-            window.navigate("prediccion_ausencias")
-
-    def _set_hoy(self) -> None:
-        today = QDate.currentDate()
-        self.desde_date.setDate(today)
-        self.hasta_date.setDate(today)
-        self._programar_refresco_lista()
-
-    def _set_semana(self) -> None:
-        today = date.today()
-        start = today - timedelta(days=today.weekday())
-        end = start + timedelta(days=6)
-        self.desde_date.setDate(QDate(start.year, start.month, start.day))
-        self.hasta_date.setDate(QDate(end.year, end.month, end.day))
-        self._programar_refresco_lista()
-
-    def _set_mes(self) -> None:
-        today = date.today()
-        start = today.replace(day=1)
-        end = today.replace(day=31) if today.month == 12 else today.replace(month=today.month + 1, day=1) - timedelta(days=1)
-        self.desde_date.setDate(QDate(start.year, start.month, start.day))
-        self.hasta_date.setDate(QDate(end.year, end.month, end.day))
-        self._programar_refresco_lista()
+        return int(item.text()) if item and item.text().isdigit() else None
 
     def _selected_id(self) -> Optional[int]:
-        items = self.table.selectedItems()
-        if not items:
-            return None
-        try:
-            return int(items[0].text())
-        except ValueError:
-            return None
+        return self._cita_id_calendario(self.table.currentRow())
 
     def _on_selection_changed(self) -> None:
         self.btn_delete.setEnabled(self._can_write and self._selected_id() is not None)
@@ -471,3 +333,12 @@ class PageCitas(QWidget):
         if self._can_write and cita_id and self._controller.delete_cita(cita_id):
             self._refresh_calendario()
             self._programar_refresco_lista()
+
+    def _abrir_dialogo_recordatorio(self, cita_id: int) -> None:
+        RecordatorioCitaDialog(self._container, self._i18n, cita_id, self).exec()
+
+    def _abrir_dialogo_riesgo(self, cita_id: int) -> None:
+        explicacion = self._container.prediccion_ausencias_facade.obtener_explicacion_riesgo_uc.ejecutar(cita_id)
+        salud = self._container.prediccion_ausencias_facade.obtener_salud_uc.ejecutar()
+        dialog = RiesgoAusenciaDialog(self._i18n, explicacion, salud, self)
+        dialog.exec()
