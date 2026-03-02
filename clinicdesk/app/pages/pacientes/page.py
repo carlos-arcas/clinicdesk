@@ -26,6 +26,7 @@ from clinicdesk.app.application.usecases.pacientes_crud import (
 from clinicdesk.app.application.services.pacientes_listado_contrato import ContratoListadoPacientesService
 from clinicdesk.app.application.usecases.obtener_detalle_cita import ObtenerDetalleCita
 from clinicdesk.app.application.auditoria_acceso import AccionAuditoriaAcceso, EntidadAuditoriaAcceso
+from clinicdesk.app.application.historial_paciente import BuscarHistorialCitasPaciente, BuscarHistorialRecetasPaciente, ObtenerResumenHistorialPaciente
 from clinicdesk.app.application.usecases.obtener_historial_paciente import ObtenerHistorialPaciente
 from clinicdesk.app.application.usecases.registrar_auditoria_acceso import RegistrarAuditoriaAcceso
 from clinicdesk.app.common.search_utils import has_search_values, normalize_search_text
@@ -35,6 +36,7 @@ from clinicdesk.app.pages.shared.filtro_listado import FiltroListadoWidget
 from clinicdesk.app.pages.shared.crud_page_helpers import confirm_deactivation, set_buttons_enabled
 from clinicdesk.app.pages.shared.table_utils import apply_row_style, set_item
 from clinicdesk.app.queries.historial_paciente_queries import HistorialPacienteQueries
+from clinicdesk.app.queries.historial_listados_queries import HistorialListadosQueries
 from clinicdesk.app.queries.pacientes_queries import PacientesQueries, PacienteRow
 from clinicdesk.app.queries.recetas_queries import RecetasQueries
 from clinicdesk.app.ui.error_presenter import present_error
@@ -59,6 +61,10 @@ class PagePacientes(QWidget):
         )
 
         self._uc_detalle_cita = ObtenerDetalleCita(HistorialPacienteQueries(container.connection))
+        historial_queries = HistorialListadosQueries(container.connection)
+        self._uc_buscar_historial_citas = BuscarHistorialCitasPaciente(historial_queries)
+        self._uc_buscar_historial_recetas = BuscarHistorialRecetasPaciente(historial_queries)
+        self._uc_resumen_historial = ObtenerResumenHistorialPaciente(historial_queries)
         self._uc_auditoria_acceso = RegistrarAuditoriaAcceso(container.auditoria_accesos_repo)
 
         self._build_ui()
@@ -261,18 +267,16 @@ class PagePacientes(QWidget):
         )
         dialog = HistorialPacienteDialog(
             self._i18n,
+            paciente_id=paciente_id,
+            buscar_citas_uc=self._uc_buscar_historial_citas,
+            buscar_recetas_uc=self._uc_buscar_historial_recetas,
+            resumen_uc=self._uc_resumen_historial,
+            historial_legacy_uc=self._uc_historial,
             detalle_cita_uc=self._uc_detalle_cita,
             auditoria_uc=self._uc_auditoria_acceso,
             contexto_usuario=self._container.user_context,
             parent=self,
         )
-        dialog.setWindowTitle(self._i18n.t("pacientes.historial.titulo"))
-        dialog.render_cargando()
-        resultado = self._uc_historial.execute(paciente_id)
-        if resultado is None:
-            dialog.render_error()
-        else:
-            dialog.render_historial(resultado)
         dialog.exec()
 
     def _open_context_menu(self, pos) -> None:
