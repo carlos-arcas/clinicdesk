@@ -239,8 +239,10 @@ def _build_prediccion_ausencias_facade(proveedor_conexion: ProveedorConexionSqli
 
 def _build_recordatorios_citas_facade(connection: sqlite3.Connection) -> RecordatoriosCitasFacade:
     from clinicdesk.app.application.usecases.recordatorios_citas import (
+        MarcarRecordatoriosEnviadosEnLote,
         ObtenerEstadoRecordatorioCita,
         PrepararRecordatorioCita,
+        PrepararRecordatoriosEnLote,
         RegistrarRecordatorioCita,
     )
 
@@ -248,4 +250,12 @@ def _build_recordatorios_citas_facade(connection: sqlite3.Connection) -> Recorda
     preparar_uc = PrepararRecordatorioCita(gateway)
     registrar_uc = RegistrarRecordatorioCita(gateway)
     obtener_estado_uc = ObtenerEstadoRecordatorioCita(gateway)
-    return RecordatoriosCitasFacade(preparar_uc=preparar_uc, registrar_uc=registrar_uc, obtener_estado_uc=obtener_estado_uc)
+    preparar_lote_uc = PrepararRecordatoriosEnLote(gateway)
+    marcar_enviado_lote_uc = MarcarRecordatoriosEnviadosEnLote(gateway)
+    return RecordatoriosCitasFacade(
+        preparar_uc=preparar_uc,
+        registrar_uc=registrar_uc,
+        obtener_estado_uc=obtener_estado_uc,
+        preparar_lote_uc=preparar_lote_uc,
+        marcar_enviado_lote_uc=marcar_enviado_lote_uc,
+    )
