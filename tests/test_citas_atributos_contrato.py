@@ -38,7 +38,7 @@ def test_formateadores_no_fallan_con_none() -> None:
 def test_saneo_columnas_y_defaults() -> None:
     saneadas, restauradas = sanear_columnas_citas(("fecha", "foo", "fecha"))
     assert saneadas == ("fecha", "cita_id")
-    assert restauradas is False
+    assert restauradas is True
 
     por_defecto, restauradas_default = sanear_columnas_citas(())
     assert restauradas_default is True

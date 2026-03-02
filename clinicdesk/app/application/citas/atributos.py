@@ -69,16 +69,23 @@ def obtener_columnas_default_citas() -> tuple[str, ...]:
 
 
 def sanear_columnas_citas(columnas: tuple[str, ...] | list[str] | None) -> tuple[tuple[str, ...], bool]:
+    originales = tuple(columnas or ())
     claves_validas = {atributo.clave for atributo in ATRIBUTOS_CITA}
     ordenadas: list[str] = []
-    for columna in columnas or ():
+    for columna in originales:
         if columna in claves_validas and columna not in ordenadas:
             ordenadas.append(columna)
-    restauradas = not ordenadas
-    if restauradas:
-        ordenadas.extend(obtener_columnas_default_citas())
+
+    hubo_descartes = len(ordenadas) != len(originales)
+    if not ordenadas:
+        ordenadas = list(obtener_columnas_default_citas())
+        restauradas = True
+    else:
+        restauradas = hubo_descartes
+
     if "cita_id" not in ordenadas:
         ordenadas.append("cita_id")
+        restauradas = True
     return tuple(ordenadas), restauradas
 
 
