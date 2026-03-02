@@ -5,15 +5,16 @@ from datetime import datetime
 from clinicdesk.app.application.citas.filtros import FiltrosCitasDTO, normalizar_filtros_citas
 
 
-def test_normalizar_filtros_aplica_defaults_y_trim() -> None:
+def test_normalizar_filtros_aplica_defaults_trim_y_ids() -> None:
     ahora = datetime(2025, 1, 10, 11, 45)
     filtros = FiltrosCitasDTO(
         rango_preset="  desconocido ",
-        texto_busqueda="  control mensual  ",
-        estado=" todos ",
+        texto_busqueda="   ",
+        estado_cita=" todos ",
         medico_id=-1,
-        riesgo_filtro="solo_alto",
         recordatorio_filtro="no_enviado",
+        limit=999,
+        offset=-10,
     )
 
     normalizados = normalizar_filtros_citas(filtros, ahora)
@@ -21,14 +22,15 @@ def test_normalizar_filtros_aplica_defaults_y_trim() -> None:
     assert normalizados.rango_preset == "HOY"
     assert normalizados.desde == datetime(2025, 1, 10, 0, 0)
     assert normalizados.hasta == datetime(2025, 1, 10, 23, 59, 59)
-    assert normalizados.texto_busqueda == "control mensual"
-    assert normalizados.estado is None
+    assert normalizados.texto_busqueda is None
+    assert normalizados.estado_cita is None
     assert normalizados.medico_id is None
-    assert normalizados.riesgo_filtro == "SOLO_ALTO"
     assert normalizados.recordatorio_filtro == "NO_ENVIADO"
+    assert normalizados.limit == 200
+    assert normalizados.offset == 0
 
 
-def test_normalizar_filtros_invierte_rango_personalizado_y_limita_ventana() -> None:
+def test_normalizar_filtros_corrige_rango_personalizado_invertido() -> None:
     ahora = datetime(2025, 1, 10, 11, 45)
     filtros = FiltrosCitasDTO(
         rango_preset="PERSONALIZADO",
