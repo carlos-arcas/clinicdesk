@@ -29,6 +29,23 @@ class RegistrarAuditoriaAcceso:
         entidad_id: int | str,
         metadata: dict[str, str | int | float | bool | None] | None = None,
     ) -> None:
+        self.ejecutar(
+            contexto_usuario=contexto_usuario,
+            accion=accion,
+            entidad_tipo=entidad_tipo,
+            entidad_id=entidad_id,
+            metadata=metadata,
+        )
+
+    def ejecutar(
+        self,
+        *,
+        contexto_usuario: UserContext,
+        accion: AccionAuditoriaAcceso,
+        entidad_tipo: EntidadAuditoriaAcceso,
+        entidad_id: int | str,
+        metadata: dict[str, str | int | float | bool | None] | None = None,
+    ) -> None:
         evento = EventoAuditoriaAcceso(
             timestamp_utc=now_utc_iso(),
             usuario=contexto_usuario.username,

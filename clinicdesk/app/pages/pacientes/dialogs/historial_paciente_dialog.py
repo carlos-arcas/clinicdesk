@@ -15,6 +15,7 @@ from clinicdesk.app.application.historial_paciente import (
     BuscarHistorialRecetasPaciente,
     ObtenerResumenHistorialPaciente,
     normalizar_filtros_historial_paciente,
+    redactar_texto_busqueda,
     validar_filtros_historial_paciente,
     sanear_columnas_solicitadas,
 )
@@ -170,7 +171,7 @@ class HistorialPacienteDialog(QDialog):
         self.btn_abrir_columnas.setText(self._i18n.t("historial.validacion.abrir_columnas"))
 
     def _cargar_estado_inicial(self) -> None:
-        self._historial_base = self._historial_legacy_uc.execute(self._paciente_id)
+        self._historial_base = self._historial_legacy_uc.ejecutar(self._paciente_id)
         if self._historial_base is None:
             self.lbl_estado.setText(self._i18n.t("historial.estado.error"))
             return
@@ -184,23 +185,42 @@ class HistorialPacienteDialog(QDialog):
         self._set_estado_cargando()
         self._ocultar_banner_validacion()
         filtros = normalizar_filtros_historial_paciente(self.panel_filtros.construir_filtros(self._paciente_id), ahora=datetime.now())
+        self._log_filtros_aplicados(filtros)
         validacion = validar_filtros_historial_paciente(filtros, self._pestaña_actual())
         if not validacion.ok:
             self._mostrar_errores_validacion(validacion.errores)
             return
         self._guardar_filtros(filtros)
         self._actualizar_resumen(filtros)
-        if self.tabs.currentIndex() == 0:
-            resultado = self._buscar_citas_uc.ejecutar(filtros, self._columnas_citas)
-            self._render_tabla(self.table_citas, ATRIBUTOS_HISTORIAL_CITAS, self._columnas_citas, resultado.items, "cita_id")
-        else:
-            resultado = self._buscar_recetas_uc.ejecutar(filtros, self._columnas_recetas)
-            self._render_tabla(self.table_recetas, ATRIBUTOS_HISTORIAL_RECETAS, self._columnas_recetas, resultado.items, "receta_id")
+        try:
+            if self.tabs.currentIndex() == 0:
+                resultado = self._buscar_citas_uc.ejecutar(filtros, self._columnas_citas)
+                self._render_tabla(self.table_citas, ATRIBUTOS_HISTORIAL_CITAS, self._columnas_citas, resultado.items, "cita_id")
+            else:
+                resultado = self._buscar_recetas_uc.ejecutar(filtros, self._columnas_recetas)
+                self._render_tabla(self.table_recetas, ATRIBUTOS_HISTORIAL_RECETAS, self._columnas_recetas, resultado.items, "receta_id")
+        except Exception:
+            _LOGGER.exception("historial_carga_fail", extra=self._extra_log_filtros(filtros))
+            self.lbl_estado.setText(self._i18n.t("historial.estado.vacio"))
+            return
         self.lbl_estado.setText(self._i18n.t("historial.estado.vacio") if resultado.total == 0 else "")
         self._actualizar_acciones()
         if self._columnas_restauradas_pendiente:
             self._mostrar_aviso_columnas_restauradas()
             self._columnas_restauradas_pendiente = False
+
+    def _log_filtros_aplicados(self, filtros) -> None:
+        _LOGGER.info("historial_filtros_aplicados", extra=self._extra_log_filtros(filtros))
+
+    def _extra_log_filtros(self, filtros) -> dict[str, object]:
+        return {
+            "action": "historial_filtros",
+            "preset": filtros.rango_preset,
+            "desde": filtros.desde.isoformat() if filtros.desde else None,
+            "hasta": filtros.hasta.isoformat() if filtros.hasta else None,
+            "estados_count": len(filtros.estados or ()),
+            "texto_redactado": redactar_texto_busqueda(filtros.texto),
+        }
 
     def _render_tabla(self, tabla: QTableWidget, contrato, columnas: tuple[str, ...], items, id_key: str) -> None:
         columnas_visibles = [item for item in contrato if item.clave in columnas]
@@ -222,6 +242,7 @@ class HistorialPacienteDialog(QDialog):
             data = self._resumen_uc.ejecutar(self._paciente_id, ventana_dias=ventana)
             self.lbl_kpis.setText(self._i18n.t("historial.resumen.kpi").format(citas=data.total_citas, ausencias=data.no_presentados, recetas=data.total_recetas, activas=data.recetas_activas))
         except Exception:
+            _LOGGER.exception("historial_resumen_fail", extra=self._extra_log_filtros(filtros) if filtros else {"action": "historial_resumen"})
             self.lbl_kpis.setText(self._i18n.t("historial.resumen.error"))
             self.btn_reintentar_resumen.setVisible(True)
 
@@ -348,7 +369,7 @@ class HistorialPacienteDialog(QDialog):
         receta = next((item for item in self._historial_base.recetas if item.id == receta_id), None)
         if receta is None:
             return
-        self._auditoria_uc.execute(contexto_usuario=self._contexto_usuario, accion=AccionAuditoriaAcceso.VER_DETALLE_RECETA, entidad_tipo=EntidadAuditoriaAcceso.RECETA, entidad_id=receta_id)
+        self._auditoria_uc.ejecutar(contexto_usuario=self._contexto_usuario, accion=AccionAuditoriaAcceso.VER_DETALLE_RECETA, entidad_tipo=EntidadAuditoriaAcceso.RECETA, entidad_id=receta_id)
         DetalleRecetaDialog(self._i18n, receta=receta, lineas=self._historial_base.detalle_por_receta.get(receta_id, ()), parent=self).exec()
 
     def _actualizar_acciones(self) -> None:
