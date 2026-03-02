@@ -11,6 +11,7 @@ from clinicdesk.app.application.historial_paciente.dtos import ErrorValidacionDT
 from clinicdesk.app.application.historial_paciente.filtros import (
     FiltrosHistorialPacienteDTO,
     normalizar_filtros_historial_paciente,
+    redactar_texto_busqueda,
 )
 from clinicdesk.app.application.historial_paciente.validaciones import validar_filtros_historial_paciente
 from clinicdesk.app.application.historial_paciente.usecases import (
@@ -34,6 +35,7 @@ __all__ = [
     "ResultadoValidacionDTO",
     "FiltrosHistorialPacienteDTO",
     "normalizar_filtros_historial_paciente",
+    "redactar_texto_busqueda",
     "validar_filtros_historial_paciente",
     "BuscarHistorialCitasPaciente",
     "BuscarHistorialRecetasPaciente",

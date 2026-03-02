@@ -97,6 +97,17 @@ def _normalizar_texto(texto: str | None) -> str | None:
     return valor or None
 
 
+def redactar_texto_busqueda(texto: str | None) -> str | None:
+    if texto is None:
+        return None
+    valor = texto.strip()
+    if not valor:
+        return None
+    if len(valor) <= 12:
+        return valor
+    return f"{valor[:12]}…"
+
+
 def _normalizar_estados(estados: tuple[str, ...] | None) -> tuple[str, ...] | None:
     if not estados:
         return None

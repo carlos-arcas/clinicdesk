@@ -5,6 +5,7 @@ from datetime import datetime
 from clinicdesk.app.application.historial_paciente.filtros import (
     FiltrosHistorialPacienteDTO,
     normalizar_filtros_historial_paciente,
+    redactar_texto_busqueda,
 )
 
 
@@ -65,3 +66,12 @@ def test_normaliza_todo_sin_rango() -> None:
 def test_conserva_paciente_id_invalido_para_validacion_tipada() -> None:
     normalizados = normalizar_filtros_historial_paciente(FiltrosHistorialPacienteDTO(paciente_id=0), datetime(2026, 1, 1, 10, 0))
     assert normalizados.paciente_id == 0
+
+
+def test_redactar_texto_busqueda_trunca_y_no_filtra_texto_completo() -> None:
+    texto = "mi dni 12345678Z"
+
+    redaccion = redactar_texto_busqueda(texto)
+
+    assert redaccion != texto
+    assert redaccion == "mi dni 12345…"

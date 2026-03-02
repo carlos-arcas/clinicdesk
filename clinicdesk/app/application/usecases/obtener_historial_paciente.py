@@ -66,6 +66,9 @@ class ObtenerHistorialPaciente:
         self._recetas_gateway = recetas_gateway
 
     def execute(self, paciente_id: int) -> HistorialPacienteResultado | None:
+        return self.ejecutar(paciente_id)
+
+    def ejecutar(self, paciente_id: int) -> HistorialPacienteResultado | None:
         paciente = self._pacientes_gateway.get_by_id(paciente_id)
         if paciente is None:
             return None
