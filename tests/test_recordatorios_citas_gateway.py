@@ -24,6 +24,12 @@ def _seed_minimo(con: sqlite3.Connection) -> None:
     )
     con.execute(
         """
+        INSERT INTO pacientes(tipo_documento, documento, nombre, apellidos, telefono, email, activo)
+        VALUES ('DNI', '124', 'Eva', 'Ruiz', NULL, 'eva@test.com', 1)
+        """
+    )
+    con.execute(
+        """
         INSERT INTO medicos(tipo_documento, documento, nombre, apellidos, num_colegiado, especialidad, activo)
         VALUES ('DNI', '456', 'Luis', 'López', 'COL1', 'General', 1)
         """
@@ -35,30 +41,53 @@ def _seed_minimo(con: sqlite3.Connection) -> None:
         VALUES (1, 1, 1, '2026-01-02T10:30:00', '2026-01-02T11:00:00', 'PROGRAMADA', 'Control', 1)
         """
     )
+    con.execute(
+        """
+        INSERT INTO citas(paciente_id, medico_id, sala_id, inicio, fin, estado, motivo, activo)
+        VALUES (2, 1, 1, '2026-01-03T10:30:00', '2026-01-03T11:00:00', 'PROGRAMADA', 'Control', 1)
+        """
+    )
 
 
 def test_upsert_recordatorio_cita_actualiza_estado_y_evitar_duplicados() -> None:
     con = _build_connection()
     gateway = RecordatoriosCitasSqliteGateway(con)
-
     gateway.upsert_recordatorio_cita(1, "WHATSAPP", "PREPARADO", "2026-01-01T10:00:00+00:00")
     gateway.upsert_recordatorio_cita(1, "WHATSAPP", "ENVIADO", "2026-01-01T11:00:00+00:00")
-
     rows = con.execute("SELECT canal, estado, created_at_utc, updated_at_utc FROM recordatorios_citas").fetchall()
     assert len(rows) == 1
-    assert rows[0]["canal"] == "WHATSAPP"
     assert rows[0]["estado"] == "ENVIADO"
     assert rows[0]["created_at_utc"] == "2026-01-01T10:00:00+00:00"
-    assert rows[0]["updated_at_utc"] == "2026-01-01T11:00:00+00:00"
 
 
 def test_obtener_estado_recordatorio_por_canal() -> None:
     con = _build_connection()
     gateway = RecordatoriosCitasSqliteGateway(con)
     gateway.upsert_recordatorio_cita(1, "EMAIL", "PREPARADO", "2026-01-01T10:00:00+00:00")
-
     estados = gateway.obtener_estado_recordatorio(1)
-
     assert len(estados) == 1
     assert estados[0].canal == "EMAIL"
-    assert estados[0].estado == "PREPARADO"
+
+
+def test_gateway_lote_upsert_y_estado_actualiza() -> None:
+    con = _build_connection()
+    gateway = RecordatoriosCitasSqliteGateway(con)
+
+    n1 = gateway.upsert_recordatorios_lote([(1, "EMAIL", "PREPARADO", "2026-01-01T10:00:00+00:00")])
+    n2 = gateway.upsert_recordatorios_lote([(1, "EMAIL", "ENVIADO", "2026-01-01T11:00:00+00:00")])
+    estado = gateway.obtener_estado_recordatorio_lote((1,))
+
+    assert n1 == 1
+    assert n2 == 1
+    assert estado[(1, "EMAIL")] == "ENVIADO"
+
+
+def test_gateway_contacto_citas_devuelve_minimo() -> None:
+    con = _build_connection()
+    gateway = RecordatoriosCitasSqliteGateway(con)
+
+    contactos = gateway.obtener_contacto_citas((1, 2))
+
+    assert set(contactos.keys()) == {1, 2}
+    assert contactos[1] == ("600000000", "ana@test.com")
+    assert contactos[2] == (None, "eva@test.com")

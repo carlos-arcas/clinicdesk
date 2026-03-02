@@ -61,6 +61,61 @@ class ObtenerEstadoRecordatorioCita:
         return self.recordatorios.obtener_estado_recordatorio(cita_id)
 
 
+@dataclass(frozen=True, slots=True)
+class DetalleOmitidaDTO:
+    motivo_code: str
+
+
+@dataclass(frozen=True, slots=True)
+class ResultadoLoteRecordatoriosDTO:
+    preparadas: int = 0
+    enviadas: int = 0
+    omitidas_sin_contacto: int = 0
+    omitidas_ya_enviado: int = 0
+    errores: int = 0
+
+
+@dataclass(slots=True)
+class PrepararRecordatoriosEnLote:
+    recordatorios: RecordatoriosCitasPort
+
+    def ejecutar(self, cita_ids: tuple[int, ...], canal: str) -> ResultadoLoteRecordatoriosDTO:
+        canal_normalizado = _validar_canal_lote(canal)
+        if not cita_ids:
+            return ResultadoLoteRecordatoriosDTO()
+        contactos = self.recordatorios.obtener_contacto_citas(cita_ids)
+        estados = self.recordatorios.obtener_estado_recordatorio_lote(cita_ids)
+        now_utc = datetime.now(timezone.utc).isoformat()
+        resultado = _contabilizar_preparacion(cita_ids, canal_normalizado, contactos, estados, now_utc)
+        if resultado.dto.preparadas > 0:
+            self.recordatorios.upsert_recordatorios_lote(resultado.items_upsert)
+        _log_lote("confirmaciones_lote_preparar", canal_normalizado, len(cita_ids), resultado.dto)
+        return resultado.dto
+
+
+@dataclass(slots=True)
+class MarcarRecordatoriosEnviadosEnLote:
+    recordatorios: RecordatoriosCitasPort
+
+    def ejecutar(self, cita_ids: tuple[int, ...], canal: str | None = None) -> ResultadoLoteRecordatoriosDTO:
+        if not cita_ids:
+            return ResultadoLoteRecordatoriosDTO()
+        canales = (_validar_canal_lote(canal),) if canal else ("WHATSAPP", "EMAIL")
+        now_utc = datetime.now(timezone.utc).isoformat()
+        items = [(cita_id, canal_item, "ENVIADO", now_utc) for cita_id in cita_ids for canal_item in canales]
+        if items:
+            self.recordatorios.upsert_recordatorios_lote(items)
+        dto = ResultadoLoteRecordatoriosDTO(enviadas=len(items))
+        _log_lote("confirmaciones_lote_enviar", canal or "TODOS", len(cita_ids), dto)
+        return dto
+
+
+@dataclass(frozen=True, slots=True)
+class _ResultadoPreparacionInterno:
+    dto: ResultadoLoteRecordatoriosDTO
+    items_upsert: list[tuple[int, str, str, str]]
+
+
 def _validar_canal(canal: str) -> str:
     valor = canal.upper().strip()
     if valor not in CANALES_VALIDOS:
@@ -73,6 +128,62 @@ def _validar_estado(estado: str) -> str:
     if valor not in ESTADOS_VALIDOS:
         raise ValueError(f"Estado inválido: {estado}")
     return valor
+
+
+def _validar_canal_lote(canal: str) -> str:
+    valor = _validar_canal(canal)
+    if valor not in {"WHATSAPP", "EMAIL"}:
+        raise ValueError(f"Canal inválido para lote: {canal}")
+    return valor
+
+
+def _contabilizar_preparacion(
+    cita_ids: tuple[int, ...],
+    canal: str,
+    contactos: dict[int, tuple[str | None, str | None]],
+    estados: dict[tuple[int, str], str],
+    now_utc: str,
+) -> _ResultadoPreparacionInterno:
+    omitidas_sin_contacto = 0
+    omitidas_ya_enviado = 0
+    items_upsert: list[tuple[int, str, str, str]] = []
+    for cita_id in cita_ids:
+        telefono, email = contactos.get(cita_id, (None, None))
+        if _falta_contacto(canal, telefono, email):
+            omitidas_sin_contacto += 1
+            continue
+        if estados.get((cita_id, canal)) == "ENVIADO":
+            omitidas_ya_enviado += 1
+            continue
+        items_upsert.append((cita_id, canal, "PREPARADO", now_utc))
+    dto = ResultadoLoteRecordatoriosDTO(
+        preparadas=len(items_upsert),
+        omitidas_sin_contacto=omitidas_sin_contacto,
+        omitidas_ya_enviado=omitidas_ya_enviado,
+    )
+    return _ResultadoPreparacionInterno(dto=dto, items_upsert=items_upsert)
+
+
+def _falta_contacto(canal: str, telefono: str | None, email: str | None) -> bool:
+    if canal == "WHATSAPP":
+        return not telefono
+    return not email
+
+
+def _log_lote(action: str, canal: str, total_seleccionadas: int, resultado: ResultadoLoteRecordatoriosDTO) -> None:
+    LOGGER.info(
+        "recordatorios_lote",
+        extra={
+            "action": action,
+            "canal": canal,
+            "total_seleccionadas": total_seleccionadas,
+            "preparadas": resultado.preparadas,
+            "enviadas": resultado.enviadas,
+            "omitidas_sin_contacto": resultado.omitidas_sin_contacto,
+            "omitidas_ya_enviado": resultado.omitidas_ya_enviado,
+            "errores": resultado.errores,
+        },
+    )
 
 
 def _advertencias_contacto(traductor: Callable[[str], str], canal: str, datos: DatosRecordatorioCitaDTO) -> tuple[str, ...]:

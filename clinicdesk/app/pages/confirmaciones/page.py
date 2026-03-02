@@ -2,8 +2,11 @@ from __future__ import annotations
 
 from datetime import date, timedelta
 
+from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
+    QCheckBox,
     QComboBox,
+    QDateEdit,
     QHBoxLayout,
     QLabel,
     QLineEdit,
@@ -13,7 +16,6 @@ from PySide6.QtWidgets import (
     QTableWidgetItem,
     QVBoxLayout,
     QWidget,
-    QDateEdit,
 )
 
 from clinicdesk.app.application.confirmaciones import (
@@ -25,9 +27,11 @@ from clinicdesk.app.container import AppContainer
 from clinicdesk.app.i18n import I18nManager
 from clinicdesk.app.pages.citas.recordatorio_cita_dialog import RecordatorioCitaDialog
 from clinicdesk.app.pages.citas.riesgo_ausencia_dialog import RiesgoAusenciaDialog
+from clinicdesk.app.pages.confirmaciones.lote_controller import GestorLoteConfirmaciones
 from clinicdesk.app.queries.confirmaciones_queries import ConfirmacionesQueries
 
 _PAGE_SIZE = 20
+_COL_CHECK = 0
 
 
 class PageConfirmaciones(QWidget):
@@ -53,7 +57,6 @@ class PageConfirmaciones(QWidget):
         root = QVBoxLayout(self)
         self.lbl_title = QLabel()
         root.addWidget(self.lbl_title)
-
         self.banner = QLabel()
         self.btn_ir_prediccion = QPushButton()
         self.btn_ir_prediccion.clicked.connect(self._ir_a_prediccion)
@@ -76,9 +79,22 @@ class PageConfirmaciones(QWidget):
             filters.addWidget(w)
         root.addLayout(filters)
 
-        self.table = QTableWidget(0, 8)
+        seleccion_row = QHBoxLayout()
+        self.chk_todo_visible = QCheckBox()
+        self.chk_todo_visible.stateChanged.connect(self._toggle_todo_visible)
+        self.lbl_seleccionadas = QLabel()
+        seleccion_row.addWidget(self.chk_todo_visible)
+        seleccion_row.addWidget(self.lbl_seleccionadas)
+        seleccion_row.addStretch(1)
+        root.addLayout(seleccion_row)
+
+        self.table = QTableWidget(0, 9)
         self.table.setEditTriggers(QTableWidget.NoEditTriggers)
+        self.table.itemChanged.connect(self._on_item_changed)
         root.addWidget(self.table)
+
+        self._lote = GestorLoteConfirmaciones(self, self.table, self._i18n, self._container.recordatorios_citas_facade, lambda: self._load_data(reset=False))
+        root.addWidget(self._lote.barra)
 
         footer = QHBoxLayout()
         self.lbl_totales = QLabel()
@@ -100,8 +116,11 @@ class PageConfirmaciones(QWidget):
         self.btn_prev.setText(t("confirmaciones.paginacion.anterior"))
         self.btn_next.setText(t("confirmaciones.paginacion.siguiente"))
         self.txt_buscar.setPlaceholderText(t("confirmaciones.filtro.buscar"))
+        self.chk_todo_visible.setText(t("confirmaciones.seleccion.todo_visible"))
+        self._lote.retranslate()
         self._set_filter_options()
         self.table.setHorizontalHeaderLabels([
+            "",
             t("confirmaciones.col.fecha"),
             t("confirmaciones.col.hora"),
             t("confirmaciones.col.paciente"),
@@ -111,6 +130,7 @@ class PageConfirmaciones(QWidget):
             t("confirmaciones.col.recordatorio"),
             t("confirmaciones.col.acciones"),
         ])
+        self._actualizar_estado_seleccion()
 
     def _set_filter_options(self) -> None:
         t = self._i18n.t
@@ -139,9 +159,8 @@ class PageConfirmaciones(QWidget):
             end = today + timedelta(days=30)
         self.desde.setDate(today if mode != "CUSTOM" else self.desde.date())
         self.hasta.setDate(end if mode != "CUSTOM" else self.hasta.date())
-        custom = mode == "CUSTOM"
-        self.desde.setEnabled(custom)
-        self.hasta.setEnabled(custom)
+        self.desde.setEnabled(mode == "CUSTOM")
+        self.hasta.setEnabled(mode == "CUSTOM")
 
     def _build_filtros(self) -> FiltrosConfirmacionesDTO:
         return FiltrosConfirmacionesDTO(
@@ -163,35 +182,61 @@ class PageConfirmaciones(QWidget):
         self._total = result.total
         self._render_banner(result.salud_prediccion.estado if result.salud_prediccion else "ROJO")
         self._render_rows(result.items)
-        self.lbl_totales.setText(
-            self._i18n.t("confirmaciones.paginacion.mostrando").format(mostrados=result.mostrados, total=result.total)
-        )
+        self.lbl_totales.setText(self._i18n.t("confirmaciones.paginacion.mostrando").format(mostrados=result.mostrados, total=result.total))
 
     def _render_rows(self, rows) -> None:
+        self.table.blockSignals(True)
         self.table.setRowCount(len(rows))
         for row, item in enumerate(rows):
+            selector = QTableWidgetItem()
+            selector.setFlags(Qt.ItemIsEnabled | Qt.ItemIsUserCheckable)
+            selector.setCheckState(Qt.Unchecked)
+            selector.setData(Qt.UserRole, item.cita_id)
+            self.table.setItem(row, 0, selector)
             inicio = item.inicio
-            self.table.setItem(row, 0, QTableWidgetItem(inicio[:10]))
-            self.table.setItem(row, 1, QTableWidgetItem(inicio[11:16]))
-            self.table.setItem(row, 2, QTableWidgetItem(item.paciente))
-            self.table.setItem(row, 3, QTableWidgetItem(item.medico))
-            self.table.setItem(row, 4, QTableWidgetItem(item.estado_cita))
-            self.table.setItem(row, 5, QTableWidgetItem(self._i18n.t(f"confirmaciones.riesgo.{item.riesgo.lower()}")))
-            self.table.setItem(row, 6, QTableWidgetItem(self._i18n.t(f"confirmaciones.recordatorio.{item.recordatorio_estado.lower()}")))
-            actions = QWidget(self.table)
-            lay = QHBoxLayout(actions)
-            lay.setContentsMargins(0, 0, 0, 0)
-            btn_riesgo = QPushButton(self._i18n.t("confirmaciones.accion.ver_riesgo"), actions)
-            btn_recordatorio = QPushButton(self._i18n.t("confirmaciones.accion.preparar_recordatorio"), actions)
-            btn_riesgo.clicked.connect(lambda _=False, cita_id=item.cita_id: self._abrir_riesgo(cita_id))
-            btn_recordatorio.clicked.connect(lambda _=False, cita_id=item.cita_id: self._abrir_recordatorio(cita_id))
-            lay.addWidget(btn_riesgo)
-            lay.addWidget(btn_recordatorio)
-            self.table.setCellWidget(row, 7, actions)
+            self.table.setItem(row, 1, QTableWidgetItem(inicio[:10]))
+            self.table.setItem(row, 2, QTableWidgetItem(inicio[11:16]))
+            self.table.setItem(row, 3, QTableWidgetItem(item.paciente))
+            self.table.setItem(row, 4, QTableWidgetItem(item.medico))
+            self.table.setItem(row, 5, QTableWidgetItem(item.estado_cita))
+            self.table.setItem(row, 6, QTableWidgetItem(self._i18n.t(f"confirmaciones.riesgo.{item.riesgo.lower()}")))
+            self.table.setItem(row, 7, QTableWidgetItem(self._i18n.t(f"confirmaciones.recordatorio.{item.recordatorio_estado.lower()}")))
+            self.table.setCellWidget(row, 8, self._build_actions(item.cita_id))
+        self.table.blockSignals(False)
+        self._actualizar_estado_seleccion()
+
+    def _build_actions(self, cita_id: int) -> QWidget:
+        actions = QWidget(self.table)
+        lay = QHBoxLayout(actions)
+        lay.setContentsMargins(0, 0, 0, 0)
+        btn_riesgo = QPushButton(self._i18n.t("confirmaciones.accion.ver_riesgo"), actions)
+        btn_recordatorio = QPushButton(self._i18n.t("confirmaciones.accion.preparar_recordatorio"), actions)
+        btn_riesgo.clicked.connect(lambda _=False, value=cita_id: self._abrir_riesgo(value))
+        btn_recordatorio.clicked.connect(lambda _=False, value=cita_id: self._abrir_recordatorio(value))
+        lay.addWidget(btn_riesgo)
+        lay.addWidget(btn_recordatorio)
+        return actions
+
+    def _toggle_todo_visible(self, state: int) -> None:
+        self.table.blockSignals(True)
+        for row in range(self.table.rowCount()):
+            item = self.table.item(row, _COL_CHECK)
+            if item is not None:
+                item.setCheckState(Qt.Checked if state == Qt.Checked else Qt.Unchecked)
+        self.table.blockSignals(False)
+        self._actualizar_estado_seleccion()
+
+    def _on_item_changed(self, item: QTableWidgetItem) -> None:
+        if item.column() == _COL_CHECK:
+            self._actualizar_estado_seleccion()
+
+    def _actualizar_estado_seleccion(self) -> None:
+        total = len(self._lote.selected_ids())
+        self.lbl_seleccionadas.setText(self._i18n.t("confirmaciones.seleccion.contador").format(total=total))
+        self._lote.actualizar_visibilidad()
 
     def _render_banner(self, estado: str) -> None:
-        key = f"confirmaciones.prediccion.{estado.lower()}"
-        self.banner.setText(self._i18n.t(key))
+        self.banner.setText(self._i18n.t(f"confirmaciones.prediccion.{estado.lower()}"))
         self.btn_ir_prediccion.setVisible(estado != "VERDE")
 
     def _show_error(self) -> None:
