@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime
 
+from clinicdesk.app.application.historial_paciente.atributos import AtributoHistorial, sanear_columnas_solicitadas
 from clinicdesk.app.application.historial_paciente.filtros import FiltrosHistorialPacienteDTO
 
 BASE_KEY = "historial_paciente"
@@ -48,6 +49,14 @@ def sanear_columnas_guardadas(valor: str | None) -> tuple[str, ...]:
 
 def serializar_columnas(columnas: tuple[str, ...]) -> str:
     return ",".join(columnas)
+
+
+def aplicar_columnas_seguras_desde_settings(
+    valor_settings: str | None,
+    contrato: tuple[AtributoHistorial, ...],
+) -> tuple[tuple[str, ...], bool]:
+    columnas_guardadas = sanear_columnas_guardadas(valor_settings)
+    return sanear_columnas_solicitadas(columnas_guardadas, contrato)
 
 
 def key_filtros() -> str:

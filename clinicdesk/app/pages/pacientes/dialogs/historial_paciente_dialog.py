@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from datetime import datetime
 from typing import Optional
 
@@ -14,6 +15,7 @@ from clinicdesk.app.application.historial_paciente import (
     BuscarHistorialRecetasPaciente,
     ObtenerResumenHistorialPaciente,
     normalizar_filtros_historial_paciente,
+    validar_filtros_historial_paciente,
     sanear_columnas_solicitadas,
 )
 from clinicdesk.app.application.security import UserContext
@@ -30,13 +32,14 @@ from clinicdesk.app.pages.pacientes.dialogs.widgets.persistencia_historial_setti
     deserializar_filtros,
     key_columnas,
     key_filtros,
-    sanear_columnas_guardadas,
+    aplicar_columnas_seguras_desde_settings,
     serializar_columnas,
     serializar_filtros,
 )
 
 _ESTADOS_CITAS = ("PROGRAMADA", "CONFIRMADA", "REALIZADA", "NO_PRESENTADO", "CANCELADA")
 _ESTADOS_RECETAS = ("ACTIVA", "PENDIENTE", "DISPENSADA", "FINALIZADA", "ANULADA", "CANCELADA")
+_LOGGER = logging.getLogger(__name__)
 
 
 class HistorialPacienteDialog(QDialog):
@@ -53,8 +56,9 @@ class HistorialPacienteDialog(QDialog):
         self._contexto_usuario = contexto_usuario
         self._settings = QSettings("ClinicDesk", "ClinicDesk")
         self._historial_base: HistorialPacienteResultado | None = None
-        self._columnas_citas = self._cargar_columnas("citas", ATRIBUTOS_HISTORIAL_CITAS)
-        self._columnas_recetas = self._cargar_columnas("recetas", ATRIBUTOS_HISTORIAL_RECETAS)
+        self._columnas_citas, restauradas_citas = self._cargar_columnas("citas", ATRIBUTOS_HISTORIAL_CITAS)
+        self._columnas_recetas, restauradas_recetas = self._cargar_columnas("recetas", ATRIBUTOS_HISTORIAL_RECETAS)
+        self._columnas_restauradas_pendiente = restauradas_citas or restauradas_recetas
         self._build_ui()
         self._i18n.subscribe(self.retranslate_ui)
         self._cargar_estado_inicial()
@@ -65,6 +69,7 @@ class HistorialPacienteDialog(QDialog):
         self.lbl_header = QLabel("")
         root.addWidget(self.lbl_header)
         self._crear_panel_resumen(root)
+        self._crear_banner_validacion(root)
         self.panel_filtros = PanelFiltrosHistorialPacienteWidget(self._i18n, self)
         self.panel_filtros.aplicar_solicitado.connect(self._aplicar_filtros)
         self.panel_filtros.limpiar_solicitado.connect(self._limpiar_filtros)
@@ -77,6 +82,21 @@ class HistorialPacienteDialog(QDialog):
         self.lbl_estado = QLabel("")
         root.addWidget(self.lbl_estado)
         self.retranslate_ui()
+
+    def _crear_banner_validacion(self, root: QVBoxLayout) -> None:
+        fila = QHBoxLayout()
+        self.lbl_validacion = QLabel("")
+        self.btn_corregir = QPushButton("")
+        self.btn_corregir.clicked.connect(self._corregir_error_actual)
+        self.btn_restablecer_filtros = QPushButton("")
+        self.btn_restablecer_filtros.clicked.connect(self._restablecer_filtros_por_error)
+        self.btn_abrir_columnas = QPushButton("")
+        self.btn_abrir_columnas.clicked.connect(self._abrir_columnas_actual)
+        for widget in (self.lbl_validacion, self.btn_corregir, self.btn_restablecer_filtros, self.btn_abrir_columnas):
+            fila.addWidget(widget)
+        fila.addStretch(1)
+        root.addLayout(fila)
+        self._ocultar_banner_validacion()
 
     def _crear_panel_resumen(self, root: QVBoxLayout) -> None:
         fila = QHBoxLayout()
@@ -145,6 +165,9 @@ class HistorialPacienteDialog(QDialog):
         self.tabs.setTabText(1, self._i18n.t("pacientes.historial.tab.recetas"))
         self.table_lineas.setHorizontalHeaderLabels([self._i18n.t("pacientes.historial.recetas.lineas.medicamento"), self._i18n.t("pacientes.historial.recetas.lineas.posologia"), self._i18n.t("pacientes.historial.recetas.lineas.inicio"), self._i18n.t("pacientes.historial.recetas.lineas.fin"), self._i18n.t("pacientes.historial.recetas.lineas.estado")])
         self.panel_filtros.retranslate_ui()
+        self.btn_corregir.setText(self._i18n.t("historial.validacion.corregir"))
+        self.btn_restablecer_filtros.setText(self._i18n.t("historial.validacion.restablecer_filtros"))
+        self.btn_abrir_columnas.setText(self._i18n.t("historial.validacion.abrir_columnas"))
 
     def _cargar_estado_inicial(self) -> None:
         self._historial_base = self._historial_legacy_uc.execute(self._paciente_id)
@@ -159,7 +182,12 @@ class HistorialPacienteDialog(QDialog):
 
     def _aplicar_filtros(self) -> None:
         self._set_estado_cargando()
+        self._ocultar_banner_validacion()
         filtros = normalizar_filtros_historial_paciente(self.panel_filtros.construir_filtros(self._paciente_id), ahora=datetime.now())
+        validacion = validar_filtros_historial_paciente(filtros, self._pestaña_actual())
+        if not validacion.ok:
+            self._mostrar_errores_validacion(validacion.errores)
+            return
         self._guardar_filtros(filtros)
         self._actualizar_resumen(filtros)
         if self.tabs.currentIndex() == 0:
@@ -170,6 +198,9 @@ class HistorialPacienteDialog(QDialog):
             self._render_tabla(self.table_recetas, ATRIBUTOS_HISTORIAL_RECETAS, self._columnas_recetas, resultado.items, "receta_id")
         self.lbl_estado.setText(self._i18n.t("historial.estado.vacio") if resultado.total == 0 else "")
         self._actualizar_acciones()
+        if self._columnas_restauradas_pendiente:
+            self._mostrar_aviso_columnas_restauradas()
+            self._columnas_restauradas_pendiente = False
 
     def _render_tabla(self, tabla: QTableWidget, contrato, columnas: tuple[str, ...], items, id_key: str) -> None:
         columnas_visibles = [item for item in contrato if item.clave in columnas]
@@ -223,17 +254,19 @@ class HistorialPacienteDialog(QDialog):
         dialog = DialogoSelectorColumnasHistorial(self._i18n, contrato, actuales, self)
         if dialog.exec() != QDialog.DialogCode.Accepted:
             return
-        columnas = sanear_columnas_solicitadas(dialog.columnas_seleccionadas(), contrato)
+        columnas, restauradas = sanear_columnas_solicitadas(dialog.columnas_seleccionadas(), contrato)
         if pestaña == "citas":
             self._columnas_citas = columnas
         else:
             self._columnas_recetas = columnas
         self._settings.setValue(key_columnas(pestaña), serializar_columnas(columnas))
+        if restauradas:
+            self._mostrar_aviso_columnas_restauradas()
         self._aplicar_filtros()
 
     def _cargar_columnas(self, pestaña: str, contrato):
         valor = str(self._settings.value(key_columnas(pestaña), ""))
-        return sanear_columnas_solicitadas(sanear_columnas_guardadas(valor), contrato)
+        return aplicar_columnas_seguras_desde_settings(valor, contrato)
 
     def _restaurar_filtros(self) -> None:
         data = EstadoPersistidoFiltros(
@@ -256,6 +289,51 @@ class HistorialPacienteDialog(QDialog):
     def _limpiar_filtros(self) -> None:
         self.panel_filtros.limpiar()
         self._aplicar_filtros()
+
+    def _restablecer_filtros_por_error(self) -> None:
+        self.panel_filtros.limpiar()
+        self._aplicar_filtros()
+
+    def _mostrar_errores_validacion(self, errores) -> None:
+        if not errores:
+            return
+        codigos = [error.code for error in errores]
+        _LOGGER.warning("historial_validacion_fail", extra={"action": "historial_validacion_fail", "codes": codigos})
+        mensaje = self._i18n.t("historial.validacion.titulo") + " " + " · ".join(self._i18n.t(error.i18n_key) for error in errores[:2])
+        self.lbl_validacion.setText(mensaje)
+        self.lbl_validacion.setVisible(True)
+        self.btn_restablecer_filtros.setVisible(True)
+        self.btn_abrir_columnas.setVisible(False)
+        self._campo_error = errores[0].campo
+        self.btn_corregir.setVisible(self._campo_error is not None)
+
+    def _mostrar_aviso_columnas_restauradas(self) -> None:
+        self.lbl_validacion.setText(self._i18n.t("historial.columnas.restauradas"))
+        self.lbl_validacion.setVisible(True)
+        self.btn_corregir.setVisible(False)
+        self.btn_restablecer_filtros.setVisible(False)
+        self.btn_abrir_columnas.setVisible(True)
+
+    def _ocultar_banner_validacion(self) -> None:
+        self._campo_error = None
+        self.lbl_validacion.setVisible(False)
+        self.btn_corregir.setVisible(False)
+        self.btn_restablecer_filtros.setVisible(False)
+        self.btn_abrir_columnas.setVisible(False)
+
+    def _corregir_error_actual(self) -> None:
+        if self._campo_error == "rango":
+            self.panel_filtros.combo_preset.setFocus()
+        elif self._campo_error == "texto":
+            self.panel_filtros.input_buscar.setFocus()
+        elif self._campo_error == "estado":
+            self.panel_filtros.combo_estado.setFocus()
+
+    def _abrir_columnas_actual(self) -> None:
+        self._seleccionar_columnas(self._pestaña_actual())
+
+    def _pestaña_actual(self) -> str:
+        return "citas" if self.tabs.currentIndex() == 0 else "recetas"
 
     def _abrir_detalle_cita(self) -> None:
         cita_id = self._id_seleccionado(self.table_citas)

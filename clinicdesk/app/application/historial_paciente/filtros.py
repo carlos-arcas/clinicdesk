@@ -110,9 +110,7 @@ def _normalizar_estados(estados: tuple[str, ...] | None) -> tuple[str, ...] | No
 
 
 def _normalizar_paciente_id(paciente_id: int) -> int:
-    if paciente_id <= 0:
-        raise ValueError("paciente_id debe ser mayor a 0")
-    return paciente_id
+    return int(paciente_id)
 
 
 def _normalizar_limite(limite: int | None) -> int:
