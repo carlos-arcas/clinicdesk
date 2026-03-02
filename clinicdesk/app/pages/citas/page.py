@@ -23,9 +23,10 @@ from clinicdesk.app.application.citas import (
     BuscarCitasParaCalendario,
     BuscarCitasParaLista,
     FiltrosCitasDTO,
+    ErrorValidacionDTO,
     PaginacionCitasDTO,
     formatear_valor_atributo_cita,
-    normalizar_filtros_citas,
+    normalizar_y_validar_filtros_citas,
     sanear_columnas_citas,
 )
 from clinicdesk.app.application.prediccion_ausencias.riesgo_agenda import RIESGO_NO_DISPONIBLE
@@ -110,6 +111,11 @@ class PageCitas(QWidget):
         self.lbl_estado = QLabel("", tab_lista)
         self.btn_reintentar = QPushButton(self._i18n.t("citas.ux.reintentar"), tab_lista)
         self.btn_reintentar.setVisible(False)
+        self.lbl_banner_validacion = QLabel("", tab_lista)
+        self.btn_corregir_filtros = QPushButton(self._i18n.t("citas.validacion.banner.corregir"), tab_lista)
+        self.btn_restablecer_filtros = QPushButton(self._i18n.t("citas.validacion.banner.restablecer"), tab_lista)
+        self.btn_corregir_filtros.setVisible(False)
+        self.btn_restablecer_filtros.setVisible(False)
         self.lbl_aviso_columnas = QLabel("", tab_lista)
         self.table_lista = QTableWidget(0, 0, tab_lista)
         self.table_lista.setEditTriggers(QTableWidget.NoEditTriggers)
@@ -123,6 +129,12 @@ class PageCitas(QWidget):
 
         layout_lista = QVBoxLayout(tab_lista)
         layout_lista.addWidget(self.panel_filtros)
+        banner = QHBoxLayout()
+        banner.addWidget(self.lbl_banner_validacion)
+        banner.addWidget(self.btn_corregir_filtros)
+        banner.addWidget(self.btn_restablecer_filtros)
+        banner.addStretch(1)
+        layout_lista.addLayout(banner)
         layout_lista.addLayout(barra)
         layout_lista.addWidget(self.lbl_aviso_columnas)
         layout_lista.addWidget(self.table_lista)
@@ -142,6 +154,8 @@ class PageCitas(QWidget):
         self.panel_filtros.filtros_aplicados.connect(self._on_filtros_aplicados)
         self.btn_columnas.clicked.connect(self._abrir_selector_columnas)
         self.btn_reintentar.clicked.connect(self._programar_refresco_lista)
+        self.btn_corregir_filtros.clicked.connect(self._corregir_filtros)
+        self.btn_restablecer_filtros.clicked.connect(self._restablecer_filtros)
         self.table_lista.itemDoubleClicked.connect(self._on_lista_item_double_clicked)
         self.table_lista.customContextMenuRequested.connect(self._on_lista_context_menu)
 
@@ -165,14 +179,19 @@ class PageCitas(QWidget):
         self._filtros_aplicados = deserializar_filtros_citas(data)
         self.panel_filtros.set_filtros(self._filtros_aplicados)
         saved = self._settings.value(clave_columnas_citas())
-        self._columnas_lista = deserializar_columnas_citas(saved)
-        if estado_restauracion_columnas(saved):
-            self.lbl_aviso_columnas.setText(self._i18n.t("citas.lista.columnas.restauradas"))
+        columnas = deserializar_columnas_citas(saved)
+        self._columnas_lista, restauradas = sanear_columnas_citas(columnas)
+        self._actualizar_aviso_columnas(restauradas or estado_restauracion_columnas(saved))
 
     def _on_filtros_aplicados(self, filtros: object) -> None:
         if not isinstance(filtros, FiltrosCitasDTO):
             return
-        self._filtros_aplicados = normalizar_filtros_citas(filtros, datetime.now())
+        resultado = normalizar_y_validar_filtros_citas(filtros, datetime.now(), self._contexto_activo())
+        if not resultado.validacion.ok:
+            self._mostrar_error_validacion(resultado.validacion.errores[0], self._contexto_activo(), resultado.validacion.errores)
+            return
+        self._ocultar_banner_validacion()
+        self._filtros_aplicados = resultado.filtros_normalizados
         self._guardar_filtros()
         self._refresh_calendario()
         self._programar_refresco_lista()
@@ -187,7 +206,12 @@ class PageCitas(QWidget):
         QTimer.singleShot(0, self._refresh_lista)
 
     def _refresh_calendario(self) -> None:
-        filtros = normalizar_filtros_citas(self._filtros_aplicados, datetime.now())
+        resultado = normalizar_y_validar_filtros_citas(self._filtros_aplicados, datetime.now(), "CALENDARIO")
+        if not resultado.validacion.ok:
+            self._mostrar_error_validacion(resultado.validacion.errores[0], "CALENDARIO", resultado.validacion.errores)
+            self.table.setRowCount(0)
+            return
+        filtros = resultado.filtros_normalizados
         self.lbl_date.setText(self._i18n.t("citas.calendario.fecha").format(fecha=self.calendar.selectedDate().toString("yyyy-MM-dd")))
         try:
             items = self._buscar_calendario_uc.ejecutar(filtros, CLAVES_TOOLTIP_POR_DEFECTO)
@@ -203,12 +227,19 @@ class PageCitas(QWidget):
             self._agregar_fila_calendario(item)
 
     def _refresh_lista(self) -> None:
+        validacion = normalizar_y_validar_filtros_citas(self._filtros_aplicados, datetime.now(), "LISTA")
+        if not validacion.validacion.ok:
+            self._mostrar_error_validacion(validacion.validacion.errores[0], "LISTA", validacion.validacion.errores)
+            self._render_lista([])
+            self._set_estado_lista(None)
+            return
         try:
-            resultado = self._buscar_lista_uc.ejecutar(self._filtros_aplicados, self._columnas_lista, PaginacionCitasDTO(limit=500, offset=0))
+            resultado = self._buscar_lista_uc.ejecutar(validacion.filtros_normalizados, self._columnas_lista, PaginacionCitasDTO(limit=500, offset=0))
         except Exception as exc:  # noqa: BLE001
             LOGGER.warning("citas_lista_error", extra={"error": str(exc)})
             self._set_estado_lista("citas.ux.error", error=True)
             return
+        self._ocultar_banner_validacion()
         self._render_lista(resultado.items)
         if not resultado.items:
             self._set_estado_lista("citas.ux.vacio")
@@ -260,7 +291,41 @@ class PageCitas(QWidget):
             return
         self._columnas_lista = dialogo.columnas_seleccionadas()
         self._settings.setValue(clave_columnas_citas(), serializar_columnas_citas(self._columnas_lista))
+        self._actualizar_aviso_columnas(False)
         self._programar_refresco_lista()
+
+    def _contexto_activo(self) -> str:
+        return "LISTA" if self.tabs.currentIndex() == 1 else "CALENDARIO"
+
+    def _mostrar_error_validacion(self, primer_error: ErrorValidacionDTO, contexto: str, errores: tuple[ErrorValidacionDTO, ...]) -> None:
+        self.lbl_banner_validacion.setText(
+            self._i18n.t("citas.validacion.banner.titulo").format(error=self._i18n.t(primer_error.i18n_key))
+        )
+        self.btn_corregir_filtros.setVisible(True)
+        self.btn_restablecer_filtros.setVisible(True)
+        self.btn_corregir_filtros.setProperty("campo_error", primer_error.campo)
+        LOGGER.info(
+            "citas_validacion_fail",
+            extra={"action": "citas_validacion_fail", "codes": [item.code for item in errores], "contexto": contexto},
+        )
+
+    def _ocultar_banner_validacion(self) -> None:
+        self.lbl_banner_validacion.setText("")
+        self.btn_corregir_filtros.setVisible(False)
+        self.btn_restablecer_filtros.setVisible(False)
+
+    def _corregir_filtros(self) -> None:
+        self.tabs.setCurrentIndex(1)
+        campo = self.btn_corregir_filtros.property("campo_error")
+        self.panel_filtros.enfocar_campo(str(campo) if campo else None)
+
+    def _restablecer_filtros(self) -> None:
+        self.tabs.setCurrentIndex(1)
+        self.panel_filtros.restablecer_semana()
+        self._on_filtros_aplicados(self.panel_filtros.construir_dto())
+
+    def _actualizar_aviso_columnas(self, restauradas: bool) -> None:
+        self.lbl_aviso_columnas.setText(self._i18n.t("citas.lista.columnas.restauradas") if restauradas else "")
 
     def _mapear_row_calendario(self, fila: dict[str, object]) -> CitaRow:
         return CitaRow(

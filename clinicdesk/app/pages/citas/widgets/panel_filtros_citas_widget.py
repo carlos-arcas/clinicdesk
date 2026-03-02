@@ -108,6 +108,23 @@ class PanelFiltrosCitasWidget(QWidget):
         idx = combo.findData(valor)
         combo.setCurrentIndex(idx if idx >= 0 else 0)
 
+    def enfocar_campo(self, campo: str | None) -> None:
+        objetivos = {
+            "desde": self.desde_date,
+            "hasta": self.hasta_date,
+            "texto_busqueda": self.txt_busqueda,
+            "estado_cita": self.cbo_estado,
+        }
+        widget = objetivos.get(campo)
+        if widget is not None:
+            widget.setFocus()
+
+    def restablecer_semana(self) -> None:
+        self._set_combo_data(self.cbo_preset, "SEMANA")
+        self.txt_busqueda.clear()
+        self._set_combo_data(self.cbo_estado, "TODOS")
+        self._on_preset_changed()
+
     def _on_preset_changed(self) -> None:
         visible = str(self.cbo_preset.currentData() or "") == "PERSONALIZADO"
         self.lbl_desde.setVisible(visible)
