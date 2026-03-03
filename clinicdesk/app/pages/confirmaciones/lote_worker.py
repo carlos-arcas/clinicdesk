@@ -16,8 +16,8 @@ class AccionLoteDTO:
 
 class WorkerRecordatoriosLote(QObject):
     started = Signal(str)
-    ok = Signal(object)
-    fail = Signal(str)
+    finished_ok = Signal(object)
+    finished_error = Signal(str)
     finished = Signal()
 
     def __init__(self, facade, accion: AccionLoteDTO) -> None:
@@ -28,9 +28,9 @@ class WorkerRecordatoriosLote(QObject):
     def run(self) -> None:
         try:
             self.started.emit(self._accion.tipo)
-            self.ok.emit(self._resolver_accion())
+            self.finished_ok.emit(self._resolver_accion())
         except Exception:
-            self.fail.emit("confirmaciones.lote.error_accionable")
+            self.finished_error.emit("confirmaciones.lote.error_accionable")
         finally:
             self._facade.cerrar_conexion_hilo_actual()
             self.finished.emit()
