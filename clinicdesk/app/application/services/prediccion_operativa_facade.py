@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Callable
 
 from clinicdesk.app.application.prediccion_operativa.agenda import ObtenerEstimacionesAgenda
 from clinicdesk.app.application.prediccion_operativa.usecases import (
     ComprobarDatosPrediccionOperativa,
     EntrenarPrediccionOperativa,
+    ListarProximasCitasOperativas,
     ObtenerExplicacionPrediccionOperativa,
     ObtenerSaludPrediccionOperativa,
     PrevisualizarPrediccionOperativa,
@@ -25,3 +27,5 @@ class PrediccionOperativaFacade:
     salud_espera_uc: ObtenerSaludPrediccionOperativa
     explicar_espera_uc: ObtenerExplicacionPrediccionOperativa
     agenda_uc: ObtenerEstimacionesAgenda
+    listar_proximas_citas_uc: ListarProximasCitasOperativas
+    cerrar_conexion_hilo_actual: Callable[[], None] | None = None

@@ -35,3 +35,12 @@ class ExplicacionOperativaDTO:
     motivos_i18n_keys: tuple[str, ...]
     acciones_i18n_keys: tuple[str, ...]
     necesita_entrenar: bool
+
+
+@dataclass(frozen=True, slots=True)
+class CitaProximaOperativaDTO:
+    cita_id: int
+    fecha: str
+    hora: str
+    paciente: str
+    medico: str

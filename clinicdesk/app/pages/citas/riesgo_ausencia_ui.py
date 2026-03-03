@@ -6,10 +6,11 @@ from datetime import datetime
 from clinicdesk.app.application.prediccion_ausencias.dtos import CitaParaPrediccionDTO
 from clinicdesk.app.application.prediccion_ausencias.riesgo_agenda import RIESGO_NO_DISPONIBLE
 from clinicdesk.app.i18n import I18nManager
+from clinicdesk.app.pages.shared.persistencia_estimaciones_settings import CLAVE_MOSTRAR_ESTIMACIONES_AGENDA
 from clinicdesk.app.queries.citas_queries import CitaListadoRow, CitaRow
 
 SETTINGS_KEY_RIESGO_AGENDA = "prediccion_ausencias/mostrar_riesgo_agenda"
-SETTINGS_KEY_ESTIMACIONES_AGENDA = "prediccion_operativa/mostrar_estimaciones_agenda"
+SETTINGS_KEY_ESTIMACIONES_AGENDA = CLAVE_MOSTRAR_ESTIMACIONES_AGENDA
 
 
 @dataclass(frozen=True, slots=True)

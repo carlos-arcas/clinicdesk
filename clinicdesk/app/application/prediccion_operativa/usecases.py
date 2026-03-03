@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 
-from clinicdesk.app.application.prediccion_operativa.dtos import ExplicacionOperativaDTO, PrediccionOperativaDTO, ResultadoComprobacionOperativa, ResultadoEntrenamientoOperativo, SaludPrediccionOperativaDTO
+from clinicdesk.app.application.prediccion_operativa.dtos import CitaProximaOperativaDTO, ExplicacionOperativaDTO, PrediccionOperativaDTO, ResultadoComprobacionOperativa, ResultadoEntrenamientoOperativo, SaludPrediccionOperativaDTO
 from clinicdesk.app.application.prediccion_operativa.salud import resolver_estado_salud
 from clinicdesk.app.domain.prediccion_operativa import CitaOperativa, RegistroOperativo
 from clinicdesk.app.infrastructure.prediccion_operativa import AlmacenamientoModeloOperativo, ModeloOperativoNoDisponibleError
@@ -95,6 +95,27 @@ class ObtenerExplicacionPrediccionOperativa:
         motivos = tuple(f"citas.prediccion_operativa.motivo.{code.lower()}" for code in reasons) or ("citas.prediccion_operativa.motivo.referencia_general",)
         return ExplicacionOperativaDTO(nivel, motivos[:3], ("citas.prediccion_operativa.cta.ajustar_huecos", "citas.prediccion_operativa.cta.avisar_paciente"), False)
 
+
+
+
+@dataclass(frozen=True, slots=True)
+class ListarProximasCitasOperativas:
+    queries: PrediccionOperativaQueries
+
+    def ejecutar(self, dias: int = 30, limite: int = 30) -> list[CitaProximaOperativaDTO]:
+        desde = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        hasta = (datetime.now() + timedelta(days=dias)).strftime("%Y-%m-%d %H:%M:%S")
+        filas = self.queries.obtener_proximas_citas_detalle(desde, hasta, limite)
+        return [
+            CitaProximaOperativaDTO(
+                cita_id=fila.cita_id,
+                fecha=fila.fecha,
+                hora=fila.hora,
+                paciente=fila.paciente,
+                medico=fila.medico,
+            )
+            for fila in filas
+        ]
 
 def _ventana_180d() -> tuple[str, str]:
     hasta = datetime.now()
