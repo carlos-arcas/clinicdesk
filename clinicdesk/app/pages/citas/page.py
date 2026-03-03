@@ -31,6 +31,10 @@ from clinicdesk.app.application.citas import (
     sanear_columnas_citas,
 )
 from clinicdesk.app.application.prediccion_ausencias.riesgo_agenda import RIESGO_NO_DISPONIBLE
+from clinicdesk.app.application.prediccion_ausencias.aviso_salud_prediccion import (
+    CacheSaludPrediccionPorRefresh,
+    debe_mostrar_aviso_salud_prediccion,
+)
 from clinicdesk.app.bootstrap_logging import get_logger
 from clinicdesk.app.container import AppContainer
 from clinicdesk.app.controllers.citas_controller import CitasController
@@ -90,12 +94,16 @@ class PageCitas(QWidget):
         self._columnas_lista: tuple[str, ...] = tuple()
         self._citas_lista_ids: list[int] = []
         self._riesgo_enabled = False
+        self._token_refresh_salud = 0
+        self._token_aviso_logueado: int | None = None
+        self._cache_salud = CacheSaludPrediccionPorRefresh(
+            self._container.prediccion_ausencias_facade.obtener_salud_uc.ejecutar
+        )
 
         self._build_ui()
         self._bind_events()
         self._restaurar_estado_ui()
-        self._refresh_calendario()
-        self._programar_refresco_lista()
+        self._refrescar_vistas_principales()
 
     def _build_ui(self) -> None:
         self.tabs = QTabWidget(self)
@@ -108,6 +116,11 @@ class PageCitas(QWidget):
         self.table = QTableWidget(0, 8)
         self.table.setHorizontalHeaderLabels(["ID", "", "", "", "", "", "", ""])
         self.table.setColumnHidden(0, True)
+        self.lbl_aviso_salud_calendario = QLabel(self)
+        self.btn_ir_prediccion_calendario = QPushButton(self._i18n.t("prediccion_ausencias.ir_a_prediccion"), self)
+        self.btn_ir_prediccion_calendario.clicked.connect(lambda: self._ir_a_prediccion("citas"))
+        self.lbl_aviso_salud_calendario.setVisible(False)
+        self.btn_ir_prediccion_calendario.setVisible(False)
 
         tab_calendario = QWidget(self)
         izq = QVBoxLayout()
@@ -116,6 +129,11 @@ class PageCitas(QWidget):
         izq.addWidget(self.btn_new)
         izq.addWidget(self.btn_delete)
         der = QVBoxLayout()
+        aviso_cal = QHBoxLayout()
+        aviso_cal.addWidget(self.lbl_aviso_salud_calendario, 1)
+        aviso_cal.addWidget(self.btn_ir_prediccion_calendario)
+        aviso_cal.addStretch(1)
+        der.addLayout(aviso_cal)
         der.addWidget(self.table)
         lay_cal = QHBoxLayout(tab_calendario)
         lay_cal.addLayout(izq, 1)
@@ -133,6 +151,11 @@ class PageCitas(QWidget):
         self.btn_corregir_filtros.setVisible(False)
         self.btn_restablecer_filtros.setVisible(False)
         self.lbl_aviso_columnas = QLabel("", tab_lista)
+        self.lbl_aviso_salud_lista = QLabel("", tab_lista)
+        self.btn_ir_prediccion_lista = QPushButton(self._i18n.t("prediccion_ausencias.ir_a_prediccion"), tab_lista)
+        self.btn_ir_prediccion_lista.clicked.connect(lambda: self._ir_a_prediccion("citas"))
+        self.lbl_aviso_salud_lista.setVisible(False)
+        self.btn_ir_prediccion_lista.setVisible(False)
         self.table_lista = QTableWidget(0, 0, tab_lista)
         self.table_lista.setEditTriggers(QTableWidget.NoEditTriggers)
         self.table_lista.setContextMenuPolicy(Qt.CustomContextMenu)
@@ -152,6 +175,11 @@ class PageCitas(QWidget):
         banner.addStretch(1)
         layout_lista.addLayout(banner)
         layout_lista.addLayout(barra)
+        aviso_lista = QHBoxLayout()
+        aviso_lista.addWidget(self.lbl_aviso_salud_lista, 1)
+        aviso_lista.addWidget(self.btn_ir_prediccion_lista)
+        aviso_lista.addStretch(1)
+        layout_lista.addLayout(aviso_lista)
         layout_lista.addWidget(self.lbl_aviso_columnas)
         layout_lista.addWidget(self.table_lista)
 
@@ -177,6 +205,11 @@ class PageCitas(QWidget):
 
     def on_show(self) -> None:
         self._riesgo_enabled = bool(int(self._settings.value(SETTINGS_KEY_RIESGO_AGENDA, 0)))
+        self._refrescar_vistas_principales()
+
+    def _refrescar_vistas_principales(self) -> None:
+        self._token_refresh_salud += 1
+        self._token_aviso_logueado = None
         self._refresh_calendario()
         self._programar_refresco_lista()
 
@@ -210,8 +243,7 @@ class PageCitas(QWidget):
         self._filtros_aplicados = resultado.filtros_normalizados
         LOGGER.info("citas_filtros_aplicados", extra=_payload_log_filtros(self._filtros_aplicados, self._contexto_activo()))
         self._guardar_filtros()
-        self._refresh_calendario()
-        self._programar_refresco_lista()
+        self._refrescar_vistas_principales()
 
     def _guardar_filtros(self) -> None:
         data = serializar_filtros_citas(self._filtros_aplicados)
@@ -242,6 +274,7 @@ class PageCitas(QWidget):
             item = dict(item)
             item["riesgo_ausencia"] = resolver_texto_riesgo(riesgos.get(int(item["cita_id"]), RIESGO_NO_DISPONIBLE), self._i18n).texto
             self._agregar_fila_calendario(item)
+        self._actualizar_aviso_salud_prediccion("citas")
 
     def _refresh_lista(self) -> None:
         validacion = normalizar_y_validar_filtros_citas(self._filtros_aplicados, datetime.now(), "LISTA")
@@ -258,6 +291,7 @@ class PageCitas(QWidget):
             return
         self._ocultar_banner_validacion()
         self._render_lista(resultado.items)
+        self._actualizar_aviso_salud_prediccion("citas")
         if not resultado.items:
             self._set_estado_lista("citas.ux.vacio")
         else:
@@ -407,14 +441,38 @@ class PageCitas(QWidget):
 
     def _on_new(self) -> None:
         if self._can_write and self._controller.create_cita_flow(self.calendar.selectedDate().toString("yyyy-MM-dd")):
-            self._refresh_calendario()
-            self._programar_refresco_lista()
+            self._refrescar_vistas_principales()
 
     def _on_delete(self) -> None:
         cita_id = self._selected_id()
         if self._can_write and cita_id and self._controller.delete_cita(cita_id):
-            self._refresh_calendario()
-            self._programar_refresco_lista()
+            self._refrescar_vistas_principales()
+
+    def _actualizar_aviso_salud_prediccion(self, page: str) -> None:
+        estado = self._cache_salud.obtener(self._token_refresh_salud).estado
+        mostrar = debe_mostrar_aviso_salud_prediccion(self._riesgo_enabled, estado)
+        texto = self._i18n.t("prediccion_ausencias.aviso_salud_prediccion") if mostrar else ""
+        self.lbl_aviso_salud_calendario.setText(texto)
+        self.lbl_aviso_salud_lista.setText(texto)
+        self.lbl_aviso_salud_calendario.setVisible(mostrar)
+        self.lbl_aviso_salud_lista.setVisible(mostrar)
+        self.btn_ir_prediccion_calendario.setVisible(mostrar)
+        self.btn_ir_prediccion_lista.setVisible(mostrar)
+        if mostrar and self._token_aviso_logueado != self._token_refresh_salud:
+            LOGGER.info(
+                "aviso_salud_prediccion_mostrar",
+                extra={"action": "aviso_salud_prediccion_mostrar", "page": page, "estado": estado},
+            )
+            self._token_aviso_logueado = self._token_refresh_salud
+
+    def _ir_a_prediccion(self, page: str) -> None:
+        LOGGER.info(
+            "aviso_salud_prediccion_cta",
+            extra={"action": "aviso_salud_prediccion_cta", "page": page, "destino": "prediccion"},
+        )
+        window = self.window()
+        if hasattr(window, "navigate"):
+            window.navigate("prediccion_ausencias")
 
     def _abrir_dialogo_recordatorio(self, cita_id: int) -> None:
         RecordatorioCitaDialog(self._container, self._i18n, cita_id, self).exec()
