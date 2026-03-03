@@ -32,6 +32,7 @@ from clinicdesk.app.domain.modelos import Cita
 from clinicdesk.app.domain.exceptions import ValidationError
 
 from clinicdesk.app.container import AppContainer
+from clinicdesk.app.application.auditoria.audit_service import AuditService
 from clinicdesk.app.application.security import Action
 
 
@@ -89,24 +90,60 @@ class CrearCitaUseCase:
         self._c = container
 
     def execute(self, req: CrearCitaRequest) -> CrearCitaResult:
-        self._c.autorizador_acciones.exigir(self._c.user_context, Action.CITA_CREAR)
-        self._validate_request(req)
-        inicio_dt, fin_dt, estado, notas = self._normalize_inputs(req)
-        self._load_dependencies(req)
-        warnings = self._apply_rules(req)
-        cita_id, incidencia_id = self._persist(
-            req,
-            inicio_dt=inicio_dt,
-            fin_dt=fin_dt,
-            estado=estado,
-            notas=notas,
-            warnings=warnings,
-        )
-        return self._build_response(cita_id=cita_id, warnings=warnings, incidencia_id=incidencia_id)
+        audit_service = self._resolve_audit_service()
+        try:
+            self._c.autorizador_acciones.exigir(self._c.user_context, Action.CITA_CREAR)
+            self._validate_request(req)
+            inicio_dt, fin_dt, estado, notas = self._normalize_inputs(req)
+            self._load_dependencies(req)
+            warnings = self._apply_rules(req)
+            cita_id, incidencia_id = self._persist(
+                req,
+                inicio_dt=inicio_dt,
+                fin_dt=fin_dt,
+                estado=estado,
+                notas=notas,
+                warnings=warnings,
+            )
+            if audit_service is not None:
+                audit_service.registrar(
+                    action="CITA_CREAR",
+                    outcome="ok",
+                    actor_username=self._c.user_context.username,
+                    actor_role=self._c.user_context.role,
+                    correlation_id=self._c.user_context.run_id,
+                    metadata={
+                        "cita_id": cita_id,
+                        "medico_id": req.medico_id,
+                        "sala_id": req.sala_id,
+                        "warnings_count": len(warnings),
+                        "incidencia_id": incidencia_id,
+                    },
+                )
+            return self._build_response(cita_id=cita_id, warnings=warnings, incidencia_id=incidencia_id)
+        except Exception as exc:
+            if audit_service is not None:
+                audit_service.registrar(
+                    action="CITA_CREAR",
+                    outcome="fail",
+                    actor_username=self._c.user_context.username,
+                    actor_role=self._c.user_context.role,
+                    correlation_id=self._c.user_context.run_id,
+                    metadata={
+                        "medico_id": req.medico_id,
+                        "sala_id": req.sala_id,
+                        "error_type": exc.__class__.__name__,
+                    },
+                )
+            raise
 
     # -----------------------------------------------------------------
     # Internos
     # -----------------------------------------------------------------
+
+    def _resolve_audit_service(self) -> AuditService | None:
+        service = getattr(self._c, "audit_service", None)
+        return service if isinstance(service, AuditService) else None
 
     def _validate_request(self, req: CrearCitaRequest) -> None:
         if req.paciente_id <= 0:

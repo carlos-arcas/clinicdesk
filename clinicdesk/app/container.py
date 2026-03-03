@@ -5,6 +5,7 @@ import sqlite3
 from dataclasses import dataclass
 from typing import Any
 
+from clinicdesk.app.application.auditoria.audit_service import AuditService
 from clinicdesk.app.application.security import AutorizadorAcciones, Role, UserContext
 from clinicdesk.app.application.services.demo_ml_facade import DemoMLFacade
 from clinicdesk.app.application.services.prediccion_ausencias_facade import PrediccionAusenciasFacade
@@ -57,6 +58,8 @@ class AppContainer:
     incidencias_repo: Any
     auditoria_accesos_repo: Any
     telemetria_eventos_repo: Any
+    auditoria_eventos_repo: Any
+    audit_service: AuditService
     user_context: UserContext
     autorizador_acciones: AutorizadorAcciones
 
@@ -106,6 +109,8 @@ def build_container(connection: sqlite3.Connection) -> AppContainer:
         incidencias_repo=repos.incidencias_repo,
         auditoria_accesos_repo=repos.auditoria_accesos_repo,
         telemetria_eventos_repo=repos.telemetria_eventos_repo,
+        auditoria_eventos_repo=repos.auditoria_eventos_repo,
+        audit_service=AuditService(repos.auditoria_eventos_repo),
         user_context=user_context,
         autorizador_acciones=autorizador_acciones,
     )

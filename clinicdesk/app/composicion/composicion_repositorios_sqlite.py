@@ -4,6 +4,7 @@ from dataclasses import dataclass
 import sqlite3
 
 from clinicdesk.app.infrastructure.sqlite.repos_auditoria_accesos import RepositorioAuditoriaAccesoSqlite
+from clinicdesk.app.infrastructure.sqlite.repos_auditoria_eventos import RepositorioAuditoriaEventosSqlite
 from clinicdesk.app.infrastructure.sqlite.repos_ausencias_medico import AusenciasMedicoRepository
 from clinicdesk.app.infrastructure.sqlite.repos_ausencias_personal import AusenciasPersonalRepository
 from clinicdesk.app.infrastructure.sqlite.repos_calendario_medico import CalendarioMedicoRepository
@@ -45,6 +46,7 @@ class RepositoriosSqlite:
     incidencias_repo: IncidenciasRepository
     auditoria_accesos_repo: RepositorioAuditoriaAccesoSqlite
     telemetria_eventos_repo: RepositorioTelemetriaEventosSqlite
+    auditoria_eventos_repo: RepositorioAuditoriaEventosSqlite
 
 
 def build_repositorios_sqlite(connection: sqlite3.Connection) -> RepositoriosSqlite:
@@ -68,4 +70,5 @@ def build_repositorios_sqlite(connection: sqlite3.Connection) -> RepositoriosSql
         incidencias_repo=IncidenciasRepository(connection),
         auditoria_accesos_repo=RepositorioAuditoriaAccesoSqlite(connection),
         telemetria_eventos_repo=RepositorioTelemetriaEventosSqlite(connection),
+        auditoria_eventos_repo=RepositorioAuditoriaEventosSqlite(connection),
     )
