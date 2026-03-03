@@ -4,6 +4,15 @@ from dataclasses import dataclass
 from datetime import date, timedelta
 from typing import Protocol
 
+from clinicdesk.app.application.usecases.dashboard_gestion_prediccion import (
+    CitaVigilarDTO,
+    EstadosPrediccionDashboardDTO,
+    ListarCitasHoyGestionPort,
+    PrediccionAusenciasPort,
+    PrediccionOperativaPort,
+    resolver_citas_a_vigilar,
+    resolver_estados_prediccion,
+)
 from clinicdesk.app.application.usecases.obtener_metricas_operativas import KpiMedicoDTO, ResultadoMetricasOperativasDTO
 from clinicdesk.app.domain.exceptions import ValidationError
 
@@ -58,6 +67,8 @@ class DashboardGestionDTO:
     kpis_resumen: KpisResumenDashboardDTO
     top_medicos: tuple[TopMedicoDashboardDTO, ...]
     alertas: tuple[AlertaDashboardDTO, ...]
+    estados_prediccion: EstadosPrediccionDashboardDTO
+    citas_a_vigilar: tuple[CitaVigilarDTO, ...]
 
 
 class ObtenerMetricasOperativasPort(Protocol):
@@ -66,8 +77,17 @@ class ObtenerMetricasOperativasPort(Protocol):
 
 
 class ObtenerDashboardGestion:
-    def __init__(self, obtener_metricas_operativas: ObtenerMetricasOperativasPort) -> None:
+    def __init__(
+        self,
+        obtener_metricas_operativas: ObtenerMetricasOperativasPort,
+        prediccion_ausencias: PrediccionAusenciasPort,
+        prediccion_operativa: PrediccionOperativaPort,
+        citas_hoy_queries: ListarCitasHoyGestionPort,
+    ) -> None:
         self._obtener_metricas_operativas = obtener_metricas_operativas
+        self._prediccion_ausencias = prediccion_ausencias
+        self._prediccion_operativa = prediccion_operativa
+        self._citas_hoy_queries = citas_hoy_queries
 
     def execute(self, filtros: FiltrosDashboardDTO, hoy: date | None = None) -> DashboardGestionDTO:
         hoy_ref = hoy or date.today()
@@ -80,6 +100,12 @@ class ObtenerDashboardGestion:
             kpis_resumen=kpis,
             top_medicos=_derivar_top_medicos(metricas.por_medico),
             alertas=_derivar_alertas(kpis),
+            estados_prediccion=resolver_estados_prediccion(self._prediccion_ausencias, self._prediccion_operativa),
+            citas_a_vigilar=resolver_citas_a_vigilar(
+                self._citas_hoy_queries,
+                self._prediccion_ausencias,
+                self._prediccion_operativa,
+            ),
         )
 
 
