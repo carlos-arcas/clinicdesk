@@ -4,8 +4,8 @@ import logging
 from datetime import datetime
 from typing import Optional
 
-from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QDialog, QHBoxLayout, QLabel, QPushButton, QSettings, QTabWidget, QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget
+from PySide6.QtCore import QSettings, Qt
+from PySide6.QtWidgets import QDialog, QHBoxLayout, QLabel, QPushButton, QTabWidget, QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget
 
 from clinicdesk.app.application.auditoria_acceso import AccionAuditoriaAcceso, EntidadAuditoriaAcceso
 from clinicdesk.app.application.historial_paciente import (
