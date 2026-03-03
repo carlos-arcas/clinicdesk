@@ -14,8 +14,10 @@ from clinicdesk.app.application.citas.registrar_hito_atencion import (
     ResultadoRegistrarHitoDTO,
 )
 from clinicdesk.app.application.citas.registrar_hitos_atencion_lote import (
+    ModoTimestamp,
     ModoTimestampHito,
     RegistrarHitosAtencionEnLote,
+    RegistrarHitosLoteError,
     ResultadoLoteHitosDTO,
 )
 from clinicdesk.app.application.citas.usecases import (
@@ -38,8 +40,10 @@ __all__ = [
     "HitoAtencion",
     "RegistrarHitoAtencionCita",
     "ResultadoRegistrarHitoDTO",
+    "ModoTimestamp",
     "ModoTimestampHito",
     "RegistrarHitosAtencionEnLote",
+    "RegistrarHitosLoteError",
     "ResultadoLoteHitosDTO",
     "ResultadoValidacionDTO",
     "formatear_valor_atributo_cita",
