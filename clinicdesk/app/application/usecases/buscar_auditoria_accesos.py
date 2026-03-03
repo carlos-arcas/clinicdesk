@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Protocol
 
+from clinicdesk.app.application.usecases.filtros_auditoria import aplicar_preset_rango_auditoria
 from clinicdesk.app.queries.auditoria_accesos_queries import (
     AuditoriaAccesoItemQuery,
     FiltrosAuditoriaAccesos,
@@ -44,8 +45,10 @@ class BuscarAuditoriaAccesos:
         filtros: FiltrosAuditoriaAccesos,
         limit: int,
         offset: int,
+        preset_rango: str | None = None,
     ) -> ResultadoAuditoriaAccesosDTO:
-        items, total = self._gateway.buscar_auditoria_accesos(filtros, limit, offset)
+        filtros_finales = aplicar_preset_rango_auditoria(filtros, preset_rango)
+        items, total = self._gateway.buscar_auditoria_accesos(filtros_finales, limit, offset)
         filas = tuple(self._map_item(item) for item in items)
         return ResultadoAuditoriaAccesosDTO(total=total, items=filas)
 
