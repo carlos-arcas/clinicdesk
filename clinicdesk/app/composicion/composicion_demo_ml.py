@@ -3,6 +3,7 @@ from __future__ import annotations
 import sqlite3
 from pathlib import Path
 
+from clinicdesk.app.application.auditoria.audit_service import AuditService
 from clinicdesk.app.application.ml.baseline_citas_predictor import BaselineCitasPredictor
 from clinicdesk.app.application.pipelines.build_citas_dataset import BuildCitasDataset
 from clinicdesk.app.application.security import AutorizadorAcciones, UserContext
@@ -19,6 +20,7 @@ from clinicdesk.app.infrastructure.sqlite.citas_read_adapter import SqliteCitasR
 from clinicdesk.app.infrastructure.sqlite.demo_data_seeder import DemoDataSeeder
 from clinicdesk.app.infrastructure.sqlite.demo_ml_read_gateway import SqliteDemoMLReadGateway
 from clinicdesk.app.infrastructure.sqlite.repos_citas import CitasRepository
+from clinicdesk.app.infrastructure.sqlite.repos_auditoria_eventos import RepositorioAuditoriaEventosSqlite
 from clinicdesk.app.infrastructure.sqlite.repos_incidencias import IncidenciasRepository
 
 
@@ -42,6 +44,7 @@ def build_demo_ml_facade(
             DemoDataSeeder(connection),
             user_context=user_context,
             autorizador_acciones=autorizador_acciones,
+            audit_service=AuditService(repository=build_repositorio_auditoria_eventos(connection)),
         ),
         build_dataset=dataset_uc,
         feature_store_service=feature_service,
@@ -49,3 +52,7 @@ def build_demo_ml_facade(
         score_uc=ScoreCitas(feature_service, BaselineCitasPredictor(), model_store=model_store),
         drift_uc=DriftCitasFeatures(feature_service),
     )
+
+
+def build_repositorio_auditoria_eventos(connection: sqlite3.Connection) -> RepositorioAuditoriaEventosSqlite:
+    return RepositorioAuditoriaEventosSqlite(connection)

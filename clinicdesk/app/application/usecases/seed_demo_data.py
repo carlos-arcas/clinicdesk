@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import UTC, date, datetime, timedelta
 
+from clinicdesk.app.application.auditoria.audit_service import AuditService
 from clinicdesk.app.bootstrap_logging import get_logger
 from clinicdesk.app.application.demo_data.generator import (
     AppointmentGenerationConfig,
@@ -64,25 +65,33 @@ class SeedDemoData:
         *,
         user_context: UserContext | None = None,
         autorizador_acciones: AutorizadorAcciones | None = None,
+        audit_service: AuditService | None = None,
     ) -> None:
         self._seeder = seeder
         self._user_context = user_context
         self._autorizador_acciones = autorizador_acciones
+        self._audit_service = audit_service
 
     def execute(self, request: SeedDemoDataRequest) -> SeedDemoDataResponse:
-        self._exigir_permisos()
-        started_at = datetime.now(UTC)
-        start_date, end_date = _resolve_dates(request.from_date, request.to_date)
-        doctors, patients, staff, appointments, incidences = self._generate_entities(request, start_date, end_date)
-        self._log_generation_duration(started_at)
+        try:
+            self._exigir_permisos()
+            started_at = datetime.now(UTC)
+            start_date, end_date = _resolve_dates(request.from_date, request.to_date)
+            doctors, patients, staff, appointments, incidences = self._generate_entities(request, start_date, end_date)
+            self._log_generation_duration(started_at)
 
-        persist_started = datetime.now(UTC)
-        result = self._persist_entities(request, start_date, end_date, doctors, patients, staff, appointments, incidences)
-        persist_seconds = (datetime.now(UTC) - persist_started).total_seconds()
-        total_seconds = (datetime.now(UTC) - started_at).total_seconds()
-        LOGGER.info("Persisting done in %.2fs", persist_seconds)
-        LOGGER.info("Seed demo total duration %.2fs", total_seconds)
-        return self._build_response(request, result, start_date, end_date)
+            persist_started = datetime.now(UTC)
+            result = self._persist_entities(request, start_date, end_date, doctors, patients, staff, appointments, incidences)
+            persist_seconds = (datetime.now(UTC) - persist_started).total_seconds()
+            total_seconds = (datetime.now(UTC) - started_at).total_seconds()
+            LOGGER.info("Persisting done in %.2fs", persist_seconds)
+            LOGGER.info("Seed demo total duration %.2fs", total_seconds)
+            response = self._build_response(request, result, start_date, end_date)
+            self._registrar_auditoria_ok(request, response)
+            return response
+        except Exception as exc:
+            self._registrar_auditoria_fail(request, exc)
+            raise
 
 
     def _exigir_permisos(self) -> None:
@@ -175,6 +184,51 @@ class SeedDemoData:
             from_date=start_date.isoformat(),
             to_date=end_date.isoformat(),
             dataset_version=_dataset_version(request.seed),
+        )
+
+    def _registrar_auditoria_ok(self, request: SeedDemoDataRequest, response: SeedDemoDataResponse) -> None:
+        if self._audit_service is None or self._user_context is None:
+            return
+        self._audit_service.registrar(
+            action="DEMO_SEED",
+            outcome="ok",
+            actor_username=self._user_context.username,
+            actor_role=self._user_context.role,
+            correlation_id=self._user_context.run_id,
+            metadata={
+                "seed": request.seed,
+                "n_doctors": response.doctors,
+                "n_patients": response.patients,
+                "n_appointments": response.appointments,
+                "incidences": response.incidences,
+                "medicamentos": response.medicamentos,
+                "materiales": response.materiales,
+                "recetas": response.recetas,
+                "movimientos": response.movimientos_medicamentos,
+                "turnos": response.turnos,
+                "ausencias": response.ausencias,
+                "from_date": response.from_date,
+                "to_date": response.to_date,
+                "dataset_version": response.dataset_version,
+            },
+        )
+
+    def _registrar_auditoria_fail(self, request: SeedDemoDataRequest, exc: Exception) -> None:
+        if self._audit_service is None or self._user_context is None:
+            return
+        self._audit_service.registrar(
+            action="DEMO_SEED",
+            outcome="fail",
+            actor_username=self._user_context.username,
+            actor_role=self._user_context.role,
+            correlation_id=self._user_context.run_id,
+            metadata={
+                "seed": request.seed,
+                "n_doctors": request.n_doctors,
+                "n_patients": request.n_patients,
+                "n_appointments": request.n_appointments,
+                "error_type": exc.__class__.__name__,
+            },
         )
 
 
