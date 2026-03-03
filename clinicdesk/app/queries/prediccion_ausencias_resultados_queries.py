@@ -81,25 +81,26 @@ class PrediccionAusenciasResultadosQueries:
 
     def obtener_resultados_recientes_prediccion(self, ventana_dias: int = 60) -> ResultadoRecientePrediccion:
         version = self._obtener_version_objetivo()
-        if version is None:
-            return ResultadoRecientePrediccion(version_modelo_fecha_utc=None, filas=tuple())
         rows = self._con().execute(
             """
+            WITH citas_cerradas_ventana AS (
+                SELECT id, estado
+                FROM citas
+                WHERE activo = 1
+                  AND estado IN (?, ?)
+                  AND datetime(inicio) >= datetime('now', ?)
+            )
             SELECT
                 pl.riesgo AS riesgo,
                 COUNT(1) AS total_predichas,
-                SUM(CASE WHEN c.estado = 'NO_PRESENTADO' THEN 1 ELSE 0 END) AS total_no_vino,
-                SUM(CASE WHEN c.estado = 'REALIZADA' THEN 1 ELSE 0 END) AS total_vino
+                SUM(CASE WHEN ccv.estado = 'NO_PRESENTADO' THEN 1 ELSE 0 END) AS total_no_vino,
+                SUM(CASE WHEN ccv.estado = 'REALIZADA' THEN 1 ELSE 0 END) AS total_vino
             FROM predicciones_ausencias_log pl
-            JOIN citas c ON c.id = pl.cita_id
-            WHERE pl.modelo_fecha_utc = ?
-              AND pl.riesgo IN ('BAJO', 'MEDIO', 'ALTO')
-              AND c.activo = 1
-              AND c.estado IN (?, ?)
-              AND datetime(c.inicio) >= datetime('now', ?)
+            JOIN citas_cerradas_ventana ccv ON ccv.id = pl.cita_id
+            WHERE pl.riesgo IN ('BAJO', 'MEDIO', 'ALTO')
             GROUP BY pl.riesgo
             """,
-            (version, *_ESTADOS_CERRADOS, f"-{ventana_dias} days"),
+            (*_ESTADOS_CERRADOS, f"-{ventana_dias} days"),
         ).fetchall()
         return ResultadoRecientePrediccion(
             version_modelo_fecha_utc=version,
