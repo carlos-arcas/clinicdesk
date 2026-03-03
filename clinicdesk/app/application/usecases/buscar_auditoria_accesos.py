@@ -36,7 +36,9 @@ class BuscarAuditoriaAccesosGateway(Protocol):
         filtros: FiltrosAuditoriaAccesos,
         limit: int,
         offset: int,
-    ) -> tuple[list[AuditoriaAccesoItemQuery], int]:
+        *,
+        calcular_total: bool = True,
+    ) -> tuple[list[AuditoriaAccesoItemQuery], int | None]:
         ...
 
 
@@ -50,12 +52,20 @@ class BuscarAuditoriaAccesos:
         limit: int,
         offset: int,
         preset_rango: str | None = None,
+        total_conocido: int | None = None,
     ) -> ResultadoAuditoriaAccesosDTO:
         filtros_finales = aplicar_preset_rango_auditoria(filtros, preset_rango)
-        items, total = self._gateway.buscar_auditoria_accesos(filtros_finales, limit, offset)
+        debe_calcular_total = total_conocido is None
+        items, total = self._gateway.buscar_auditoria_accesos(
+            filtros_finales,
+            limit,
+            offset,
+            calcular_total=debe_calcular_total,
+        )
         LOGGER.info("auditoria_filtros_aplicados", extra=_payload_log_filtros_auditoria(filtros_finales, "auditoria_filtros_aplicados"))
         filas = tuple(self._map_item(item) for item in items)
-        return ResultadoAuditoriaAccesosDTO(total=total, items=filas)
+        total_final = total if total is not None else (total_conocido or 0)
+        return ResultadoAuditoriaAccesosDTO(total=total_final, items=filas)
 
     @staticmethod
     def _map_item(item: AuditoriaAccesoItemQuery) -> AuditoriaAccesoFilaDTO:
