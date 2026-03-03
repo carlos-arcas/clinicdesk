@@ -32,7 +32,7 @@ def obtener_conexion(db_path: str = "data/clinicdesk.sqlite") -> sqlite3.Connect
     register_sqlite_datetime_codecs()
     conn = sqlite3.connect(str(p))
     conn.row_factory = sqlite3.Row
-    configurar_conexion(conn)
+    configurar_conexion(conn, p)
     return conn
 
 
