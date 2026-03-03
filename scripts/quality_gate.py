@@ -350,7 +350,10 @@ def _run_pip_audit() -> int:
         return 6
 
     salida_completa = f"{completed.stdout or ''}\n{completed.stderr or ''}"
-    if "No module named pip_audit" in salida_completa or "ModuleNotFoundError: No module named 'pip_audit'" in salida_completa:
+    if (
+        "No module named pip_audit" in salida_completa
+        or "ModuleNotFoundError: No module named 'pip_audit'" in salida_completa
+    ):
         PIP_AUDIT_REPORT_PATH.write_text(MENSAJE_INSTALAR_DEPS_DEV + "\n", encoding="utf-8")
         _LOGGER.error("[quality-gate] ❌ %s", MENSAJE_INSTALAR_DEPS_DEV)
         return 6
