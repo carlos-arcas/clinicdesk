@@ -5,6 +5,7 @@ from pathlib import Path
 
 from clinicdesk.app.application.ml.baseline_citas_predictor import BaselineCitasPredictor
 from clinicdesk.app.application.pipelines.build_citas_dataset import BuildCitasDataset
+from clinicdesk.app.application.security import AutorizadorAcciones, UserContext
 from clinicdesk.app.application.services.demo_ml_facade import DemoMLFacade
 from clinicdesk.app.application.services.feature_store_service import FeatureStoreService
 from clinicdesk.app.application.usecases.drift_citas_features import DriftCitasFeatures
@@ -25,6 +26,9 @@ def build_demo_ml_facade(
     connection: sqlite3.Connection,
     citas_repo: CitasRepository,
     incidencias_repo: IncidenciasRepository,
+    *,
+    user_context: UserContext,
+    autorizador_acciones: AutorizadorAcciones,
 ) -> DemoMLFacade:
     stores_base = data_dir()
     feature_store_path = Path(stores_base) / "feature_store"
@@ -34,7 +38,11 @@ def build_demo_ml_facade(
     dataset_uc = BuildCitasDataset(SqliteCitasReadAdapter(citas_repo, incidencias_repo))
     return DemoMLFacade(
         read_gateway=SqliteDemoMLReadGateway(connection),
-        seed_demo_uc=SeedDemoData(DemoDataSeeder(connection)),
+        seed_demo_uc=SeedDemoData(
+            DemoDataSeeder(connection),
+            user_context=user_context,
+            autorizador_acciones=autorizador_acciones,
+        ),
         build_dataset=dataset_uc,
         feature_store_service=feature_service,
         train_uc=TrainCitasModel(feature_service, model_store),
