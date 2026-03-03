@@ -109,6 +109,7 @@ def _apply_schema(con: sqlite3.Connection) -> None:
     sql = path.read_text(encoding="utf-8")
     con.executescript(sql)
     _migrate_stock_columns(con)
+    asegurar_columnas_citas_extendido(con)
     ensure_pacientes_field_crypto_columns(con)
     ensure_medicos_field_crypto_columns(con)
     migrate_existing_pii_data(con)
@@ -173,3 +174,23 @@ def bootstrap_database(apply_schema: bool = True, sqlite_path: str | None = None
         _apply_schema(con)
 
     return con
+
+
+def asegurar_columnas_citas_extendido(con: sqlite3.Connection) -> None:
+    columnas = {row["name"] for row in con.execute("PRAGMA table_info(citas)").fetchall()}
+    for columna in (
+        "check_in_at",
+        "llamado_a_consulta_at",
+        "consulta_inicio_at",
+        "consulta_fin_at",
+        "check_out_at",
+        "tipo_cita",
+        "canal_reserva",
+    ):
+        if columna in columnas:
+            continue
+        con.execute(f"ALTER TABLE citas ADD COLUMN {columna} TEXT NULL")
+        LOGGER.info(
+            "sqlite_migracion_add_col",
+            extra={"action": "sqlite_migracion_add_col", "tabla": "citas", "columna": columna},
+        )

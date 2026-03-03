@@ -32,6 +32,10 @@ from clinicdesk.app.infrastructure.sqlite.pii_crypto import (
 from clinicdesk.app.infrastructure.sqlite.sqlite_connection_config import (
     configurar_conexion,
 )
+from clinicdesk.app.bootstrap_logging import get_logger
+
+
+LOGGER = get_logger(__name__)
 
 
 @dataclass(frozen=True)
@@ -85,6 +89,7 @@ def apply_schema(con: sqlite3.Connection, schema_path: Path) -> None:
     _migrate_stock_columns(con)
     _migrate_active_columns(con)
     _migrate_demo_columns(con)
+    asegurar_columnas_citas_extendido(con)
     ensure_pacientes_field_crypto_columns(con)
     ensure_medicos_field_crypto_columns(con)
     ensure_personal_field_crypto_columns(con)
@@ -185,3 +190,24 @@ def bootstrap(
     if apply:
         apply_schema(con, cfg.schema_path)
     return con
+
+
+def asegurar_columnas_citas_extendido(con: sqlite3.Connection) -> None:
+    columnas = {row["name"] for row in con.execute("PRAGMA table_info(citas)").fetchall()}
+    nuevas = (
+        ("check_in_at", "TEXT NULL"),
+        ("llamado_a_consulta_at", "TEXT NULL"),
+        ("consulta_inicio_at", "TEXT NULL"),
+        ("consulta_fin_at", "TEXT NULL"),
+        ("check_out_at", "TEXT NULL"),
+        ("tipo_cita", "TEXT NULL"),
+        ("canal_reserva", "TEXT NULL"),
+    )
+    for columna, tipo in nuevas:
+        if columna in columnas:
+            continue
+        con.execute(f"ALTER TABLE citas ADD COLUMN {columna} {tipo}")
+        LOGGER.info(
+            "sqlite_migracion_add_col",
+            extra={"action": "sqlite_migracion_add_col", "tabla": "citas", "columna": columna},
+        )

@@ -28,6 +28,21 @@ class EstadoCita(str, Enum):
     NO_PRESENTADO = "NO_PRESENTADO"
 
 
+class TipoCita(str, Enum):
+    PRIMERA = "PRIMERA"
+    REVISION = "REVISION"
+    PROCEDIMIENTO = "PROCEDIMIENTO"
+    OTRA = "OTRA"
+
+
+class CanalReserva(str, Enum):
+    MOSTRADOR = "MOSTRADOR"
+    TELEFONO = "TELEFONO"
+    ONLINE = "ONLINE"
+    DERIVACION = "DERIVACION"
+    OTRO = "OTRO"
+
+
 class TipoMovimientoStock(str, Enum):
     ENTRADA = "ENTRADA"
     SALIDA = "SALIDA"

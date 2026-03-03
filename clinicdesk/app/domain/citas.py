@@ -7,9 +7,11 @@ from datetime import datetime
 from typing import Any, Dict, Optional
 
 from clinicdesk.app.domain.enums import (
+    CanalReserva,
     EstadoCita,
     EstadoIncidencia,
     SeveridadIncidencia,
+    TipoCita,
     TipoIncidencia,
     TipoSala,
 )
@@ -57,6 +59,13 @@ class Cita:
     override_nota: Optional[str] = None
     override_personal_id: Optional[int] = None
     override_fecha_hora: Optional[datetime] = None
+    check_in_at: Optional[datetime] = None
+    llamado_a_consulta_at: Optional[datetime] = None
+    consulta_inicio_at: Optional[datetime] = None
+    consulta_fin_at: Optional[datetime] = None
+    check_out_at: Optional[datetime] = None
+    tipo_cita: Optional[TipoCita] = None
+    canal_reserva: Optional[CanalReserva] = None
 
     def validar(self) -> None:
         _ensure_positive_id(self.paciente_id, "paciente_id")
@@ -86,8 +95,20 @@ class Cita:
         data["inicio"] = self.inicio.isoformat(sep=" ", timespec="seconds")
         data["fin"] = self.fin.isoformat(sep=" ", timespec="seconds")
         data["estado"] = self.estado.value
+        data["tipo_cita"] = self.tipo_cita.value if self.tipo_cita else None
+        data["canal_reserva"] = self.canal_reserva.value if self.canal_reserva else None
         if self.override_fecha_hora is not None:
             data["override_fecha_hora"] = self.override_fecha_hora.isoformat(sep=" ", timespec="seconds")
+        for campo in (
+            "check_in_at",
+            "llamado_a_consulta_at",
+            "consulta_inicio_at",
+            "consulta_fin_at",
+            "check_out_at",
+        ):
+            valor = data[campo]
+            if valor is not None:
+                data[campo] = valor.isoformat(sep=" ", timespec="seconds")
         return data
 
 

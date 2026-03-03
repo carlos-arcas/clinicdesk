@@ -8,6 +8,11 @@ from clinicdesk.app.application.citas.atributos import (
 from clinicdesk.app.application.citas.filtros import FiltrosCitasDTO, normalizar_filtros_citas, redactar_texto_busqueda
 from clinicdesk.app.application.citas.pipeline_validacion import normalizar_y_validar_filtros_citas
 from clinicdesk.app.application.citas.validaciones import ErrorValidacionDTO, ResultadoValidacionDTO, validar_filtros_citas
+from clinicdesk.app.application.citas.registrar_hito_atencion import (
+    HitoAtencion,
+    RegistrarHitoAtencionCita,
+    ResultadoRegistrarHitoDTO,
+)
 from clinicdesk.app.application.citas.usecases import (
     BuscarCitasParaCalendario,
     BuscarCitasParaLista,
@@ -24,6 +29,9 @@ __all__ = [
     "ResultadoListadoDTO",
     "SensibilidadAtributo",
     "ErrorValidacionDTO",
+    "HitoAtencion",
+    "RegistrarHitoAtencionCita",
+    "ResultadoRegistrarHitoDTO",
     "ResultadoValidacionDTO",
     "formatear_valor_atributo_cita",
     "normalizar_filtros_citas",
