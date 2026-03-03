@@ -42,6 +42,8 @@ PIP_AUDIT_REPORT_PATH = REPO_ROOT / "docs" / "pip_audit_report.txt"
 PIP_AUDIT_ALLOWLIST_PATH = REPO_ROOT / "docs" / "pip_audit_allowlist.json"
 SECRETS_SCAN_REPORT_PATH = REPO_ROOT / "docs" / "secrets_scan_report.txt"
 PII_LOGGING_ALLOWLIST_PATH = REPO_ROOT / "docs" / "pii_logging_allowlist.json"
+MYPY_SCOPE_PATH = REPO_ROOT / "scripts" / "mypy_scope.txt"
+MYPY_REPORT_PATH = REPO_ROOT / "docs" / "mypy_report.txt"
 PII_TOKENS = ("dni", "nif", "email", "telefono", "direccion", "historia_clinica")
 PII_LOGGING_METHODS = {"debug", "info", "warning", "error", "critical", "exception", "log"}
 SECRET_PATTERNS: tuple[re.Pattern[str], ...] = (
@@ -68,6 +70,55 @@ def _run_required_ruff_checks() -> int:
         result = subprocess.run(cmd, cwd=REPO_ROOT)
         if result.returncode != 0:
             return result.returncode
+    return 0
+
+
+def _load_mypy_scope(scope_path: Path) -> list[str]:
+    if not scope_path.exists():
+        return []
+    paths: list[str] = []
+    for line in scope_path.read_text(encoding="utf-8").splitlines():
+        candidate = line.strip()
+        if not candidate or candidate.startswith("#"):
+            continue
+        paths.append(candidate)
+    return paths
+
+
+def _run_mypy_blocking_scope() -> int:
+    scope_paths = _load_mypy_scope(MYPY_SCOPE_PATH)
+    if not scope_paths:
+        _LOGGER.error("[quality-gate] ❌ Scope mypy vacío o inexistente: %s", MYPY_SCOPE_PATH)
+        return 9
+    command = [sys.executable, "-m", "mypy", *scope_paths]
+    _LOGGER.info("[quality-gate] Ejecutando mypy bloqueante sobre scope: %s", " ".join(command))
+    completed = subprocess.run(command, cwd=REPO_ROOT, check=False)
+    return completed.returncode
+
+
+def _run_mypy_report() -> int:
+    MYPY_REPORT_PATH.parent.mkdir(parents=True, exist_ok=True)
+    command = [sys.executable, "-m", "mypy", "clinicdesk/app"]
+    _LOGGER.info("[quality-gate] Ejecutando mypy report-only: %s", " ".join(command))
+    completed = subprocess.run(command, cwd=REPO_ROOT, capture_output=True, text=True, check=False)
+    bloques = [
+        "# Reporte mypy (report-only)",
+        f"Comando: {' '.join(command)}",
+        f"Exit code: {completed.returncode}",
+        "",
+    ]
+    if completed.stdout:
+        bloques.extend(["## STDOUT", completed.stdout.rstrip(), ""])
+    if completed.stderr:
+        bloques.extend(["## STDERR", completed.stderr.rstrip(), ""])
+    if not completed.stdout and not completed.stderr:
+        bloques.extend(["Sin salida.", ""])
+    MYPY_REPORT_PATH.write_text("\n".join(bloques).rstrip() + "\n", encoding="utf-8")
+    try:
+        report_display = MYPY_REPORT_PATH.relative_to(REPO_ROOT)
+    except ValueError:
+        report_display = MYPY_REPORT_PATH
+    _LOGGER.info("[quality-gate] Reporte mypy generado en %s", report_display)
     return 0
 
 
@@ -467,6 +518,16 @@ def main() -> int:
     ruff_rc = _run_required_ruff_checks()
     if ruff_rc != 0:
         return ruff_rc
+
+    mypy_scope_rc = _run_mypy_blocking_scope()
+    if mypy_scope_rc != 0:
+        _LOGGER.error("[quality-gate] ❌ mypy bloqueante falló sobre scripts/mypy_scope.txt.")
+        return mypy_scope_rc
+
+    mypy_report_rc = _run_mypy_report()
+    if mypy_report_rc != 0:
+        _LOGGER.error("[quality-gate] ❌ Falló la generación de docs/mypy_report.txt.")
+        return mypy_report_rc
 
     pytest_args = ["-q", "-m", "not ui"]
     _LOGGER.info("[quality-gate] Ejecutando pytest: python -m pytest %s", " ".join(pytest_args))

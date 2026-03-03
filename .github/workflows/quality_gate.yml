@@ -67,6 +67,7 @@ jobs:
             docs/quality_report.md
             docs/coverage.xml
             docs/pip_audit_report.txt
+            docs/mypy_report.txt
             docs/secrets_scan_report.txt
             logs/*.log
             .coverage

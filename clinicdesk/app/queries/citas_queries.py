@@ -288,10 +288,23 @@ def _map_cita_row(row) -> CitaRow:
 
 
 def _map_listado_row(row: dict[str, object]) -> CitaListadoRow:
+    def _as_int(value: object, default: int = 0) -> int:
+        if isinstance(value, bool):
+            return int(value)
+        if isinstance(value, int):
+            return value
+        if isinstance(value, float):
+            return int(value)
+        if isinstance(value, str):
+            value = value.strip()
+            if value:
+                return int(value)
+        return default
+
     return CitaListadoRow(
-        id=int(row["cita_id"]),
-        paciente_id=int(row.get("paciente_id", 0)),
-        medico_id=int(row.get("medico_id", 0)),
+        id=_as_int(row.get("cita_id", 0)),
+        paciente_id=_as_int(row.get("paciente_id", 0)),
+        medico_id=_as_int(row.get("medico_id", 0)),
         fecha=str(row.get("fecha", "")),
         hora_inicio=str(row.get("hora_inicio", "")),
         hora_fin=str(row.get("hora_fin", "")),
@@ -299,6 +312,6 @@ def _map_listado_row(row: dict[str, object]) -> CitaListadoRow:
         medico=str(row.get("medico", "")),
         sala=str(row.get("sala", "")),
         estado=str(row.get("estado", "")),
-        notas_len=int(row.get("notas_len", 0)),
+        notas_len=_as_int(row.get("notas_len", 0)),
         tiene_incidencias=bool(row.get("tiene_incidencias", 0)),
     )

@@ -14,18 +14,23 @@ Regla de CI: ejecutar exactamente `python -m scripts.gate_pr`.
    - Configuración central en `pyproject.toml` (`[tool.ruff]` y `[tool.ruff.format]`).
    - El gate ejecuta siempre `ruff check .` y `ruff format --check .`.
    - Si Ruff no está instalado, el gate falla con error explícito (sin skips silenciosos).
-2. **Tests bloqueantes**
+2. **Typecheck incremental con mypy (bloqueante + report-only)**
+   - Comando bloqueante: `python -m mypy $(cat scripts/mypy_scope.txt)`.
+   - El scope bloqueante vive en `scripts/mypy_scope.txt` y solo cubre módulos core de dominio/aplicación/queries.
+   - Comando report-only: `python -m mypy clinicdesk/app`.
+   - El reporte report-only siempre se guarda en `docs/mypy_report.txt` y no rompe el gate por ahora.
+3. **Tests bloqueantes**
    - Ejecuta `pytest` con `-m "not ui"`.
-3. **Coverage SOLO core + artefacto en docs/**
+4. **Coverage SOLO core + artefacto en docs/**
    - Calcula cobertura core mediante trazado de ejecución sobre los módulos core definidos en el script.
    - Además genera `docs/coverage.xml` usando `pytest-cov` para publicar artefactos en CI.
-4. **Structural gate (LOC + CC + hotspots)**
+5. **Structural gate (LOC + CC + hotspots)**
    - Analiza Python con `ast` (sin dependencias externas) excluyendo `app/ui/**`, `tests/**`, `migrations/**` y `sql/**`.
    - Detecta monolitos por tamaño de archivo/función/clase.
    - Calcula complejidad ciclomática (CC) por función/método.
    - Calcula hotspots por score combinado de tamaño y CC.
    - Genera siempre `docs/quality_report.md`.
-5. **Umbral de cobertura core**
+6. **Umbral de cobertura core**
    - Falla si cobertura core `< 85%`.
 
 
@@ -34,15 +39,15 @@ Regla de CI: ejecutar exactamente `python -m scripts.gate_pr`.
 
 El gate canónico `python -m scripts.gate_pr` ahora ejecuta además:
 
-6. **`pip-audit` bloqueante**
+7. **`pip-audit` bloqueante**
    - Comando: `python -m pip_audit --progress-spinner off --output docs/pip_audit_report.txt --format columns`
    - Si existen vulnerabilidades, el gate falla.
    - Allowlist opcional y controlada: `docs/pip_audit_allowlist.json` con `id` y `motivo` por vulnerabilidad.
-7. **Escaneo de secretos con Gitleaks**
+8. **Escaneo de secretos con Gitleaks**
    - Comando: `gitleaks detect --source . --no-git --report-format json --report-path docs/secrets_scan_report.txt`
    - Reporte: `docs/secrets_scan_report.txt`.
    - Si no existe `gitleaks` en `PATH`, el gate falla con guía de instalación (sin skips silenciosos).
-8. **Guardrail básico de PII en logging**
+9. **Guardrail básico de PII en logging**
    - Escaneo AST de llamadas `logger.*` para strings hardcodeados con tokens sensibles (`dni`, `nif`, `email`, `telefono`, `direccion`, `historia_clinica`).
    - Allowlist mínima: `docs/pii_logging_allowlist.json` con `clave` y `motivo` explícito.
 
@@ -83,6 +88,26 @@ Módulos incluidos en cobertura bloqueante:
 - `clinicdesk/app/application/usecases/crear_cita.py`
 - `clinicdesk/app/infrastructure/sqlite/repos_citas.py`
 - `clinicdesk/app/queries/citas_queries.py`
+
+## Scope bloqueante de mypy (incremental)
+
+Fuente de verdad: `scripts/mypy_scope.txt`.
+
+Estado inicial (sprint actual):
+- `clinicdesk/app/domain/enums.py`
+- `clinicdesk/app/domain/exceptions.py`
+- `clinicdesk/app/domain/entities.py`
+- `clinicdesk/app/domain/repositorios.py`
+- `clinicdesk/app/domain/value_objects.py`
+- `clinicdesk/app/application/citas/validaciones.py`
+- `clinicdesk/app/application/usecases/crear_cita.py`
+- `clinicdesk/app/queries/citas_queries.py`
+
+Plan operativo de ampliación por sprint:
+1. Revisar `docs/mypy_report.txt` y seleccionar 1-2 módulos con mayor valor de negocio.
+2. Añadir rutas exactas al final de `scripts/mypy_scope.txt`.
+3. Resolver tipos del módulo nuevo sin `type: ignore` masivos.
+4. Ejecutar `python -m scripts.gate_pr` y mergear solo si el scope bloqueante continúa en verde.
 
 Módulos excluidos del gate bloqueante en este paso:
 - UI/presentation (`clinicdesk/app/ui`, `clinicdesk/app/pages`)
