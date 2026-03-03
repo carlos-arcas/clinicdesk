@@ -1,3 +1,4 @@
+# ruff: noqa: E402
 """Smoke tests de estilo brutalista para páginas UI."""
 
 import pytest
@@ -19,7 +20,7 @@ def usuario(db):
     return modelo.objects.create_user(
         username="usuario_brutal",
         email="brutal@example.com",
-        password="clave-segura-123",
+        password="password_pruebas",
     )
 
 
@@ -44,7 +45,7 @@ def test_registro_contiene_titulo_y_selector_tipo_cuenta(cliente):
 
 
 def test_muro_autenticado_contiene_bloque_crear_publicacion(cliente, usuario):
-    assert cliente.login(username="usuario_brutal", password="clave-segura-123")
+    assert cliente.login(username="usuario_brutal", password="password_pruebas")
 
     respuesta = cliente.get("/ui/muro")
     html = respuesta.content.decode("utf-8")
