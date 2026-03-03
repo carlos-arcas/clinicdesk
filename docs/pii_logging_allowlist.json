@@ -1,0 +1,8 @@
+{
+  "entradas": [
+    {
+      "clave": "tests/test_logging_smoke.py:52:email",
+      "motivo": "Solo aplica a tests de redacción de PII; fuera de código productivo."
+    }
+  ]
+}

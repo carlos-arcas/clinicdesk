@@ -5,9 +5,11 @@ from __future__ import annotations
 
 import ast
 import argparse
+import json
 import logging
 import os
 import re
+import shutil
 import subprocess
 import sys
 import trace
@@ -36,6 +38,12 @@ ARTIFACT_SUFFIXES = {".zip", ".db", ".sqlite", ".sqlite3", ".dump", ".bak", ".sq
 ARTIFACT_ALLOWLIST = {Path("clinicdesk.zip")}
 SCAN_EXCLUDE_DIRS = {".git", ".venv", "__pycache__", ".pytest_cache", "logs"}
 MAX_SCAN_BYTES = 1_000_000
+PIP_AUDIT_REPORT_PATH = REPO_ROOT / "docs" / "pip_audit_report.txt"
+PIP_AUDIT_ALLOWLIST_PATH = REPO_ROOT / "docs" / "pip_audit_allowlist.json"
+SECRETS_SCAN_REPORT_PATH = REPO_ROOT / "docs" / "secrets_scan_report.txt"
+PII_LOGGING_ALLOWLIST_PATH = REPO_ROOT / "docs" / "pii_logging_allowlist.json"
+PII_TOKENS = ("dni", "nif", "email", "telefono", "direccion", "historia_clinica")
+PII_LOGGING_METHODS = {"debug", "info", "warning", "error", "critical", "exception", "log"}
 SECRET_PATTERNS: tuple[re.Pattern[str], ...] = (
     re.compile(r"AKIA[0-9A-Z]{16}"),
     re.compile(r"-----BEGIN (?:RSA |EC |OPENSSH |DSA )?PRIVATE KEY-----"),
@@ -223,6 +231,164 @@ def _check_secret_patterns() -> int:
     return 5
 
 
+def _find_command_path(candidates: tuple[str, ...]) -> str | None:
+    for candidate in candidates:
+        command_path = shutil.which(candidate)
+        if command_path:
+            return command_path
+    return None
+
+
+def _run_pip_audit() -> int:
+    PIP_AUDIT_REPORT_PATH.parent.mkdir(parents=True, exist_ok=True)
+    command = [
+        sys.executable,
+        "-m",
+        "pip_audit",
+        "--progress-spinner",
+        "off",
+        "--output",
+        str(PIP_AUDIT_REPORT_PATH),
+        "--format",
+        "columns",
+    ]
+
+    if PIP_AUDIT_ALLOWLIST_PATH.exists():
+        try:
+            allowlist_data = json.loads(PIP_AUDIT_ALLOWLIST_PATH.read_text(encoding="utf-8"))
+        except json.JSONDecodeError as exc:
+            _LOGGER.error("[quality-gate] ❌ Allowlist de pip-audit inválida: %s", exc)
+            return 6
+
+        cves = []
+        for item in allowlist_data.get("vulnerabilidades_permitidas", []):
+            cve = str(item.get("id", "")).strip()
+            reason = str(item.get("motivo", "")).strip()
+            if not cve or not reason:
+                _LOGGER.error("[quality-gate] ❌ Entrada inválida en allowlist pip-audit: %s", item)
+                return 6
+            cves.append(cve)
+        for cve in cves:
+            command.extend(["--ignore-vuln", cve])
+
+    _LOGGER.info("[quality-gate] Ejecutando pip-audit.")
+    completed = subprocess.run(command, cwd=REPO_ROOT, capture_output=True, text=True, check=False)
+    existing_report = ""
+    if PIP_AUDIT_REPORT_PATH.exists():
+        existing_report = PIP_AUDIT_REPORT_PATH.read_text(encoding="utf-8")
+    if completed.stderr:
+        PIP_AUDIT_REPORT_PATH.write_text(existing_report + "\n\nSTDERR:\n" + completed.stderr, encoding="utf-8")
+    if completed.returncode == 0:
+        return 0
+
+    _LOGGER.error("[quality-gate] ❌ pip-audit detectó vulnerabilidades o no pudo completarse.")
+    if "Connection" in completed.stderr or "Temporary failure" in completed.stderr:
+        _LOGGER.error(
+            "[quality-gate] Fallo de red en pip-audit. Reintenta con red activa o ejecuta en CI con conectividad saliente."
+        )
+    return 6
+
+
+def _run_secrets_scan() -> int:
+    scanner = _find_command_path(("gitleaks",))
+    if scanner is None:
+        SECRETS_SCAN_REPORT_PATH.write_text(
+            "No se encontró gitleaks en PATH.\n"
+            "Instalación local sugerida (Ubuntu): sudo apt-get install -y gitleaks\n"
+            "CI debe instalar gitleaks antes de ejecutar python -m scripts.gate_pr\n",
+            encoding="utf-8",
+        )
+        _LOGGER.error("[quality-gate] ❌ Falta gitleaks en PATH. Revisa docs/ci_quality_gate.md para instalación.")
+        return 7
+
+    command = [
+        scanner,
+        "detect",
+        "--source",
+        str(REPO_ROOT),
+        "--no-git",
+        "--report-format",
+        "json",
+        "--report-path",
+        str(SECRETS_SCAN_REPORT_PATH),
+    ]
+    _LOGGER.info("[quality-gate] Ejecutando escaneo de secretos con gitleaks.")
+    completed = subprocess.run(command, cwd=REPO_ROOT, capture_output=True, text=True, check=False)
+    report_tail = "\n\nSTDOUT:\n" + (completed.stdout or "") + "\nSTDERR:\n" + (completed.stderr or "")
+    if SECRETS_SCAN_REPORT_PATH.exists():
+        SECRETS_SCAN_REPORT_PATH.write_text(
+            SECRETS_SCAN_REPORT_PATH.read_text(encoding="utf-8") + report_tail,
+            encoding="utf-8",
+        )
+    else:
+        SECRETS_SCAN_REPORT_PATH.write_text(report_tail, encoding="utf-8")
+    if completed.returncode == 0:
+        return 0
+    _LOGGER.error("[quality-gate] ❌ gitleaks detectó secretos o falló la ejecución.")
+    return 7
+
+
+def _load_pii_allowlist() -> dict[str, str]:
+    if not PII_LOGGING_ALLOWLIST_PATH.exists():
+        return {}
+    try:
+        payload = json.loads(PII_LOGGING_ALLOWLIST_PATH.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        _LOGGER.error("[quality-gate] ❌ Allowlist de PII inválida: %s", exc)
+        return {}
+    allowlist_entries = payload.get("entradas", [])
+    mapping: dict[str, str] = {}
+    for entry in allowlist_entries:
+        clave = str(entry.get("clave", "")).strip()
+        motivo = str(entry.get("motivo", "")).strip()
+        if clave and motivo:
+            mapping[clave] = motivo
+    return mapping
+
+
+def _extract_string_literals(node: ast.AST) -> list[str]:
+    literals: list[str] = []
+    if isinstance(node, ast.Constant) and isinstance(node.value, str):
+        literals.append(node.value)
+    if isinstance(node, ast.JoinedStr):
+        for value in node.values:
+            if isinstance(value, ast.Constant) and isinstance(value.value, str):
+                literals.append(value.value)
+    return literals
+
+
+def _check_pii_logging_guardrail() -> int:
+    allowlist = _load_pii_allowlist()
+    offenders: list[str] = []
+    for file_path in REPO_ROOT.rglob("*.py"):
+        rel_path = file_path.relative_to(REPO_ROOT)
+        if rel_path.parts and rel_path.parts[0] in {"docs"}:
+            continue
+        source = file_path.read_text(encoding="utf-8")
+        tree = ast.parse(source)
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.Call) or not isinstance(node.func, ast.Attribute):
+                continue
+            if node.func.attr not in PII_LOGGING_METHODS:
+                continue
+            for argument in node.args:
+                for literal in _extract_string_literals(argument):
+                    lowered = literal.lower()
+                    matched_tokens = [token for token in PII_TOKENS if token in lowered]
+                    if not matched_tokens:
+                        continue
+                    clave = f"{rel_path}:{node.lineno}:{','.join(matched_tokens)}"
+                    if clave in allowlist:
+                        continue
+                    offenders.append(clave)
+    if not offenders:
+        return 0
+    _LOGGER.error("[quality-gate] ❌ Guardrail PII/logging detectó mensajes hardcodeados sensibles.")
+    for offender in sorted(offenders):
+        _LOGGER.error("[quality-gate] %s", offender)
+    return 8
+
+
 def main() -> int:
     args = _parse_args()
     mode = "report-only" if args.report_only else "strict"
@@ -241,6 +407,18 @@ def main() -> int:
     secret_rc = _check_secret_patterns()
     if secret_rc != 0:
         return secret_rc
+
+    pip_audit_rc = _run_pip_audit()
+    if pip_audit_rc != 0:
+        return pip_audit_rc
+
+    secrets_scan_rc = _run_secrets_scan()
+    if secrets_scan_rc != 0:
+        return secrets_scan_rc
+
+    pii_logging_rc = _check_pii_logging_guardrail()
+    if pii_logging_rc != 0:
+        return pii_logging_rc
 
     ruff_rc = _run_required_ruff_checks()
     if ruff_rc != 0:

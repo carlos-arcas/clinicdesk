@@ -29,6 +29,45 @@ Regla de CI: ejecutar exactamente `python -m scripts.gate_pr`.
    - Falla si cobertura core `< 85%`.
 
 
+
+## Seguridad de dependencias y secretos (bloqueante)
+
+El gate canónico `python -m scripts.gate_pr` ahora ejecuta además:
+
+6. **`pip-audit` bloqueante**
+   - Comando: `python -m pip_audit --progress-spinner off --output docs/pip_audit_report.txt --format columns`
+   - Si existen vulnerabilidades, el gate falla.
+   - Allowlist opcional y controlada: `docs/pip_audit_allowlist.json` con `id` y `motivo` por vulnerabilidad.
+7. **Escaneo de secretos con Gitleaks**
+   - Comando: `gitleaks detect --source . --no-git --report-format json --report-path docs/secrets_scan_report.txt`
+   - Reporte: `docs/secrets_scan_report.txt`.
+   - Si no existe `gitleaks` en `PATH`, el gate falla con guía de instalación (sin skips silenciosos).
+8. **Guardrail básico de PII en logging**
+   - Escaneo AST de llamadas `logger.*` para strings hardcodeados con tokens sensibles (`dni`, `nif`, `email`, `telefono`, `direccion`, `historia_clinica`).
+   - Allowlist mínima: `docs/pii_logging_allowlist.json` con `clave` y `motivo` explícito.
+
+### Ejecución local exacta
+1. `python -m pip install --upgrade pip`
+2. `pip install -r requirements-dev.txt`
+3. Instalar Gitleaks (ejemplo Ubuntu):
+   - `sudo apt-get update`
+   - `sudo apt-get install -y gitleaks`
+4. Ejecutar gate completo: `python -m scripts.gate_pr`
+
+### Cómo resolver fallos
+- **Fallo de `pip-audit` por CVEs**:
+  1. Actualizar dependencia vulnerable en `requirements*.txt` / lock correspondiente.
+  2. Reinstalar y repetir gate.
+  3. Solo si es falso positivo real/no mitigable temporalmente: añadir entrada en `docs/pip_audit_allowlist.json` con `id` y `motivo` verificable.
+- **Fallo de secrets scan**:
+  1. Revocar/rotar secreto comprometido.
+  2. Eliminar del historial/código y reemplazar por variables de entorno/secret manager.
+  3. Reejecutar gate hasta reporte limpio.
+- **Fallo de guardrail PII/logging**:
+  1. Quitar tokens sensibles del mensaje hardcodeado.
+  2. Mantener detalle técnico sin PII (usar IDs anonimizados).
+  3. Si es test explícito, documentar allowlist con motivo.
+
 ## Definición de “core” (Paso 2)
 Módulos incluidos en cobertura bloqueante:
 - `clinicdesk/app/domain/enums.py`
