@@ -9,6 +9,7 @@ from clinicdesk.app.i18n import I18nManager
 from clinicdesk.app.queries.citas_queries import CitaListadoRow, CitaRow
 
 SETTINGS_KEY_RIESGO_AGENDA = "prediccion_ausencias/mostrar_riesgo_agenda"
+SETTINGS_KEY_ESTIMACIONES_AGENDA = "prediccion_operativa/mostrar_estimaciones_agenda"
 
 
 @dataclass(frozen=True, slots=True)

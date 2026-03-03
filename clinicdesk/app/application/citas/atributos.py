@@ -72,6 +72,8 @@ ATRIBUTOS_CITA: tuple[DescriptorAtributoCita, ...] = (
     DescriptorAtributoCita("sala", "citas.lista.col.sala", "citas.lista.tooltip.sala", True, SensibilidadAtributo.PUBLICO, _fmt_texto("sala")),
     DescriptorAtributoCita("estado", "citas.lista.col.estado", "citas.lista.tooltip.estado", True, SensibilidadAtributo.PUBLICO, _fmt_texto("estado")),
     DescriptorAtributoCita("riesgo_ausencia", "citas.lista.col.riesgo", "citas.lista.tooltip.riesgo", False, SensibilidadAtributo.PERSONAL, _fmt_texto("riesgo_ausencia")),
+    DescriptorAtributoCita("duracion_estimada", "citas.lista.col.duracion_estimada", "citas.lista.tooltip.duracion_estimada", False, SensibilidadAtributo.PUBLICO, _fmt_texto("duracion_estimada")),
+    DescriptorAtributoCita("espera_estimada", "citas.lista.col.espera_estimada", "citas.lista.tooltip.espera_estimada", False, SensibilidadAtributo.PUBLICO, _fmt_texto("espera_estimada")),
     DescriptorAtributoCita("recordatorio_estado", "citas.lista.col.recordatorio", "citas.lista.tooltip.recordatorio", False, SensibilidadAtributo.PUBLICO, _fmt_texto("recordatorio_estado")),
     DescriptorAtributoCita("notas_len", "citas.lista.col.notas_len", "citas.lista.tooltip.notas_len", True, SensibilidadAtributo.SENSIBLE, _fmt_notas_len("notas_len")),
     DescriptorAtributoCita("incidencias", "citas.lista.col.incidencias", "citas.lista.tooltip.incidencias", True, SensibilidadAtributo.PUBLICO, _fmt_texto("tiene_incidencias")),

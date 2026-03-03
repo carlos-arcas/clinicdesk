@@ -56,6 +56,7 @@ class PagePrediccionAusencias(QWidget):
         self._entrenar_thread: QThread | None = None
         self._entrenar_worker: EntrenarPrediccionWorker | None = None
         self._settings_key = "prediccion_ausencias/mostrar_riesgo_agenda"
+        self._settings_estimaciones_key = "prediccion_operativa/mostrar_estimaciones_agenda"
         self._ventana_resultados_semanas = VENTANA_RESULTADOS_POR_DEFECTO
         self._recordatorio_oculto_sesion = False
         self._ultimo_motivo_recordatorio_log: str | None = None
@@ -192,7 +193,10 @@ class PagePrediccionAusencias(QWidget):
         row = QHBoxLayout(panel)
         self.chk_activar = QCheckBox()
         self.chk_activar.stateChanged.connect(self._guardar_preferencia)
+        self.chk_activar_estimaciones = QCheckBox()
+        self.chk_activar_estimaciones.stateChanged.connect(self._guardar_preferencia_estimaciones)
         row.addWidget(self.chk_activar)
+        row.addWidget(self.chk_activar_estimaciones)
         row.addStretch(1)
         return panel
     def _comprobar_datos(self) -> None:
@@ -456,10 +460,16 @@ class PagePrediccionAusencias(QWidget):
     def _guardar_preferencia(self, state: int) -> None:
         qsettings = QSettings("clinicdesk", "ui")
         qsettings.setValue(self._settings_key, 1 if state == Qt.Checked else 0)
+    def _guardar_preferencia_estimaciones(self, state: int) -> None:
+        qsettings = QSettings("clinicdesk", "ui")
+        qsettings.setValue(self._settings_estimaciones_key, 1 if state == Qt.Checked else 0)
+
     def _restaurar_preferencia(self) -> None:
         qsettings = QSettings("clinicdesk", "ui")
         checked = bool(int(qsettings.value(self._settings_key, 0)))
         self.chk_activar.setChecked(checked)
+        checked_estimaciones = bool(int(qsettings.value(self._settings_estimaciones_key, 0)))
+        self.chk_activar_estimaciones.setChecked(checked_estimaciones)
         self._restaurar_preferencia_ventana_resultados()
         self._preferencia_recordatorio = leer_preferencia_recordatorio_entrenar(qsettings)
 
@@ -544,6 +554,7 @@ class PagePrediccionAusencias(QWidget):
         self.btn_entrenar.setText(self._i18n.t("prediccion_ausencias.accion.entrenar"))
         self.btn_reintentar.setText(self._i18n.t("prediccion.entrenar.reintentar"))
         self.chk_activar.setText(self._i18n.t("prediccion_ausencias.accion.activar_agenda"))
+        self.chk_activar_estimaciones.setText(self._i18n.t("citas.prediccion_operativa.toggle.mostrar_estimaciones"))
         self.btn_cerrar_citas_antiguas.setText(self._i18n.t("prediccion_ausencias.cierre.cta"))
         self.lbl_salud_ayuda_cierre.setText(self._i18n.t("prediccion_ausencias.cierre.cta_ayuda"))
         self.btn_resultados_cerrar_citas_antiguas.setText(self._i18n.t("prediccion_ausencias.resultados.cta.cerrar_citas_antiguas"))
