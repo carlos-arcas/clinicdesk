@@ -10,13 +10,15 @@ Asegurar calidad continua sin bloquear por UI. El gate bloqueante aplica al **co
 Regla de CI: ejecutar exactamente `python -m scripts.gate_pr`.
 
 ## Qué ejecuta el gate
-1. **Lint/format opcional (solo si ya existe configuración)**
-   - Detecta `pyproject.toml` con sección `[tool.ruff]`.
-   - Si existe, ejecuta `ruff check .` y `ruff format --check .`.
+1. **Lint/format obligatorio con Ruff**
+   - Configuración central en `pyproject.toml` (`[tool.ruff]` y `[tool.ruff.format]`).
+   - El gate ejecuta siempre `ruff check .` y `ruff format --check .`.
+   - Si Ruff no está instalado, el gate falla con error explícito (sin skips silenciosos).
 2. **Tests bloqueantes**
    - Ejecuta `pytest` con `-m "not ui"`.
-3. **Coverage SOLO core**
-   - Calcula cobertura mediante trazado de ejecución sobre los módulos core definidos en el script.
+3. **Coverage SOLO core + artefacto en docs/**
+   - Calcula cobertura core mediante trazado de ejecución sobre los módulos core definidos en el script.
+   - Además genera `docs/coverage.xml` usando `pytest-cov` para publicar artefactos en CI.
 4. **Structural gate (LOC + CC + hotspots)**
    - Analiza Python con `ast` (sin dependencias externas) excluyendo `app/ui/**`, `tests/**`, `migrations/**` y `sql/**`.
    - Detecta monolitos por tamaño de archivo/función/clase.
@@ -40,9 +42,14 @@ Módulos excluidos del gate bloqueante en este paso:
 - scripts de soporte y tests
 - resto de módulos legacy que se incorporarán gradualmente al gate en pasos siguientes.
 
+## Instalación para desarrollo
+1. `python -m pip install --upgrade pip`
+2. `pip install -r requirements-dev.txt`
+
 ## Notas de operación
 - Los tests de UI deben declararse con marker `ui` para no bloquear este gate.
-- El script devuelve `exit code != 0` si falla lint configurado, tests o cobertura.
+- El script devuelve `exit code != 0` si falla Ruff, tests, cobertura core o generación de reportes.
+- El reporte estructural se mantiene en `docs/quality_report.md` y la cobertura en `docs/coverage.xml`.
 - Los comandos de tests desde raíz ya no requieren `PYTHONPATH=.`.
 
 ## Demo ML CLI (30s)
