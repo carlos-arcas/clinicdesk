@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Callable, Dict, Optional
+from typing import Any, Callable, Dict, Optional
 
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QAction
@@ -17,9 +17,11 @@ from PySide6.QtWidgets import (
 from clinicdesk.app.application.csv.csv_service import CsvService
 from clinicdesk.app.controllers.csv_controller import CsvController
 from clinicdesk.app.container import AppContainer
+from clinicdesk.app.application.citas.navigation_intent import CitasNavigationIntentDTO
 from clinicdesk.app.i18n import I18nManager
 from clinicdesk.app.pages.pages_registry import get_pages
 from clinicdesk.app.ui.vistas.main_window import state_controller, validacion_preventiva
+from clinicdesk.app.ui.navigation_intent_store import IntentConsumible
 
 
 
@@ -101,6 +103,7 @@ class MainWindow(QMainWindow):
         self._page_index_by_key: Dict[str, int] = {}
         self._factory_by_key: Dict[str, Callable[[], QWidget]] = {}
         self._sidebar_item_by_key: Dict[str, QListWidgetItem] = {}
+        self._intent_citas = IntentConsumible[CitasNavigationIntentDTO]()
 
         for p in get_pages(container, self._i18n):
             self._factory_by_key[p.key] = p.factory
@@ -207,7 +210,7 @@ class MainWindow(QMainWindow):
         if w is not None and hasattr(w, "on_show"):
             w.on_show()
 
-    def navigate(self, key: str) -> None:
+    def navigate(self, key: str, intent: Any | None = None) -> None:
         self.sidebar.blockSignals(True)
         try:
             self._call_on_hide_current()
@@ -218,6 +221,7 @@ class MainWindow(QMainWindow):
 
             self.stack.setCurrentIndex(index)
             self._call_on_show_index(index)
+            self._aplicar_intent_navegacion(key, intent)
 
             for row in range(self.sidebar.count()):
                 it = self.sidebar.item(row)
@@ -226,6 +230,18 @@ class MainWindow(QMainWindow):
                     break
         finally:
             self.sidebar.blockSignals(False)
+
+    def _aplicar_intent_navegacion(self, key: str, intent: Any | None) -> None:
+        if key != "citas":
+            return
+        if isinstance(intent, CitasNavigationIntentDTO):
+            self._intent_citas.guardar(intent)
+        cita_intent = self._intent_citas.consumir()
+        if cita_intent is None:
+            return
+        pagina = self.stack.currentWidget()
+        if pagina is not None and hasattr(pagina, "aplicar_intent"):
+            pagina.aplicar_intent(cita_intent)
 
     def _on_sidebar_changed(self, row: int) -> None:
         if row < 0:
@@ -242,6 +258,7 @@ class MainWindow(QMainWindow):
 
         self.stack.setCurrentIndex(index)
         self._call_on_show_index(index)
+        self._aplicar_intent_navegacion(key, None)
 
 
     def _normalize_input_heights(self) -> None:

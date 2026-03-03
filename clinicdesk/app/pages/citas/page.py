@@ -33,6 +33,7 @@ from clinicdesk.app.application.citas import (
     redactar_texto_busqueda,
     sanear_columnas_citas,
 )
+from clinicdesk.app.application.citas.navigation_intent import CitasNavigationIntentDTO
 from clinicdesk.app.application.prediccion_ausencias.riesgo_agenda import RIESGO_NO_DISPONIBLE
 from clinicdesk.app.application.prediccion_ausencias.aviso_salud_prediccion import CacheSaludPrediccionPorRefresh
 from clinicdesk.app.application.prediccion_operativa.ux_estimaciones import (
@@ -52,6 +53,7 @@ from clinicdesk.app.pages.citas.riesgo_ausencia_ui import (
     resolver_texto_riesgo,
 )
 from clinicdesk.app.pages.citas.widgets.dialogo_selector_columnas_citas import DialogoSelectorColumnasCitas
+from clinicdesk.app.pages.citas.intent_helpers import buscar_indice_por_cita_id
 from clinicdesk.app.pages.citas.widgets.panel_filtros_citas_widget import PanelFiltrosCitasWidget
 from clinicdesk.app.pages.citas.widgets.persistencia_citas_settings import (
     EstadoPersistidoFiltrosCitas,
@@ -106,6 +108,8 @@ class PageCitas(QWidget):
         self._filtros_aplicados = FiltrosCitasDTO()
         self._columnas_lista: tuple[str, ...] = tuple()
         self._citas_lista_ids: list[int] = []
+        self._citas_calendario_ids: list[int] = []
+        self._intent_navegacion_pendiente: CitasNavigationIntentDTO | None = None
         self._riesgo_enabled = False
         self._estimaciones_enabled = False
         self._token_refresh_salud = 0
@@ -230,6 +234,33 @@ class PageCitas(QWidget):
         self._estimaciones_enabled = bool(int(self._settings.value(SETTINGS_KEY_ESTIMACIONES_AGENDA, 0)))
         self._refrescar_vistas_principales()
 
+    def aplicar_intent(self, intent: CitasNavigationIntentDTO) -> None:
+        self._intent_navegacion_pendiente = intent
+        self._filtros_aplicados = FiltrosCitasDTO(
+            rango_preset=intent.preset_rango,
+            desde=self._filtros_aplicados.desde,
+            hasta=self._filtros_aplicados.hasta,
+            texto_busqueda=self._filtros_aplicados.texto_busqueda,
+            estado_cita=self._filtros_aplicados.estado_cita,
+            medico_id=self._filtros_aplicados.medico_id,
+            sala_id=self._filtros_aplicados.sala_id,
+            paciente_id=self._filtros_aplicados.paciente_id,
+            incluir_riesgo=self._filtros_aplicados.incluir_riesgo,
+            recordatorio_filtro=self._filtros_aplicados.recordatorio_filtro,
+            limit=self._filtros_aplicados.limit,
+            offset=self._filtros_aplicados.offset,
+        )
+        self.panel_filtros.set_filtros(self._filtros_aplicados)
+        if intent.preferir_pestana == "LISTA":
+            self.tabs.setCurrentIndex(1)
+        elif intent.preferir_pestana == "CALENDARIO":
+            self.tabs.setCurrentIndex(0)
+        LOGGER.info(
+            "citas_intent_aplicado",
+            extra={"action": "citas.intent_aplicado", "cita_id": intent.cita_id_destino},
+        )
+        self._refrescar_vistas_principales()
+
     def _refrescar_vistas_principales(self) -> None:
         self._token_refresh_salud += 1
         self._token_aviso_logueado = None
@@ -294,6 +325,7 @@ class PageCitas(QWidget):
         riesgos = self._obtener_riesgo_citas_calendario([self._mapear_row_calendario(x) for x in items]) if self._riesgo_enabled else {}
         estimaciones = self._obtener_estimaciones_agenda()
         self.table.setRowCount(0)
+        self._citas_calendario_ids = []
         for item in items:
             item = dict(item)
             cita_id = int(item["cita_id"])
@@ -301,7 +333,9 @@ class PageCitas(QWidget):
             item["duracion_estimada"] = self._texto_estimacion(estimaciones[0].get(cita_id, "NO_DISPONIBLE"), "duracion", True)
             item["espera_estimada"] = self._texto_estimacion(estimaciones[1].get(cita_id, "NO_DISPONIBLE"), "espera", True)
             self._agregar_fila_calendario(item)
+            self._citas_calendario_ids.append(cita_id)
         self._actualizar_aviso_salud_prediccion("calendario")
+        self._resolver_intent_navegacion("CALENDARIO")
 
     def _refresh_lista(self) -> None:
         validacion = normalizar_y_validar_filtros_citas(self._filtros_aplicados, datetime.now(), "LISTA")
@@ -323,6 +357,7 @@ class PageCitas(QWidget):
             self._set_estado_lista("citas.ux.vacio")
         else:
             self._set_estado_lista(None)
+        self._resolver_intent_navegacion("LISTA")
 
     def _render_lista(self, rows: list[dict[str, object]]) -> None:
         self.table_lista.setRowCount(0)
@@ -337,6 +372,41 @@ class PageCitas(QWidget):
             self.table_lista.insertRow(idx)
             for col, clave in enumerate(visibles):
                 self.table_lista.setItem(idx, col, QTableWidgetItem(formatear_valor_atributo_cita(clave, row)))
+
+    def _resolver_intent_navegacion(self, vista: str) -> None:
+        intent = self._intent_navegacion_pendiente
+        if intent is None or vista != self._contexto_activo():
+            return
+        encontrado = self._seleccionar_cita_intent(intent, vista)
+        if not encontrado and vista == "CALENDARIO":
+            self.tabs.setCurrentIndex(1)
+            encontrado = self._seleccionar_cita_intent(intent, "LISTA")
+        if not encontrado:
+            self.lbl_estado.setText(self._i18n.t("gestion.abrir_no_encontrada"))
+        LOGGER.info(
+            "gestion_abrir_cita",
+            extra={"action": "gestion_abrir_cita", "cita_id": intent.cita_id_destino, "found": encontrado},
+        )
+        self._intent_navegacion_pendiente = None
+
+    def _seleccionar_cita_intent(self, intent: CitasNavigationIntentDTO, vista: str) -> bool:
+        if vista == "LISTA":
+            indice = buscar_indice_por_cita_id(self._citas_lista_ids, intent.cita_id_destino)
+            if indice is None:
+                return False
+            self.table_lista.selectRow(indice)
+            item = self.table_lista.item(indice, 0)
+            if item is not None:
+                self.table_lista.scrollToItem(item)
+            return True
+        indice = buscar_indice_por_cita_id(self._citas_calendario_ids, intent.cita_id_destino)
+        if indice is None:
+            return False
+        self.table.selectRow(indice)
+        item = self.table.item(indice, 0)
+        if item is not None:
+            self.table.scrollToItem(item)
+        return True
 
     def _agregar_fila_calendario(self, item: dict[str, object]) -> None:
         idx = self.table.rowCount()
