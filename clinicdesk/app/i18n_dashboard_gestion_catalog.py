@@ -49,6 +49,8 @@ DASHBOARD_GESTION_TRANSLATIONS = {
         "dashboard_gestion.citas_vigilar.btn.abrir": "Abrir",
         "gestion.abrir_no_encontrada": "No encontré esa cita con los filtros actuales. He mostrado las citas de hoy.",
         "gestion.abrir_ok": "He abierto la cita seleccionada.",
+        "gestion.abrir_detalle_no_posible": "No pude abrir el detalle. La cita está seleccionada.",
+        "citas.resaltado_aplicado": "Cita resaltada.",
         "citas.intent_aplicado": "Intent de navegación aplicado.",
     },
     "en": {
@@ -99,6 +101,8 @@ DASHBOARD_GESTION_TRANSLATIONS = {
         "dashboard_gestion.citas_vigilar.btn.abrir": "Open",
         "gestion.abrir_no_encontrada": "I could not find that appointment with the current filters. I have shown today's appointments.",
         "gestion.abrir_ok": "Selected appointment opened.",
+        "gestion.abrir_detalle_no_posible": "I could not open the details. The appointment is selected.",
+        "citas.resaltado_aplicado": "Appointment highlighted.",
         "citas.intent_aplicado": "Navigation intent applied.",
     },
 }

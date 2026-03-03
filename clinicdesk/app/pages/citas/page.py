@@ -4,7 +4,7 @@ from datetime import datetime
 from typing import Optional
 
 from PySide6.QtCore import QSettings, Qt, QTimer
-from PySide6.QtGui import QAction
+from PySide6.QtGui import QAction, QColor
 from PySide6.QtWidgets import (
     QCalendarWidget,
     QHBoxLayout,
@@ -33,7 +33,7 @@ from clinicdesk.app.application.citas import (
     redactar_texto_busqueda,
     sanear_columnas_citas,
 )
-from clinicdesk.app.application.citas.navigation_intent import CitasNavigationIntentDTO
+from clinicdesk.app.application.citas.navigation_intent import CitasNavigationIntentDTO, debe_abrir_detalle
 from clinicdesk.app.application.prediccion_ausencias.riesgo_agenda import RIESGO_NO_DISPONIBLE
 from clinicdesk.app.application.prediccion_ausencias.aviso_salud_prediccion import CacheSaludPrediccionPorRefresh
 from clinicdesk.app.application.prediccion_operativa.ux_estimaciones import (
@@ -377,31 +377,111 @@ class PageCitas(QWidget):
         intent = self._intent_navegacion_pendiente
         if intent is None or vista != self._contexto_activo():
             return
-        encontrado = self._seleccionar_cita_intent(intent, vista)
-        if not encontrado and vista == "CALENDARIO":
-            self.tabs.setCurrentIndex(1)
-            encontrado = self._seleccionar_cita_intent(intent, "LISTA")
+        encontrado, vista_final = self._resolver_seleccion_intent(intent, vista)
+        if encontrado and intent.resaltar:
+            self._aplicar_resaltado_intent(intent, vista_final)
+        self._abrir_detalle_segun_intent(intent, encontrado, vista_final)
         if not encontrado:
             self.lbl_estado.setText(self._i18n.t("gestion.abrir_no_encontrada"))
         LOGGER.info(
-            "gestion_abrir_cita",
-            extra={"action": "gestion_abrir_cita", "cita_id": intent.cita_id_destino, "found": encontrado},
+            "citas_intent_aplicado",
+            extra={
+                "action": "citas_intent_aplicado",
+                "accion": intent.accion,
+                "cita_id": intent.cita_id_destino,
+                "found": encontrado,
+                "vista_final": vista_final,
+            },
         )
         self._intent_navegacion_pendiente = None
 
-    def _seleccionar_cita_intent(self, intent: CitasNavigationIntentDTO, vista: str) -> bool:
+    def _resolver_seleccion_intent(self, intent: CitasNavigationIntentDTO, vista: str) -> tuple[bool, str]:
+        if self._seleccionar_cita_intent(intent, vista):
+            return True, vista
+        if vista != "CALENDARIO":
+            return False, vista
+        self.tabs.setCurrentIndex(1)
+        if self._seleccionar_cita_intent(intent, "LISTA"):
+            return True, "LISTA"
+        return False, "LISTA"
+
+    def _abrir_detalle_segun_intent(self, intent: CitasNavigationIntentDTO, found: bool, vista_final: str) -> None:
+        if not debe_abrir_detalle(intent, found):
+            return
+        ok = self._abrir_detalle_cita_por_id(intent.cita_id_destino, vista_final)
+        action = "citas_abrir_detalle_ok" if ok else "citas_abrir_detalle_fail"
+        payload = {"action": action, "cita_id": intent.cita_id_destino, "vista": vista_final}
+        if ok:
+            LOGGER.info(action, extra=payload)
+            return
+        self.lbl_estado.setText(self._i18n.t("gestion.abrir_detalle_no_posible"))
+        LOGGER.warning(action, extra={**payload, "exc_type": "DetalleNoDisponible"})
+
+    def _aplicar_resaltado_intent(self, intent: CitasNavigationIntentDTO, vista: str) -> None:
+        indice = self._indice_intent_en_vista(intent.cita_id_destino, vista)
+        if indice is None:
+            return
+        tabla = self.table_lista if vista == "LISTA" else self.table
+        self._resaltar_fila_temporal(tabla, indice, intent.duracion_resaltado_ms)
+
+    def _indice_intent_en_vista(self, cita_id: int, vista: str) -> int | None:
         if vista == "LISTA":
-            indice = buscar_indice_por_cita_id(self._citas_lista_ids, intent.cita_id_destino)
+            return buscar_indice_por_cita_id(self._citas_lista_ids, cita_id)
+        return buscar_indice_por_cita_id(self._citas_calendario_ids, cita_id)
+
+    def _resaltar_fila_temporal(self, tabla: QTableWidget, fila: int, duracion_ms: int) -> None:
+        if fila < 0 or fila >= tabla.rowCount():
+            return
+        color = QColor("#FFF2B2")
+        originales: list[QColor | None] = []
+        for col in range(tabla.columnCount()):
+            item = tabla.item(fila, col)
+            if item is None:
+                originales.append(None)
+                continue
+            originales.append(item.background().color())
+            item.setBackground(color)
+
+        def restaurar() -> None:
+            if fila >= tabla.rowCount():
+                return
+            for col, fondo in enumerate(originales):
+                item = tabla.item(fila, col)
+                if item is None or fondo is None:
+                    continue
+                item.setBackground(fondo)
+
+        QTimer.singleShot(max(0, duracion_ms), restaurar)
+
+    def _abrir_detalle_cita_por_id(self, cita_id: int, vista: str) -> bool:
+        if vista == "LISTA":
+            indice = buscar_indice_por_cita_id(self._citas_lista_ids, cita_id)
             if indice is None:
                 return False
+            item = self.table_lista.item(indice, 0)
+            if item is None:
+                return False
+            self._on_lista_item_double_clicked(item)
+            return self._riesgo_enabled
+        indice = buscar_indice_por_cita_id(self._citas_calendario_ids, cita_id)
+        if indice is None:
+            return False
+        item = self.table.item(indice, 0)
+        if item is None:
+            return False
+        self._on_calendario_item_double_clicked(item)
+        return self._riesgo_enabled
+
+    def _seleccionar_cita_intent(self, intent: CitasNavigationIntentDTO, vista: str) -> bool:
+        indice = self._indice_intent_en_vista(intent.cita_id_destino, vista)
+        if indice is None:
+            return False
+        if vista == "LISTA":
             self.table_lista.selectRow(indice)
             item = self.table_lista.item(indice, 0)
             if item is not None:
                 self.table_lista.scrollToItem(item)
             return True
-        indice = buscar_indice_por_cita_id(self._citas_calendario_ids, intent.cita_id_destino)
-        if indice is None:
-            return False
         self.table.selectRow(indice)
         item = self.table.item(indice, 0)
         if item is not None:
