@@ -19,6 +19,7 @@ from clinicdesk.app.application.citas.usecases import (
     PaginacionCitasDTO,
     ResultadoListadoDTO,
 )
+from clinicdesk.app.application.citas.navigation_intent import CitasNavigationIntentDTO
 
 __all__ = [
     "ATRIBUTOS_CITA",
@@ -40,4 +41,5 @@ __all__ = [
     "obtener_columnas_default_citas",
     "sanear_columnas_citas",
     "validar_filtros_citas",
+    "CitasNavigationIntentDTO",
 ]

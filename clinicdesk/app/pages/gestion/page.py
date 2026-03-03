@@ -25,6 +25,7 @@ from clinicdesk.app.application.usecases.dashboard_gestion import (
     PRESET_PERSONALIZADO,
 )
 from clinicdesk.app.application.usecases.dashboard_gestion_prediccion import CitaVigilarDTO
+from clinicdesk.app.application.citas.navigation_intent import CitasNavigationIntentDTO
 from clinicdesk.app.application.usecases.obtener_metricas_operativas import ObtenerMetricasOperativas
 from clinicdesk.app.container import AppContainer
 from clinicdesk.app.pages.gestion.adapters import PrediccionAusenciasGestionAdapter, PrediccionOperativaGestionAdapter
@@ -32,6 +33,7 @@ from clinicdesk.app.domain.exceptions import ValidationError
 from clinicdesk.app.i18n import I18nManager
 from clinicdesk.app.queries.dashboard_gestion_queries import DashboardGestionQueries
 from clinicdesk.app.queries.metricas_operativas_queries import MetricasOperativasQueries
+
 
 class PageGestionDashboard(QWidget):
     def __init__(self, container: AppContainer, i18n: I18nManager, parent: QWidget | None = None) -> None:
@@ -220,7 +222,7 @@ class PageGestionDashboard(QWidget):
             self.tabla_vigilancia.setItem(fila, 2, QTableWidgetItem(cita.medico))
             self.tabla_vigilancia.setItem(fila, 3, QTableWidgetItem(self._texto_senales(cita)))
             boton = QPushButton(self._i18n.t("dashboard_gestion.citas_vigilar.btn.abrir"))
-            boton.clicked.connect(lambda _=False: self._navegar_a("citas"))
+            boton.clicked.connect(lambda _=False, cita_id=cita.cita_id: self._abrir_cita_desde_gestion(cita_id))
             self.tabla_vigilancia.setCellWidget(fila, 4, boton)
 
     def _texto_senales(self, cita: CitaVigilarDTO) -> str:
@@ -233,12 +235,16 @@ class PageGestionDashboard(QWidget):
             claves.append(self._i18n.t("dashboard_gestion.citas_vigilar.senal.espera"))
         return " · ".join(claves)
 
-    def _navegar_a(self, key: str) -> None:
+    def _abrir_cita_desde_gestion(self, cita_id: int) -> None:
+        intent = CitasNavigationIntentDTO(preset_rango="HOY", cita_id_destino=cita_id, preferir_pestana="LISTA")
+        self._navegar_a("citas", intent=intent)
+
+    def _navegar_a(self, key: str, intent: object | None = None) -> None:
         parent = self.parentWidget()
         while parent is not None and not hasattr(parent, "navigate"):
             parent = parent.parentWidget()
         if parent is not None:
-            parent.navigate(key)
+            parent.navigate(key, intent=intent)
 
     def _mostrar_error(self, mensaje: str) -> None:
         self.lbl_estado.setText(mensaje)

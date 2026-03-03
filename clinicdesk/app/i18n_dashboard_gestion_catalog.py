@@ -47,6 +47,9 @@ DASHBOARD_GESTION_TRANSLATIONS = {
         "dashboard_gestion.citas_vigilar.senal.duracion": "Duración",
         "dashboard_gestion.citas_vigilar.senal.espera": "Espera",
         "dashboard_gestion.citas_vigilar.btn.abrir": "Abrir",
+        "gestion.abrir_no_encontrada": "No encontré esa cita con los filtros actuales. He mostrado las citas de hoy.",
+        "gestion.abrir_ok": "He abierto la cita seleccionada.",
+        "citas.intent_aplicado": "Intent de navegación aplicado.",
     },
     "en": {
         "nav.gestion": "Management",
@@ -94,5 +97,8 @@ DASHBOARD_GESTION_TRANSLATIONS = {
         "dashboard_gestion.citas_vigilar.senal.duracion": "Duration",
         "dashboard_gestion.citas_vigilar.senal.espera": "Wait",
         "dashboard_gestion.citas_vigilar.btn.abrir": "Open",
+        "gestion.abrir_no_encontrada": "I could not find that appointment with the current filters. I have shown today's appointments.",
+        "gestion.abrir_ok": "Selected appointment opened.",
+        "citas.intent_aplicado": "Navigation intent applied.",
     },
 }
