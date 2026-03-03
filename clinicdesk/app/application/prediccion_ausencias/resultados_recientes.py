@@ -15,6 +15,13 @@ from clinicdesk.app.queries.prediccion_ausencias_resultados_queries import (
 
 LOGGER = get_logger(__name__)
 _RIESGOS_ORDEN = ("BAJO", "MEDIO", "ALTO")
+_VENTANAS_PERMITIDAS_SEMANAS = (4, 8, 12)
+_VENTANA_SEMANAS_FALLBACK = 8
+
+
+def ventana_semanas_a_dias(semanas: int) -> int:
+    semanas_normalizadas = semanas if semanas in _VENTANAS_PERMITIDAS_SEMANAS else _VENTANA_SEMANAS_FALLBACK
+    return semanas_normalizadas * 7
 
 
 class DiagnosticoResultadosRecientes(StrEnum):
@@ -35,10 +42,13 @@ class FilaResultadoRecienteDTO:
 @dataclass(frozen=True, slots=True)
 class ResultadoRecientesPrediccionDTO:
     version_modelo_fecha_utc: str | None
+    ventana_semanas: int
     ventana_dias: int
     filas: tuple[FilaResultadoRecienteDTO, ...]
     diagnostico: DiagnosticoResultadosRecientes
     mensaje_i18n_key: str
+    por_que_i18n_key: str
+    que_hacer_i18n_key: str
     acciones_i18n_keys: tuple[str, ...]
     total_citas_cerradas_en_ventana: int
     total_predicciones_registradas_en_ventana: int
@@ -92,22 +102,27 @@ class ObtenerResultadosRecientesPrediccionAusencias:
     repositorio: RepositorioResultadosRecientesPrediccion
     umbral_minimo: int = 20
 
-    def ejecutar(self, ventana_dias: int = 60) -> ResultadoRecientesPrediccionDTO:
-        diagnostico_raw = self.repositorio.obtener_diagnostico_resultados_recientes(ventana_dias=ventana_dias)
+    def ejecutar(self, ventana_semanas: int | None = None, ventana_dias: int | None = None) -> ResultadoRecientesPrediccionDTO:
+        semanas = self._resolver_ventana_semanas(ventana_semanas, ventana_dias)
+        dias = ventana_semanas_a_dias(semanas)
+        diagnostico_raw = self.repositorio.obtener_diagnostico_resultados_recientes(ventana_dias=dias)
         diagnostico = self._resolver_diagnostico(diagnostico_raw)
         filas = tuple()
         if diagnostico is DiagnosticoResultadosRecientes.OK:
-            resultado = self.repositorio.obtener_resultados_recientes_prediccion(ventana_dias=ventana_dias)
+            resultado = self.repositorio.obtener_resultados_recientes_prediccion(ventana_dias=dias)
             filas = self._normalizar_filas(resultado.filas)
             version_modelo = resultado.version_modelo_fecha_utc
         else:
             version_modelo = diagnostico_raw.version_objetivo
         return ResultadoRecientesPrediccionDTO(
             version_modelo_fecha_utc=version_modelo,
-            ventana_dias=ventana_dias,
+            ventana_semanas=semanas,
+            ventana_dias=dias,
             filas=filas,
             diagnostico=diagnostico,
             mensaje_i18n_key=self._mensaje_clave(diagnostico),
+            por_que_i18n_key=self._por_que_clave(diagnostico),
+            que_hacer_i18n_key=self._que_hacer_clave(diagnostico),
             acciones_i18n_keys=self._acciones_clave(diagnostico),
             total_citas_cerradas_en_ventana=diagnostico_raw.total_citas_cerradas_en_ventana,
             total_predicciones_registradas_en_ventana=diagnostico_raw.total_predicciones_registradas_en_ventana,
@@ -145,6 +160,22 @@ class ObtenerResultadosRecientesPrediccionAusencias:
     @staticmethod
     def _mensaje_clave(diagnostico: DiagnosticoResultadosRecientes) -> str:
         return f"prediccion_ausencias.resultados.diagnostico.{diagnostico.value.lower()}"
+
+    @staticmethod
+    def _por_que_clave(diagnostico: DiagnosticoResultadosRecientes) -> str:
+        return f"prediccion_ausencias.resultados.diagnostico.{diagnostico.value.lower()}.por_que"
+
+    @staticmethod
+    def _que_hacer_clave(diagnostico: DiagnosticoResultadosRecientes) -> str:
+        return f"prediccion_ausencias.resultados.diagnostico.{diagnostico.value.lower()}.que_hacer"
+
+    @staticmethod
+    def _resolver_ventana_semanas(ventana_semanas: int | None, ventana_dias: int | None) -> int:
+        if ventana_semanas is not None:
+            return ventana_semanas if ventana_semanas in _VENTANAS_PERMITIDAS_SEMANAS else _VENTANA_SEMANAS_FALLBACK
+        if ventana_dias in {28, 56, 84}:
+            return int(ventana_dias // 7)
+        return _VENTANA_SEMANAS_FALLBACK
 
     @staticmethod
     def _acciones_clave(diagnostico: DiagnosticoResultadosRecientes) -> tuple[str, ...]:

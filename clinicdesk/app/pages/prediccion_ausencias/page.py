@@ -1,7 +1,8 @@
 from __future__ import annotations
 from pathlib import Path
-from PySide6.QtCore import QSettings, QThread, Qt
+from PySide6.QtCore import QSettings, QThread, QTimer, Qt
 from PySide6.QtWidgets import (
+    QComboBox,
     QCheckBox,
     QFormLayout,
     QGroupBox,
@@ -17,6 +18,12 @@ from PySide6.QtWidgets import (
 )
 from clinicdesk.app.application.prediccion_ausencias import ResultadoEntrenamientoPrediccion
 from clinicdesk.app.application.prediccion_ausencias.resultados_recientes import DiagnosticoResultadosRecientes
+from clinicdesk.app.application.prediccion_ausencias.preferencias_resultados_recientes import (
+    CLAVE_VENTANA_RESULTADOS_RECIENTES,
+    VENTANA_RESULTADOS_POR_DEFECTO,
+    deserializar_ventana_resultados_semanas,
+    serializar_ventana_resultados_semanas,
+)
 from clinicdesk.app.application.services.prediccion_ausencias_facade import PrediccionAusenciasFacade
 from clinicdesk.app.bootstrap_logging import get_contexto_log, get_logger
 from clinicdesk.app.i18n import I18nManager
@@ -38,6 +45,7 @@ class PagePrediccionAusencias(QWidget):
         self._entrenar_thread: QThread | None = None
         self._entrenar_worker: EntrenarPrediccionWorker | None = None
         self._settings_key = "prediccion_ausencias/mostrar_riesgo_agenda"
+        self._ventana_resultados_semanas = VENTANA_RESULTADOS_POR_DEFECTO
         self._build_ui()
         self._i18n.subscribe(self._retranslate)
         self._retranslate()
@@ -74,6 +82,17 @@ class PagePrediccionAusencias(QWidget):
     def _build_resultados_recientes(self) -> QWidget:
         self.box_resultados = QGroupBox()
         layout = QVBoxLayout(self.box_resultados)
+        top_row = QHBoxLayout()
+        self.lbl_resultados_periodo = QLabel()
+        self.cmb_resultados_periodo = QComboBox()
+        self.cmb_resultados_periodo.currentIndexChanged.connect(self._on_cambio_periodo_resultados)
+        self.btn_resultados_ayuda = QPushButton()
+        self.btn_resultados_ayuda.setFlat(True)
+        self.btn_resultados_ayuda.clicked.connect(self._mostrar_ayuda_resultados)
+        top_row.addWidget(self.lbl_resultados_periodo)
+        top_row.addWidget(self.cmb_resultados_periodo)
+        top_row.addStretch(1)
+        top_row.addWidget(self.btn_resultados_ayuda)
         self.lbl_resultados_subtitulo = QLabel()
         self.lbl_resultados_subtitulo.setWordWrap(True)
         self.lbl_resultados_estado = QLabel()
@@ -89,6 +108,7 @@ class PagePrediccionAusencias(QWidget):
         self.lbl_resultado_bajo = QLabel()
         self.lbl_resultado_medio = QLabel()
         self.lbl_resultado_alto = QLabel()
+        layout.addLayout(top_row)
         layout.addWidget(self.lbl_resultados_subtitulo)
         layout.addWidget(self.lbl_resultados_estado)
         layout.addWidget(self.lbl_resultados_accion)
@@ -163,11 +183,14 @@ class PagePrediccionAusencias(QWidget):
         self.btn_cerrar_citas_antiguas.setVisible(mostrar_cierre)
         self.lbl_salud_ayuda_cierre.setVisible(mostrar_cierre)
     def _actualizar_resultados_recientes(self) -> None:
-        resultado = self._facade.obtener_resultados_recientes_uc.ejecutar()
-        semanas = max(1, resultado.ventana_dias // 7)
-        self.lbl_resultados_subtitulo.setText(self._i18n.t("prediccion_ausencias.resultados.subtitulo").format(semanas=semanas))
-        self.lbl_resultados_estado.setText(self._i18n.t(resultado.mensaje_i18n_key))
-        self.lbl_resultados_accion.setText(" ".join(self._i18n.t(key) for key in resultado.acciones_i18n_keys))
+        resultado = self._facade.obtener_resultados_recientes_uc.ejecutar(ventana_semanas=self._ventana_resultados_semanas)
+        self.lbl_resultados_subtitulo.setText(self._i18n.t("prediccion_ausencias.resultados.subtitulo"))
+        self.lbl_resultados_estado.setText(
+            self._i18n.t("prediccion_ausencias.resultados.por_que").format(texto=self._i18n.t(resultado.por_que_i18n_key))
+        )
+        self.lbl_resultados_accion.setText(
+            self._i18n.t("prediccion_ausencias.resultados.que_hacer").format(texto=self._i18n.t(resultado.que_hacer_i18n_key))
+        )
         self._configurar_ctas_resultados(resultado.diagnostico)
         if resultado.diagnostico is not DiagnosticoResultadosRecientes.OK:
             self.lbl_resultado_bajo.setText("")
@@ -185,6 +208,28 @@ class PagePrediccionAusencias(QWidget):
         self.lbl_resultado_bajo.setText(textos.get("BAJO", ""))
         self.lbl_resultado_medio.setText(textos.get("MEDIO", ""))
         self.lbl_resultado_alto.setText(textos.get("ALTO", ""))
+
+    def _on_cambio_periodo_resultados(self) -> None:
+        semanas = self.cmb_resultados_periodo.currentData()
+        if semanas is None:
+            return
+        self._ventana_resultados_semanas = int(semanas)
+        self._guardar_preferencia_ventana_resultados()
+        self.lbl_resultados_estado.setText(self._i18n.t("prediccion_ausencias.resultados.actualizando"))
+        QTimer.singleShot(0, self._actualizar_resultados_recientes)
+
+    def _mostrar_ayuda_resultados(self) -> None:
+        bullets = [
+            self._i18n.t("prediccion_ausencias.resultados.ayuda.bullet_1"),
+            self._i18n.t("prediccion_ausencias.resultados.ayuda.bullet_2"),
+            self._i18n.t("prediccion_ausencias.resultados.ayuda.bullet_3"),
+        ]
+        texto = "\n".join(f"• {item}" for item in bullets)
+        QMessageBox.information(
+            self,
+            self._i18n.t("prediccion_ausencias.resultados.ayuda.titulo"),
+            texto,
+        )
     def _configurar_ctas_resultados(self, diagnostico: DiagnosticoResultadosRecientes) -> None:
         mostrar_cierre = diagnostico in {
             DiagnosticoResultadosRecientes.SIN_CITAS_CERRADAS,
@@ -382,6 +427,23 @@ class PagePrediccionAusencias(QWidget):
         qsettings = QSettings("clinicdesk", "ui")
         checked = bool(int(qsettings.value(self._settings_key, 0)))
         self.chk_activar.setChecked(checked)
+        self._restaurar_preferencia_ventana_resultados()
+
+    def _guardar_preferencia_ventana_resultados(self) -> None:
+        qsettings = QSettings("clinicdesk", "ui")
+        qsettings.setValue(
+            CLAVE_VENTANA_RESULTADOS_RECIENTES,
+            serializar_ventana_resultados_semanas(self._ventana_resultados_semanas),
+        )
+
+    def _restaurar_preferencia_ventana_resultados(self) -> None:
+        qsettings = QSettings("clinicdesk", "ui")
+        valor = qsettings.value(
+            CLAVE_VENTANA_RESULTADOS_RECIENTES,
+            serializar_ventana_resultados_semanas(VENTANA_RESULTADOS_POR_DEFECTO),
+        )
+        self._ventana_resultados_semanas = deserializar_ventana_resultados_semanas(valor)
+        self._recargar_opciones_periodo()
     def _retranslate(self) -> None:
         self.box_salud.setTitle(self._i18n.t("prediccion_ausencias.salud.titulo"))
         self.box_resultados.setTitle(self._i18n.t("prediccion_ausencias.resultados.titulo"))
@@ -397,8 +459,25 @@ class PagePrediccionAusencias(QWidget):
         self.btn_resultados_cerrar_citas_antiguas.setText(self._i18n.t("prediccion_ausencias.resultados.cta.cerrar_citas_antiguas"))
         self.btn_resultados_abrir_confirmaciones.setText(self._i18n.t("prediccion_ausencias.resultados.cta.abrir_confirmaciones"))
         self.btn_resultados_activar_riesgo_agenda.setText(self._i18n.t("prediccion_ausencias.resultados.cta.activar_riesgo_agenda"))
+        self.lbl_resultados_periodo.setText(self._i18n.t("prediccion_ausencias.resultados.periodo"))
+        self.btn_resultados_ayuda.setText(self._i18n.t("prediccion_ausencias.resultados.ayuda.accion"))
+        self._recargar_opciones_periodo()
         self.tabla.setHorizontalHeaderLabels([self._i18n.t("prediccion_ausencias.tabla.fecha"), self._i18n.t("prediccion_ausencias.tabla.hora"), self._i18n.t("prediccion_ausencias.tabla.paciente"), self._i18n.t("prediccion_ausencias.tabla.medico"), self._i18n.t("prediccion_ausencias.tabla.riesgo")])
         self._actualizar_resultados_recientes()
+
+    def _recargar_opciones_periodo(self) -> None:
+        self.cmb_resultados_periodo.blockSignals(True)
+        self.cmb_resultados_periodo.clear()
+        opciones = (
+            (4, self._i18n.t("prediccion_ausencias.resultados.periodo.4")),
+            (8, self._i18n.t("prediccion_ausencias.resultados.periodo.8")),
+            (12, self._i18n.t("prediccion_ausencias.resultados.periodo.12")),
+        )
+        for semanas, etiqueta in opciones:
+            self.cmb_resultados_periodo.addItem(etiqueta, semanas)
+        indice = self.cmb_resultados_periodo.findData(self._ventana_resultados_semanas)
+        self.cmb_resultados_periodo.setCurrentIndex(max(0, indice))
+        self.cmb_resultados_periodo.blockSignals(False)
     def _abrir_asistente_cierre(self) -> None:
         dialog = CerrarCitasAntiguasDialog(self._facade, self._i18n, self)
         if dialog.exec():
