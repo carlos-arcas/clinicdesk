@@ -37,6 +37,10 @@ def crear_sesion_autenticada(
     return factories.crear_ventana_principal(contexto_usuario, on_logout)
 
 
+def debe_mantener_referencia_ventana_principal(ventana: Any) -> bool:
+    return ventana is not None
+
+
 class ControladorSesionAutenticada:
     def __init__(
         self,
@@ -64,31 +68,29 @@ class ControladorSesionAutenticada:
             self._cerrar_ventana_anterior()
             self._logger.info("main_window_create", extra={"action": "main_window_create"})
             ventana = crear_sesion_autenticada(contexto, self._factories, on_logout)
+            if not debe_mantener_referencia_ventana_principal(ventana):
+                self._registrar_fallo_transicion("main_window_init_failed")
+                return False
             self.ventana_principal = ventana
             setattr(self._app, "ventana_principal", ventana)
             ventana.show()
             self._logger.info("main_window_show", extra={"action": "main_window_show"})
             if not ventana.isVisible():
-                self._logger.warning(
-                    "main_window_not_visible",
-                    extra={"action": "post_login_transition_fail", "reason_code": "main_window_init_failed"},
-                )
-                self._mostrar_error(self._i18n.t("session.error.open_failed"))
+                self._registrar_fallo_transicion("main_window_init_failed")
                 return False
             self._app.setQuitOnLastWindowClosed(True)
             self._logger.info("post_login_transition_ok", extra={"action": "post_login_transition_ok"})
             return True
         except Exception as exc:  # pragma: no cover - protegido por test funcional
-            self._logger.error(
-                "post_login_transition_fail",
-                extra={
-                    "action": "post_login_transition_fail",
-                    "reason_code": "unexpected_error",
-                    "exc_type": type(exc).__name__,
-                },
-            )
-            self._mostrar_error(self._i18n.t("session.error.open_failed"))
+            self._registrar_fallo_transicion("unexpected_error", exc)
             return False
+
+    def _registrar_fallo_transicion(self, reason_code: str, exc: Exception | None = None) -> None:
+        extra = {"action": "post_login_transition_fail", "reason_code": reason_code, "exc_type": "none"}
+        if exc is not None:
+            extra["exc_type"] = type(exc).__name__
+        self._logger.error("post_login_transition_fail", extra=extra)
+        self._mostrar_error(self._i18n.t("session.error.open_failed"))
 
     def _cerrar_ventana_anterior(self) -> None:
         if self.ventana_principal is None:
