@@ -35,6 +35,9 @@ from clinicdesk.app.application.prediccion_ausencias.resultados_recientes import
     RegistrarPrediccionesAusenciasAgenda,
     ResultadoRecientesPrediccionDTO,
 )
+from clinicdesk.app.application.prediccion_ausencias.preferencias_recordatorio_entrenar import (
+    PreferenciaRecordatorioEntrenarDTO,
+)
 
 __all__ = [
     "CitaParaPrediccionDTO",
@@ -64,4 +67,5 @@ __all__ = [
     "ObtenerResultadosRecientesPrediccionAusencias",
     "RegistrarPrediccionesAusenciasAgenda",
     "ResultadoRecientesPrediccionDTO",
+    "PreferenciaRecordatorioEntrenarDTO",
 ]

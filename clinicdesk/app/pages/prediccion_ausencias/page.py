@@ -1,4 +1,5 @@
 from __future__ import annotations
+from datetime import date
 from pathlib import Path
 from PySide6.QtCore import QSettings, QThread, QTimer, Qt
 from PySide6.QtWidgets import (
@@ -18,6 +19,11 @@ from PySide6.QtWidgets import (
 )
 from clinicdesk.app.application.prediccion_ausencias import ResultadoEntrenamientoPrediccion
 from clinicdesk.app.application.prediccion_ausencias.resultados_recientes import DiagnosticoResultadosRecientes
+from clinicdesk.app.application.prediccion_ausencias.preferencias_recordatorio_entrenar import (
+    DIAS_SNOOZE_POR_DEFECTO,
+    PreferenciaRecordatorioEntrenarDTO,
+    debe_mostrar_recordatorio,
+)
 from clinicdesk.app.application.prediccion_ausencias.preferencias_resultados_recientes import (
     CLAVE_VENTANA_RESULTADOS_RECIENTES,
     VENTANA_RESULTADOS_POR_DEFECTO,
@@ -34,6 +40,11 @@ from clinicdesk.app.pages.prediccion_ausencias.entrenar_worker import (
     EntrenarPrediccionWorker,
 )
 from clinicdesk.app.pages.prediccion_ausencias.error_handling import normalizar_error_entrenamiento
+from clinicdesk.app.pages.prediccion_ausencias.persistencia_recordatorio_entrenar_settings import (
+    leer_preferencia_recordatorio_entrenar,
+    limpiar_recordatorio_entrenar,
+    posponer_recordatorio_entrenar,
+)
 LOGGER = get_logger(__name__)
 class PagePrediccionAusencias(QWidget):
     def __init__(self, facade: PrediccionAusenciasFacade, i18n: I18nManager, parent: QWidget | None = None) -> None:
@@ -46,6 +57,12 @@ class PagePrediccionAusencias(QWidget):
         self._entrenar_worker: EntrenarPrediccionWorker | None = None
         self._settings_key = "prediccion_ausencias/mostrar_riesgo_agenda"
         self._ventana_resultados_semanas = VENTANA_RESULTADOS_POR_DEFECTO
+        self._recordatorio_oculto_sesion = False
+        self._ultimo_motivo_recordatorio_log: str | None = None
+        self._preferencia_recordatorio = PreferenciaRecordatorioEntrenarDTO(
+            fecha_recordatorio_utc=None,
+            dias_snooze=DIAS_SNOOZE_POR_DEFECTO,
+        )
         self._build_ui()
         self._i18n.subscribe(self._retranslate)
         self._retranslate()
@@ -73,9 +90,23 @@ class PagePrediccionAusencias(QWidget):
         self.lbl_salud_ayuda_cierre.setWordWrap(True)
         self.btn_cerrar_citas_antiguas = QPushButton()
         self.btn_cerrar_citas_antiguas.clicked.connect(self._abrir_asistente_cierre)
+        self.banner_recordatorio = QWidget()
+        fila_recordatorio = QHBoxLayout(self.banner_recordatorio)
+        fila_recordatorio.setContentsMargins(8, 4, 8, 4)
+        self.lbl_recordatorio = QLabel()
+        self.lbl_recordatorio.setWordWrap(True)
+        self.btn_recordatorio_entrenar = QPushButton()
+        self.btn_recordatorio_entrenar.clicked.connect(self._on_entrenar_click)
+        self.btn_recordatorio_mas_tarde = QPushButton()
+        self.btn_recordatorio_mas_tarde.clicked.connect(self._on_recordatorio_mas_tarde)
+        fila_recordatorio.addWidget(self.lbl_recordatorio, 1)
+        fila_recordatorio.addWidget(self.btn_recordatorio_entrenar)
+        fila_recordatorio.addWidget(self.btn_recordatorio_mas_tarde)
+        self.banner_recordatorio.setVisible(False)
         layout.addWidget(self.lbl_salud_estado)
         layout.addWidget(self.lbl_salud_mensaje)
         layout.addWidget(self.btn_salud_entrenar)
+        layout.addWidget(self.banner_recordatorio)
         layout.addWidget(self.btn_cerrar_citas_antiguas)
         layout.addWidget(self.lbl_salud_ayuda_cierre)
         return self.box_salud
@@ -179,6 +210,7 @@ class PagePrediccionAusencias(QWidget):
         self.lbl_salud_estado.setText(self._i18n.t(f"prediccion_ausencias.salud.estado.{salud.estado.lower()}"))
         self.lbl_salud_mensaje.setText(self._i18n.t(salud.mensaje_i18n_key).format(citas=salud.citas_validas_recientes))
         self.btn_salud_entrenar.setVisible(salud.estado in {"AMARILLO", "ROJO"})
+        self._actualizar_banner_recordatorio(salud.estado)
         mostrar_cierre = salud.estado in {"AMARILLO", "ROJO"} and salud.citas_validas_recientes < 50
         self.btn_cerrar_citas_antiguas.setVisible(mostrar_cierre)
         self.lbl_salud_ayuda_cierre.setVisible(mostrar_cierre)
@@ -316,6 +348,7 @@ class PagePrediccionAusencias(QWidget):
     def _on_entrenar_ok(self, resultado: ResultadoEntrenamientoPrediccion) -> None:
         try:
             self._set_estado_success()
+            self._limpiar_recordatorio_por_entrenamiento()
             self._actualizar_salud()
             self._actualizar_resultados_recientes()
             self._cargar_previsualizacion()
@@ -428,6 +461,7 @@ class PagePrediccionAusencias(QWidget):
         checked = bool(int(qsettings.value(self._settings_key, 0)))
         self.chk_activar.setChecked(checked)
         self._restaurar_preferencia_ventana_resultados()
+        self._preferencia_recordatorio = leer_preferencia_recordatorio_entrenar(qsettings)
 
     def _guardar_preferencia_ventana_resultados(self) -> None:
         qsettings = QSettings("clinicdesk", "ui")
@@ -444,6 +478,56 @@ class PagePrediccionAusencias(QWidget):
         )
         self._ventana_resultados_semanas = deserializar_ventana_resultados_semanas(valor)
         self._recargar_opciones_periodo()
+
+    def _actualizar_banner_recordatorio(self, salud_estado: str) -> None:
+        if self._recordatorio_oculto_sesion:
+            self.banner_recordatorio.setVisible(False)
+            return
+        hoy_utc = date.today()
+        fecha = self._preferencia_recordatorio.fecha_recordatorio_utc
+        if not debe_mostrar_recordatorio(hoy_utc, salud_estado, fecha):
+            self.banner_recordatorio.setVisible(False)
+            return
+        motivo = "first" if fecha is None else "due"
+        texto_clave = (
+            "prediccion_ausencias.recordatorio.texto.primer_aviso"
+            if motivo == "first"
+            else "prediccion_ausencias.recordatorio.texto.vencido"
+        )
+        if self._ultimo_motivo_recordatorio_log != motivo:
+            LOGGER.info(
+                "prediccion_recordatorio_mostrar",
+                extra={"action": "prediccion_recordatorio_mostrar", "motivo": motivo},
+            )
+            self._ultimo_motivo_recordatorio_log = motivo
+        self.lbl_recordatorio.setText(self._i18n.t(texto_clave))
+        self.banner_recordatorio.setVisible(True)
+
+    def _on_recordatorio_mas_tarde(self) -> None:
+        qsettings = QSettings("clinicdesk", "ui")
+        self._preferencia_recordatorio = posponer_recordatorio_entrenar(
+            qsettings,
+            hoy_utc=date.today(),
+            dias_snooze=self._preferencia_recordatorio.dias_snooze,
+        )
+        self._recordatorio_oculto_sesion = True
+        self.banner_recordatorio.setVisible(False)
+        LOGGER.info(
+            "prediccion_recordatorio_snooze",
+            extra={
+                "action": "prediccion_recordatorio_snooze",
+                "dias": self._preferencia_recordatorio.dias_snooze,
+            },
+        )
+
+    def _limpiar_recordatorio_por_entrenamiento(self) -> None:
+        qsettings = QSettings("clinicdesk", "ui")
+        limpiar_recordatorio_entrenar(qsettings, dias_snooze=self._preferencia_recordatorio.dias_snooze)
+        self._preferencia_recordatorio = leer_preferencia_recordatorio_entrenar(qsettings)
+        self._recordatorio_oculto_sesion = False
+        self._ultimo_motivo_recordatorio_log = None
+        LOGGER.info("prediccion_recordatorio_clear", extra={"action": "prediccion_recordatorio_clear"})
+
     def _retranslate(self) -> None:
         self.box_salud.setTitle(self._i18n.t("prediccion_ausencias.salud.titulo"))
         self.box_resultados.setTitle(self._i18n.t("prediccion_ausencias.resultados.titulo"))
@@ -451,6 +535,12 @@ class PagePrediccionAusencias(QWidget):
         self.box_paso_2.setTitle(self._i18n.t("prediccion_ausencias.paso_2.titulo"))
         self.box_paso_3.setTitle(self._i18n.t("prediccion_ausencias.paso_3.titulo"))
         self.btn_salud_entrenar.setText(self._i18n.t("prediccion_ausencias.accion.entrenar"))
+        self.btn_recordatorio_entrenar.setText(self._i18n.t("prediccion_ausencias.accion.entrenar"))
+        self.btn_recordatorio_mas_tarde.setText(
+            self._i18n.t("prediccion_ausencias.recordatorio.accion.mas_tarde").format(
+                dias=self._preferencia_recordatorio.dias_snooze
+            )
+        )
         self.btn_entrenar.setText(self._i18n.t("prediccion_ausencias.accion.entrenar"))
         self.btn_reintentar.setText(self._i18n.t("prediccion.entrenar.reintentar"))
         self.chk_activar.setText(self._i18n.t("prediccion_ausencias.accion.activar_agenda"))
