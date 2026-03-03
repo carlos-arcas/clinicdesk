@@ -1,5 +1,6 @@
 from __future__ import annotations
 from clinicdesk.app.i18n_prediccion_resultados_catalog import PREDICCION_RESULTADOS_TRANSLATIONS
+from clinicdesk.app.i18n_prediccion_recordatorio_catalog import PREDICCION_RECORDATORIO_TRANSLATIONS
 from clinicdesk.app.i18n_recordatorio_catalog import RECORDATORIO_TRANSLATIONS
 _TRANSLATIONS = {
     "es": {
@@ -386,4 +387,6 @@ _TRANSLATIONS = {
 for _lang, _entries in PREDICCION_RESULTADOS_TRANSLATIONS.items():
     _TRANSLATIONS.setdefault(_lang, {}).update(_entries)
 for _lang, _entries in RECORDATORIO_TRANSLATIONS.items():
+    _TRANSLATIONS.setdefault(_lang, {}).update(_entries)
+for _lang, _entries in PREDICCION_RECORDATORIO_TRANSLATIONS.items():
     _TRANSLATIONS.setdefault(_lang, {}).update(_entries)
