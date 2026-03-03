@@ -45,7 +45,7 @@ def test_application_y_domain_no_dependen_de_ui() -> None:
     for ruta_base in rutas:
         for archivo in ruta_base.rglob("*.py"):
             for modulo in _imports_python(archivo):
-                if modulo.startswith("clinicdesk.app.ui"):
+                if modulo.startswith("clinicdesk.app.ui") or modulo.startswith("clinicdesk.app.pages"):
                     relativo = archivo.relative_to(REPO_ROOT)
                     violaciones.append(f"{relativo}: {modulo}")
     assert not violaciones, "Dependencias UI detectadas en core:\n" + "\n".join(violaciones)
