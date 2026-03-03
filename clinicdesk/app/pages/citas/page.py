@@ -24,6 +24,8 @@ from clinicdesk.app.application.citas import (
     BuscarCitasParaLista,
     FiltrosCitasDTO,
     ErrorValidacionDTO,
+    HitoAtencion,
+    RegistrarHitoAtencionCita,
     PaginacionCitasDTO,
     formatear_valor_atributo_cita,
     normalizar_y_validar_filtros_citas,
@@ -60,8 +62,14 @@ from clinicdesk.app.pages.citas.widgets.persistencia_citas_settings import (
 )
 from clinicdesk.app.pages.citas.widgets.tooltip_citas import CLAVES_TOOLTIP_POR_DEFECTO, construir_tooltip_cita
 from clinicdesk.app.queries.citas_queries import CitaRow, CitasQueries
+from clinicdesk.app.infrastructure.sqlite.repos_citas_hitos import CitasHitosRepository
 
 LOGGER = get_logger(__name__)
+
+
+class _RelojSistema:
+    def ahora(self) -> datetime:
+        return datetime.now().replace(microsecond=0)
 
 
 def _payload_log_filtros(filtros: FiltrosCitasDTO, contexto: str) -> dict[str, object]:
@@ -88,6 +96,7 @@ class PageCitas(QWidget):
         self._buscar_lista_uc = BuscarCitasParaLista(self._queries)
         self._buscar_calendario_uc = BuscarCitasParaCalendario(self._queries)
         self._controller = CitasController(self, container)
+        self._registrar_hito_uc = RegistrarHitoAtencionCita(CitasHitosRepository(container.connection), _RelojSistema())
         self._can_write = container.user_context.can_write
         self._settings = QSettings("clinicdesk", "ui")
         self._filtros_aplicados = FiltrosCitasDTO()
@@ -424,7 +433,23 @@ class PageCitas(QWidget):
         action_recordatorio = QAction(self._i18n.t("recordatorio.accion.preparar"), self)
         action_recordatorio.triggered.connect(lambda: self._abrir_dialogo_recordatorio(cita_id))
         menu.addAction(action_recordatorio)
+        menu.addSeparator()
+        self._agregar_accion_hito(menu, cita_id, "citas.hitos.marcar_llegada", HitoAtencion.CHECK_IN)
+        self._agregar_accion_hito(menu, cita_id, "citas.hitos.llamar_consulta", HitoAtencion.LLAMADO)
+        self._agregar_accion_hito(menu, cita_id, "citas.hitos.iniciar_consulta", HitoAtencion.INICIO_CONSULTA)
+        self._agregar_accion_hito(menu, cita_id, "citas.hitos.finalizar_consulta", HitoAtencion.FIN_CONSULTA)
+        self._agregar_accion_hito(menu, cita_id, "citas.hitos.marcar_salida", HitoAtencion.CHECK_OUT)
         menu.exec(global_point)
+
+    def _agregar_accion_hito(self, menu: QMenu, cita_id: int, i18n_key: str, hito: HitoAtencion) -> None:
+        accion = QAction(self._i18n.t(i18n_key), self)
+        accion.triggered.connect(lambda: self._registrar_hito_desde_ui(cita_id, hito))
+        menu.addAction(accion)
+
+    def _registrar_hito_desde_ui(self, cita_id: int, hito: HitoAtencion) -> None:
+        resultado = self._registrar_hito_uc.ejecutar(cita_id, hito)
+        self.lbl_estado.setText(self._i18n.t(f"citas.hitos.resultado.{resultado.reason_code}"))
+        self._refrescar_vistas_principales()
 
     def _cita_id_lista(self, row: int) -> int | None:
         return self._citas_lista_ids[row] if 0 <= row < len(self._citas_lista_ids) else None

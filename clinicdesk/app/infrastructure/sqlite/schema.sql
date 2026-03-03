@@ -214,6 +214,13 @@ CREATE TABLE IF NOT EXISTS citas (
     estado TEXT NOT NULL,
     motivo TEXT,
     notas TEXT,
+    check_in_at TEXT NULL,
+    llamado_a_consulta_at TEXT NULL,
+    consulta_inicio_at TEXT NULL,
+    consulta_fin_at TEXT NULL,
+    check_out_at TEXT NULL,
+    tipo_cita TEXT NULL,
+    canal_reserva TEXT NULL,
 
     override_ok INTEGER NOT NULL DEFAULT 0,
     override_nota TEXT,
