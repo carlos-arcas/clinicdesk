@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, datetime
 
 from PySide6.QtCore import QDate
 from PySide6.QtWidgets import (
@@ -150,11 +150,20 @@ class PageGestionDashboard(QWidget):
         self.lbl_calidad_alertas.setWordWrap(True)
         self.btn_abrir_citas_hoy = QPushButton()
         self.btn_abrir_citas_hoy.clicked.connect(self._abrir_citas_hoy)
+        self.btn_ver_sin_checkin = QPushButton()
+        self.btn_ver_sin_inicio_fin = QPushButton()
+        self.btn_ver_sin_salida = QPushButton()
+        self.btn_ver_sin_checkin.clicked.connect(lambda: self._abrir_citas_calidad("SIN_CHECKIN"))
+        self.btn_ver_sin_inicio_fin.clicked.connect(lambda: self._abrir_citas_calidad("SIN_INICIO_FIN"))
+        self.btn_ver_sin_salida.clicked.connect(lambda: self._abrir_citas_calidad("SIN_SALIDA"))
         lay.addWidget(self.lbl_calidad_titulo)
         lay.addWidget(self.lbl_calidad_resumen)
         lay.addWidget(self.lbl_calidad_faltantes)
         lay.addWidget(self.lbl_calidad_alertas)
         lay.addWidget(self.btn_abrir_citas_hoy)
+        lay.addWidget(self.btn_ver_sin_checkin)
+        lay.addWidget(self.btn_ver_sin_inicio_fin)
+        lay.addWidget(self.btn_ver_sin_salida)
         return box
 
     def _build_tabla_medicos(self) -> QTableWidget:
@@ -294,6 +303,19 @@ class PageGestionDashboard(QWidget):
     def _abrir_citas_hoy(self) -> None:
         self._navegar_a("citas")
 
+    def _abrir_citas_calidad(self, filtro_calidad: str) -> None:
+        filtros = self._leer_filtros()
+        desde = datetime(filtros.desde.year, filtros.desde.month, filtros.desde.day, 0, 0, 0)
+        hasta = datetime(filtros.hasta.year, filtros.hasta.month, filtros.hasta.day, 23, 59, 59)
+        intent = CitasNavigationIntentDTO(
+            preset_rango="PERSONALIZADO",
+            filtro_calidad=filtro_calidad,
+            rango_desde=desde,
+            rango_hasta=hasta,
+            preferir_pestana="LISTA",
+        )
+        self._navegar_a("citas", intent=intent)
+
     def _texto_senales(self, cita: CitaVigilarDTO) -> str:
         claves = []
         if cita.no_show_alto:
@@ -388,6 +410,9 @@ class PageGestionDashboard(QWidget):
         self.lbl_sin_vigilancia.setText(self._i18n.t("dashboard_gestion.citas_vigilar.vacio"))
         self.lbl_calidad_titulo.setText(self._i18n.t("dashboard_gestion.calidad.titulo"))
         self.btn_abrir_citas_hoy.setText(self._i18n.t("dashboard_gestion.calidad.btn.abrir_citas_hoy"))
+        self.btn_ver_sin_checkin.setText(self._i18n.t("dashboard_gestion.calidad.btn.ver_sin_checkin"))
+        self.btn_ver_sin_inicio_fin.setText(self._i18n.t("dashboard_gestion.calidad.btn.ver_sin_inicio_fin"))
+        self.btn_ver_sin_salida.setText(self._i18n.t("dashboard_gestion.calidad.btn.ver_sin_salida"))
         self.lbl_uso_semana_titulo.setText(self._i18n.t("dashboard_gestion.uso_semana.titulo"))
         self.tabla_vigilancia.setHorizontalHeaderLabels(
             [

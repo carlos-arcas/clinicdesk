@@ -33,7 +33,7 @@ from clinicdesk.app.application.citas import (
     redactar_texto_busqueda,
     sanear_columnas_citas,
 )
-from clinicdesk.app.application.citas.navigation_intent import CitasNavigationIntentDTO, debe_abrir_detalle
+from clinicdesk.app.application.citas.navigation_intent import CitasNavigationIntentDTO, debe_abrir_detalle, es_intent_calidad
 from clinicdesk.app.application.prediccion_ausencias.riesgo_agenda import RIESGO_NO_DISPONIBLE
 from clinicdesk.app.application.usecases.registrar_telemetria import RegistrarTelemetria
 from clinicdesk.app.application.prediccion_ausencias.aviso_salud_prediccion import CacheSaludPrediccionPorRefresh
@@ -91,6 +91,7 @@ def _payload_log_filtros(filtros: FiltrosCitasDTO, contexto: str) -> dict[str, o
         "sala_id": filtros.sala_id,
         "paciente_id": filtros.paciente_id,
         "texto_redactado": redactar_texto_busqueda(filtros.texto_busqueda),
+        "filtro_calidad": filtros.filtro_calidad,
     }
 
 
@@ -112,6 +113,8 @@ class PageCitas(QWidget):
         self._citas_lista_ids: list[int] = []
         self._citas_calendario_ids: list[int] = []
         self._intent_navegacion_pendiente: CitasNavigationIntentDTO | None = None
+        self._filtros_previos_calidad: FiltrosCitasDTO | None = None
+        self._filtro_calidad_activo: str | None = None
         self._riesgo_enabled = False
         self._estimaciones_enabled = False
         self._token_refresh_salud = 0
@@ -176,8 +179,12 @@ class PageCitas(QWidget):
         self.lbl_banner_validacion = QLabel("", tab_lista)
         self.btn_corregir_filtros = QPushButton(self._i18n.t("citas.validacion.banner.corregir"), tab_lista)
         self.btn_restablecer_filtros = QPushButton(self._i18n.t("citas.validacion.banner.restablecer"), tab_lista)
+        self.lbl_banner_calidad = QLabel("", tab_lista)
+        self.btn_quitar_filtro_calidad = QPushButton(self._i18n.t("citas.calidad.quitar_filtro"), tab_lista)
         self.btn_corregir_filtros.setVisible(False)
         self.btn_restablecer_filtros.setVisible(False)
+        self.lbl_banner_calidad.setVisible(False)
+        self.btn_quitar_filtro_calidad.setVisible(False)
         self.lbl_aviso_columnas = QLabel("", tab_lista)
         self.lbl_aviso_salud_lista = QLabel("", tab_lista)
         self.btn_ir_prediccion_lista = QPushButton(self._i18n.t("estimaciones.ir_a_estimaciones"), tab_lista)
@@ -200,6 +207,8 @@ class PageCitas(QWidget):
         banner.addWidget(self.lbl_banner_validacion)
         banner.addWidget(self.btn_corregir_filtros)
         banner.addWidget(self.btn_restablecer_filtros)
+        banner.addWidget(self.lbl_banner_calidad)
+        banner.addWidget(self.btn_quitar_filtro_calidad)
         banner.addStretch(1)
         layout_lista.addLayout(banner)
         layout_lista.addLayout(barra)
@@ -228,6 +237,7 @@ class PageCitas(QWidget):
         self.btn_reintentar.clicked.connect(self._programar_refresco_lista)
         self.btn_corregir_filtros.clicked.connect(self._corregir_filtros)
         self.btn_restablecer_filtros.clicked.connect(self._restablecer_filtros)
+        self.btn_quitar_filtro_calidad.clicked.connect(self._quitar_filtro_calidad)
         self.table_lista.itemDoubleClicked.connect(self._on_lista_item_double_clicked)
         self.table_lista.customContextMenuRequested.connect(self._on_lista_context_menu)
 
@@ -237,6 +247,10 @@ class PageCitas(QWidget):
         self._refrescar_vistas_principales()
 
     def aplicar_intent(self, intent: CitasNavigationIntentDTO) -> None:
+        if es_intent_calidad(intent):
+            self._aplicar_intent_calidad(intent)
+            return
+        self._desactivar_filtro_calidad_temporal()
         self._intent_navegacion_pendiente = intent
         self._filtros_aplicados = FiltrosCitasDTO(
             rango_preset=intent.preset_rango,
@@ -261,6 +275,47 @@ class PageCitas(QWidget):
             "citas_intent_aplicado",
             extra={"action": "citas.intent_aplicado", "cita_id": intent.cita_id_destino},
         )
+        self._refrescar_vistas_principales()
+
+    def _aplicar_intent_calidad(self, intent: CitasNavigationIntentDTO) -> None:
+        self._filtros_previos_calidad = self._filtros_aplicados
+        self._filtro_calidad_activo = intent.filtro_calidad
+        self._intent_navegacion_pendiente = None
+        self._filtros_aplicados = FiltrosCitasDTO(
+            rango_preset="PERSONALIZADO",
+            desde=intent.rango_desde,
+            hasta=intent.rango_hasta,
+            filtro_calidad=intent.filtro_calidad,
+            limit=self._filtros_aplicados.limit,
+            offset=self._filtros_aplicados.offset,
+        )
+        self.panel_filtros.set_filtros(self._filtros_aplicados)
+        self.tabs.setCurrentIndex(1)
+        self._mostrar_banner_calidad()
+        LOGGER.info("citas_filtro_calidad_aplicado", extra={"action": "citas_filtro_calidad_aplicado", "filtro_calidad": intent.filtro_calidad})
+        self._refrescar_vistas_principales()
+
+    def _mostrar_banner_calidad(self) -> None:
+        if not self._filtro_calidad_activo:
+            return
+        tipo = self._i18n.t(f"citas.calidad.tipo.{self._filtro_calidad_activo.lower()}")
+        self.lbl_banner_calidad.setText(self._i18n.t("citas.calidad.banner", tipo=tipo))
+        self.lbl_banner_calidad.setVisible(True)
+        self.btn_quitar_filtro_calidad.setVisible(True)
+
+    def _desactivar_filtro_calidad_temporal(self) -> None:
+        self._filtro_calidad_activo = None
+        self._filtros_previos_calidad = None
+        self.lbl_banner_calidad.setText("")
+        self.lbl_banner_calidad.setVisible(False)
+        self.btn_quitar_filtro_calidad.setVisible(False)
+
+    def _quitar_filtro_calidad(self) -> None:
+        self.tabs.setCurrentIndex(1)
+        filtros = self._filtros_previos_calidad or FiltrosCitasDTO(rango_preset="SEMANA")
+        self._desactivar_filtro_calidad_temporal()
+        self._filtros_aplicados = filtros
+        self.panel_filtros.set_filtros(self._filtros_aplicados)
         self._refrescar_vistas_principales()
 
     def _refrescar_vistas_principales(self) -> None:
@@ -297,6 +352,7 @@ class PageCitas(QWidget):
             return
         self._ocultar_banner_validacion()
         self._filtros_aplicados = resultado.filtros_normalizados
+        self._desactivar_filtro_calidad_temporal()
         LOGGER.info("citas_filtros_aplicados", extra=_payload_log_filtros(self._filtros_aplicados, self._contexto_activo()))
         self._guardar_filtros()
         self._refrescar_vistas_principales()
@@ -561,6 +617,7 @@ class PageCitas(QWidget):
 
     def _restablecer_filtros(self) -> None:
         self.tabs.setCurrentIndex(1)
+        self._desactivar_filtro_calidad_temporal()
         self.panel_filtros.restablecer_semana()
         self._on_filtros_aplicados(self.panel_filtros.construir_dto())
 

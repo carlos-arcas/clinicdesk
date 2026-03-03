@@ -146,25 +146,59 @@ class CitasQueries:
         if filtros.estado_cita:
             clauses.append("c.estado = ?")
             params.append(filtros.estado_cita)
-        if filtros.medico_id:
-            clauses.append("c.medico_id = ?")
-            params.append(filtros.medico_id)
-        if filtros.sala_id:
-            clauses.append("c.sala_id = ?")
-            params.append(filtros.sala_id)
-        if filtros.paciente_id:
-            clauses.append("c.paciente_id = ?")
-            params.append(filtros.paciente_id)
-        if filtros.texto_busqueda:
-            like = f"%{filtros.texto_busqueda.lower()}%"
-            clauses.append(_sql_text_search())
-            params.extend([like, like, like, like, like])
-        if filtros.recordatorio_filtro == "SIN_PREPARAR":
-            clauses.append("coalesce(r.estado_global, 'SIN_PREPARAR') = 'SIN_PREPARAR'")
-        if filtros.recordatorio_filtro == "NO_ENVIADO":
-            clauses.append("coalesce(r.estado_global, 'SIN_PREPARAR') != 'ENVIADO'")
+        _agregar_filtros_ids(clauses, params, filtros)
+        _agregar_filtro_texto(clauses, params, filtros.texto_busqueda)
+        _agregar_filtro_recordatorio(clauses, filtros.recordatorio_filtro)
+        _agregar_filtro_calidad(clauses, filtros.filtro_calidad)
 
         return " AND ".join(clauses), tuple(params)
+
+
+
+
+def _sql_filtro_calidad(filtro_calidad: str) -> str:
+    filtros = {
+        "SIN_CHECKIN": "c.check_in_at IS NULL",
+        "SIN_INICIO_FIN": "(c.consulta_inicio_at IS NULL OR c.consulta_fin_at IS NULL)",
+        "SIN_SALIDA": "c.check_out_at IS NULL",
+    }
+    return filtros.get(filtro_calidad, "1=1")
+
+
+
+
+def _agregar_filtros_ids(clauses: list[str], params: list[object], filtros: FiltrosCitasDTO) -> None:
+    if filtros.medico_id:
+        clauses.append("c.medico_id = ?")
+        params.append(filtros.medico_id)
+    if filtros.sala_id:
+        clauses.append("c.sala_id = ?")
+        params.append(filtros.sala_id)
+    if filtros.paciente_id:
+        clauses.append("c.paciente_id = ?")
+        params.append(filtros.paciente_id)
+
+
+def _agregar_filtro_texto(clauses: list[str], params: list[object], texto_busqueda: str | None) -> None:
+    if not texto_busqueda:
+        return
+    like = f"%{texto_busqueda.lower()}%"
+    clauses.append(_sql_text_search())
+    params.extend([like, like, like, like, like])
+
+
+def _agregar_filtro_recordatorio(clauses: list[str], recordatorio_filtro: str | None) -> None:
+    if recordatorio_filtro == "SIN_PREPARAR":
+        clauses.append("coalesce(r.estado_global, 'SIN_PREPARAR') = 'SIN_PREPARAR'")
+    if recordatorio_filtro == "NO_ENVIADO":
+        clauses.append("coalesce(r.estado_global, 'SIN_PREPARAR') != 'ENVIADO'")
+
+
+def _agregar_filtro_calidad(clauses: list[str], filtro_calidad: str | None) -> None:
+    if not filtro_calidad:
+        return
+    clauses.append("c.estado IN ('REALIZADA', 'NO_PRESENTADO', 'CANCELADA')")
+    clauses.append(_sql_filtro_calidad(filtro_calidad))
 
 
 def _resolver_select_fields(columnas: tuple[str, ...]) -> tuple[str, ...]:

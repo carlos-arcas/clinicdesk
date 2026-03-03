@@ -54,3 +54,13 @@ def test_normalizar_filtros_semana_y_mes() -> None:
     assert semana.hasta == datetime(2024, 2, 21, 23, 59, 59)
     assert mes.desde == datetime(2024, 2, 1, 0, 0)
     assert mes.hasta == datetime(2024, 2, 29, 23, 59, 59)
+
+
+def test_normalizar_filtro_calidad_catalogo() -> None:
+    ahora = datetime(2025, 1, 10, 11, 45)
+
+    valido = normalizar_filtros_citas(FiltrosCitasDTO(filtro_calidad="sin_checkin"), ahora)
+    invalido = normalizar_filtros_citas(FiltrosCitasDTO(filtro_calidad="otra"), ahora)
+
+    assert valido.filtro_calidad == "SIN_CHECKIN"
+    assert invalido.filtro_calidad is None
