@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from datetime import date, timedelta
 
 from PySide6.QtCore import Qt
@@ -23,16 +24,19 @@ from clinicdesk.app.application.confirmaciones import (
     ObtenerConfirmacionesCitas,
     PaginacionConfirmacionesDTO,
 )
+from clinicdesk.app.application.citas.filtros import redactar_texto_busqueda
 from clinicdesk.app.container import AppContainer
 from clinicdesk.app.i18n import I18nManager
 from clinicdesk.app.pages.citas.recordatorio_cita_dialog import RecordatorioCitaDialog
 from clinicdesk.app.pages.citas.riesgo_ausencia_dialog import RiesgoAusenciaDialog
+from clinicdesk.app.pages.confirmaciones.columnas import claves_columnas_confirmaciones
 from clinicdesk.app.pages.confirmaciones.lote_controller import GestorLoteConfirmaciones
 from clinicdesk.app.pages.confirmaciones.tabla_actions import crear_actions_confirmacion
 from clinicdesk.app.queries.confirmaciones_queries import ConfirmacionesQueries
 
 _PAGE_SIZE = 20
 _COL_CHECK = 0
+LOGGER = logging.getLogger(__name__)
 
 
 class PageConfirmaciones(QWidget):
@@ -134,20 +138,22 @@ class PageConfirmaciones(QWidget):
         self.chk_todo_visible.setText(t("confirmaciones.seleccion.todo_visible"))
         self._lote.retranslate()
         self._set_filter_options()
-        self.table.setHorizontalHeaderLabels(
-            [
-                t("confirmaciones.seleccion.seleccionar"),
-                t("confirmaciones.col.fecha"),
-                t("confirmaciones.col.hora"),
-                t("confirmaciones.col.paciente"),
-                t("confirmaciones.col.medico"),
-                t("confirmaciones.col.estado"),
-                t("confirmaciones.col.riesgo"),
-                t("confirmaciones.col.recordatorio"),
-                t("confirmaciones.col.acciones"),
-            ]
-        )
+        self.table.setHorizontalHeaderLabels(self._labels_columnas())
         self._actualizar_estado_seleccion()
+
+    def _labels_columnas(self) -> list[str]:
+        mapa = {
+            "seleccion": self._i18n.t("confirmaciones.seleccion.seleccionar"),
+            "fecha": self._i18n.t("confirmaciones.col.fecha"),
+            "hora": self._i18n.t("confirmaciones.col.hora"),
+            "paciente": self._i18n.t("confirmaciones.col.paciente"),
+            "medico": self._i18n.t("confirmaciones.col.medico"),
+            "estado": self._i18n.t("confirmaciones.col.estado"),
+            "riesgo": self._i18n.t("confirmaciones.col.riesgo"),
+            "recordatorio": self._i18n.t("confirmaciones.col.recordatorio"),
+            "acciones": self._i18n.t("confirmaciones.col.acciones"),
+        }
+        return [mapa[clave] for clave in claves_columnas_confirmaciones()]
     def _set_filter_options(self) -> None:
         t = self._i18n.t
         self.cmb_rango.clear()
@@ -187,6 +193,7 @@ class PageConfirmaciones(QWidget):
     def _load_data(self, *, reset: bool) -> None:
         if reset:
             self._offset = 0
+        self._log_carga(reset)
         self._limpiar_seleccion()
         try:
             result = self._uc.ejecutar(self._build_filtros(), PaginacionConfirmacionesDTO(limit=_PAGE_SIZE, offset=self._offset))
@@ -197,6 +204,19 @@ class PageConfirmaciones(QWidget):
         self._render_banner(result.salud_prediccion.estado if result.salud_prediccion else "ROJO")
         self._render_rows(result.items)
         self.lbl_totales.setText(self._i18n.t("confirmaciones.paginacion.mostrando").format(mostrados=result.mostrados, total=result.total))
+
+    def _log_carga(self, reset: bool) -> None:
+        LOGGER.info(
+            "confirmaciones_carga",
+            extra={
+                "action": "confirmaciones_carga",
+                "reset": reset,
+                "offset": self._offset,
+                "texto_redactado": redactar_texto_busqueda(self.txt_buscar.text()),
+                "riesgo_filtro": str(self.cmb_riesgo.currentData()),
+                "recordatorio_filtro": str(self.cmb_recordatorio.currentData()),
+            },
+        )
     def _render_rows(self, rows) -> None:
         self.table.blockSignals(True)
         self.table.setRowCount(len(rows))

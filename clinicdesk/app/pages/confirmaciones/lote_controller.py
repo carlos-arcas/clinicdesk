@@ -8,7 +8,7 @@ from PySide6.QtWidgets import QHBoxLayout, QLabel, QMessageBox, QPushButton, QWi
 
 from clinicdesk.app.application.usecases.recordatorios_citas import ResultadoLoteRecordatoriosDTO
 from clinicdesk.app.i18n import I18nManager
-from clinicdesk.app.pages.confirmaciones.lote_resumen import construir_resumen_lote
+from clinicdesk.app.pages.confirmaciones.lote_resumen import construir_resumen_lote, construir_texto_resumen_lote
 from clinicdesk.app.pages.confirmaciones.lote_worker import AccionLoteDTO, WorkerRecordatoriosLote
 
 LOGGER = logging.getLogger(__name__)
@@ -96,8 +96,7 @@ class GestorLoteConfirmaciones:
             btn.setEnabled(True)
         self.lbl_estado.setText("")
         hechas, omitidas = construir_resumen_lote(dto)
-        resumen = self._i18n.t("confirmaciones.lote.hecho_resumen").format(hechas=hechas, omitidas=omitidas)
-        texto = resumen if omitidas == 0 else f"{resumen}. {self._i18n.t('confirmaciones.lote.omitidas_generico')}"
+        texto = construir_texto_resumen_lote(hechas, omitidas, self._i18n.t)
         LOGGER.info(
             "confirmaciones_lote_ok",
             extra={
