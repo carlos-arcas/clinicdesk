@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import csv
+import errno
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from io import StringIO
@@ -22,8 +23,15 @@ COLUMNAS_EXPORTACION_AUDITORIA = (
 
 LOGGER = get_logger(__name__)
 
-class ExportacionAuditoriaDemasiadasFilasError(ValueError):
-    pass
+class ExportacionAuditoriaError(Exception):
+    def __init__(self, reason_code: str) -> None:
+        super().__init__(reason_code)
+        self.reason_code = reason_code
+
+
+class ExportacionAuditoriaDemasiadasFilasError(ExportacionAuditoriaError):
+    def __init__(self) -> None:
+        super().__init__("demasiadas_filas")
 
 
 @dataclass(frozen=True, slots=True)
@@ -61,7 +69,7 @@ class ExportarAuditoriaCSV:
         _, total = self._gateway.buscar_auditoria_accesos(filtros_finales, limit=1, offset=0)
         if total > self._MAX_FILAS_DEFENSIVO:
             LOGGER.warning("auditoria_exportacion_denegada_limite", extra=_payload_log_exportacion_auditoria(filtros_finales, "auditoria_exportacion_denegada_limite"))
-            raise ExportacionAuditoriaDemasiadasFilasError("Demasiadas filas, acota el rango")
+            raise ExportacionAuditoriaDemasiadasFilasError()
         filas = self._gateway.exportar_auditoria_accesos(filtros_finales, max_filas=self._MAX_FILAS_DEFENSIVO)
         LOGGER.info("auditoria_exportacion_generada", extra=_payload_log_exportacion_auditoria(filtros_finales, "auditoria_exportacion_generada"))
         return ExportacionCSVDTO(
@@ -103,3 +111,32 @@ def _payload_log_exportacion_auditoria(filtros: FiltrosAuditoriaAccesos, accion:
         "filtro_accion": filtros.accion,
         "filtro_entidad_tipo": filtros.entidad_tipo,
     }
+
+
+def mapear_error_exportacion(exc: BaseException) -> str:
+    texto_error = str(exc).lower()
+    if _es_archivo_en_uso(exc, texto_error):
+        return "archivo_en_uso"
+    if isinstance(exc, PermissionError):
+        return "sin_permisos"
+    if _es_ruta_invalida(exc):
+        return "ruta_invalida"
+    return "io_error"
+
+
+def _es_archivo_en_uso(exc: BaseException, texto_error: str) -> bool:
+    if "winerror 32" in texto_error or "being used" in texto_error:
+        return True
+    if not isinstance(exc, OSError):
+        return False
+    if getattr(exc, "winerror", None) == 32:
+        return True
+    return "being used" in texto_error
+
+
+def _es_ruta_invalida(exc: BaseException) -> bool:
+    if isinstance(exc, FileNotFoundError):
+        return True
+    if not isinstance(exc, OSError):
+        return False
+    return exc.errno == errno.ENOENT

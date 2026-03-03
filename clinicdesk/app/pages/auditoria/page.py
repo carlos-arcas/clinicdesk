@@ -5,6 +5,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
+from PySide6.QtCore import QSettings
 from PySide6.QtWidgets import (
     QComboBox,
     QFileDialog,
@@ -22,19 +23,24 @@ from PySide6.QtWidgets import (
 from clinicdesk.app.application.auditoria_acceso import AccionAuditoriaAcceso, EntidadAuditoriaAcceso
 from clinicdesk.app.application.usecases.buscar_auditoria_accesos import BuscarAuditoriaAccesos
 from clinicdesk.app.application.usecases.exportar_auditoria_csv import (
+    ExportacionAuditoriaError,
     ExportacionAuditoriaDemasiadasFilasError,
     ExportarAuditoriaCSV,
+    mapear_error_exportacion,
 )
-from clinicdesk.app.application.usecases.filtros_auditoria import (
-    PRESET_30_DIAS,
-    PRESET_7_DIAS,
-    PRESET_HOY,
-    PRESET_PERSONALIZADO,
-)
+from clinicdesk.app.application.usecases.filtros_auditoria import PRESET_30_DIAS, PRESET_7_DIAS, PRESET_HOY, PRESET_PERSONALIZADO
 from clinicdesk.app.application.usecases.obtener_resumen_auditoria import ObtenerResumenAuditoria
+from clinicdesk.app.bootstrap_logging import get_logger
 from clinicdesk.app.i18n import I18nManager
+from clinicdesk.app.pages.auditoria.persistencia_exportacion_settings import (
+    clave_ultima_ruta_exportacion_auditoria,
+    normalizar_ruta_sugerida_exportacion,
+)
 from clinicdesk.app.pages.shared.table_utils import set_item
 from clinicdesk.app.queries.auditoria_accesos_queries import AuditoriaAccesosQueries, FiltrosAuditoriaAccesos
+
+
+LOGGER = get_logger(__name__)
 
 
 @dataclass(frozen=True, slots=True)
@@ -49,6 +55,7 @@ class PageAuditoria(QWidget):
     def __init__(self, connection, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
         self._i18n = I18nManager("es")
+        self._settings = QSettings("clinicdesk", "ui")
         self._queries = AuditoriaAccesosQueries(connection)
         self._uc_buscar = BuscarAuditoriaAccesos(self._queries)
         self._uc_resumen = ObtenerResumenAuditoria(self._queries)
@@ -228,23 +235,74 @@ class PageAuditoria(QWidget):
         self._set_estado("empty" if self._total == 0 else "ok", len(resultado.items))
 
     def _on_exportar(self) -> None:
-        if self._total == 0:
-            return
-        if not self._confirmar_exportacion():
+        if self._total == 0 or not self._confirmar_exportacion():
             return
         filtros = self._build_filtros()
         if filtros is None:
             return
+        preset_rango = self.combo_rango.currentData()
         try:
-            exportacion = self._uc_exportar.execute(filtros, preset_rango=self.combo_rango.currentData())
-        except ExportacionAuditoriaDemasiadasFilasError:
-            QMessageBox.warning(self, self._tr("auditoria.titulo"), self._tr("auditoria.exportar.error.demasiadas_filas"))
+            exportacion = self._uc_exportar.execute(filtros, preset_rango=preset_rango)
+        except ExportacionAuditoriaDemasiadasFilasError as exc:
+            self._mostrar_error_exportacion(exc.reason_code, permitir_reintento=False)
             return
-        save_path, _ = QFileDialog.getSaveFileName(self, self._tr("auditoria.exportar.titulo_guardar"), exportacion.nombre_archivo_sugerido, "CSV (*.csv)")
-        if not save_path:
+        except ExportacionAuditoriaError as exc:
+            self._mostrar_error_exportacion(exc.reason_code, permitir_reintento=False)
             return
-        Path(save_path).write_text(exportacion.csv_texto, encoding="utf-8")
-        QMessageBox.information(self, self._tr("auditoria.titulo"), self._tr("auditoria.exportar.ok"))
+        self._guardar_exportacion_con_reintento(exportacion.csv_texto, exportacion.filas, exportacion.nombre_archivo_sugerido, preset_rango)
+
+    def _guardar_exportacion_con_reintento(self, csv_texto: str, total_filas: int, nombre_archivo: str, preset_rango: str | None) -> None:
+        ruta_sugerida = self._ruta_sugerida_exportacion(nombre_archivo)
+        while True:
+            ruta_guardado, _ = QFileDialog.getSaveFileName(self, self._tr("auditoria.exportar.titulo_guardar"), ruta_sugerida, "CSV (*.csv)")
+            if not ruta_guardado:
+                return
+            try:
+                Path(ruta_guardado).write_text(csv_texto, encoding="utf-8")
+            except OSError as exc:
+                reason_code = mapear_error_exportacion(exc)
+                self._registrar_fallo_exportacion(reason_code, total_filas, preset_rango, tiene_ruta=bool(ruta_guardado))
+                if not self._mostrar_error_exportacion(reason_code, permitir_reintento=True):
+                    return
+                ruta_sugerida = ruta_guardado
+                continue
+            self._guardar_ultima_ruta_exportacion(ruta_guardado)
+            QMessageBox.information(self, self._tr("auditoria.titulo"), self._tr("auditoria.export_ok"))
+            return
+
+    def _mostrar_error_exportacion(self, reason_code: str, *, permitir_reintento: bool) -> bool:
+        box = QMessageBox(self)
+        box.setIcon(QMessageBox.Warning)
+        box.setWindowTitle(self._tr("auditoria.export_error_titulo"))
+        box.setText(self._tr(f"auditoria.export_error_texto_{reason_code}"))
+        box.setInformativeText(self._tr(f"auditoria.export_error_sugerencia_{reason_code}"))
+        boton_cancelar = box.addButton(self._tr("auditoria.cancelar"), QMessageBox.RejectRole)
+        if not permitir_reintento:
+            box.exec()
+            return False
+        boton_reintentar = box.addButton(self._tr("auditoria.reintentar"), QMessageBox.AcceptRole)
+        box.exec()
+        return box.clickedButton() == boton_reintentar and box.clickedButton() is not boton_cancelar
+
+    def _ruta_sugerida_exportacion(self, nombre_archivo: str) -> str:
+        ultima_ruta = self._settings.value(clave_ultima_ruta_exportacion_auditoria(), "", type=str)
+        return normalizar_ruta_sugerida_exportacion(ultima_ruta or None, nombre_archivo)
+
+    def _guardar_ultima_ruta_exportacion(self, ruta_guardado: str) -> None:
+        carpeta = str(Path(ruta_guardado).expanduser().resolve().parent)
+        self._settings.setValue(clave_ultima_ruta_exportacion_auditoria(), carpeta)
+
+    def _registrar_fallo_exportacion(self, reason_code: str, total_filas: int, preset_rango: str | None, *, tiene_ruta: bool) -> None:
+        LOGGER.warning(
+            "auditoria_export_fail",
+            extra={
+                "action": "auditoria_export_fail",
+                "reason_code": reason_code,
+                "total_filas": total_filas,
+                "preset_rango": preset_rango or "none",
+                "tiene_ruta": tiene_ruta,
+            },
+        )
 
     def _confirmar_exportacion(self) -> bool:
         msg = self._tr("auditoria.exportar.confirmacion").format(total=self._total)
