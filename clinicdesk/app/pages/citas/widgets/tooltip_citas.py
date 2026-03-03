@@ -13,6 +13,8 @@ CLAVES_TOOLTIP_POR_DEFECTO: tuple[str, ...] = (
     "sala",
     "estado",
     "riesgo_ausencia",
+    "duracion_estimada",
+    "espera_estimada",
     "recordatorio_estado",
     "incidencias",
     "notas_len",

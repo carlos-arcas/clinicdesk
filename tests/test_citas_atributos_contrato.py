@@ -19,6 +19,8 @@ def test_atributos_cita_tienen_orden_estable_claves_unicas_e_i18n() -> None:
         "sala",
         "estado",
         "riesgo_ausencia",
+        "duracion_estimada",
+        "espera_estimada",
         "recordatorio_estado",
         "notas_len",
         "incidencias",

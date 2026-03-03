@@ -12,6 +12,7 @@ from clinicdesk.app.application.services.demo_ml_facade import DemoMLFacade
 from clinicdesk.app.application.services.feature_store_service import FeatureStoreService
 from clinicdesk.app.application.services.prediccion_ausencias_facade import PrediccionAusenciasFacade
 from clinicdesk.app.application.services.recordatorios_citas_facade import RecordatoriosCitasFacade
+from clinicdesk.app.application.services.prediccion_operativa_facade import PrediccionOperativaFacade
 from clinicdesk.app.application.usecases.drift_citas_features import DriftCitasFeatures
 from clinicdesk.app.application.usecases.score_citas import ScoreCitas
 from clinicdesk.app.application.usecases.seed_demo_data import SeedDemoData
@@ -57,6 +58,7 @@ class AppContainer:
     demo_ml_facade: DemoMLFacade
     prediccion_ausencias_facade: PrediccionAusenciasFacade
     recordatorios_citas_facade: RecordatoriosCitasFacade
+    prediccion_operativa_facade: PrediccionOperativaFacade
 
     pacientes_repo: PacientesRepository
     medicos_repo: MedicosRepository
@@ -117,6 +119,7 @@ def build_container(connection: sqlite3.Connection) -> AppContainer:
     prediccion_ausencias_facade = _build_prediccion_ausencias_facade(proveedor_prediccion)
     proveedor_recordatorios = _build_proveedor_conexion_prediccion(connection)
     recordatorios_citas_facade = _build_recordatorios_citas_facade(proveedor_recordatorios)
+    prediccion_operativa_facade = _build_prediccion_operativa_facade(proveedor_prediccion)
 
     role_value = os.getenv("CLINICDESK_ROLE", Role.ADMIN.value).upper()
     role = Role(role_value) if role_value in {r.value for r in Role} else Role.ADMIN
@@ -128,6 +131,7 @@ def build_container(connection: sqlite3.Connection) -> AppContainer:
         demo_ml_facade=demo_ml_facade,
         prediccion_ausencias_facade=prediccion_ausencias_facade,
         recordatorios_citas_facade=recordatorios_citas_facade,
+        prediccion_operativa_facade=prediccion_operativa_facade,
         pacientes_repo=pacientes_repo,
         medicos_repo=medicos_repo,
         personal_repo=personal_repo,
@@ -237,6 +241,51 @@ def _build_prediccion_ausencias_facade(proveedor_conexion: ProveedorConexionSqli
         cerrar_citas_pendientes_uc=cerrar_pendientes_uc,
     )
 
+
+
+def _build_prediccion_operativa_facade(proveedor_conexion: ProveedorConexionSqlitePorHilo) -> PrediccionOperativaFacade:
+    from clinicdesk.app.application.prediccion_operativa.agenda import ObtenerEstimacionesAgenda
+    from clinicdesk.app.application.prediccion_operativa.usecases import (
+        ComprobarDatosPrediccionOperativa,
+        EntrenarPrediccionOperativa,
+        ObtenerExplicacionPrediccionOperativa,
+        ObtenerSaludPrediccionOperativa,
+        PrevisualizarPrediccionOperativa,
+    )
+    from clinicdesk.app.infrastructure.prediccion_operativa import AlmacenamientoModeloOperativo, PredictorOperativoBaseline
+    from clinicdesk.app.queries.prediccion_operativa_queries import PrediccionOperativaQueries
+
+    queries = PrediccionOperativaQueries(proveedor_conexion)
+    almacenamiento_duracion = AlmacenamientoModeloOperativo("prediccion_duracion")
+    almacenamiento_espera = AlmacenamientoModeloOperativo("prediccion_espera")
+    predictor = PredictorOperativoBaseline()
+
+    comprobar_duracion_uc = ComprobarDatosPrediccionOperativa(queries, "duracion")
+    entrenar_duracion_uc = EntrenarPrediccionOperativa(queries, predictor, almacenamiento_duracion, "duracion")
+    previsualizar_duracion_uc = PrevisualizarPrediccionOperativa(queries, almacenamiento_duracion)
+    salud_duracion_uc = ObtenerSaludPrediccionOperativa(queries, almacenamiento_duracion, "duracion")
+    explicar_duracion_uc = ObtenerExplicacionPrediccionOperativa(almacenamiento_duracion)
+
+    comprobar_espera_uc = ComprobarDatosPrediccionOperativa(queries, "espera")
+    entrenar_espera_uc = EntrenarPrediccionOperativa(queries, predictor, almacenamiento_espera, "espera")
+    previsualizar_espera_uc = PrevisualizarPrediccionOperativa(queries, almacenamiento_espera)
+    salud_espera_uc = ObtenerSaludPrediccionOperativa(queries, almacenamiento_espera, "espera")
+    explicar_espera_uc = ObtenerExplicacionPrediccionOperativa(almacenamiento_espera)
+
+    agenda_uc = ObtenerEstimacionesAgenda(previsualizar_duracion_uc, previsualizar_espera_uc)
+    return PrediccionOperativaFacade(
+        comprobar_duracion_uc=comprobar_duracion_uc,
+        entrenar_duracion_uc=entrenar_duracion_uc,
+        previsualizar_duracion_uc=previsualizar_duracion_uc,
+        salud_duracion_uc=salud_duracion_uc,
+        explicar_duracion_uc=explicar_duracion_uc,
+        comprobar_espera_uc=comprobar_espera_uc,
+        entrenar_espera_uc=entrenar_espera_uc,
+        previsualizar_espera_uc=previsualizar_espera_uc,
+        salud_espera_uc=salud_espera_uc,
+        explicar_espera_uc=explicar_espera_uc,
+        agenda_uc=agenda_uc,
+    )
 
 def _build_recordatorios_citas_facade(proveedor_conexion: ProveedorConexionSqlitePorHilo) -> RecordatoriosCitasFacade:
     from clinicdesk.app.application.usecases.recordatorios_citas import (

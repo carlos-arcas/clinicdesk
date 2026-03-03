@@ -44,6 +44,7 @@ from clinicdesk.app.i18n import I18nManager
 from clinicdesk.app.pages.citas.recordatorio_cita_dialog import RecordatorioCitaDialog
 from clinicdesk.app.pages.citas.riesgo_ausencia_dialog import RiesgoAusenciaDialog
 from clinicdesk.app.pages.citas.riesgo_ausencia_ui import (
+    SETTINGS_KEY_ESTIMACIONES_AGENDA,
     SETTINGS_KEY_RIESGO_AGENDA,
     construir_dtos_desde_calendario,
     resolver_texto_riesgo,
@@ -103,6 +104,7 @@ class PageCitas(QWidget):
         self._columnas_lista: tuple[str, ...] = tuple()
         self._citas_lista_ids: list[int] = []
         self._riesgo_enabled = False
+        self._estimaciones_enabled = False
         self._token_refresh_salud = 0
         self._token_aviso_logueado: int | None = None
         self._cache_salud = CacheSaludPrediccionPorRefresh(
@@ -214,6 +216,7 @@ class PageCitas(QWidget):
 
     def on_show(self) -> None:
         self._riesgo_enabled = bool(int(self._settings.value(SETTINGS_KEY_RIESGO_AGENDA, 0)))
+        self._estimaciones_enabled = bool(int(self._settings.value(SETTINGS_KEY_ESTIMACIONES_AGENDA, 0)))
         self._refrescar_vistas_principales()
 
     def _refrescar_vistas_principales(self) -> None:
@@ -278,10 +281,14 @@ class PageCitas(QWidget):
             self.table.setRowCount(0)
             return
         riesgos = self._obtener_riesgo_citas_calendario([self._mapear_row_calendario(x) for x in items]) if self._riesgo_enabled else {}
+        estimaciones = self._obtener_estimaciones_agenda() if self._estimaciones_enabled else ({}, {})
         self.table.setRowCount(0)
         for item in items:
             item = dict(item)
-            item["riesgo_ausencia"] = resolver_texto_riesgo(riesgos.get(int(item["cita_id"]), RIESGO_NO_DISPONIBLE), self._i18n).texto
+            cita_id = int(item["cita_id"])
+            item["riesgo_ausencia"] = resolver_texto_riesgo(riesgos.get(cita_id, RIESGO_NO_DISPONIBLE), self._i18n).texto
+            item["duracion_estimada"] = self._texto_estimacion(estimaciones[0].get(cita_id, "NO_DISPONIBLE"))
+            item["espera_estimada"] = self._texto_estimacion(estimaciones[1].get(cita_id, "NO_DISPONIBLE"))
             self._agregar_fila_calendario(item)
         self._actualizar_aviso_salud_prediccion("citas")
 
@@ -299,7 +306,7 @@ class PageCitas(QWidget):
             self._set_estado_lista("citas.ux.error", error=True)
             return
         self._ocultar_banner_validacion()
-        self._render_lista(resultado.items)
+        self._render_lista(self._inyectar_estimaciones(resultado.items))
         self._actualizar_aviso_salud_prediccion("citas")
         if not resultado.items:
             self._set_estado_lista("citas.ux.vacio")
@@ -404,6 +411,27 @@ class PageCitas(QWidget):
 
     def _obtener_riesgo_citas_calendario(self, rows: list[CitaRow]) -> dict[int, str]:
         return self._container.prediccion_ausencias_facade.obtener_riesgo_agenda_uc.ejecutar(construir_dtos_desde_calendario(rows, datetime.now()))
+
+
+    def _obtener_estimaciones_agenda(self) -> tuple[dict[int, str], dict[int, str]]:
+        return self._container.prediccion_operativa_facade.agenda_uc.ejecutar()
+
+    def _texto_estimacion(self, nivel: str) -> str:
+        key = nivel.lower() if nivel in {"BAJO", "MEDIO", "ALTO"} else "no_disponible"
+        return self._i18n.t(f"citas.prediccion_operativa.valor.{key}")
+
+    def _inyectar_estimaciones(self, rows: list[dict[str, object]]) -> list[dict[str, object]]:
+        if not self._estimaciones_enabled:
+            return rows
+        duraciones, esperas = self._obtener_estimaciones_agenda()
+        enriched: list[dict[str, object]] = []
+        for row in rows:
+            cita_id = int(row.get("cita_id", 0))
+            item = dict(row)
+            item["duracion_estimada"] = self._texto_estimacion(duraciones.get(cita_id, "NO_DISPONIBLE"))
+            item["espera_estimada"] = self._texto_estimacion(esperas.get(cita_id, "NO_DISPONIBLE"))
+            enriched.append(item)
+        return enriched
 
     def _on_lista_item_double_clicked(self, item: QTableWidgetItem) -> None:
         cita_id = self._cita_id_lista(item.row())
