@@ -9,6 +9,7 @@ from clinicdesk.app.application.citas import (
     HitoAtencion,
     ModoTimestampHito,
     RegistrarHitoAtencionCita,
+    RegistrarHitosLoteError,
     RegistrarHitosAtencionEnLote,
 )
 from clinicdesk.app.infrastructure.sqlite.db import get_connection
@@ -46,6 +47,8 @@ class WorkerHitosLote(QObject):
             registrar = RegistrarHitoAtencionCita(repo, _RelojSistema())
             uc = RegistrarHitosAtencionEnLote(registrar_hito_uc=registrar, repositorio=repo)
             self.finished_ok.emit(uc.ejecutar(self._accion.cita_ids, self._accion.hito, self._accion.modo_timestamp))
+        except RegistrarHitosLoteError as exc:
+            self.finished_error.emit(exc.reason_code)
         except Exception:
             self.finished_error.emit("citas.hitos.lote.error_guardar")
         finally:

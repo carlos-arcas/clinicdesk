@@ -118,7 +118,7 @@ class PageCitas(QWidget):
         self._intent_navegacion_pendiente: CitasNavigationIntentDTO | None = None
         self._filtros_previos_calidad: FiltrosCitasDTO | None = None
         self._filtro_calidad_activo: str | None = None
-        self._seleccionadas_lote: set[int] = set()
+        self._citas_seleccionadas: set[int] = set()
         self._actualizando_checks_lote = False
         self._riesgo_enabled = False
         self._estimaciones_enabled = False
@@ -298,7 +298,7 @@ class PageCitas(QWidget):
         self._refrescar_vistas_principales()
 
     def _aplicar_intent_calidad(self, intent: CitasNavigationIntentDTO) -> None:
-        self._seleccionadas_lote.clear()
+        self._citas_seleccionadas.clear()
         self._filtros_previos_calidad = self._filtros_aplicados
         self._filtro_calidad_activo = intent.filtro_calidad
         self._intent_navegacion_pendiente = None
@@ -326,7 +326,7 @@ class PageCitas(QWidget):
         self._actualizar_ui_lote_hitos()
 
     def _desactivar_filtro_calidad_temporal(self) -> None:
-        self._seleccionadas_lote.clear()
+        self._citas_seleccionadas.clear()
         self._filtro_calidad_activo = None
         self._filtros_previos_calidad = None
         self.lbl_banner_calidad.setText("")
@@ -423,6 +423,8 @@ class PageCitas(QWidget):
         self._resolver_intent_navegacion("CALENDARIO")
 
     def _refresh_lista(self) -> None:
+        if self._filtro_calidad_activo:
+            self._citas_seleccionadas.clear()
         validacion = normalizar_y_validar_filtros_citas(self._filtros_aplicados, datetime.now(), "LISTA")
         if not validacion.validacion.ok:
             self._mostrar_error_validacion(validacion.validacion.errores[0], "LISTA", validacion.validacion.errores)
@@ -456,8 +458,6 @@ class PageCitas(QWidget):
         self.table_lista.setColumnCount(len(headers_visibles))
         self.table_lista.setHorizontalHeaderLabels(headers_visibles)
         self._citas_lista_ids = [int(row["cita_id"]) for row in rows]
-        visibles_ahora = set(self._citas_lista_ids)
-        self._seleccionadas_lote = {cita_id for cita_id in self._seleccionadas_lote if cita_id in visibles_ahora}
         for row in rows:
             idx = self.table_lista.rowCount()
             self.table_lista.insertRow(idx)
@@ -466,7 +466,7 @@ class PageCitas(QWidget):
             if mostrar_lote:
                 check_item = QTableWidgetItem()
                 check_item.setFlags(Qt.ItemIsEnabled | Qt.ItemIsUserCheckable)
-                check_item.setCheckState(Qt.Checked if cita_id in self._seleccionadas_lote else Qt.Unchecked)
+                check_item.setCheckState(Qt.Checked if cita_id in self._citas_seleccionadas else Qt.Unchecked)
                 self.table_lista.setItem(idx, 0, check_item)
                 offset = 1
             for col, clave in enumerate(visibles):
@@ -739,9 +739,9 @@ class PageCitas(QWidget):
         if cita_id is None:
             return
         if item.checkState() == Qt.Checked:
-            self._seleccionadas_lote.add(cita_id)
+            self._citas_seleccionadas.add(cita_id)
         else:
-            self._seleccionadas_lote.discard(cita_id)
+            self._citas_seleccionadas.discard(cita_id)
         self._actualizar_ui_lote_hitos()
 
     def _on_toggle_seleccionar_todo_visible(self, estado: int) -> None:
@@ -758,19 +758,35 @@ class PageCitas(QWidget):
                 continue
             item.setCheckState(Qt.Checked if seleccionado else Qt.Unchecked)
             if seleccionado:
-                self._seleccionadas_lote.add(cita_id)
+                self._citas_seleccionadas.add(cita_id)
             else:
-                self._seleccionadas_lote.discard(cita_id)
+                self._citas_seleccionadas.discard(cita_id)
         self._actualizando_checks_lote = False
         self._actualizar_ui_lote_hitos()
 
     def _actualizar_ui_lote_hitos(self) -> None:
         filtro_activo = bool(self._filtro_calidad_activo)
         self.chk_seleccionar_todo.setVisible(filtro_activo and bool(self._citas_lista_ids))
-        self._lote_hitos.actualizar_visibilidad(len(self._seleccionadas_lote), filtro_activo)
+        self._actualizar_check_seleccionar_todo_visible(filtro_activo)
+        self._lote_hitos.actualizar_visibilidad(len(self._citas_seleccionadas), filtro_activo)
+
+    def _actualizar_check_seleccionar_todo_visible(self, filtro_activo: bool) -> None:
+        self.chk_seleccionar_todo.blockSignals(True)
+        if not filtro_activo or not self._citas_lista_ids:
+            self.chk_seleccionar_todo.setCheckState(Qt.Unchecked)
+        else:
+            total = len(self._citas_lista_ids)
+            seleccionadas = len([cita for cita in self._citas_lista_ids if cita in self._citas_seleccionadas])
+            if seleccionadas == 0:
+                self.chk_seleccionar_todo.setCheckState(Qt.Unchecked)
+            elif seleccionadas == total:
+                self.chk_seleccionar_todo.setCheckState(Qt.Checked)
+            else:
+                self.chk_seleccionar_todo.setCheckState(Qt.PartiallyChecked)
+        self.chk_seleccionar_todo.blockSignals(False)
 
     def _ids_seleccionados_lote(self) -> tuple[int, ...]:
-        return tuple(sorted(self._seleccionadas_lote))
+        return tuple(sorted(self._citas_seleccionadas))
 
     def _on_lote_hitos_done(self) -> None:
         self._refresh_lista()
