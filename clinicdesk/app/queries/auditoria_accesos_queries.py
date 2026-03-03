@@ -48,12 +48,14 @@ class AuditoriaAccesosQueries:
         filtros: FiltrosAuditoriaAccesos,
         limit: int,
         offset: int,
-    ) -> tuple[list[AuditoriaAccesoItemQuery], int]:
+        *,
+        calcular_total: bool = True,
+    ) -> tuple[list[AuditoriaAccesoItemQuery], int | None]:
         where_sql, where_params = _build_where_sql(filtros)
         limit_value = max(1, int(limit))
         offset_value = max(0, int(offset))
         items = self._buscar_items(where_sql, where_params, limit_value, offset_value)
-        total = self._contar_items(where_sql, where_params)
+        total = self._contar_items(where_sql, where_params) if calcular_total else None
         return items, total
 
     def contar_accesos_por_rango(

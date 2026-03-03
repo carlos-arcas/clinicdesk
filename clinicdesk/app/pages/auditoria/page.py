@@ -1,14 +1,10 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-from datetime import datetime
-from pathlib import Path
 from typing import Optional
 
 from PySide6.QtCore import QSettings
 from PySide6.QtWidgets import (
     QComboBox,
-    QFileDialog,
     QGridLayout,
     QHBoxLayout,
     QLabel,
@@ -20,38 +16,22 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from clinicdesk.app.application.auditoria_acceso import AccionAuditoriaAcceso, EntidadAuditoriaAcceso
 from clinicdesk.app.application.usecases.buscar_auditoria_accesos import BuscarAuditoriaAccesos
-from clinicdesk.app.application.usecases.exportar_auditoria_csv import (
-    ExportacionAuditoriaError,
-    ExportacionAuditoriaDemasiadasFilasError,
-    ExportarAuditoriaCSV,
-    mapear_error_exportacion,
-)
-from clinicdesk.app.application.usecases.filtros_auditoria import PRESET_30_DIAS, PRESET_7_DIAS, PRESET_HOY, PRESET_PERSONALIZADO
+from clinicdesk.app.application.usecases.exportar_auditoria_csv import ExportacionAuditoriaDemasiadasFilasError, ExportacionAuditoriaError, ExportarAuditoriaCSV
+from clinicdesk.app.application.usecases.filtros_auditoria import PRESET_PERSONALIZADO
 from clinicdesk.app.application.usecases.obtener_resumen_auditoria import ObtenerResumenAuditoria
+from clinicdesk.app.application.usecases.paginacion_incremental import calcular_siguiente_offset
 from clinicdesk.app.bootstrap_logging import get_logger
 from clinicdesk.app.i18n import I18nManager
-from clinicdesk.app.pages.auditoria.persistencia_exportacion_settings import (
-    clave_ultima_ruta_exportacion_auditoria,
-    normalizar_ruta_sugerida_exportacion,
-)
+from clinicdesk.app.pages.auditoria.exportador_csv import ExportadorCsvAuditoria
+from clinicdesk.app.pages.auditoria.filtros_ui import columnas_tabla, opciones_accion, opciones_entidad, opciones_rango, parse_fecha_iso
 from clinicdesk.app.pages.shared.table_utils import set_item
 from clinicdesk.app.queries.auditoria_accesos_queries import AuditoriaAccesosQueries, FiltrosAuditoriaAccesos
-
 
 LOGGER = get_logger(__name__)
 
 
-@dataclass(frozen=True, slots=True)
-class _FiltroCombo:
-    key_i18n: str
-    value: Optional[str]
-
-
 class PageAuditoria(QWidget):
-    _PAGE_SIZE = 20
-
     def __init__(self, connection, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
         self._i18n = I18nManager("es")
@@ -60,81 +40,57 @@ class PageAuditoria(QWidget):
         self._uc_buscar = BuscarAuditoriaAccesos(self._queries)
         self._uc_resumen = ObtenerResumenAuditoria(self._queries)
         self._uc_exportar = ExportarAuditoriaCSV(self._queries)
-        self._offset = 0
-        self._total = 0
-
+        self._exportador = ExportadorCsvAuditoria(self, self._settings, self._tr)
+        self._offset_actual, self._limit = 0, 50
+        self._total_actual: int | None = None
+        self._items_acumulados = []
         self._build_ui()
         self._retranslate()
-        self._buscar()
+        self._cargar_primera_pagina()
 
     def on_show(self) -> None:
-        self._buscar()
+        self._cargar_primera_pagina()
 
     def _build_ui(self) -> None:
         root = QVBoxLayout(self)
         root.addLayout(self._build_resumen())
         root.addLayout(self._build_filtros())
-
         self.tabla = QTableWidget(0, 6)
         root.addWidget(self.tabla)
-
-        paginacion = QHBoxLayout()
+        pie = QHBoxLayout()
         self.lbl_estado = QLabel()
-        self.btn_reintentar = QPushButton()
-        self.btn_exportar = QPushButton()
-        self.btn_anterior = QPushButton()
-        self.btn_siguiente = QPushButton()
-        paginacion.addWidget(self.lbl_estado)
-        paginacion.addWidget(self.btn_reintentar)
-        paginacion.addStretch(1)
-        paginacion.addWidget(self.btn_exportar)
-        paginacion.addWidget(self.btn_anterior)
-        paginacion.addWidget(self.btn_siguiente)
-        root.addLayout(paginacion)
-
+        self.btn_reintentar, self.btn_exportar, self.btn_cargar_mas = QPushButton(), QPushButton(), QPushButton()
+        pie.addWidget(self.lbl_estado)
+        pie.addWidget(self.btn_reintentar)
+        pie.addStretch(1)
+        pie.addWidget(self.btn_exportar)
+        pie.addWidget(self.btn_cargar_mas)
+        root.addLayout(pie)
         self.btn_buscar.clicked.connect(self._on_buscar)
         self.btn_limpiar.clicked.connect(self._on_limpiar)
-        self.btn_anterior.clicked.connect(self._on_anterior)
-        self.btn_siguiente.clicked.connect(self._on_siguiente)
-        self.btn_reintentar.clicked.connect(self._buscar)
+        self.btn_reintentar.clicked.connect(self._on_reintentar)
+        self.btn_cargar_mas.clicked.connect(self._on_cargar_mas)
         self.btn_exportar.clicked.connect(self._on_exportar)
 
     def _build_resumen(self) -> QGridLayout:
-        resumen = QGridLayout()
-        self.lbl_accesos_hoy = QLabel("0")
-        self.lbl_accesos_7_dias = QLabel("0")
-        self.lbl_top_acciones = QLabel("-")
-        resumen.addWidget(QLabel(self._tr("auditoria.resumen.accesos_hoy")), 0, 0)
-        resumen.addWidget(self.lbl_accesos_hoy, 0, 1)
-        resumen.addWidget(QLabel(self._tr("auditoria.resumen.accesos_7_dias")), 0, 2)
-        resumen.addWidget(self.lbl_accesos_7_dias, 0, 3)
-        resumen.addWidget(QLabel(self._tr("auditoria.resumen.top_acciones")), 1, 0)
-        resumen.addWidget(self.lbl_top_acciones, 1, 1, 1, 3)
-        return resumen
+        grid = QGridLayout()
+        self.lbl_accesos_hoy, self.lbl_accesos_7_dias, self.lbl_top_acciones = QLabel("0"), QLabel("0"), QLabel("-")
+        grid.addWidget(QLabel(self._tr("auditoria.resumen.accesos_hoy")), 0, 0)
+        grid.addWidget(self.lbl_accesos_hoy, 0, 1)
+        grid.addWidget(QLabel(self._tr("auditoria.resumen.accesos_7_dias")), 0, 2)
+        grid.addWidget(self.lbl_accesos_7_dias, 0, 3)
+        grid.addWidget(QLabel(self._tr("auditoria.resumen.top_acciones")), 1, 0)
+        grid.addWidget(self.lbl_top_acciones, 1, 1, 1, 3)
+        return grid
 
     def _build_filtros(self) -> QHBoxLayout:
         filtros = QHBoxLayout()
-        self.input_usuario = QLineEdit()
-        self.input_desde = QLineEdit()
-        self.input_hasta = QLineEdit()
-        self.combo_rango = QComboBox()
-        self.combo_accion = QComboBox()
-        self.combo_entidad = QComboBox()
-        self.btn_buscar = QPushButton()
-        self.btn_limpiar = QPushButton()
-
-        filtros.addWidget(QLabel(self._tr("auditoria.filtro.rango")))
-        filtros.addWidget(self.combo_rango)
-        filtros.addWidget(QLabel(self._tr("auditoria.filtro.usuario")))
-        filtros.addWidget(self.input_usuario)
-        filtros.addWidget(QLabel(self._tr("auditoria.filtro.accion")))
-        filtros.addWidget(self.combo_accion)
-        filtros.addWidget(QLabel(self._tr("auditoria.filtro.entidad")))
-        filtros.addWidget(self.combo_entidad)
-        filtros.addWidget(QLabel(self._tr("auditoria.filtro.desde")))
-        filtros.addWidget(self.input_desde)
-        filtros.addWidget(QLabel(self._tr("auditoria.filtro.hasta")))
-        filtros.addWidget(self.input_hasta)
+        self.input_usuario, self.input_desde, self.input_hasta = QLineEdit(), QLineEdit(), QLineEdit()
+        self.combo_rango, self.combo_accion, self.combo_entidad = QComboBox(), QComboBox(), QComboBox()
+        self.btn_buscar, self.btn_limpiar = QPushButton(), QPushButton()
+        for key, widget in (("auditoria.filtro.rango", self.combo_rango), ("auditoria.filtro.usuario", self.input_usuario), ("auditoria.filtro.accion", self.combo_accion), ("auditoria.filtro.entidad", self.combo_entidad), ("auditoria.filtro.desde", self.input_desde), ("auditoria.filtro.hasta", self.input_hasta)):
+            filtros.addWidget(QLabel(self._tr(key)))
+            filtros.addWidget(widget)
         filtros.addWidget(self.btn_buscar)
         filtros.addWidget(self.btn_limpiar)
         self.combo_rango.currentIndexChanged.connect(self._on_preset_cambiado)
@@ -143,51 +99,20 @@ class PageAuditoria(QWidget):
     def _retranslate(self) -> None:
         self.btn_buscar.setText(self._tr("auditoria.accion.buscar"))
         self.btn_limpiar.setText(self._tr("auditoria.accion.limpiar"))
-        self.btn_anterior.setText(self._tr("auditoria.accion.anterior"))
-        self.btn_siguiente.setText(self._tr("auditoria.accion.siguiente"))
+        self.btn_cargar_mas.setText(self._tr("auditoria.accion.cargar_mas"))
         self.btn_exportar.setText(self._tr("auditoria.accion.exportar_csv"))
         self.btn_reintentar.setText(self._tr("auditoria.accion.reintentar"))
         self.input_desde.setPlaceholderText(self._tr("auditoria.filtro.fecha_placeholder"))
         self.input_hasta.setPlaceholderText(self._tr("auditoria.filtro.fecha_placeholder"))
-        self.tabla.setHorizontalHeaderLabels([self._tr(k) for k in _columnas_tabla()])
+        self.tabla.setHorizontalHeaderLabels([self._tr(k) for k in columnas_tabla()])
         self._cargar_combos()
-        self._set_estado("idle", 0)
+        self._set_estado("idle")
 
     def _cargar_combos(self) -> None:
-        self._cargar_combo(self.combo_rango, self._opciones_rango())
-        self._cargar_combo(self.combo_accion, self._opciones_accion())
-        self._cargar_combo(self.combo_entidad, self._opciones_entidad())
-
-    @staticmethod
-    def _cargar_combo(combo: QComboBox, opciones: tuple[_FiltroCombo, ...]) -> None:
-        combo.clear()
-        for item in opciones:
-            combo.addItem(item.key_i18n, item.value)
-
-    def _opciones_rango(self) -> tuple[_FiltroCombo, ...]:
-        return (
-            _FiltroCombo(self._tr("auditoria.filtro.rango.hoy"), PRESET_HOY),
-            _FiltroCombo(self._tr("auditoria.filtro.rango.7_dias"), PRESET_7_DIAS),
-            _FiltroCombo(self._tr("auditoria.filtro.rango.30_dias"), PRESET_30_DIAS),
-            _FiltroCombo(self._tr("auditoria.filtro.rango.personalizado"), PRESET_PERSONALIZADO),
-        )
-
-    def _opciones_accion(self) -> tuple[_FiltroCombo, ...]:
-        return (
-            _FiltroCombo(self._tr("auditoria.filtro.todas"), None),
-            _FiltroCombo(self._tr("auditoria.accion.ver_historial"), AccionAuditoriaAcceso.VER_HISTORIAL_PACIENTE.value),
-            _FiltroCombo(self._tr("auditoria.accion.ver_detalle_cita"), AccionAuditoriaAcceso.VER_DETALLE_CITA.value),
-            _FiltroCombo(self._tr("auditoria.accion.copiar_informe"), AccionAuditoriaAcceso.COPIAR_INFORME_CITA.value),
-            _FiltroCombo(self._tr("auditoria.accion.ver_detalle_receta"), AccionAuditoriaAcceso.VER_DETALLE_RECETA.value),
-        )
-
-    def _opciones_entidad(self) -> tuple[_FiltroCombo, ...]:
-        return (
-            _FiltroCombo(self._tr("auditoria.filtro.todas"), None),
-            _FiltroCombo(self._tr("auditoria.entidad.paciente"), EntidadAuditoriaAcceso.PACIENTE.value),
-            _FiltroCombo(self._tr("auditoria.entidad.cita"), EntidadAuditoriaAcceso.CITA.value),
-            _FiltroCombo(self._tr("auditoria.entidad.receta"), EntidadAuditoriaAcceso.RECETA.value),
-        )
+        for combo, opciones in ((self.combo_rango, opciones_rango(self._tr)), (self.combo_accion, opciones_accion(self._tr)), (self.combo_entidad, opciones_entidad(self._tr))):
+            combo.clear()
+            for item in opciones:
+                combo.addItem(item.texto, item.valor)
 
     def _on_preset_cambiado(self) -> None:
         personalizado = self.combo_rango.currentData() == PRESET_PERSONALIZADO
@@ -195,127 +120,57 @@ class PageAuditoria(QWidget):
         self.input_hasta.setEnabled(personalizado)
 
     def _on_buscar(self) -> None:
-        self._offset = 0
-        self._buscar()
+        self._cargar_primera_pagina()
 
     def _on_limpiar(self) -> None:
-        self.input_usuario.clear()
-        self.input_desde.clear()
-        self.input_hasta.clear()
-        self.combo_rango.setCurrentIndex(0)
-        self.combo_accion.setCurrentIndex(0)
-        self.combo_entidad.setCurrentIndex(0)
-        self._offset = 0
-        self._buscar()
+        for control in (self.input_usuario, self.input_desde, self.input_hasta):
+            control.clear()
+        for combo in (self.combo_rango, self.combo_accion, self.combo_entidad):
+            combo.setCurrentIndex(0)
+        self._cargar_primera_pagina()
 
-    def _on_anterior(self) -> None:
-        self._offset = max(0, self._offset - self._PAGE_SIZE)
-        self._buscar()
+    def _on_reintentar(self) -> None:
+        self._buscar(incremental=bool(self._items_acumulados))
 
-    def _on_siguiente(self) -> None:
-        if self._offset + self._PAGE_SIZE < self._total:
-            self._offset += self._PAGE_SIZE
-            self._buscar()
+    def _cargar_primera_pagina(self) -> None:
+        self._items_acumulados, self._offset_actual, self._total_actual = [], 0, None
+        self._buscar(incremental=False)
 
-    def _buscar(self) -> None:
-        self._set_estado("loading", 0)
+    def _on_cargar_mas(self) -> None:
+        if self._total_actual is None or len(self._items_acumulados) >= self._total_actual:
+            return
+        LOGGER.info("auditoria_cargar_mas_click", extra={"action": "auditoria_cargar_mas_click"})
+        self._buscar(incremental=True)
+
+    def _buscar(self, *, incremental: bool) -> None:
         filtros = self._build_filtros()
         if filtros is None:
             return
+        self._set_estado("loading_more" if incremental else "loading")
         try:
-            preset = self.combo_rango.currentData()
-            resultado = self._uc_buscar.execute(filtros, self._PAGE_SIZE, self._offset, preset_rango=preset)
-            resumen = self._uc_resumen.execute(filtros.desde_utc, filtros.hasta_utc)
+            resultado = self._uc_buscar.execute(filtros, self._limit, self._offset_actual, preset_rango=self.combo_rango.currentData(), total_conocido=self._total_actual)
+            if not incremental:
+                self._render_resumen(self._uc_resumen.execute(filtros.desde_utc, filtros.hasta_utc))
         except Exception:
-            self._set_estado("error", 0)
+            self._set_estado("error_more" if incremental and self._items_acumulados else "error")
+            LOGGER.warning("auditoria_cargar_mas_fail", extra={"action": "auditoria_cargar_mas_fail"})
             return
-        self._total = resultado.total
-        self._render_filas(resultado.items)
-        self._render_resumen(resumen)
-        self._set_estado("empty" if self._total == 0 else "ok", len(resultado.items))
-
-    def _on_exportar(self) -> None:
-        if self._total == 0 or not self._confirmar_exportacion():
-            return
-        filtros = self._build_filtros()
-        if filtros is None:
-            return
-        preset_rango = self.combo_rango.currentData()
-        try:
-            exportacion = self._uc_exportar.execute(filtros, preset_rango=preset_rango)
-        except ExportacionAuditoriaDemasiadasFilasError as exc:
-            self._mostrar_error_exportacion(exc.reason_code, permitir_reintento=False)
-            return
-        except ExportacionAuditoriaError as exc:
-            self._mostrar_error_exportacion(exc.reason_code, permitir_reintento=False)
-            return
-        self._guardar_exportacion_con_reintento(exportacion.csv_texto, exportacion.filas, exportacion.nombre_archivo_sugerido, preset_rango)
-
-    def _guardar_exportacion_con_reintento(self, csv_texto: str, total_filas: int, nombre_archivo: str, preset_rango: str | None) -> None:
-        ruta_sugerida = self._ruta_sugerida_exportacion(nombre_archivo)
-        while True:
-            ruta_guardado, _ = QFileDialog.getSaveFileName(self, self._tr("auditoria.exportar.titulo_guardar"), ruta_sugerida, "CSV (*.csv)")
-            if not ruta_guardado:
-                return
-            try:
-                Path(ruta_guardado).write_text(csv_texto, encoding="utf-8")
-            except OSError as exc:
-                reason_code = mapear_error_exportacion(exc)
-                self._registrar_fallo_exportacion(reason_code, total_filas, preset_rango, tiene_ruta=bool(ruta_guardado))
-                if not self._mostrar_error_exportacion(reason_code, permitir_reintento=True):
-                    return
-                ruta_sugerida = ruta_guardado
-                continue
-            self._guardar_ultima_ruta_exportacion(ruta_guardado)
-            QMessageBox.information(self, self._tr("auditoria.titulo"), self._tr("auditoria.export_ok"))
-            return
-
-    def _mostrar_error_exportacion(self, reason_code: str, *, permitir_reintento: bool) -> bool:
-        box = QMessageBox(self)
-        box.setIcon(QMessageBox.Warning)
-        box.setWindowTitle(self._tr("auditoria.export_error_titulo"))
-        box.setText(self._tr(f"auditoria.export_error_texto_{reason_code}"))
-        box.setInformativeText(self._tr(f"auditoria.export_error_sugerencia_{reason_code}"))
-        boton_cancelar = box.addButton(self._tr("auditoria.cancelar"), QMessageBox.RejectRole)
-        if not permitir_reintento:
-            box.exec()
-            return False
-        boton_reintentar = box.addButton(self._tr("auditoria.reintentar"), QMessageBox.AcceptRole)
-        box.exec()
-        return box.clickedButton() == boton_reintentar and box.clickedButton() is not boton_cancelar
-
-    def _ruta_sugerida_exportacion(self, nombre_archivo: str) -> str:
-        ultima_ruta = self._settings.value(clave_ultima_ruta_exportacion_auditoria(), "", type=str)
-        return normalizar_ruta_sugerida_exportacion(ultima_ruta or None, nombre_archivo)
-
-    def _guardar_ultima_ruta_exportacion(self, ruta_guardado: str) -> None:
-        carpeta = str(Path(ruta_guardado).expanduser().resolve().parent)
-        self._settings.setValue(clave_ultima_ruta_exportacion_auditoria(), carpeta)
-
-    def _registrar_fallo_exportacion(self, reason_code: str, total_filas: int, preset_rango: str | None, *, tiene_ruta: bool) -> None:
-        LOGGER.warning(
-            "auditoria_export_fail",
-            extra={
-                "action": "auditoria_export_fail",
-                "reason_code": reason_code,
-                "total_filas": total_filas,
-                "preset_rango": preset_rango or "none",
-                "tiene_ruta": tiene_ruta,
-            },
-        )
-
-    def _confirmar_exportacion(self) -> bool:
-        msg = self._tr("auditoria.exportar.confirmacion").format(total=self._total)
-        return QMessageBox.question(self, self._tr("auditoria.titulo"), msg) == QMessageBox.Yes
+        self._total_actual = resultado.total
+        self._offset_actual = calcular_siguiente_offset(self._offset_actual, self._limit, resultado.total)
+        if incremental:
+            self._append_filas(resultado.items)
+            LOGGER.info("auditoria_cargar_mas_ok", extra={"action": "auditoria_cargar_mas_ok"})
+        else:
+            self._items_acumulados = list(resultado.items)
+            self._render_filas()
+        self._set_estado("empty" if resultado.total == 0 else "ok")
 
     def _build_filtros(self) -> FiltrosAuditoriaAccesos | None:
-        desde_text = self.input_desde.text().strip()
-        hasta_text = self.input_hasta.text().strip()
-        desde = self._parse_fecha_iso(desde_text)
-        hasta = self._parse_fecha_iso(hasta_text)
-        if desde_text and desde is None:
+        desde_texto, hasta_texto = self.input_desde.text().strip(), self.input_hasta.text().strip()
+        desde, hasta = parse_fecha_iso(desde_texto), parse_fecha_iso(hasta_texto)
+        if desde_texto and desde is None:
             return self._error_fecha(self._tr("auditoria.filtro.desde"))
-        if hasta_text and hasta is None:
+        if hasta_texto and hasta is None:
             return self._error_fecha(self._tr("auditoria.filtro.hasta"))
         return FiltrosAuditoriaAccesos(
             usuario_contiene=self.input_usuario.text().strip() or None,
@@ -329,26 +184,44 @@ class PageAuditoria(QWidget):
         QMessageBox.warning(self, self._tr("auditoria.titulo"), self._tr("auditoria.error.fecha_invalida").format(campo=campo))
         return None
 
-    @staticmethod
-    def _parse_fecha_iso(value: str) -> datetime | None:
-        if not value:
-            return None
-        try:
-            return datetime.fromisoformat(value)
-        except ValueError:
-            return None
+    def _append_filas(self, items) -> None:
+        scroll = self.tabla.verticalScrollBar()
+        posicion = scroll.value()
+        self._items_acumulados.extend(items)
+        for indice, item in enumerate(items, self.tabla.rowCount()):
+            self._insertar_fila(indice, item)
+        scroll.setValue(posicion)
 
-    def _render_filas(self, items) -> None:
+    def _render_filas(self) -> None:
         self.tabla.setRowCount(0)
-        for item in items:
-            row = self.tabla.rowCount()
-            self.tabla.insertRow(row)
-            set_item(self.tabla, row, 0, item.timestamp_utc)
-            set_item(self.tabla, row, 1, item.usuario)
-            set_item(self.tabla, row, 2, self._tr("comun.si") if item.modo_demo else self._tr("comun.no"))
-            set_item(self.tabla, row, 3, item.accion)
-            set_item(self.tabla, row, 4, item.entidad_tipo)
-            set_item(self.tabla, row, 5, item.entidad_id)
+        for row, item in enumerate(self._items_acumulados):
+            self._insertar_fila(row, item)
+
+    def _insertar_fila(self, row: int, item) -> None:
+        self.tabla.insertRow(row)
+        set_item(self.tabla, row, 0, item.timestamp_utc)
+        set_item(self.tabla, row, 1, item.usuario)
+        set_item(self.tabla, row, 2, self._tr("comun.si") if item.modo_demo else self._tr("comun.no"))
+        set_item(self.tabla, row, 3, item.accion)
+        set_item(self.tabla, row, 4, item.entidad_tipo)
+        set_item(self.tabla, row, 5, item.entidad_id)
+
+    def _set_estado(self, estado: str) -> None:
+        mostrados, total = len(self._items_acumulados), self._total_actual or 0
+        textos = {
+            "loading": self._tr("auditoria.estado.cargando"),
+            "loading_more": self._tr("auditoria.estado.cargando_mas"),
+            "empty": self._tr("auditoria.estado.vacio"),
+            "error": self._tr("auditoria.estado.error"),
+            "error_more": self._tr("auditoria.estado.error_cargar_mas"),
+            "ok": self._tr("auditoria.estado.mostrando_x_de_y").format(mostrados=mostrados, total=total),
+            "idle": "",
+        }
+        self.lbl_estado.setText(textos[estado])
+        self.btn_reintentar.setVisible(estado in {"error", "error_more"})
+        self.btn_exportar.setEnabled(total > 0)
+        self.btn_cargar_mas.setVisible(mostrados < total)
+        self.btn_cargar_mas.setEnabled(estado == "ok" and mostrados < total)
 
     def _render_resumen(self, resumen) -> None:
         self.lbl_accesos_hoy.setText(str(resumen.accesos_hoy))
@@ -356,31 +229,18 @@ class PageAuditoria(QWidget):
         top = [f"{item.accion} ({item.total})" for item in resumen.top_acciones]
         self.lbl_top_acciones.setText(", ".join(top) if top else self._tr("auditoria.resumen.sin_datos"))
 
-    def _set_estado(self, estado: str, mostrados: int) -> None:
-        if estado == "loading":
-            texto = self._tr("auditoria.estado.cargando")
-        elif estado == "empty":
-            texto = self._tr("auditoria.estado.vacio")
-        elif estado == "error":
-            texto = self._tr("auditoria.estado.error")
-        else:
-            texto = self._tr("auditoria.paginacion.mostrando").format(mostrados=mostrados, total=self._total)
-        self.lbl_estado.setText(texto)
-        self.btn_reintentar.setVisible(estado == "error")
-        self.btn_exportar.setEnabled(self._total > 0)
-        self.btn_anterior.setEnabled(self._offset > 0 and estado == "ok")
-        self.btn_siguiente.setEnabled(self._offset + mostrados < self._total and estado == "ok")
+    def _on_exportar(self) -> None:
+        if not self._total_actual or not self._exportador.confirmar(self._total_actual):
+            return
+        filtros = self._build_filtros()
+        if filtros is None:
+            return
+        try:
+            exp = self._uc_exportar.execute(filtros, preset_rango=self.combo_rango.currentData())
+        except (ExportacionAuditoriaDemasiadasFilasError, ExportacionAuditoriaError) as exc:
+            self._exportador.mostrar_error(exc.reason_code, permitir_reintento=False)
+            return
+        self._exportador.guardar_con_reintento(exp.csv_texto, exp.filas, exp.nombre_archivo_sugerido, self.combo_rango.currentData())
 
     def _tr(self, key: str) -> str:
         return self._i18n.t(key)
-
-
-def _columnas_tabla() -> tuple[str, ...]:
-    return (
-        "auditoria.columna.fecha_hora",
-        "auditoria.columna.usuario",
-        "auditoria.columna.demo",
-        "auditoria.columna.accion",
-        "auditoria.columna.entidad",
-        "auditoria.columna.id",
-    )
