@@ -236,7 +236,13 @@ class PageGestionDashboard(QWidget):
         return " · ".join(claves)
 
     def _abrir_cita_desde_gestion(self, cita_id: int) -> None:
-        intent = CitasNavigationIntentDTO(preset_rango="HOY", cita_id_destino=cita_id, preferir_pestana="LISTA")
+        intent = CitasNavigationIntentDTO(
+            preset_rango="HOY",
+            cita_id_destino=cita_id,
+            preferir_pestana="LISTA",
+            accion="ABRIR_DETALLE",
+            resaltar=True,
+        )
         self._navegar_a("citas", intent=intent)
 
     def _navegar_a(self, key: str, intent: object | None = None) -> None:
