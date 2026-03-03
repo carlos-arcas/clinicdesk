@@ -10,6 +10,7 @@ from clinicdesk.app.i18n_prediccion_entrenar_catalog import TRANSLATIONS_PREDICC
 from clinicdesk.app.i18n_citas_ui_catalog import CITAS_UI_TRANSLATIONS
 from clinicdesk.app.i18n_auditoria_catalog import AUDITORIA_TRANSLATIONS
 from clinicdesk.app.i18n_placeholder_catalog import PLACEHOLDER_TRANSLATIONS
+from clinicdesk.app.i18n_prediccion_operativa_catalog import PREDICCION_OPERATIVA_TRANSLATIONS
 
 for idioma, traducciones in TRADUCCIONES_CIERRE_PREDICCION.items():
     _TRANSLATIONS.setdefault(idioma, {}).update(traducciones)
@@ -50,6 +51,10 @@ class I18nManager:
 
 
 for idioma, traducciones in CITAS_UI_TRANSLATIONS.items():
+    _TRANSLATIONS.setdefault(idioma, {}).update(traducciones)
+
+
+for idioma, traducciones in PREDICCION_OPERATIVA_TRANSLATIONS.items():
     _TRANSLATIONS.setdefault(idioma, {}).update(traducciones)
 
 for idioma, traducciones in PLACEHOLDER_TRANSLATIONS.items():

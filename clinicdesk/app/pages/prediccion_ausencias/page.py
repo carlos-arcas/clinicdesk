@@ -45,6 +45,10 @@ from clinicdesk.app.pages.prediccion_ausencias.persistencia_recordatorio_entrena
     limpiar_recordatorio_entrenar,
     posponer_recordatorio_entrenar,
 )
+from clinicdesk.app.pages.shared.persistencia_estimaciones_settings import (
+    guardar_mostrar_estimaciones_agenda,
+    leer_mostrar_estimaciones_agenda,
+)
 LOGGER = get_logger(__name__)
 class PagePrediccionAusencias(QWidget):
     def __init__(self, facade: PrediccionAusenciasFacade, i18n: I18nManager, parent: QWidget | None = None) -> None:
@@ -56,7 +60,6 @@ class PagePrediccionAusencias(QWidget):
         self._entrenar_thread: QThread | None = None
         self._entrenar_worker: EntrenarPrediccionWorker | None = None
         self._settings_key = "prediccion_ausencias/mostrar_riesgo_agenda"
-        self._settings_estimaciones_key = "prediccion_operativa/mostrar_estimaciones_agenda"
         self._ventana_resultados_semanas = VENTANA_RESULTADOS_POR_DEFECTO
         self._recordatorio_oculto_sesion = False
         self._ultimo_motivo_recordatorio_log: str | None = None
@@ -461,14 +464,13 @@ class PagePrediccionAusencias(QWidget):
         qsettings = QSettings("clinicdesk", "ui")
         qsettings.setValue(self._settings_key, 1 if state == Qt.Checked else 0)
     def _guardar_preferencia_estimaciones(self, state: int) -> None:
-        qsettings = QSettings("clinicdesk", "ui")
-        qsettings.setValue(self._settings_estimaciones_key, 1 if state == Qt.Checked else 0)
+        guardar_mostrar_estimaciones_agenda(state == Qt.Checked)
 
     def _restaurar_preferencia(self) -> None:
         qsettings = QSettings("clinicdesk", "ui")
         checked = bool(int(qsettings.value(self._settings_key, 0)))
         self.chk_activar.setChecked(checked)
-        checked_estimaciones = bool(int(qsettings.value(self._settings_estimaciones_key, 0)))
+        checked_estimaciones = leer_mostrar_estimaciones_agenda(qsettings)
         self.chk_activar_estimaciones.setChecked(checked_estimaciones)
         self._restaurar_preferencia_ventana_resultados()
         self._preferencia_recordatorio = leer_preferencia_recordatorio_entrenar(qsettings)

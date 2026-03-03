@@ -33,6 +33,15 @@ class FilaCitaOperativa:
     dia_semana: int
 
 
+@dataclass(frozen=True, slots=True)
+class FilaCitaProximaDetalle:
+    cita_id: int
+    fecha: str
+    hora: str
+    paciente: str
+    medico: str
+
+
 class PrediccionOperativaQueries:
     def __init__(self, proveedor: ProveedorConexionSqlitePorHilo | sqlite3.Connection) -> None:
         self._proveedor = proveedor
@@ -99,6 +108,36 @@ class PrediccionOperativaQueries:
             (*_ESTADOS_PROXIMOS, desde, hasta),
         ).fetchall()
         return [FilaCitaOperativa(int(r["cita_id"]), int(r["medico_id"]), r["tipo_cita"], str(r["franja_hora"]), int(r["dia_semana"])) for r in rows]
+
+    def obtener_proximas_citas_detalle(self, desde: str, hasta: str, limite: int) -> list[FilaCitaProximaDetalle]:
+        rows = self._con().execute(
+            """
+            SELECT c.id AS cita_id,
+                   date(c.inicio) AS fecha,
+                   time(c.inicio) AS hora,
+                   (p.nombre || ' ' || p.apellidos) AS paciente,
+                   (m.nombre || ' ' || m.apellidos) AS medico
+            FROM citas c
+            JOIN pacientes p ON p.id = c.paciente_id
+            JOIN medicos m ON m.id = c.medico_id
+            WHERE c.activo = 1
+              AND c.estado IN (?, ?, ?)
+              AND datetime(c.inicio) BETWEEN datetime(?) AND datetime(?)
+            ORDER BY datetime(c.inicio) ASC
+            LIMIT ?
+            """,
+            (*_ESTADOS_PROXIMOS, desde, hasta, limite),
+        ).fetchall()
+        return [
+            FilaCitaProximaDetalle(
+                cita_id=int(r["cita_id"]),
+                fecha=str(r["fecha"]),
+                hora=str(r["hora"]),
+                paciente=str(r["paciente"]),
+                medico=str(r["medico"]),
+            )
+            for r in rows
+        ]
 
     def contar_citas_validas_recientes_duracion(self, dias: int = 90) -> int:
         row = self._con().execute(

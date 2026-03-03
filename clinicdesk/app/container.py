@@ -248,6 +248,7 @@ def _build_prediccion_operativa_facade(proveedor_conexion: ProveedorConexionSqli
     from clinicdesk.app.application.prediccion_operativa.usecases import (
         ComprobarDatosPrediccionOperativa,
         EntrenarPrediccionOperativa,
+        ListarProximasCitasOperativas,
         ObtenerExplicacionPrediccionOperativa,
         ObtenerSaludPrediccionOperativa,
         PrevisualizarPrediccionOperativa,
@@ -273,6 +274,7 @@ def _build_prediccion_operativa_facade(proveedor_conexion: ProveedorConexionSqli
     explicar_espera_uc = ObtenerExplicacionPrediccionOperativa(almacenamiento_espera)
 
     agenda_uc = ObtenerEstimacionesAgenda(previsualizar_duracion_uc, previsualizar_espera_uc)
+    listar_proximas_citas_uc = ListarProximasCitasOperativas(queries)
     return PrediccionOperativaFacade(
         comprobar_duracion_uc=comprobar_duracion_uc,
         entrenar_duracion_uc=entrenar_duracion_uc,
@@ -285,6 +287,8 @@ def _build_prediccion_operativa_facade(proveedor_conexion: ProveedorConexionSqli
         salud_espera_uc=salud_espera_uc,
         explicar_espera_uc=explicar_espera_uc,
         agenda_uc=agenda_uc,
+        listar_proximas_citas_uc=listar_proximas_citas_uc,
+        cerrar_conexion_hilo_actual=proveedor_conexion.cerrar_conexion_del_hilo_actual,
     )
 
 def _build_recordatorios_citas_facade(proveedor_conexion: ProveedorConexionSqlitePorHilo) -> RecordatoriosCitasFacade:
