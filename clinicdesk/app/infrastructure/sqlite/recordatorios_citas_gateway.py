@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import sqlite3
+from typing import Protocol
 
 from clinicdesk.app.application.ports.recordatorios_citas_port import (
     DatosRecordatorioCitaDTO,
@@ -9,11 +10,14 @@ from clinicdesk.app.application.ports.recordatorios_citas_port import (
 
 
 class RecordatoriosCitasSqliteGateway:
-    def __init__(self, connection: sqlite3.Connection) -> None:
+    def __init__(self, connection: sqlite3.Connection | None = None, proveedor_conexion: _ProveedorConexion | None = None) -> None:
+        if connection is None and proveedor_conexion is None:
+            raise ValueError("Se requiere connection o proveedor_conexion")
         self._con = connection
+        self._proveedor = proveedor_conexion
 
     def obtener_datos_recordatorio_cita(self, cita_id: int) -> DatosRecordatorioCitaDTO | None:
-        row = self._con.execute(
+        row = self._obtener_conexion().execute(
             """
             SELECT
                 c.id AS cita_id,
@@ -41,13 +45,13 @@ class RecordatoriosCitasSqliteGateway:
         )
 
     def upsert_recordatorio_cita(self, cita_id: int, canal: str, estado: str, now_utc: str) -> None:
-        self._con.execute(
+        self._obtener_conexion().execute(
             _SQL_UPSERT_RECORDATORIO,
             (cita_id, canal, estado, now_utc, now_utc),
         )
 
     def obtener_estado_recordatorio(self, cita_id: int) -> tuple[EstadoRecordatorioDTO, ...]:
-        rows = self._con.execute(
+        rows = self._obtener_conexion().execute(
             """
             SELECT canal, estado, updated_at_utc
             FROM recordatorios_citas
@@ -71,7 +75,7 @@ class RecordatoriosCitasSqliteGateway:
     def obtener_contacto_citas(self, cita_ids: tuple[int, ...]) -> dict[int, tuple[str | None, str | None]]:
         if not cita_ids:
             return {}
-        rows = self._con.execute(
+        rows = self._obtener_conexion().execute(
             f"""
             SELECT c.id AS cita_id, p.telefono AS telefono, p.email AS email
             FROM citas c
@@ -85,7 +89,7 @@ class RecordatoriosCitasSqliteGateway:
     def obtener_estado_recordatorio_lote(self, cita_ids: tuple[int, ...]) -> dict[tuple[int, str], str]:
         if not cita_ids:
             return {}
-        rows = self._con.execute(
+        rows = self._obtener_conexion().execute(
             f"""
             SELECT cita_id, canal, estado
             FROM recordatorios_citas
@@ -99,8 +103,20 @@ class RecordatoriosCitasSqliteGateway:
         if not items:
             return 0
         params = [(cita_id, canal, estado, now_utc, now_utc) for cita_id, canal, estado, now_utc in items]
-        cursor = self._con.executemany(_SQL_UPSERT_RECORDATORIO, params)
+        cursor = self._obtener_conexion().executemany(_SQL_UPSERT_RECORDATORIO, params)
         return cursor.rowcount if cursor.rowcount != -1 else len(items)
+
+    def _obtener_conexion(self) -> sqlite3.Connection:
+        if self._proveedor is not None:
+            return self._proveedor.obtener()
+        if self._con is None:
+            raise RuntimeError("Conexión no inicializada")
+        return self._con
+
+
+class _ProveedorConexion(Protocol):
+    def obtener(self) -> sqlite3.Connection:
+        ...
 
 
 _SQL_UPSERT_RECORDATORIO = """

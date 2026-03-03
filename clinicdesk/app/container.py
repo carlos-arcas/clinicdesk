@@ -115,7 +115,8 @@ def build_container(connection: sqlite3.Connection) -> AppContainer:
     demo_ml_facade = _build_demo_ml_facade(connection, citas_repo, incidencias_repo)
     proveedor_prediccion = _build_proveedor_conexion_prediccion(connection)
     prediccion_ausencias_facade = _build_prediccion_ausencias_facade(proveedor_prediccion)
-    recordatorios_citas_facade = _build_recordatorios_citas_facade(connection)
+    proveedor_recordatorios = _build_proveedor_conexion_prediccion(connection)
+    recordatorios_citas_facade = _build_recordatorios_citas_facade(proveedor_recordatorios)
 
     role_value = os.getenv("CLINICDESK_ROLE", Role.ADMIN.value).upper()
     role = Role(role_value) if role_value in {r.value for r in Role} else Role.ADMIN
@@ -237,7 +238,7 @@ def _build_prediccion_ausencias_facade(proveedor_conexion: ProveedorConexionSqli
     )
 
 
-def _build_recordatorios_citas_facade(connection: sqlite3.Connection) -> RecordatoriosCitasFacade:
+def _build_recordatorios_citas_facade(proveedor_conexion: ProveedorConexionSqlitePorHilo) -> RecordatoriosCitasFacade:
     from clinicdesk.app.application.usecases.recordatorios_citas import (
         MarcarRecordatoriosEnviadosEnLote,
         ObtenerEstadoRecordatorioCita,
@@ -246,7 +247,7 @@ def _build_recordatorios_citas_facade(connection: sqlite3.Connection) -> Recorda
         RegistrarRecordatorioCita,
     )
 
-    gateway = RecordatoriosCitasSqliteGateway(connection)
+    gateway = RecordatoriosCitasSqliteGateway(proveedor_conexion=proveedor_conexion)
     preparar_uc = PrepararRecordatorioCita(gateway)
     registrar_uc = RegistrarRecordatorioCita(gateway)
     obtener_estado_uc = ObtenerEstadoRecordatorioCita(gateway)
@@ -258,4 +259,5 @@ def _build_recordatorios_citas_facade(connection: sqlite3.Connection) -> Recorda
         obtener_estado_uc=obtener_estado_uc,
         preparar_lote_uc=preparar_lote_uc,
         marcar_enviado_lote_uc=marcar_enviado_lote_uc,
+        proveedor_conexion=proveedor_conexion,
     )
