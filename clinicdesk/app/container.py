@@ -13,10 +13,10 @@ from clinicdesk.app.application.services.recordatorios_citas_facade import Recor
 from clinicdesk.app.composicion.composicion_demo_ml import build_demo_ml_facade
 from clinicdesk.app.composicion.composicion_prediccion_ausencias import build_prediccion_ausencias_facade
 from clinicdesk.app.composicion.composicion_prediccion_operativa import build_prediccion_operativa_facade
+from clinicdesk.app.composicion.composicion_proveedores import build_proveedor_conexion_sqlite_por_hilo
 from clinicdesk.app.composicion.composicion_queries import build_farmacia_queries
 from clinicdesk.app.composicion.composicion_recordatorios import build_recordatorios_citas_facade
 from clinicdesk.app.composicion.composicion_repositorios_sqlite import build_repositorios_sqlite
-from clinicdesk.app.infrastructure.sqlite.proveedor_conexion_sqlite import ProveedorConexionSqlitePorHilo
 from clinicdesk.app.queries.farmacia_queries import FarmaciaQueries
 
 
@@ -69,8 +69,8 @@ class AppContainer:
 def build_container(connection: sqlite3.Connection) -> AppContainer:
     connection.row_factory = sqlite3.Row
     repos = build_repositorios_sqlite(connection)
-    proveedor_prediccion = build_proveedor_conexion_prediccion(connection)
-    proveedor_recordatorios = build_proveedor_conexion_prediccion(connection)
+    proveedor_prediccion = build_proveedor_conexion_sqlite_por_hilo(connection)
+    proveedor_recordatorios = build_proveedor_conexion_sqlite_por_hilo(connection)
     return AppContainer(
         connection=connection,
         queries=QueriesHub(farmacia=build_farmacia_queries(connection)),
@@ -99,12 +99,6 @@ def build_container(connection: sqlite3.Connection) -> AppContainer:
         telemetria_eventos_repo=repos.telemetria_eventos_repo,
         user_context=build_user_context(),
     )
-
-
-def build_proveedor_conexion_prediccion(connection: sqlite3.Connection) -> ProveedorConexionSqlitePorHilo:
-    row = connection.execute("PRAGMA database_list").fetchone()
-    db_path = row[2] if row and row[2] else ":memory:"
-    return ProveedorConexionSqlitePorHilo(db_path)
 
 
 def build_user_context() -> UserContext:
