@@ -100,6 +100,26 @@ def test_run_pip_audit_fails_when_non_allowlisted_vulnerability_remains(tmp_path
     assert "GHSA-1111-2222-3333" in contenido
 
 
+
+def test_run_secrets_scan_uses_gitleaks_config_file(tmp_path: Path, monkeypatch) -> None:
+    report_path = tmp_path / "secrets_scan_report.txt"
+    observed_command: list[str] = []
+
+    def fake_run(command, **kwargs):
+        observed_command.extend(command)
+        report_path.write_text("[]\n", encoding="utf-8")
+        return subprocess.CompletedProcess(command, 0, "", "")
+
+    monkeypatch.setattr(quality_gate, "SECRETS_SCAN_REPORT_PATH", report_path)
+    monkeypatch.setattr(quality_gate, "_find_command_path", lambda _: "gitleaks")
+    monkeypatch.setattr(quality_gate.subprocess, "run", fake_run)
+
+    assert quality_gate._run_secrets_scan() == 0
+    assert "--config" in observed_command
+    config_index = observed_command.index("--config")
+    assert observed_command[config_index + 1] == ".gitleaks.toml"
+
+
 def test_run_secrets_scan_fails_when_tool_missing(tmp_path: Path, monkeypatch) -> None:
     report_path = tmp_path / "secrets_scan_report.txt"
 

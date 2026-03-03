@@ -388,9 +388,15 @@ def _run_secrets_scan() -> int:
     scanner = _find_command_path(("gitleaks",))
     if scanner is None:
         SECRETS_SCAN_REPORT_PATH.write_text(
-            "No se encontró gitleaks en PATH.\n"
-            "Instalación local sugerida (Ubuntu): sudo apt-get install -y gitleaks\n"
-            "CI debe instalar gitleaks antes de ejecutar python -m scripts.gate_pr\n",
+            json.dumps(
+                {
+                    "error": "No se encontró gitleaks en PATH",
+                    "instalacion_sugerida": "sudo apt-get install -y gitleaks",
+                },
+                ensure_ascii=False,
+                indent=2,
+            )
+            + "\n",
             encoding="utf-8",
         )
         _LOGGER.error("[quality-gate] ❌ Falta gitleaks en PATH. Revisa docs/ci_quality_gate.md para instalación.")
@@ -400,23 +406,18 @@ def _run_secrets_scan() -> int:
         scanner,
         "detect",
         "--source",
-        str(REPO_ROOT),
-        "--no-git",
+        ".",
+        "--config",
+        ".gitleaks.toml",
         "--report-format",
         "json",
         "--report-path",
-        str(SECRETS_SCAN_REPORT_PATH),
+        "docs/secrets_scan_report.txt",
     ]
     _LOGGER.info("[quality-gate] Ejecutando escaneo de secretos con gitleaks.")
     completed = subprocess.run(command, cwd=REPO_ROOT, capture_output=True, text=True, check=False)
-    report_tail = "\n\nSTDOUT:\n" + (completed.stdout or "") + "\nSTDERR:\n" + (completed.stderr or "")
-    if SECRETS_SCAN_REPORT_PATH.exists():
-        SECRETS_SCAN_REPORT_PATH.write_text(
-            SECRETS_SCAN_REPORT_PATH.read_text(encoding="utf-8") + report_tail,
-            encoding="utf-8",
-        )
-    else:
-        SECRETS_SCAN_REPORT_PATH.write_text(report_tail, encoding="utf-8")
+    if not SECRETS_SCAN_REPORT_PATH.exists():
+        SECRETS_SCAN_REPORT_PATH.write_text("[]\n", encoding="utf-8")
     if completed.returncode == 0:
         return 0
     _LOGGER.error("[quality-gate] ❌ gitleaks detectó secretos o falló la ejecución.")

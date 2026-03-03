@@ -44,8 +44,9 @@ El gate canónico `python -m scripts.gate_pr` ahora ejecuta además:
    - Si existen vulnerabilidades, el gate falla.
    - Allowlist opcional y controlada: `docs/pip_audit_allowlist.json` con `id` y `motivo` por vulnerabilidad.
 8. **Escaneo de secretos con Gitleaks**
-   - Comando: `gitleaks detect --source . --no-git --report-format json --report-path docs/secrets_scan_report.txt`
-   - Reporte: `docs/secrets_scan_report.txt`.
+   - Comando: `gitleaks detect --source . --config .gitleaks.toml --report-format json --report-path docs/secrets_scan_report.txt`
+   - Reporte: `docs/secrets_scan_report.txt` (siempre en JSON).
+   - La configuración en `.gitleaks.toml` excluye artefactos no fuente (`__pycache__`, `*.pyc`, caches de pytest/mypy/ruff y `.venv`) para evitar falsos positivos sin relajar el escaneo sobre código fuente.
    - Si no existe `gitleaks` en `PATH`, el gate falla con guía de instalación (sin skips silenciosos).
 9. **Guardrail básico de PII en logging**
    - Escaneo AST de llamadas `logger.*` para strings hardcodeados con tokens sensibles (`dni`, `nif`, `email`, `telefono`, `direccion`, `historia_clinica`).
