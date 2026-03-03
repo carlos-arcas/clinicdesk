@@ -3,38 +3,20 @@ from __future__ import annotations
 import os
 import sqlite3
 from dataclasses import dataclass
+from typing import Any
 
 from clinicdesk.app.application.security import Role, UserContext
 from clinicdesk.app.application.services.demo_ml_facade import DemoMLFacade
 from clinicdesk.app.application.services.prediccion_ausencias_facade import PrediccionAusenciasFacade
 from clinicdesk.app.application.services.prediccion_operativa_facade import PrediccionOperativaFacade
 from clinicdesk.app.application.services.recordatorios_citas_facade import RecordatoriosCitasFacade
-from clinicdesk.app.composicion.composicion_ml_demo import build_demo_ml_facade
+from clinicdesk.app.composicion.composicion_demo_ml import build_demo_ml_facade
 from clinicdesk.app.composicion.composicion_prediccion_ausencias import build_prediccion_ausencias_facade
 from clinicdesk.app.composicion.composicion_prediccion_operativa import build_prediccion_operativa_facade
 from clinicdesk.app.composicion.composicion_queries import build_farmacia_queries
 from clinicdesk.app.composicion.composicion_recordatorios import build_recordatorios_citas_facade
-from clinicdesk.app.composicion.composicion_repositorios import build_repositorios_sqlite
+from clinicdesk.app.composicion.composicion_repositorios_sqlite import build_repositorios_sqlite
 from clinicdesk.app.infrastructure.sqlite.proveedor_conexion_sqlite import ProveedorConexionSqlitePorHilo
-from clinicdesk.app.infrastructure.sqlite.repos_auditoria_accesos import RepositorioAuditoriaAccesoSqlite
-from clinicdesk.app.infrastructure.sqlite.repos_ausencias_medico import AusenciasMedicoRepository
-from clinicdesk.app.infrastructure.sqlite.repos_ausencias_personal import AusenciasPersonalRepository
-from clinicdesk.app.infrastructure.sqlite.repos_calendario_medico import CalendarioMedicoRepository
-from clinicdesk.app.infrastructure.sqlite.repos_calendario_personal import CalendarioPersonalRepository
-from clinicdesk.app.infrastructure.sqlite.repos_citas import CitasRepository
-from clinicdesk.app.infrastructure.sqlite.repos_dispensaciones import DispensacionesRepository
-from clinicdesk.app.infrastructure.sqlite.repos_incidencias import IncidenciasRepository
-from clinicdesk.app.infrastructure.sqlite.repos_materiales import MaterialesRepository
-from clinicdesk.app.infrastructure.sqlite.repos_medicos import MedicosRepository
-from clinicdesk.app.infrastructure.sqlite.repos_medicamentos import MedicamentosRepository
-from clinicdesk.app.infrastructure.sqlite.repos_movimientos_materiales import MovimientosMaterialesRepository
-from clinicdesk.app.infrastructure.sqlite.repos_movimientos_medicamentos import MovimientosMedicamentosRepository
-from clinicdesk.app.infrastructure.sqlite.repos_pacientes import PacientesRepository
-from clinicdesk.app.infrastructure.sqlite.repos_personal import PersonalRepository
-from clinicdesk.app.infrastructure.sqlite.repos_recetas import RecetasRepository
-from clinicdesk.app.infrastructure.sqlite.repos_salas import SalasRepository
-from clinicdesk.app.infrastructure.sqlite.repos_telemetria_eventos import RepositorioTelemetriaEventosSqlite
-from clinicdesk.app.infrastructure.sqlite.repos_turnos import TurnosRepository
 from clinicdesk.app.queries.farmacia_queries import FarmaciaQueries
 
 
@@ -52,29 +34,29 @@ class AppContainer:
     recordatorios_citas_facade: RecordatoriosCitasFacade
     prediccion_operativa_facade: PrediccionOperativaFacade
 
-    pacientes_repo: PacientesRepository
-    medicos_repo: MedicosRepository
-    personal_repo: PersonalRepository
-    salas_repo: SalasRepository
-    turnos_repo: TurnosRepository
+    pacientes_repo: Any
+    medicos_repo: Any
+    personal_repo: Any
+    salas_repo: Any
+    turnos_repo: Any
 
-    calendario_medico_repo: CalendarioMedicoRepository
-    calendario_personal_repo: CalendarioPersonalRepository
-    ausencias_medico_repo: AusenciasMedicoRepository
-    ausencias_personal_repo: AusenciasPersonalRepository
+    calendario_medico_repo: Any
+    calendario_personal_repo: Any
+    ausencias_medico_repo: Any
+    ausencias_personal_repo: Any
 
-    medicamentos_repo: MedicamentosRepository
-    materiales_repo: MaterialesRepository
-    mov_medicamentos_repo: MovimientosMedicamentosRepository
-    mov_materiales_repo: MovimientosMaterialesRepository
+    medicamentos_repo: Any
+    materiales_repo: Any
+    mov_medicamentos_repo: Any
+    mov_materiales_repo: Any
 
-    recetas_repo: RecetasRepository
-    dispensaciones_repo: DispensacionesRepository
+    recetas_repo: Any
+    dispensaciones_repo: Any
 
-    citas_repo: CitasRepository
-    incidencias_repo: IncidenciasRepository
-    auditoria_accesos_repo: RepositorioAuditoriaAccesoSqlite
-    telemetria_eventos_repo: RepositorioTelemetriaEventosSqlite
+    citas_repo: Any
+    incidencias_repo: Any
+    auditoria_accesos_repo: Any
+    telemetria_eventos_repo: Any
     user_context: UserContext
 
     def close(self) -> None:
