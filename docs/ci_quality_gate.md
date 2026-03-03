@@ -118,6 +118,11 @@ Módulos excluidos del gate bloqueante en este paso:
 1. `python -m pip install --upgrade pip`
 2. `pip install -r requirements-dev.txt`
 
+## Capa de composición (DI/wiring)
+- La composición de dependencias se centraliza en `clinicdesk/app/composicion/` con builders `build_*` por contexto (repositorios, queries y facades).
+- `clinicdesk/app/container.py` queda como orquestador fino: arma `AppContainer` invocando esa capa sin lógica de negocio.
+- Esta separación reduce deuda de wiring y facilita tests arquitectónicos sin romper límites de Clean Architecture.
+
 ## Notas de operación
 - Los tests de UI deben declararse con marker `ui` para no bloquear este gate.
 - El script devuelve `exit code != 0` si falla Ruff, tests, cobertura core o generación de reportes.
