@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from clinicdesk.app.application.recordatorios.puertos import GatewayRecordatoriosCitas
 from clinicdesk.app.application.services.recordatorios_citas_facade import RecordatoriosCitasFacade
 from clinicdesk.app.application.usecases.recordatorios_citas import (
     MarcarRecordatoriosEnviadosEnLote,
@@ -15,7 +16,7 @@ from clinicdesk.app.infrastructure.sqlite.recordatorios_citas_gateway import Rec
 def build_recordatorios_citas_facade(
     proveedor_conexion: ProveedorConexionSqlitePorHilo,
 ) -> RecordatoriosCitasFacade:
-    gateway = RecordatoriosCitasSqliteGateway(proveedor_conexion=proveedor_conexion)
+    gateway: GatewayRecordatoriosCitas = RecordatoriosCitasSqliteGateway(proveedor_conexion=proveedor_conexion)
     return RecordatoriosCitasFacade(
         preparar_uc=PrepararRecordatorioCita(gateway),
         registrar_uc=RegistrarRecordatorioCita(gateway),

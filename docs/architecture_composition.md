@@ -38,3 +38,13 @@ Los proveedores de infraestructura compartidos entre fachadas se construyen en m
 Regla práctica:
 - si un proveedor se reutiliza por dos o más composiciones, su construcción vive en `composicion_proveedores.py`;
 - `container.py` únicamente invoca builders y conecta resultados.
+
+## Ports & Adapters en Recordatorios
+
+El contexto de recordatorios aplica inversión de dependencias así:
+
+- **Application** define el puerto `GatewayRecordatoriosCitas` en `clinicdesk/app/application/recordatorios/puertos.py`.
+- **Infrastructure** implementa ese contrato con `RecordatoriosCitasSqliteGateway`.
+- **Composición** (`composicion_recordatorios.py`) decide el adaptador concreto (SQLite) y lo inyecta a los casos de uso tipado como puerto.
+
+Regla: los casos de uso de `application/usecases/recordatorios_citas.py` dependen del protocolo y no importan infraestructura concreta.

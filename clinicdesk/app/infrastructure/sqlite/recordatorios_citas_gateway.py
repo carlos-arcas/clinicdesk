@@ -3,7 +3,7 @@ from __future__ import annotations
 import sqlite3
 from typing import Protocol
 
-from clinicdesk.app.application.ports.recordatorios_citas_port import (
+from clinicdesk.app.application.recordatorios.puertos import (
     DatosRecordatorioCitaDTO,
     EstadoRecordatorioDTO,
 )

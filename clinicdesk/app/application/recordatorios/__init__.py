@@ -5,12 +5,9 @@ from clinicdesk.app.application.recordatorios.puertos import (
     RecordatorioPreviewDTO,
 )
 
-RecordatoriosCitasPort = GatewayRecordatoriosCitas
-
 __all__ = [
     "DatosRecordatorioCitaDTO",
     "EstadoRecordatorioDTO",
     "GatewayRecordatoriosCitas",
     "RecordatorioPreviewDTO",
-    "RecordatoriosCitasPort",
 ]
