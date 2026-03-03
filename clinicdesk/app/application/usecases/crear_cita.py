@@ -208,7 +208,7 @@ class CrearCitaUseCase:
             dispensacion_id=None,
             receta_id=None,
             confirmado_por_personal_id=req.confirmado_por_personal_id,
-            nota_override=req.nota_override.strip(),
+            nota_override=(req.nota_override or "").strip(),
         )
         return cita_id, self._c.incidencias_repo.create(inc)
 
