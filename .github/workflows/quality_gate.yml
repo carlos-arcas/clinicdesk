@@ -27,6 +27,12 @@ jobs:
           python-version: ${{ matrix.python-version }}
           cache: pip
 
+      - name: Python and pip versions
+        run: |
+          set -euxo pipefail
+          python --version
+          python -m pip --version
+
       - name: Install dependencies
         run: |
           set -euxo pipefail
@@ -35,7 +41,10 @@ jobs:
           python -m pip install -r requirements-dev.txt
 
       - name: Verify pip_audit import
-        run: python -c "import pip_audit; print('pip_audit_ok')"
+        run: |
+          set -euxo pipefail
+          python -c "import pip_audit; print('pip_audit_ok')"
+          python -m pip show pip-audit
 
       - name: Compile sanity check
         run: python -m compileall -q clinicdesk scripts tests
@@ -59,6 +68,24 @@ jobs:
             sed -n '1,40p' docs/quality_report.md
           else
             echo "No quality report found (docs/quality_report.md)."
+          fi
+
+      - name: Show security reports tail
+        if: always()
+        run: |
+          set -euxo pipefail
+          if [ -f docs/pip_audit_report.txt ]; then
+            echo "Last 80 lines of docs/pip_audit_report.txt:"
+            tail -n 80 docs/pip_audit_report.txt
+          else
+            echo "docs/pip_audit_report.txt not found."
+          fi
+
+          if [ -f docs/secrets_scan_report.txt ]; then
+            echo "Last 80 lines of docs/secrets_scan_report.txt:"
+            tail -n 80 docs/secrets_scan_report.txt
+          else
+            echo "docs/secrets_scan_report.txt not found."
           fi
 
       - name: Upload quality artifacts
