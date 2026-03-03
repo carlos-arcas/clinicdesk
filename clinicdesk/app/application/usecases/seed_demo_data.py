@@ -12,6 +12,7 @@ from clinicdesk.app.application.demo_data.generator import (
     generate_patients,
     generate_personal,
 )
+from clinicdesk.app.application.security import Action, AutorizadorAcciones, UserContext
 from clinicdesk.app.infrastructure.sqlite.demo_data_seeder import DemoDataSeeder
 
 LOGGER = get_logger(__name__)
@@ -57,10 +58,19 @@ class SeedDemoDataResponse:
 
 
 class SeedDemoData:
-    def __init__(self, seeder: DemoDataSeeder) -> None:
+    def __init__(
+        self,
+        seeder: DemoDataSeeder,
+        *,
+        user_context: UserContext | None = None,
+        autorizador_acciones: AutorizadorAcciones | None = None,
+    ) -> None:
         self._seeder = seeder
+        self._user_context = user_context
+        self._autorizador_acciones = autorizador_acciones
 
     def execute(self, request: SeedDemoDataRequest) -> SeedDemoDataResponse:
+        self._exigir_permisos()
         started_at = datetime.now(UTC)
         start_date, end_date = _resolve_dates(request.from_date, request.to_date)
         doctors, patients, staff, appointments, incidences = self._generate_entities(request, start_date, end_date)
@@ -73,6 +83,12 @@ class SeedDemoData:
         LOGGER.info("Persisting done in %.2fs", persist_seconds)
         LOGGER.info("Seed demo total duration %.2fs", total_seconds)
         return self._build_response(request, result, start_date, end_date)
+
+
+    def _exigir_permisos(self) -> None:
+        if self._user_context is None or self._autorizador_acciones is None:
+            return
+        self._autorizador_acciones.exigir(self._user_context, Action.DEMO_SEED)
 
     def _generate_entities(
         self,

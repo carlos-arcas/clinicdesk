@@ -5,7 +5,7 @@ import sqlite3
 from dataclasses import dataclass
 from typing import Any
 
-from clinicdesk.app.application.security import Role, UserContext
+from clinicdesk.app.application.security import AutorizadorAcciones, Role, UserContext
 from clinicdesk.app.application.services.demo_ml_facade import DemoMLFacade
 from clinicdesk.app.application.services.prediccion_ausencias_facade import PrediccionAusenciasFacade
 from clinicdesk.app.application.services.prediccion_operativa_facade import PrediccionOperativaFacade
@@ -58,6 +58,7 @@ class AppContainer:
     auditoria_accesos_repo: Any
     telemetria_eventos_repo: Any
     user_context: UserContext
+    autorizador_acciones: AutorizadorAcciones
 
     def close(self) -> None:
         try:
@@ -71,10 +72,18 @@ def build_container(connection: sqlite3.Connection) -> AppContainer:
     repos = build_repositorios_sqlite(connection)
     proveedor_prediccion = build_proveedor_conexion_sqlite_por_hilo(connection)
     proveedor_recordatorios = build_proveedor_conexion_sqlite_por_hilo(connection)
+    user_context = build_user_context()
+    autorizador_acciones = AutorizadorAcciones()
     return AppContainer(
         connection=connection,
         queries=QueriesHub(farmacia=build_farmacia_queries(connection)),
-        demo_ml_facade=build_demo_ml_facade(connection, repos.citas_repo, repos.incidencias_repo),
+        demo_ml_facade=build_demo_ml_facade(
+            connection,
+            repos.citas_repo,
+            repos.incidencias_repo,
+            user_context=user_context,
+            autorizador_acciones=autorizador_acciones,
+        ),
         prediccion_ausencias_facade=build_prediccion_ausencias_facade(proveedor_prediccion),
         recordatorios_citas_facade=build_recordatorios_citas_facade(proveedor_recordatorios),
         prediccion_operativa_facade=build_prediccion_operativa_facade(proveedor_prediccion),
@@ -97,7 +106,8 @@ def build_container(connection: sqlite3.Connection) -> AppContainer:
         incidencias_repo=repos.incidencias_repo,
         auditoria_accesos_repo=repos.auditoria_accesos_repo,
         telemetria_eventos_repo=repos.telemetria_eventos_repo,
-        user_context=build_user_context(),
+        user_context=user_context,
+        autorizador_acciones=autorizador_acciones,
     )
 
 

@@ -83,3 +83,30 @@ def test_logging_redacts_pii_in_exception_traceback(tmp_path: Path) -> None:
     assert "87654321" not in content
     assert "maria@example.com" not in content
     assert "***" in content
+
+
+def test_logging_agrega_reason_code_cuando_redacta_pii(tmp_path: Path) -> None:
+    configure_logging("test-app", tmp_path, json=False)
+    set_run_context("run-redact-reason")
+    logger = get_logger("tests.logging")
+
+    logger.info("correo=persona@example.com", extra={"dni": "12345678"})
+
+    content = (tmp_path / "app.log").read_text(encoding="utf-8")
+    assert "reason_code=pii_redacted" in content
+    assert "persona@example.com" not in content
+    assert "12345678" not in content
+
+
+def test_logging_permite_pii_si_env_lo_habilita(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setenv("CLINICDESK_LOG_PII", "1")
+    configure_logging("test-app", tmp_path, json=False)
+    set_run_context("run-allow-pii")
+    logger = get_logger("tests.logging")
+
+    logger.info("correo=persona@example.com dni=12345678")
+
+    content = (tmp_path / "app.log").read_text(encoding="utf-8")
+    assert "persona@example.com" in content
+    assert "12345678" in content
+    assert "reason_code=pii_redacted" not in content
