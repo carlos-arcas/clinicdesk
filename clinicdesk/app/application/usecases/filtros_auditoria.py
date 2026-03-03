@@ -57,3 +57,14 @@ def _rango_dia(dia_inicio: date, dia_fin: date | None = None) -> tuple[datetime,
     desde = datetime.combine(dia_inicio, time.min, tzinfo=UTC)
     hasta = datetime.combine(fin, time.max, tzinfo=UTC)
     return desde, hasta
+
+
+def redactar_texto_filtro_auditoria(texto: str | None) -> str | None:
+    if texto is None:
+        return None
+    valor = texto.strip()
+    if not valor:
+        return None
+    if len(valor) <= 12:
+        return valor
+    return f"{valor[:12]}…"

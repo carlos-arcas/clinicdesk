@@ -3,11 +3,15 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Protocol
 
-from clinicdesk.app.application.usecases.filtros_auditoria import aplicar_preset_rango_auditoria
+from clinicdesk.app.bootstrap_logging import get_logger
+from clinicdesk.app.application.usecases.filtros_auditoria import aplicar_preset_rango_auditoria, redactar_texto_filtro_auditoria
 from clinicdesk.app.queries.auditoria_accesos_queries import (
     AuditoriaAccesoItemQuery,
     FiltrosAuditoriaAccesos,
 )
+
+
+LOGGER = get_logger(__name__)
 
 
 @dataclass(frozen=True, slots=True)
@@ -49,6 +53,7 @@ class BuscarAuditoriaAccesos:
     ) -> ResultadoAuditoriaAccesosDTO:
         filtros_finales = aplicar_preset_rango_auditoria(filtros, preset_rango)
         items, total = self._gateway.buscar_auditoria_accesos(filtros_finales, limit, offset)
+        LOGGER.info("auditoria_filtros_aplicados", extra=_payload_log_filtros_auditoria(filtros_finales, "auditoria_filtros_aplicados"))
         filas = tuple(self._map_item(item) for item in items)
         return ResultadoAuditoriaAccesosDTO(total=total, items=filas)
 
@@ -62,3 +67,12 @@ class BuscarAuditoriaAccesos:
             entidad_tipo=item.entidad_tipo,
             entidad_id=item.entidad_id,
         )
+
+
+def _payload_log_filtros_auditoria(filtros: FiltrosAuditoriaAccesos, accion: str) -> dict[str, object]:
+    return {
+        "action": accion,
+        "usuario_contiene": redactar_texto_filtro_auditoria(filtros.usuario_contiene),
+        "filtro_accion": filtros.accion,
+        "filtro_entidad_tipo": filtros.entidad_tipo,
+    }
