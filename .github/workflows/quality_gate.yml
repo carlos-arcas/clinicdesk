@@ -29,9 +29,13 @@ jobs:
 
       - name: Install dependencies
         run: |
+          set -euxo pipefail
           python -m pip install --upgrade pip
           python -m pip install -r requirements.txt
           python -m pip install -r requirements-dev.txt
+
+      - name: Verify pip_audit import
+        run: python -c "import pip_audit; print('pip_audit_ok')"
 
       - name: Compile sanity check
         run: python -m compileall -q clinicdesk scripts tests
