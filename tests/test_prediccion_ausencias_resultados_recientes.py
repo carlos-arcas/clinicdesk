@@ -197,3 +197,38 @@ def test_uc_resultados_recientes_ok_devuelve_filas_por_riesgo(db_connection) -> 
     assert resultado.diagnostico is DiagnosticoResultadosRecientes.OK
     assert [fila.riesgo for fila in resultado.filas] == ["BAJO", "MEDIO", "ALTO"]
     assert sum(fila.total_predichas for fila in resultado.filas) == 30
+
+
+def test_uc_resultados_recientes_ok_no_depende_solo_de_ultima_version(db_connection) -> None:
+    paciente_id, medico_id, sala_id = _seed_base_tablas(db_connection)
+    for cita_id in range(1, 26):
+        _insert_cita(
+            db_connection,
+            cita_id=cita_id,
+            paciente_id=paciente_id,
+            medico_id=medico_id,
+            sala_id=sala_id,
+            dias=5,
+            estado="REALIZADA",
+        )
+    for cita_id in range(26, 31):
+        _insert_cita(
+            db_connection,
+            cita_id=cita_id,
+            paciente_id=paciente_id,
+            medico_id=medico_id,
+            sala_id=sala_id,
+            dias=2,
+            estado="PENDIENTE",
+        )
+    db_connection.commit()
+
+    queries = PrediccionAusenciasResultadosQueries(db_connection)
+    _registrar_predicciones(queries, "v1", range(1, 26), riesgo="ALTO")
+    _registrar_predicciones(queries, "v2", range(26, 31), riesgo="MEDIO")
+
+    uc = ObtenerResultadosRecientesPrediccionAusencias(queries, umbral_minimo=20)
+    resultado = uc.ejecutar(ventana_dias=60)
+
+    assert resultado.diagnostico is DiagnosticoResultadosRecientes.OK
+    assert sum(fila.total_predichas for fila in resultado.filas) == 25
