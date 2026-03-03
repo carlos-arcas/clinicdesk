@@ -9,6 +9,7 @@ from clinicdesk.app.application.citas.filtros import FiltrosCitasDTO
 
 ContextoValidacionCitas = Literal["LISTA", "CALENDARIO"]
 _ESTADOS_VALIDOS = {"PROGRAMADA", "CONFIRMADA", "CANCELADA", "REALIZADA", "NO_PRESENTADO"}
+_FILTROS_CALIDAD_VALIDOS = {"SIN_CHECKIN", "SIN_INICIO_FIN", "SIN_SALIDA"}
 _MAX_RANGO_DIAS = {"LISTA": 365, "CALENDARIO": 90}
 
 
@@ -34,6 +35,7 @@ def validar_filtros_citas(
         *_validar_texto_busqueda(filtros_norm.texto_busqueda),
         *_validar_estado(filtros_norm.estado_cita),
         *_validar_ids(filtros_norm),
+        *_validar_filtro_calidad(filtros_norm.filtro_calidad),
         *_validar_paginacion(filtros_norm.limit, filtros_norm.offset),
     ]
     return ResultadoValidacionDTO(ok=not errores, errores=tuple(errores))
@@ -89,6 +91,14 @@ def _validar_ids(filtros_norm: FiltrosCitasDTO) -> tuple[ErrorValidacionDTO, ...
             return (ErrorValidacionDTO("citas.id_invalido", "citas.validacion.id_invalido", campo),)
     return ()
 
+
+
+def _validar_filtro_calidad(filtro_calidad: str | None) -> tuple[ErrorValidacionDTO, ...]:
+    if filtro_calidad is None or filtro_calidad in _FILTROS_CALIDAD_VALIDOS:
+        return ()
+    return (
+        ErrorValidacionDTO("citas.filtro_calidad_invalido", "citas.validacion.filtro_calidad_invalido", "filtro_calidad"),
+    )
 
 def _validar_paginacion(limit: int, offset: int) -> tuple[ErrorValidacionDTO, ...]:
     if limit <= 200 and offset >= 0:

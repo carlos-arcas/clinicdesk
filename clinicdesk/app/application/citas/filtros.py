@@ -6,6 +6,7 @@ from datetime import datetime, timedelta
 
 _PRESETS_VALIDOS = {"HOY", "SEMANA", "MES", "PERSONALIZADO"}
 _RECORDATORIO_VALIDO = {"TODOS", "SIN_PREPARAR", "NO_ENVIADO"}
+_FILTROS_CALIDAD_VALIDOS = {"SIN_CHECKIN", "SIN_INICIO_FIN", "SIN_SALIDA"}
 _ESTADOS_VALIDOS = {
     "PROGRAMADA",
     "CONFIRMADA",
@@ -30,6 +31,7 @@ class FiltrosCitasDTO:
     paciente_id: int | None = None
     incluir_riesgo: bool = False
     recordatorio_filtro: str | None = None
+    filtro_calidad: str | None = None
     limit: int = _LIMIT_POR_DEFECTO
     offset: int = _OFFSET_POR_DEFECTO
 
@@ -52,6 +54,7 @@ def normalizar_filtros_citas(filtros: FiltrosCitasDTO, ahora: datetime) -> Filtr
         paciente_id=_normalizar_id(filtros.paciente_id),
         incluir_riesgo=bool(filtros.incluir_riesgo),
         recordatorio_filtro=_normalizar_catalogo(filtros.recordatorio_filtro, _RECORDATORIO_VALIDO),
+        filtro_calidad=_normalizar_catalogo(filtros.filtro_calidad, _FILTROS_CALIDAD_VALIDOS),
         limit=_normalizar_limit(filtros.limit),
         offset=_normalizar_offset(filtros.offset),
     )

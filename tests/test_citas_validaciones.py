@@ -61,3 +61,10 @@ def test_validar_filtros_detecta_paginacion_invalida() -> None:
     resultado = validar_filtros_citas(replace(_filtros_base(), limit=201), "LISTA")
     assert resultado.ok is False
     assert resultado.errores[0].code == "citas.paginacion_invalida"
+
+
+def test_validar_filtros_detecta_filtro_calidad_invalido() -> None:
+    resultado = validar_filtros_citas(replace(_filtros_base(), filtro_calidad="BAD"), "LISTA")
+
+    assert resultado.ok is False
+    assert resultado.errores[0].code == "citas.filtro_calidad_invalido"
