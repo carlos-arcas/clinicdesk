@@ -5,10 +5,10 @@ from clinicdesk.app.queries.confirmaciones_queries import ConfirmacionesQueries,
 
 def _seed_base(db_connection):
     db_connection.execute(
-        "INSERT INTO pacientes (id, tipo_documento, documento, nombre, apellidos, activo) VALUES (1,'DNI','1','Ana','Uno',1)"
+        "INSERT INTO pacientes (id, tipo_documento, documento, nombre, apellidos, telefono, activo) VALUES (1,'DNI','1','Ana','Uno','600111222',1)"
     )
     db_connection.execute(
-        "INSERT INTO pacientes (id, tipo_documento, documento, nombre, apellidos, activo) VALUES (2,'DNI','2','Beto','Dos',1)"
+        "INSERT INTO pacientes (id, tipo_documento, documento, nombre, apellidos, telefono, activo) VALUES (2,'DNI','2','Beto','Dos','',1)"
     )
     db_connection.execute(
         "INSERT INTO medicos (id, tipo_documento, documento, nombre, apellidos, num_colegiado, especialidad, activo) VALUES (1,'DNI','10','Marta','Med','COL1','General',1)"
@@ -53,6 +53,9 @@ def test_buscar_confirmaciones_filtra_rango_estado_y_paginacion(db_connection):
 
     items_2, _ = q.buscar_citas_confirmaciones(filtros, limit=10, offset=1)
     assert items_2[0].recordatorio_estado_global == "PREPARADO"
+    assert items[0].tiene_telefono is True
+    assert items_2[0].tiene_telefono is False
+    assert not hasattr(items[0], "telefono")
 
     sin_preparar, total_sin = q.buscar_citas_confirmaciones(
         FiltrosConfirmacionesQuery(

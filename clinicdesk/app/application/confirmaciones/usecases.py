@@ -49,6 +49,7 @@ class ObtenerConfirmacionesCitas:
                 estado_cita=row.estado_cita,
                 riesgo=riesgos.get(row.cita_id, "NO_DISPONIBLE"),
                 recordatorio_estado=row.recordatorio_estado_global,
+                tiene_telefono=row.tiene_telefono,
             )
             for row in rows
         ]

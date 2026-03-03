@@ -22,6 +22,7 @@ class CitaConfirmacionRow:
     paciente_id: int
     medico_id: int
     recordatorio_estado_global: str
+    tiene_telefono: bool
 
 
 class ConfirmacionesQueries:
@@ -72,7 +73,7 @@ class ConfirmacionesQueries:
             "p.nombre || ' ' || p.apellidos AS paciente_nombre, "
             "m.nombre || ' ' || m.apellidos AS medico_nombre, "
             "c.estado AS estado_cita, c.paciente_id, c.medico_id, "
-            "coalesce(r.estado_global, 'SIN_PREPARAR') AS recordatorio_estado_global "
+            "coalesce(r.estado_global, 'SIN_PREPARAR') AS recordatorio_estado_global, CASE WHEN p.telefono IS NOT NULL AND trim(p.telefono) != '' THEN 1 ELSE 0 END AS tiene_telefono "
             "FROM citas c "
             "JOIN pacientes p ON p.id = c.paciente_id "
             "JOIN medicos m ON m.id = c.medico_id "
@@ -110,4 +111,5 @@ class ConfirmacionesQueries:
             paciente_id=int(row["paciente_id"]),
             medico_id=int(row["medico_id"]),
             recordatorio_estado_global=str(row["recordatorio_estado_global"]),
+            tiene_telefono=bool(row["tiene_telefono"]),
         )
