@@ -1,0 +1,99 @@
+from __future__ import annotations
+
+from dataclasses import dataclass
+from pathlib import Path
+
+from clinicdesk.app.session_controller import (
+    ContextoSesionAutenticada,
+    ControladorSesionAutenticada,
+    crear_sesion_autenticada,
+)
+
+
+@dataclass
+class VentanaFalsa:
+    visible: bool = False
+    closed: bool = False
+
+    def show(self) -> None:
+        self.visible = True
+
+    def close(self) -> None:
+        self.closed = True
+
+    def isVisible(self) -> bool:
+        return self.visible
+
+
+class FabricaFalsa:
+    def __init__(self) -> None:
+        self.contexto: ContextoSesionAutenticada | None = None
+        self.logout = None
+        self.ventana = VentanaFalsa()
+
+    def crear_ventana_principal(self, contexto: ContextoSesionAutenticada, on_logout):
+        self.contexto = contexto
+        self.logout = on_logout
+        return self.ventana
+
+
+class LoggerFalso:
+    def __init__(self) -> None:
+        self.eventos: list[tuple[str, dict[str, str] | None]] = []
+
+    def info(self, mensaje: str, extra=None) -> None:
+        self.eventos.append((mensaje, extra))
+
+    def warning(self, mensaje: str, extra=None) -> None:
+        self.eventos.append((mensaje, extra))
+
+    def error(self, mensaje: str, extra=None) -> None:
+        self.eventos.append((mensaje, extra))
+
+
+class AppFalsa:
+    def __init__(self) -> None:
+        self.quit_on_last_window_closed = True
+
+    def setQuitOnLastWindowClosed(self, enabled: bool) -> None:
+        self.quit_on_last_window_closed = enabled
+
+
+class I18nFalso:
+    def t(self, key: str) -> str:
+        return key
+
+
+def test_crear_sesion_autenticada_devuelve_ventana_no_nula() -> None:
+    contexto = ContextoSesionAutenticada(username="demo", demo_mode=True, run_id="run-1")
+    fabrica = FabricaFalsa()
+
+    ventana = crear_sesion_autenticada(contexto, fabrica, on_logout=lambda: None)
+
+    assert ventana is fabrica.ventana
+    assert fabrica.contexto == contexto
+
+
+def test_controlador_guarda_referencia_en_app_y_controlador() -> None:
+    fabrica = FabricaFalsa()
+    app = AppFalsa()
+    logger = LoggerFalso()
+    errores: list[str] = []
+    controlador = ControladorSesionAutenticada(app, I18nFalso(), logger, fabrica, errores.append)
+
+    ok = controlador.transicionar_post_login(
+        ContextoSesionAutenticada(username="ana", demo_mode=False, run_id="r1"),
+        on_logout=lambda: None,
+    )
+
+    assert ok is True
+    assert controlador.ventana_principal is fabrica.ventana
+    assert getattr(app, "ventana_principal") is fabrica.ventana
+    assert fabrica.ventana.isVisible() is True
+
+
+def test_flujo_no_define_sys_exit_en_controlador() -> None:
+    contenido = Path("clinicdesk/app/session_controller.py").read_text(encoding="utf-8")
+
+    assert "sys.exit" not in contenido
+    assert ".quit(" not in contenido
