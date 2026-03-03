@@ -52,6 +52,7 @@ SECRET_PATTERNS: tuple[re.Pattern[str], ...] = (
     ),
 )
 _LOGGER = logging.getLogger(__name__)
+MENSAJE_INSTALAR_DEPS_DEV = "Instala dependencias dev: pip install -r requirements-dev.txt"
 
 from clinicdesk.app.bootstrap_logging import configure_logging, set_run_context
 
@@ -241,18 +242,36 @@ def _find_command_path(candidates: tuple[str, ...]) -> str | None:
 
 def _run_pip_audit() -> int:
     PIP_AUDIT_REPORT_PATH.parent.mkdir(parents=True, exist_ok=True)
+
+    flag_sin_red: list[str] = []
+    if os.getenv("QUALITY_GATE_PIP_AUDIT_SIN_RED") == "1":
+        ayuda = subprocess.run(
+            [sys.executable, "-m", "pip_audit", "--help"],
+            cwd=REPO_ROOT,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        opciones = f"{ayuda.stdout}\n{ayuda.stderr}"
+        for candidato in ("--no-deps", "--disable-pip"):
+            if candidato in opciones:
+                flag_sin_red = [candidato]
+                break
+
     command = [
         sys.executable,
         "-m",
         "pip_audit",
         "--progress-spinner",
         "off",
+        *flag_sin_red,
         "--output",
         str(PIP_AUDIT_REPORT_PATH),
         "--format",
         "columns",
     ]
 
+    allowlist_ids: set[str] = set()
     if PIP_AUDIT_ALLOWLIST_PATH.exists():
         try:
             allowlist_data = json.loads(PIP_AUDIT_ALLOWLIST_PATH.read_text(encoding="utf-8"))
@@ -260,26 +279,51 @@ def _run_pip_audit() -> int:
             _LOGGER.error("[quality-gate] ❌ Allowlist de pip-audit inválida: %s", exc)
             return 6
 
-        cves = []
         for item in allowlist_data.get("vulnerabilidades_permitidas", []):
             cve = str(item.get("id", "")).strip()
             reason = str(item.get("motivo", "")).strip()
             if not cve or not reason:
                 _LOGGER.error("[quality-gate] ❌ Entrada inválida en allowlist pip-audit: %s", item)
                 return 6
-            cves.append(cve)
-        for cve in cves:
-            command.extend(["--ignore-vuln", cve])
+            allowlist_ids.add(cve.upper())
 
     _LOGGER.info("[quality-gate] Ejecutando pip-audit.")
-    completed = subprocess.run(command, cwd=REPO_ROOT, capture_output=True, text=True, check=False)
-    existing_report = ""
-    if PIP_AUDIT_REPORT_PATH.exists():
-        existing_report = PIP_AUDIT_REPORT_PATH.read_text(encoding="utf-8")
+    try:
+        completed = subprocess.run(command, cwd=REPO_ROOT, capture_output=True, text=True, check=False)
+    except ModuleNotFoundError:
+        PIP_AUDIT_REPORT_PATH.write_text(MENSAJE_INSTALAR_DEPS_DEV + "\n", encoding="utf-8")
+        _LOGGER.error("[quality-gate] ❌ %s", MENSAJE_INSTALAR_DEPS_DEV)
+        return 6
+
+    salida_completa = f"{completed.stdout or ''}\n{completed.stderr or ''}"
+    if "No module named pip_audit" in salida_completa or "ModuleNotFoundError: No module named 'pip_audit'" in salida_completa:
+        PIP_AUDIT_REPORT_PATH.write_text(MENSAJE_INSTALAR_DEPS_DEV + "\n", encoding="utf-8")
+        _LOGGER.error("[quality-gate] ❌ %s", MENSAJE_INSTALAR_DEPS_DEV)
+        return 6
+
+    bloques_reporte = [PIP_AUDIT_REPORT_PATH.read_text(encoding="utf-8") if PIP_AUDIT_REPORT_PATH.exists() else ""]
+    if completed.stdout:
+        bloques_reporte.append(f"STDOUT:\n{completed.stdout}")
     if completed.stderr:
-        PIP_AUDIT_REPORT_PATH.write_text(existing_report + "\n\nSTDERR:\n" + completed.stderr, encoding="utf-8")
+        bloques_reporte.append(f"STDERR:\n{completed.stderr}")
+    PIP_AUDIT_REPORT_PATH.write_text("\n\n".join(b for b in bloques_reporte if b.strip()) + "\n", encoding="utf-8")
+
+    ids_detectados = {match.upper() for match in re.findall(r"(CVE-\d{4}-\d+|GHSA-[\w-]+)", salida_completa)}
+    ids_no_permitidos = ids_detectados - allowlist_ids
+
     if completed.returncode == 0:
         return 0
+
+    if ids_detectados and not ids_no_permitidos:
+        _LOGGER.info("[quality-gate] pip-audit solo reportó vulnerabilidades allowlisted.")
+        return 0
+
+    if ids_no_permitidos:
+        _LOGGER.error(
+            "[quality-gate] ❌ pip-audit detectó vulnerabilidades no allowlisted: %s",
+            ", ".join(sorted(ids_no_permitidos)),
+        )
+        return 6
 
     _LOGGER.error("[quality-gate] ❌ pip-audit detectó vulnerabilidades o no pudo completarse.")
     if "Connection" in completed.stderr or "Temporary failure" in completed.stderr:
