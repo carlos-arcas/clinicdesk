@@ -3,7 +3,7 @@ from __future__ import annotations
 import subprocess
 from pathlib import Path
 
-from scripts import quality_gate
+from scripts.quality_gate_components import mypy_checks
 
 
 def test_run_mypy_blocking_scope_uses_scope_file(tmp_path: Path, monkeypatch) -> None:
@@ -16,14 +16,14 @@ def test_run_mypy_blocking_scope_uses_scope_file(tmp_path: Path, monkeypatch) ->
         observed_commands.append(command)
         return subprocess.CompletedProcess(command, 0)
 
-    monkeypatch.setattr(quality_gate, "MYPY_SCOPE_PATH", scope_path)
-    monkeypatch.setattr(quality_gate.subprocess, "run", fake_run)
+    monkeypatch.setattr(mypy_checks.config, "MYPY_SCOPE_PATH", scope_path)
+    monkeypatch.setattr(mypy_checks.subprocess, "run", fake_run)
 
-    rc = quality_gate._run_mypy_blocking_scope()
+    rc = mypy_checks.run_mypy_blocking_scope()
 
     assert rc == 0
     assert observed_commands
-    assert observed_commands[0][:3] == [quality_gate.sys.executable, "-m", "mypy"]
+    assert observed_commands[0][:3] == [mypy_checks.sys.executable, "-m", "mypy"]
     assert observed_commands[0][3:] == ["clinicdesk/app/domain/enums.py"]
 
 
@@ -38,10 +38,10 @@ def test_run_mypy_report_generates_artifact_even_with_errors(tmp_path: Path, mon
             stderr="",
         )
 
-    monkeypatch.setattr(quality_gate, "MYPY_REPORT_PATH", report_path)
-    monkeypatch.setattr(quality_gate.subprocess, "run", fake_run)
+    monkeypatch.setattr(mypy_checks.config, "MYPY_REPORT_PATH", report_path)
+    monkeypatch.setattr(mypy_checks.subprocess, "run", fake_run)
 
-    rc = quality_gate._run_mypy_report()
+    rc = mypy_checks.run_mypy_report()
 
     assert rc == 0
     contenido = report_path.read_text(encoding="utf-8")
@@ -58,10 +58,10 @@ def test_run_mypy_report_resets_previous_artifact_content(tmp_path: Path, monkey
         report_seen_during_run.append(report_path.read_text(encoding="utf-8"))
         return subprocess.CompletedProcess(command, 0, stdout="Success: no issues found", stderr="")
 
-    monkeypatch.setattr(quality_gate, "MYPY_REPORT_PATH", report_path)
-    monkeypatch.setattr(quality_gate.subprocess, "run", fake_run)
+    monkeypatch.setattr(mypy_checks.config, "MYPY_REPORT_PATH", report_path)
+    monkeypatch.setattr(mypy_checks.subprocess, "run", fake_run)
 
-    rc = quality_gate._run_mypy_report()
+    rc = mypy_checks.run_mypy_report()
 
     assert rc == 0
     assert report_seen_during_run == [""]
