@@ -11,6 +11,7 @@ from PySide6.QtWidgets import (
     QLabel,
     QMenu,
     QPushButton,
+    QMessageBox,
     QTabWidget,
     QTableWidget,
     QTableWidgetItem,
@@ -33,9 +34,10 @@ from clinicdesk.app.application.citas import (
     sanear_columnas_citas,
 )
 from clinicdesk.app.application.prediccion_ausencias.riesgo_agenda import RIESGO_NO_DISPONIBLE
-from clinicdesk.app.application.prediccion_ausencias.aviso_salud_prediccion import (
-    CacheSaludPrediccionPorRefresh,
-    debe_mostrar_aviso_salud_prediccion,
+from clinicdesk.app.application.prediccion_ausencias.aviso_salud_prediccion import CacheSaludPrediccionPorRefresh
+from clinicdesk.app.application.prediccion_operativa.ux_estimaciones import (
+    debe_mostrar_aviso_salud_estimacion,
+    mensaje_no_disponible_estimacion,
 )
 from clinicdesk.app.bootstrap_logging import get_logger
 from clinicdesk.app.container import AppContainer
@@ -62,6 +64,7 @@ from clinicdesk.app.pages.citas.widgets.persistencia_citas_settings import (
     serializar_filtros_citas,
 )
 from clinicdesk.app.pages.citas.widgets.tooltip_citas import CLAVES_TOOLTIP_POR_DEFECTO, construir_tooltip_cita
+from clinicdesk.app.pages.prediccion_operativa.helpers import construir_bullets_explicacion
 from clinicdesk.app.queries.citas_queries import CitaRow, CitasQueries
 from clinicdesk.app.infrastructure.sqlite.repos_citas_hitos import CitasHitosRepository
 
@@ -107,9 +110,17 @@ class PageCitas(QWidget):
         self._estimaciones_enabled = False
         self._token_refresh_salud = 0
         self._token_aviso_logueado: int | None = None
-        self._cache_salud = CacheSaludPrediccionPorRefresh(
-            self._container.prediccion_ausencias_facade.obtener_salud_uc.ejecutar
+        self._cache_salud_duracion = CacheSaludPrediccionPorRefresh(
+            self._container.prediccion_operativa_facade.obtener_salud_duracion
         )
+        self._cache_salud_espera = CacheSaludPrediccionPorRefresh(
+            self._container.prediccion_operativa_facade.obtener_salud_espera
+        )
+        self._cache_estimaciones = CacheSaludPrediccionPorRefresh(
+            self._container.prediccion_operativa_facade.obtener_estimaciones_agenda
+        )
+        self._estimaciones_duracion: dict[int, str] = {}
+        self._estimaciones_espera: dict[int, str] = {}
 
         self._build_ui()
         self._bind_events()
@@ -128,8 +139,8 @@ class PageCitas(QWidget):
         self.table.setHorizontalHeaderLabels(["ID", "", "", "", "", "", "", ""])
         self.table.setColumnHidden(0, True)
         self.lbl_aviso_salud_calendario = QLabel(self)
-        self.btn_ir_prediccion_calendario = QPushButton(self._i18n.t("prediccion_ausencias.ir_a_prediccion"), self)
-        self.btn_ir_prediccion_calendario.clicked.connect(lambda: self._ir_a_prediccion("citas"))
+        self.btn_ir_prediccion_calendario = QPushButton(self._i18n.t("estimaciones.ir_a_estimaciones"), self)
+        self.btn_ir_prediccion_calendario.clicked.connect(lambda: self._ir_a_estimaciones("calendario"))
         self.lbl_aviso_salud_calendario.setVisible(False)
         self.btn_ir_prediccion_calendario.setVisible(False)
 
@@ -163,8 +174,8 @@ class PageCitas(QWidget):
         self.btn_restablecer_filtros.setVisible(False)
         self.lbl_aviso_columnas = QLabel("", tab_lista)
         self.lbl_aviso_salud_lista = QLabel("", tab_lista)
-        self.btn_ir_prediccion_lista = QPushButton(self._i18n.t("prediccion_ausencias.ir_a_prediccion"), tab_lista)
-        self.btn_ir_prediccion_lista.clicked.connect(lambda: self._ir_a_prediccion("citas"))
+        self.btn_ir_prediccion_lista = QPushButton(self._i18n.t("estimaciones.ir_a_estimaciones"), tab_lista)
+        self.btn_ir_prediccion_lista.clicked.connect(lambda: self._ir_a_estimaciones("lista"))
         self.lbl_aviso_salud_lista.setVisible(False)
         self.btn_ir_prediccion_lista.setVisible(False)
         self.table_lista = QTableWidget(0, 0, tab_lista)
@@ -281,16 +292,16 @@ class PageCitas(QWidget):
             self.table.setRowCount(0)
             return
         riesgos = self._obtener_riesgo_citas_calendario([self._mapear_row_calendario(x) for x in items]) if self._riesgo_enabled else {}
-        estimaciones = self._obtener_estimaciones_agenda() if self._estimaciones_enabled else ({}, {})
+        estimaciones = self._obtener_estimaciones_agenda()
         self.table.setRowCount(0)
         for item in items:
             item = dict(item)
             cita_id = int(item["cita_id"])
             item["riesgo_ausencia"] = resolver_texto_riesgo(riesgos.get(cita_id, RIESGO_NO_DISPONIBLE), self._i18n).texto
-            item["duracion_estimada"] = self._texto_estimacion(estimaciones[0].get(cita_id, "NO_DISPONIBLE"))
-            item["espera_estimada"] = self._texto_estimacion(estimaciones[1].get(cita_id, "NO_DISPONIBLE"))
+            item["duracion_estimada"] = self._texto_estimacion(estimaciones[0].get(cita_id, "NO_DISPONIBLE"), "duracion", True)
+            item["espera_estimada"] = self._texto_estimacion(estimaciones[1].get(cita_id, "NO_DISPONIBLE"), "espera", True)
             self._agregar_fila_calendario(item)
-        self._actualizar_aviso_salud_prediccion("citas")
+        self._actualizar_aviso_salud_prediccion("calendario")
 
     def _refresh_lista(self) -> None:
         validacion = normalizar_y_validar_filtros_citas(self._filtros_aplicados, datetime.now(), "LISTA")
@@ -307,7 +318,7 @@ class PageCitas(QWidget):
             return
         self._ocultar_banner_validacion()
         self._render_lista(self._inyectar_estimaciones(resultado.items))
-        self._actualizar_aviso_salud_prediccion("citas")
+        self._actualizar_aviso_salud_prediccion("lista")
         if not resultado.items:
             self._set_estado_lista("citas.ux.vacio")
         else:
@@ -414,22 +425,33 @@ class PageCitas(QWidget):
 
 
     def _obtener_estimaciones_agenda(self) -> tuple[dict[int, str], dict[int, str]]:
-        return self._container.prediccion_operativa_facade.agenda_uc.ejecutar()
+        if not self._estimaciones_enabled:
+            self._estimaciones_duracion = {}
+            self._estimaciones_espera = {}
+            return {}, {}
+        duraciones, esperas = self._cache_estimaciones.obtener(self._token_refresh_salud)
+        self._estimaciones_duracion = duraciones
+        self._estimaciones_espera = esperas
+        return duraciones, esperas
 
-    def _texto_estimacion(self, nivel: str) -> str:
-        key = nivel.lower() if nivel in {"BAJO", "MEDIO", "ALTO"} else "no_disponible"
-        return self._i18n.t(f"citas.prediccion_operativa.valor.{key}")
+    def _texto_estimacion(self, nivel: str, tipo: str, mostrar_cta: bool = False) -> str:
+        if nivel in {"BAJO", "MEDIO", "ALTO"}:
+            return self._i18n.t(f"citas.prediccion_operativa.valor.{nivel.lower()}")
+        base = self._i18n.t(mensaje_no_disponible_estimacion(tipo)).format(tipo=self._i18n.t(f"estimaciones.tipo.{tipo}"))
+        if not mostrar_cta:
+            return base
+        return f"{base} ({self._i18n.t('estimaciones.ir_a_estimaciones')})"
 
     def _inyectar_estimaciones(self, rows: list[dict[str, object]]) -> list[dict[str, object]]:
+        duraciones, esperas = self._obtener_estimaciones_agenda()
         if not self._estimaciones_enabled:
             return rows
-        duraciones, esperas = self._obtener_estimaciones_agenda()
         enriched: list[dict[str, object]] = []
         for row in rows:
             cita_id = int(row.get("cita_id", 0))
             item = dict(row)
-            item["duracion_estimada"] = self._texto_estimacion(duraciones.get(cita_id, "NO_DISPONIBLE"))
-            item["espera_estimada"] = self._texto_estimacion(esperas.get(cita_id, "NO_DISPONIBLE"))
+            item["duracion_estimada"] = self._texto_estimacion(duraciones.get(cita_id, "NO_DISPONIBLE"), "duracion", True)
+            item["espera_estimada"] = self._texto_estimacion(esperas.get(cita_id, "NO_DISPONIBLE"), "espera", True)
             enriched.append(item)
         return enriched
 
@@ -446,15 +468,15 @@ class PageCitas(QWidget):
         item = self.table_lista.itemAt(point)
         if item is None:
             return
-        self._abrir_menu_cita(self._cita_id_lista(item.row()), self.table_lista.mapToGlobal(point))
+        self._abrir_menu_cita(self._cita_id_lista(item.row()), self.table_lista.mapToGlobal(point), "lista")
 
     def _on_calendario_context_menu(self, point) -> None:
         item = self.table.itemAt(point)
         if item is None:
             return
-        self._abrir_menu_cita(self._cita_id_calendario(item.row()), self.table.mapToGlobal(point))
+        self._abrir_menu_cita(self._cita_id_calendario(item.row()), self.table.mapToGlobal(point), "calendario")
 
-    def _abrir_menu_cita(self, cita_id: int | None, global_point) -> None:
+    def _abrir_menu_cita(self, cita_id: int | None, global_point, vista: str) -> None:
         if cita_id is None:
             return
         menu = QMenu(self)
@@ -467,7 +489,50 @@ class PageCitas(QWidget):
         self._agregar_accion_hito(menu, cita_id, "citas.hitos.iniciar_consulta", HitoAtencion.INICIO_CONSULTA)
         self._agregar_accion_hito(menu, cita_id, "citas.hitos.finalizar_consulta", HitoAtencion.FIN_CONSULTA)
         self._agregar_accion_hito(menu, cita_id, "citas.hitos.marcar_salida", HitoAtencion.CHECK_OUT)
+        self._agregar_acciones_ver_por_que(menu, cita_id, vista)
         menu.exec(global_point)
+
+    def _agregar_acciones_ver_por_que(self, menu: QMenu, cita_id: int, vista: str) -> None:
+        if not self._estimaciones_enabled:
+            return
+        disponibles = self._tipos_estimacion_disponibles(cita_id)
+        if vista == "lista":
+            if disponibles:
+                self._agregar_accion_ver_por_que(menu, cita_id, disponibles[0], False)
+            return
+        for tipo in disponibles:
+            self._agregar_accion_ver_por_que(menu, cita_id, tipo, True)
+
+    def _tipos_estimacion_disponibles(self, cita_id: int) -> list[str]:
+        disponibles: list[str] = []
+        if self._estimaciones_duracion.get(cita_id, "NO_DISPONIBLE") != "NO_DISPONIBLE":
+            disponibles.append("duracion")
+        if self._estimaciones_espera.get(cita_id, "NO_DISPONIBLE") != "NO_DISPONIBLE":
+            disponibles.append("espera")
+        return disponibles
+
+    def _agregar_accion_ver_por_que(self, menu: QMenu, cita_id: int, tipo: str, incluir_tipo: bool) -> None:
+        etiqueta = self._i18n.t("estimaciones.ver_por_que")
+        if incluir_tipo:
+            etiqueta = f"{etiqueta} ({self._i18n.t(f'estimaciones.tipo.{tipo}')})"
+        accion = QAction(etiqueta, self)
+        accion.triggered.connect(lambda: self._mostrar_explicacion_estimacion(cita_id, tipo))
+        menu.addAction(accion)
+
+    def _mostrar_explicacion_estimacion(self, cita_id: int, tipo: str) -> None:
+        nivel = self._estimaciones_duracion.get(cita_id, "NO_DISPONIBLE") if tipo == "duracion" else self._estimaciones_espera.get(cita_id, "NO_DISPONIBLE")
+        if nivel == "NO_DISPONIBLE":
+            return
+        LOGGER.info(
+            "estimaciones_ver_por_que_click",
+            extra={"action": "estimaciones_ver_por_que_click", "tipo": tipo},
+        )
+        if tipo == "duracion":
+            explicacion = self._container.prediccion_operativa_facade.obtener_explicacion_duracion(cita_id, nivel)
+        else:
+            explicacion = self._container.prediccion_operativa_facade.obtener_explicacion_espera(cita_id, nivel)
+        titulo = f"{self._i18n.t('estimaciones.ver_por_que')} ({self._i18n.t(f'estimaciones.tipo.{tipo}')})"
+        QMessageBox.information(self, titulo, construir_bullets_explicacion(explicacion, self._i18n))
 
     def _agregar_accion_hito(self, menu: QMenu, cita_id: int, i18n_key: str, hito: HitoAtencion) -> None:
         accion = QAction(self._i18n.t(i18n_key), self)
@@ -502,9 +567,13 @@ class PageCitas(QWidget):
             self._refrescar_vistas_principales()
 
     def _actualizar_aviso_salud_prediccion(self, page: str) -> None:
-        estado = self._cache_salud.obtener(self._token_refresh_salud).estado
-        mostrar = debe_mostrar_aviso_salud_prediccion(self._riesgo_enabled, estado)
-        texto = self._i18n.t("prediccion_ausencias.aviso_salud_prediccion") if mostrar else ""
+        salud_duracion = self._cache_salud_duracion.obtener(self._token_refresh_salud).estado
+        salud_espera = self._cache_salud_espera.obtener(self._token_refresh_salud).estado
+        mostrar = (
+            debe_mostrar_aviso_salud_estimacion(self._estimaciones_enabled, salud_duracion)
+            or debe_mostrar_aviso_salud_estimacion(self._estimaciones_enabled, salud_espera)
+        )
+        texto = self._i18n.t("estimaciones.aviso_salud") if mostrar else ""
         self.lbl_aviso_salud_calendario.setText(texto)
         self.lbl_aviso_salud_lista.setText(texto)
         self.lbl_aviso_salud_calendario.setVisible(mostrar)
@@ -513,19 +582,19 @@ class PageCitas(QWidget):
         self.btn_ir_prediccion_lista.setVisible(mostrar)
         if mostrar and self._token_aviso_logueado != self._token_refresh_salud:
             LOGGER.info(
-                "aviso_salud_prediccion_mostrar",
-                extra={"action": "aviso_salud_prediccion_mostrar", "page": page, "estado": estado},
+                "estimaciones_aviso_salud_mostrar",
+                extra={"action": "estimaciones_aviso_salud_mostrar", "page": page, "duracion": salud_duracion, "espera": salud_espera},
             )
             self._token_aviso_logueado = self._token_refresh_salud
 
-    def _ir_a_prediccion(self, page: str) -> None:
+    def _ir_a_estimaciones(self, view: str) -> None:
         LOGGER.info(
-            "aviso_salud_prediccion_cta",
-            extra={"action": "aviso_salud_prediccion_cta", "page": page, "destino": "prediccion"},
+            "estimaciones_cta_ir_click",
+            extra={"action": "estimaciones_cta_ir_click", "page": "citas", "view": view},
         )
         window = self.window()
         if hasattr(window, "navigate"):
-            window.navigate("prediccion_ausencias")
+            window.navigate("prediccion_operativa")
 
     def _abrir_dialogo_recordatorio(self, cita_id: int) -> None:
         RecordatorioCitaDialog(self._container, self._i18n, cita_id, self).exec()
