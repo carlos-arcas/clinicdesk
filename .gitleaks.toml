@@ -1,0 +1,10 @@
+[allowlist]
+description = "Excluir artefactos compilados y caches no fuente"
+paths = [
+  '''(?i).*/__pycache__/.*''',
+  '''(?i).*\.pyc$''',
+  '''(?i).*/\.pytest_cache/.*''',
+  '''(?i).*/\.mypy_cache/.*''',
+  '''(?i).*/\.ruff_cache/.*''',
+  '''(?i).*/\.venv/.*''',
+]
