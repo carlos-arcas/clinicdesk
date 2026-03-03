@@ -68,7 +68,7 @@ def get_connection(db_path: str | Path) -> sqlite3.Connection:
     con = sqlite3.connect(db_file.as_posix())
     con.row_factory = sqlite3.Row  # devuelve filas tipo dict-like
     configure_connection_pii(con)
-    configurar_conexion(con)
+    configurar_conexion(con, db_file)
     return con
 
 
