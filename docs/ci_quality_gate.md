@@ -54,6 +54,14 @@ El gate canónico `python -m scripts.gate_pr` ahora ejecuta además:
    - `sudo apt-get install -y gitleaks`
 4. Ejecutar gate completo: `python -m scripts.gate_pr`
 
+### Si falla `pip-audit` por módulo no instalado
+1. Instala dependencias de desarrollo con el comando exacto:
+   - `pip install -r requirements-dev.txt`
+2. Verifica que el ejecutable responde en el mismo entorno:
+   - `python -m pip_audit --help`
+3. Reejecuta el gate completo:
+   - `python -m scripts.gate_pr`
+
 ### Cómo resolver fallos
 - **Fallo de `pip-audit` por CVEs**:
   1. Actualizar dependencia vulnerable en `requirements*.txt` / lock correspondiente.

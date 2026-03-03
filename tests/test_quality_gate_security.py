@@ -52,20 +52,52 @@ def test_run_pip_audit_applies_allowlist_ids(tmp_path: Path, monkeypatch) -> Non
         encoding="utf-8",
     )
 
-    recorded_command: list[str] = []
-
     def fake_run(command, **kwargs):
-        nonlocal recorded_command
-        recorded_command = list(command)
-        report_path.write_text("No known vulnerabilities found", encoding="utf-8")
-        return subprocess.CompletedProcess(command, 0, "", "")
+        report_path.write_text("vuln report", encoding="utf-8")
+        salida = "Found 2 known vulnerabilities: CVE-2024-0001 GHSA-xxxx-yyyy-zzzz"
+        return subprocess.CompletedProcess(command, 1, salida, "")
 
     monkeypatch.setattr(quality_gate, "PIP_AUDIT_REPORT_PATH", report_path)
     monkeypatch.setattr(quality_gate, "PIP_AUDIT_ALLOWLIST_PATH", allowlist_path)
     monkeypatch.setattr(quality_gate.subprocess, "run", fake_run)
 
     assert quality_gate._run_pip_audit() == 0
-    assert recorded_command.count("--ignore-vuln") == 2
+
+
+def test_run_pip_audit_missing_module_writes_report_and_fails(tmp_path: Path, monkeypatch) -> None:
+    report_path = tmp_path / "pip_audit_report.txt"
+
+    def fake_run(command, **kwargs):
+        return subprocess.CompletedProcess(command, 1, "", "/usr/bin/python: No module named pip_audit")
+
+    monkeypatch.setattr(quality_gate, "PIP_AUDIT_REPORT_PATH", report_path)
+    monkeypatch.setattr(quality_gate.subprocess, "run", fake_run)
+
+    assert quality_gate._run_pip_audit() != 0
+    assert "Instala dependencias dev: pip install -r requirements-dev.txt" in report_path.read_text(encoding="utf-8")
+
+
+def test_run_pip_audit_fails_when_non_allowlisted_vulnerability_remains(tmp_path: Path, monkeypatch) -> None:
+    report_path = tmp_path / "pip_audit_report.txt"
+    allowlist_path = tmp_path / "pip_audit_allowlist.json"
+    allowlist_path.write_text(
+        json.dumps({"vulnerabilidades_permitidas": [{"id": "CVE-2024-0001", "motivo": "temporal"}]}),
+        encoding="utf-8",
+    )
+
+    def fake_run(command, **kwargs):
+        report_path.write_text("raw output", encoding="utf-8")
+        salida = "Found vulnerabilities CVE-2024-0001 GHSA-1111-2222-3333"
+        return subprocess.CompletedProcess(command, 1, salida, "")
+
+    monkeypatch.setattr(quality_gate, "PIP_AUDIT_REPORT_PATH", report_path)
+    monkeypatch.setattr(quality_gate, "PIP_AUDIT_ALLOWLIST_PATH", allowlist_path)
+    monkeypatch.setattr(quality_gate.subprocess, "run", fake_run)
+
+    assert quality_gate._run_pip_audit() == 6
+    contenido = report_path.read_text(encoding="utf-8")
+    assert "raw output" in contenido
+    assert "GHSA-1111-2222-3333" in contenido
 
 
 def test_run_secrets_scan_fails_when_tool_missing(tmp_path: Path, monkeypatch) -> None:
