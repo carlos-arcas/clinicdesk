@@ -72,7 +72,9 @@ def _fake_cita(profile: str, start: datetime, idx: int) -> CitaReadModel:
     )
 
 
-def build_train_response_from_metadata(dataset_version: str, model_version: str, metadata: dict) -> TrainCitasModelResponse:
+def build_train_response_from_metadata(
+    dataset_version: str, model_version: str, metadata: dict
+) -> TrainCitasModelResponse:
     train_metrics = metadata.get("train_metrics", {})
     test_metrics = metadata.get("test_metrics", {})
     calibrated_metrics = metadata.get("test_metrics_at_calibrated_threshold", test_metrics)

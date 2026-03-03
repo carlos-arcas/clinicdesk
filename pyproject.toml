@@ -1,4 +1,52 @@
+[tool.ruff]
+target-version = "py311"
+line-length = 120
+src = ["clinicdesk", "scripts", "tests"]
+extend-exclude = [
+  "clinicdesk",
+  "tests",
+  "data",
+  "docs",
+  "logs",
+  "seed_demo_data.py",
+]
+
+[tool.ruff.lint]
+select = ["E9", "F"]
+ignore = []
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+line-ending = "lf"
+
 [tool.pytest.ini_options]
 pythonpath = ["."]
 testpaths = ["tests"]
 addopts = "-q"
+markers = [
+  "ui: pruebas de interfaz grafica/no bloqueantes en quality gate core",
+  "slow: pruebas lentas",
+  "integration: pruebas de integracion",
+]
+
+[tool.coverage.run]
+branch = true
+source = ["clinicdesk"]
+omit = [
+  "tests/*",
+  "*/tests/*",
+  "*/migrations/*",
+  "clinicdesk/app/ui/*",
+  "clinicdesk/app/pages/*",
+]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = false
+exclude_lines = [
+  "pragma: no cover",
+  "if TYPE_CHECKING:",
+  "if __name__ == .__main__.:",
+  "raise NotImplementedError",
+]

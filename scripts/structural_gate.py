@@ -200,7 +200,9 @@ def _file_metrics(path: Path) -> tuple[int, list[FunctionMetric], list[ClassMetr
 
         def visit_ClassDef(self, node: ast.ClassDef) -> None:  # noqa: N802
             qualname = ".".join([*self.scope, node.name]) if self.scope else node.name
-            classes.append(ClassMetric(name=node.name, qualname=qualname, loc=_node_loc(node, source_lines), lineno=node.lineno))
+            classes.append(
+                ClassMetric(name=node.name, qualname=qualname, loc=_node_loc(node, source_lines), lineno=node.lineno)
+            )
             self.scope.append(node.name)
             self.generic_visit(node)
             self.scope.pop()
@@ -248,11 +250,7 @@ def analyze_file(
     max_function_cc = max((function.cc for function in functions), default=0)
     avg_cc = sum(function.cc for function in functions) / len(functions) if functions else 0.0
     file_score = (file_loc / max_file_loc_threshold) * 0.4 + (max_function_cc / max_cc_threshold) * 0.6
-    hotspot = (
-        file_score > 1.0
-        or file_loc > max_file_loc_threshold
-        or max_function_cc > max_cc_threshold
-    )
+    hotspot = file_score > 1.0 or file_loc > max_file_loc_threshold or max_function_cc > max_cc_threshold
     return file_loc, functions, classes, max_function_cc, avg_cc, file_score, hotspot
 
 
@@ -394,7 +392,6 @@ def analyze_repo(repo_root: Path, thresholds: dict[str, Any]) -> StructuralGateR
 
     hotspots = compute_hotspots(metrics)
     return StructuralGateResult(files_scanned=len(files), violations=violations, hotspots=hotspots)
-
 
 
 def generate_report(

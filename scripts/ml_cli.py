@@ -268,6 +268,15 @@ def _export_metrics(args: argparse.Namespace) -> int:
     return 0
 
 
+def _resolve_threshold_used(predictor_kind: str, model_version: str | None, model_store: LocalJsonModelStore) -> float:
+    if predictor_kind == "baseline":
+        return 0.5
+    if not (model_version or "").strip():
+        raise ValueError("model_version es requerido cuando predictor='trained'.")
+    _, metadata = model_store.load_model(_DEFAULT_MODEL_NAME, model_version or "")
+    return float(metadata.get("calibrated_threshold", 0.5))
+
+
 def _export_scoring(args: argparse.Namespace) -> int:
     feature_store = FeatureStoreService(LocalJsonFeatureStore(args.feature_store_path))
     model_store = LocalJsonModelStore(args.model_store_path)
@@ -298,8 +307,6 @@ def _export_drift(args: argparse.Namespace) -> int:
     output = ExportDriftCSV().execute(report, args.output)
     _LOGGER.info(output)
     return 0
-
-
 
 
 def _export_kpis(args: argparse.Namespace) -> int:

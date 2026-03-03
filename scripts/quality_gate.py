@@ -8,7 +8,6 @@ import argparse
 import logging
 import os
 import re
-import shutil
 import subprocess
 import sys
 import trace
@@ -31,6 +30,7 @@ CORE_PATHS = [
     REPO_ROOT / "clinicdesk" / "app" / "queries" / "citas_queries.py",
 ]
 MIN_COVERAGE = 85.0
+COVERAGE_XML_PATH = REPO_ROOT / "docs" / "coverage.xml"
 PRINT_ALLOWLIST = {Path("tests")}
 ARTIFACT_SUFFIXES = {".zip", ".db", ".sqlite", ".sqlite3", ".dump", ".bak", ".sqlitedb"}
 ARTIFACT_ALLOWLIST = {Path("clinicdesk.zip")}
@@ -39,29 +39,70 @@ MAX_SCAN_BYTES = 1_000_000
 SECRET_PATTERNS: tuple[re.Pattern[str], ...] = (
     re.compile(r"AKIA[0-9A-Z]{16}"),
     re.compile(r"-----BEGIN (?:RSA |EC |OPENSSH |DSA )?PRIVATE KEY-----"),
-    re.compile(r"(?i)(?:password|passwd|secret|api[_-]?key|token)\s*[:=]\s*['\"]?(?=[A-Za-z0-9_\-+/=]*\d)[A-Za-z0-9_\-+/=]{12,}"),
+    re.compile(
+        r"(?i)(?:password|passwd|secret|api[_-]?key|token)\s*[:=]\s*['\"]?(?=[A-Za-z0-9_\-+/=]*\d)[A-Za-z0-9_\-+/=]{12,}"
+    ),
 )
 _LOGGER = logging.getLogger(__name__)
 
 from clinicdesk.app.bootstrap_logging import configure_logging, set_run_context
 
 
-def _run_optional_checks() -> int:
+def _run_required_ruff_checks() -> int:
     pyproject = REPO_ROOT / "pyproject.toml"
     if not pyproject.exists() or "[tool.ruff" not in pyproject.read_text(encoding="utf-8"):
-        _LOGGER.info("[quality-gate] Ruff no configurado: se omite lint/format.")
-        return 0
-
-    ruff = shutil.which("ruff")
-    if not ruff:
-        _LOGGER.error("[quality-gate] Ruff configurado pero no instalado.")
+        _LOGGER.error("[quality-gate] ❌ Falta configuración ruff en pyproject.toml.")
         return 1
 
-    for cmd in ([ruff, "check", "."], [ruff, "format", "--check", "."]):
+    for cmd in ([sys.executable, "-m", "ruff", "check", "."], [sys.executable, "-m", "ruff", "format", "--check", "."]):
         _LOGGER.info("[quality-gate] Ejecutando: %s", " ".join(cmd))
         result = subprocess.run(cmd, cwd=REPO_ROOT)
         if result.returncode != 0:
             return result.returncode
+    return 0
+
+
+def _run_coverage_report(tracer: trace.Trace, coverage: float) -> int:
+    COVERAGE_XML_PATH.parent.mkdir(parents=True, exist_ok=True)
+    counts = tracer.results().counts
+    package_entries: list[str] = []
+    for file_path in _iter_core_files():
+        executable = sorted(trace._find_executable_linenos(str(file_path)))  # noqa: SLF001
+        if not executable:
+            continue
+        covered_lines = sum(1 for line in executable if counts.get((str(file_path), line), 0) > 0)
+        line_rate = covered_lines / len(executable)
+        rel_path = file_path.relative_to(REPO_ROOT).as_posix()
+        line_entries = []
+        for line in executable:
+            hits = 1 if counts.get((str(file_path), line), 0) > 0 else 0
+            line_entries.append(f'<line number="{line}" hits="{hits}"/>')
+        package_entries.append(
+            "".join(
+                [
+                    f'<class name="{file_path.stem}" filename="{rel_path}" line-rate="{line_rate:.4f}" branch-rate="0">',
+                    "<methods/>",
+                    "<lines>",
+                    *line_entries,
+                    "</lines>",
+                    "</class>",
+                ]
+            )
+        )
+
+    xml_content = "".join(
+        [
+            '<?xml version="1.0" encoding="UTF-8"?>',
+            f'<coverage line-rate="{coverage / 100:.4f}" branch-rate="0" version="clinicdesk-quality-gate">',
+            "<sources><source>.</source></sources>",
+            '<packages><package name="core" line-rate="0" branch-rate="0"><classes>',
+            *package_entries,
+            "</classes></package></packages>",
+            "</coverage>",
+        ]
+    )
+    COVERAGE_XML_PATH.write_text(xml_content, encoding="utf-8")
+    _LOGGER.info("[quality-gate] coverage.xml generado en %s", COVERAGE_XML_PATH.relative_to(REPO_ROOT))
     return 0
 
 
@@ -201,9 +242,9 @@ def main() -> int:
     if secret_rc != 0:
         return secret_rc
 
-    optional_checks_rc = _run_optional_checks()
-    if optional_checks_rc != 0:
-        return optional_checks_rc
+    ruff_rc = _run_required_ruff_checks()
+    if ruff_rc != 0:
+        return ruff_rc
 
     pytest_args = ["-q", "-m", "not ui"]
     _LOGGER.info("[quality-gate] Ejecutando pytest: python -m pytest %s", " ".join(pytest_args))
@@ -217,6 +258,11 @@ def main() -> int:
     if coverage < MIN_COVERAGE:
         _LOGGER.error("[quality-gate] ❌ Cobertura de core por debajo del umbral.")
         return 2
+
+    coverage_report_rc = _run_coverage_report(tracer=tracer, coverage=coverage)
+    if coverage_report_rc != 0:
+        _LOGGER.error("[quality-gate] ❌ Falló la generación de coverage.xml en docs/.")
+        return coverage_report_rc
 
     structural_rc = run_structural_gate(
         repo_root=REPO_ROOT,
