@@ -3,9 +3,11 @@
 ## Objetivo
 Asegurar calidad continua sin bloquear por UI. El gate bloqueante aplica al **core clínico bajo control en Paso 2** (flujo de citas end-to-end).
 
-## Comando único (local y CI)
-- `python scripts/quality_gate.py --strict`
-- `python scripts/quality_gate.py --report-only`
+## Comando canónico (local y CI)
+- Gate rápido: `python -m scripts.gate_rapido`
+- Gate completo PR/CI: `python -m scripts.gate_pr`
+
+Regla de CI: ejecutar exactamente `python -m scripts.gate_pr`.
 
 ## Qué ejecuta el gate
 1. **Lint/format opcional (solo si ya existe configuración)**
