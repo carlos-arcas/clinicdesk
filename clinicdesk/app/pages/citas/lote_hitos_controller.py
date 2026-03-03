@@ -8,7 +8,8 @@ from PySide6.QtWidgets import QComboBox, QHBoxLayout, QLabel, QMessageBox, QPush
 from clinicdesk.app.application.citas import HitoAtencion, ModoTimestampHito, ResultadoLoteHitosDTO
 from clinicdesk.app.bootstrap_logging import get_logger
 from clinicdesk.app.i18n import I18nManager
-from clinicdesk.app.pages.citas.lote_hitos_resumen import construir_resumen_lote, construir_texto_resumen_lote
+from clinicdesk.app.pages.citas.lote_hitos_estado import estado_boton_hito_lote
+from clinicdesk.app.pages.citas.lote_hitos_resumen import construir_resumen_hitos_lote
 from clinicdesk.app.pages.citas.lote_hitos_worker import AccionLoteHitosDTO, WorkerHitosLote
 
 LOGGER = get_logger(__name__)
@@ -49,6 +50,7 @@ class GestorLoteHitosCitas:
         lay.addWidget(self.btn_salida)
         self.barra.setVisible(False)
         self._cargar_modos()
+        self.combo_modo.currentIndexChanged.connect(self._actualizar_estado_botones)
         self.btn_llegada.clicked.connect(lambda: self.ejecutar(HitoAtencion.CHECK_IN))
         self.btn_inicio.clicked.connect(lambda: self.ejecutar(HitoAtencion.INICIO_CONSULTA))
         self.btn_fin.clicked.connect(lambda: self.ejecutar(HitoAtencion.FIN_CONSULTA))
@@ -62,17 +64,24 @@ class GestorLoteHitosCitas:
         self.btn_fin.setText(t("citas.hitos.finalizar_consulta"))
         self.btn_salida.setText(t("citas.hitos.marcar_salida"))
         self._cargar_modos()
+        self._actualizar_estado_botones()
 
     def actualizar_visibilidad(self, total_seleccionadas: int, filtro_calidad_activo: bool) -> None:
+        self.lbl_estado.setText(self._i18n.t("citas.hitos.lote.seleccionadas_x").format(total=total_seleccionadas))
         self.barra.setVisible(filtro_calidad_activo and total_seleccionadas > 0)
 
     def ejecutar(self, hito: HitoAtencion) -> None:
         cita_ids = self._selected_ids()
         if not cita_ids:
             return
+        modo = self._resolver_modo()
+        estado = estado_boton_hito_lote(modo, hito)
+        if not estado.habilitado:
+            self._on_fail("modo_programada_no_permitido")
+            return
         if not self._confirmar(len(cita_ids)):
             return
-        modo = self._resolver_modo(hito)
+        self._log_click(hito, modo, len(cita_ids))
         self._arrancar_worker(AccionLoteHitosDTO(cita_ids=cita_ids, hito=hito, modo_timestamp=modo))
 
     def _cargar_modos(self) -> None:
@@ -89,10 +98,19 @@ class GestorLoteHitosCitas:
             self._i18n.t("citas.hitos.lote.confirmar_texto").format(total=total),
         ) == QMessageBox.Yes
 
-    def _resolver_modo(self, hito: HitoAtencion) -> ModoTimestampHito:
-        if hito not in {HitoAtencion.CHECK_IN, HitoAtencion.INICIO_CONSULTA}:
-            return ModoTimestampHito.AHORA
+    def _resolver_modo(self) -> ModoTimestampHito:
         return ModoTimestampHito(self.combo_modo.currentData())
+
+    def _actualizar_estado_botones(self) -> None:
+        modo = self._resolver_modo()
+        self._aplicar_estado(self.btn_llegada, estado_boton_hito_lote(modo, HitoAtencion.CHECK_IN))
+        self._aplicar_estado(self.btn_inicio, estado_boton_hito_lote(modo, HitoAtencion.INICIO_CONSULTA))
+        self._aplicar_estado(self.btn_fin, estado_boton_hito_lote(modo, HitoAtencion.FIN_CONSULTA))
+        self._aplicar_estado(self.btn_salida, estado_boton_hito_lote(modo, HitoAtencion.CHECK_OUT))
+
+    def _aplicar_estado(self, boton: QPushButton, estado) -> None:
+        boton.setEnabled(estado.habilitado)
+        boton.setToolTip(self._i18n.t(estado.tooltip_key) if estado.tooltip_key else "")
 
     def _arrancar_worker(self, accion: AccionLoteHitosDTO) -> None:
         self._thread = QThread(self._parent)
@@ -111,28 +129,43 @@ class GestorLoteHitosCitas:
     def _on_started(self) -> None:
         for boton in (self.btn_llegada, self.btn_inicio, self.btn_fin, self.btn_salida):
             boton.setEnabled(False)
+        self.combo_modo.setEnabled(False)
         self.lbl_estado.setText(self._i18n.t("citas.hitos.lote.guardando"))
 
     def _on_ok(self, dto: ResultadoLoteHitosDTO) -> None:
-        for boton in (self.btn_llegada, self.btn_inicio, self.btn_fin, self.btn_salida):
-            boton.setEnabled(True)
+        self.combo_modo.setEnabled(True)
+        self._actualizar_estado_botones()
         self.lbl_estado.setText("")
-        hechas, omitidas = construir_resumen_lote(dto)
-        texto = construir_texto_resumen_lote(hechas, omitidas, self._i18n.t)
+        texto = construir_resumen_hitos_lote(dto, self._i18n.t)
         LOGGER.info(
             "citas_hitos_lote_ok",
             extra={
                 "action": "citas_hitos_lote_ok",
                 "aplicadas": dto.aplicadas,
                 "ya_estaban": dto.ya_estaban,
-                "omitidas_por_orden": dto.omitidas_por_orden,
+                "omitidas": dto.omitidas_por_orden + dto.no_encontradas,
                 "errores": dto.errores,
             },
         )
         QMessageBox.information(self._parent, self._i18n.t("citas.tabs.lista"), texto)
 
     def _on_fail(self, reason_code: str) -> None:
-        for boton in (self.btn_llegada, self.btn_inicio, self.btn_fin, self.btn_salida):
-            boton.setEnabled(True)
+        self.combo_modo.setEnabled(True)
+        self._actualizar_estado_botones()
         self.lbl_estado.setText("")
+        LOGGER.warning(
+            "citas_hitos_lote_fail",
+            extra={"action": "citas_hitos_lote_fail", "reason_code": reason_code},
+        )
         QMessageBox.warning(self._parent, self._i18n.t("citas.tabs.lista"), self._i18n.t(reason_code))
+
+    def _log_click(self, hito: HitoAtencion, modo: ModoTimestampHito, total: int) -> None:
+        LOGGER.info(
+            "citas_hitos_lote_click",
+            extra={
+                "action": "citas_hitos_lote_click",
+                "hito": hito.value,
+                "modo": modo.value,
+                "total": total,
+            },
+        )
