@@ -138,3 +138,48 @@ def test_pii_logging_guardrail_detects_sensitive_message(tmp_path: Path, monkeyp
     monkeypatch.setattr(quality_gate, "PII_LOGGING_ALLOWLIST_PATH", tmp_path / "allowlist.json")
 
     assert quality_gate._check_pii_logging_guardrail() == 8
+
+
+def test_pii_logging_guardrail_ignores_tests_folder(tmp_path: Path, monkeypatch) -> None:
+    tests_file = tmp_path / "tests" / "test_any.py"
+    tests_file.parent.mkdir(parents=True, exist_ok=True)
+    tests_file.write_text('logger.info("mensaje con email paciente")\n', encoding="utf-8")
+
+    monkeypatch.setattr(quality_gate, "REPO_ROOT", tmp_path)
+    monkeypatch.setattr(quality_gate, "PII_LOGGING_ALLOWLIST_PATH", tmp_path / "allowlist.json")
+
+    assert quality_gate._check_pii_logging_guardrail() == 0
+
+
+def test_run_pip_audit_resets_report_before_execution(tmp_path: Path, monkeypatch) -> None:
+    report_path = tmp_path / "pip_audit_report.txt"
+    report_path.write_text("RESTO RUN ANTERIOR", encoding="utf-8")
+    report_seen_during_run: list[str] = []
+
+    def fake_run(command, **kwargs):
+        report_seen_during_run.append(report_path.read_text(encoding="utf-8"))
+        return subprocess.CompletedProcess(command, 0, "", "")
+
+    monkeypatch.setattr(quality_gate, "PIP_AUDIT_REPORT_PATH", report_path)
+    monkeypatch.setattr(quality_gate.subprocess, "run", fake_run)
+
+    assert quality_gate._run_pip_audit() == 0
+    assert report_seen_during_run == [""]
+
+
+def test_run_secrets_scan_resets_report_and_keeps_valid_json(tmp_path: Path, monkeypatch) -> None:
+    report_path = tmp_path / "secrets_scan_report.txt"
+    report_path.write_text("resto no json", encoding="utf-8")
+    report_seen_during_run: list[str] = []
+
+    def fake_run(command, **kwargs):
+        report_seen_during_run.append(report_path.read_text(encoding="utf-8"))
+        return subprocess.CompletedProcess(command, 0, "", "")
+
+    monkeypatch.setattr(quality_gate, "SECRETS_SCAN_REPORT_PATH", report_path)
+    monkeypatch.setattr(quality_gate, "_find_command_path", lambda _: "gitleaks")
+    monkeypatch.setattr(quality_gate.subprocess, "run", fake_run)
+
+    assert quality_gate._run_secrets_scan() == 0
+    assert report_seen_during_run == ["[]\n"]
+    assert json.loads(report_path.read_text(encoding="utf-8")) == []

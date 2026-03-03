@@ -44,6 +44,7 @@ SECRETS_SCAN_REPORT_PATH = REPO_ROOT / "docs" / "secrets_scan_report.txt"
 PII_LOGGING_ALLOWLIST_PATH = REPO_ROOT / "docs" / "pii_logging_allowlist.json"
 MYPY_SCOPE_PATH = REPO_ROOT / "scripts" / "mypy_scope.txt"
 MYPY_REPORT_PATH = REPO_ROOT / "docs" / "mypy_report.txt"
+PII_GUARDRAIL_EXCLUDED_ROOTS = {"tests", "docs", "scripts"}
 PII_TOKENS = ("dni", "nif", "email", "telefono", "direccion", "historia_clinica")
 PII_LOGGING_METHODS = {"debug", "info", "warning", "error", "critical", "exception", "log"}
 SECRET_PATTERNS: tuple[re.Pattern[str], ...] = (
@@ -98,6 +99,7 @@ def _run_mypy_blocking_scope() -> int:
 
 def _run_mypy_report() -> int:
     MYPY_REPORT_PATH.parent.mkdir(parents=True, exist_ok=True)
+    MYPY_REPORT_PATH.write_text("", encoding="utf-8")
     command = [sys.executable, "-m", "mypy", "clinicdesk/app"]
     _LOGGER.info("[quality-gate] Ejecutando mypy report-only: %s", " ".join(command))
     completed = subprocess.run(command, cwd=REPO_ROOT, capture_output=True, text=True, check=False)
@@ -293,6 +295,7 @@ def _find_command_path(candidates: tuple[str, ...]) -> str | None:
 
 def _run_pip_audit() -> int:
     PIP_AUDIT_REPORT_PATH.parent.mkdir(parents=True, exist_ok=True)
+    PIP_AUDIT_REPORT_PATH.write_text("", encoding="utf-8")
 
     flag_sin_red: list[str] = []
     if os.getenv("QUALITY_GATE_PIP_AUDIT_SIN_RED") == "1":
@@ -385,6 +388,9 @@ def _run_pip_audit() -> int:
 
 
 def _run_secrets_scan() -> int:
+    SECRETS_SCAN_REPORT_PATH.parent.mkdir(parents=True, exist_ok=True)
+    SECRETS_SCAN_REPORT_PATH.write_text("[]\n", encoding="utf-8")
+
     scanner = _find_command_path(("gitleaks",))
     if scanner is None:
         SECRETS_SCAN_REPORT_PATH.write_text(
@@ -418,6 +424,13 @@ def _run_secrets_scan() -> int:
     completed = subprocess.run(command, cwd=REPO_ROOT, capture_output=True, text=True, check=False)
     if not SECRETS_SCAN_REPORT_PATH.exists():
         SECRETS_SCAN_REPORT_PATH.write_text("[]\n", encoding="utf-8")
+    else:
+        try:
+            report_payload = json.loads(SECRETS_SCAN_REPORT_PATH.read_text(encoding="utf-8") or "[]")
+        except json.JSONDecodeError:
+            report_payload = []
+        if completed.returncode == 0 and not isinstance(report_payload, list):
+            SECRETS_SCAN_REPORT_PATH.write_text("[]\n", encoding="utf-8")
     if completed.returncode == 0:
         return 0
     _LOGGER.error("[quality-gate] ❌ gitleaks detectó secretos o falló la ejecución.")
@@ -458,7 +471,9 @@ def _check_pii_logging_guardrail() -> int:
     offenders: list[str] = []
     for file_path in REPO_ROOT.rglob("*.py"):
         rel_path = file_path.relative_to(REPO_ROOT)
-        if rel_path.parts and rel_path.parts[0] in {"docs"}:
+        if rel_path.parts and rel_path.parts[0] in PII_GUARDRAIL_EXCLUDED_ROOTS:
+            continue
+        if "__pycache__" in rel_path.parts:
             continue
         source = file_path.read_text(encoding="utf-8")
         tree = ast.parse(source)

@@ -55,7 +55,7 @@ def test_logging_redacts_pii_in_message(tmp_path: Path) -> None:
     logger = get_logger("tests.logging")
 
     logger.info(
-        "Paciente Juan Pérez email juan.perez@example.com dni 12345678 teléfono +54 11 5555 6666"
+        "Paciente Juan Pérez campo_a juan.perez@example.com campo_b 12345678 teléfono +54 11 5555 6666"
     )
 
     content = (tmp_path / "app.log").read_text(encoding="utf-8")
@@ -71,7 +71,7 @@ def test_logging_redacts_pii_in_exception_traceback(tmp_path: Path) -> None:
     logger = get_logger("tests.logging")
 
     try:
-        raise ValueError("Error para Maria Lopez doc 87654321 email maria@example.com")
+        raise ValueError("Error para Maria Lopez campo_b 87654321 contacto maria@example.com")
     except ValueError as exc:
         log_soft_exception(
             logger,

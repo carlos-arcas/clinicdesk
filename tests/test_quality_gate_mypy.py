@@ -47,3 +47,21 @@ def test_run_mypy_report_generates_artifact_even_with_errors(tmp_path: Path, mon
     contenido = report_path.read_text(encoding="utf-8")
     assert "Exit code: 1" in contenido
     assert "error: tipo invalido" in contenido
+
+
+def test_run_mypy_report_resets_previous_artifact_content(tmp_path: Path, monkeypatch) -> None:
+    report_path = tmp_path / "mypy_report.txt"
+    report_path.write_text("RESTO RUN ANTERIOR", encoding="utf-8")
+    report_seen_during_run: list[str] = []
+
+    def fake_run(command, **kwargs):
+        report_seen_during_run.append(report_path.read_text(encoding="utf-8"))
+        return subprocess.CompletedProcess(command, 0, stdout="Success: no issues found", stderr="")
+
+    monkeypatch.setattr(quality_gate, "MYPY_REPORT_PATH", report_path)
+    monkeypatch.setattr(quality_gate.subprocess, "run", fake_run)
+
+    rc = quality_gate._run_mypy_report()
+
+    assert rc == 0
+    assert report_seen_during_run == [""]
