@@ -12,6 +12,6 @@ def register(registry: PageRegistry, container: AppContainer, i18n: I18nManager)
         PageDef(
             key="gestion",
             title=i18n.t("nav.gestion"),
-            factory=lambda: PageGestionDashboard(container.connection, i18n),
+            factory=lambda: PageGestionDashboard(container, i18n),
         )
     )
