@@ -16,9 +16,12 @@ LOGGER = get_logger(__name__)
 class KpiDiaDTO:
     fecha: str
     total_citas: int
+    total_validas_espera: int
     espera_media_min: float | None
+    total_validas_consulta: int
     consulta_media_min: float | None
     total_clinica_media_min: float | None
+    total_validas_retraso: int
     retraso_media_min: float | None
     descartados: int
 
@@ -89,9 +92,12 @@ class ObtenerMetricasOperativas:
         return KpiDiaDTO(
             fecha=fila.fecha,
             total_citas=fila.total_citas,
+            total_validas_espera=fila.total_validas_espera,
             espera_media_min=_round_nullable(fila.espera_media_min),
+            total_validas_consulta=fila.total_validas_consulta,
             consulta_media_min=_round_nullable(fila.consulta_media_min),
             total_clinica_media_min=_round_nullable(fila.total_clinica_media_min),
+            total_validas_retraso=fila.total_validas_retraso,
             retraso_media_min=_round_nullable(fila.retraso_media_min),
             descartados=fila.descartados,
         )
