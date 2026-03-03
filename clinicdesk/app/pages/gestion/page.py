@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from datetime import date
+
 from PySide6.QtCore import QDate
 from PySide6.QtWidgets import (
     QComboBox,
@@ -24,6 +26,7 @@ from clinicdesk.app.application.usecases.dashboard_gestion import (
     PRESET_HOY,
     PRESET_PERSONALIZADO,
 )
+from clinicdesk.app.application.usecases.obtener_calidad_datos import ObtenerCalidadDatos
 from clinicdesk.app.application.usecases.dashboard_gestion_prediccion import CitaVigilarDTO
 from clinicdesk.app.application.citas.navigation_intent import CitasNavigationIntentDTO
 from clinicdesk.app.application.usecases.obtener_metricas_operativas import ObtenerMetricasOperativas
@@ -34,6 +37,7 @@ from clinicdesk.app.pages.gestion.adapters import PrediccionAusenciasGestionAdap
 from clinicdesk.app.domain.exceptions import ValidationError
 from clinicdesk.app.i18n import I18nManager
 from clinicdesk.app.queries.dashboard_gestion_queries import DashboardGestionQueries
+from clinicdesk.app.queries.calidad_datos_queries import CalidadDatosQueries
 from clinicdesk.app.queries.metricas_operativas_queries import MetricasOperativasQueries
 from clinicdesk.app.queries.telemetria_eventos_queries import TelemetriaEventosQueries
 
@@ -50,6 +54,7 @@ class PageGestionDashboard(QWidget):
             PrediccionOperativaGestionAdapter(container),
             DashboardGestionQueries(container.connection),
         )
+        self._uc_calidad_datos = ObtenerCalidadDatos(CalidadDatosQueries(container.connection))
         self._uc_telemetria = RegistrarTelemetria(container.telemetria_eventos_repo)
         self._uc_resumen_telemetria = ObtenerResumenTelemetriaSemana(TelemetriaEventosQueries(container.connection))
         self._build_ui()
@@ -65,6 +70,7 @@ class PageGestionDashboard(QWidget):
         root.addWidget(self._build_prediccion())
         root.addLayout(self._build_kpis())
         root.addWidget(self._build_alertas())
+        root.addWidget(self._build_calidad_datos())
         root.addWidget(self._build_tabla_medicos())
         root.addWidget(self._build_tabla_vigilancia())
         root.addWidget(self._build_uso_semana())
@@ -133,6 +139,24 @@ class PageGestionDashboard(QWidget):
         lay.addWidget(self.btn_reintentar)
         return box
 
+    def _build_calidad_datos(self) -> QGroupBox:
+        box = QGroupBox()
+        lay = QVBoxLayout(box)
+        self.lbl_calidad_titulo = QLabel()
+        self.lbl_calidad_resumen = QLabel("-")
+        self.lbl_calidad_faltantes = QLabel("-")
+        self.lbl_calidad_alertas = QLabel("-")
+        self.lbl_calidad_faltantes.setWordWrap(True)
+        self.lbl_calidad_alertas.setWordWrap(True)
+        self.btn_abrir_citas_hoy = QPushButton()
+        self.btn_abrir_citas_hoy.clicked.connect(self._abrir_citas_hoy)
+        lay.addWidget(self.lbl_calidad_titulo)
+        lay.addWidget(self.lbl_calidad_resumen)
+        lay.addWidget(self.lbl_calidad_faltantes)
+        lay.addWidget(self.lbl_calidad_alertas)
+        lay.addWidget(self.btn_abrir_citas_hoy)
+        return box
+
     def _build_tabla_medicos(self) -> QTableWidget:
         self.tabla_medicos = QTableWidget(0, 5)
         self.tabla_medicos.horizontalHeader().setStretchLastSection(True)
@@ -177,6 +201,7 @@ class PageGestionDashboard(QWidget):
             self._mostrar_error(self._i18n.t("dashboard_gestion.estado.error"))
             return
         self._render_resultado(resultado)
+        self._render_calidad_datos(resultado.desde, resultado.hasta)
         self._render_uso_semana()
 
     def _leer_filtros(self) -> FiltrosDashboardDTO:
@@ -242,6 +267,32 @@ class PageGestionDashboard(QWidget):
             boton = QPushButton(self._i18n.t("dashboard_gestion.citas_vigilar.btn.abrir"))
             boton.clicked.connect(lambda _=False, cita_id=cita.cita_id: self._abrir_cita_desde_gestion(cita_id))
             self.tabla_vigilancia.setCellWidget(fila, 4, boton)
+
+    def _render_calidad_datos(self, desde_iso: str, hasta_iso: str) -> None:
+        desde = date.fromisoformat(desde_iso)
+        hasta = date.fromisoformat(hasta_iso)
+        calidad = self._uc_calidad_datos.execute(desde, hasta)
+        self.lbl_calidad_resumen.setText(
+            self._i18n.t(
+                "dashboard_gestion.calidad.resumen",
+                total=calidad.total_cerradas,
+                completas=calidad.completas,
+                pct=f"{calidad.pct_completas:.2f}",
+            )
+        )
+        faltantes = [
+            self._i18n.t("dashboard_gestion.calidad.faltan_check_in", total=calidad.faltan_check_in),
+            self._i18n.t("dashboard_gestion.calidad.faltan_inicio_fin", total=calidad.faltan_inicio_fin),
+            self._i18n.t("dashboard_gestion.calidad.faltan_check_out", total=calidad.faltan_check_out),
+        ]
+        self.lbl_calidad_faltantes.setText("\n".join(f"• {texto}" for texto in faltantes))
+        if not calidad.alertas:
+            self.lbl_calidad_alertas.setText(self._i18n.t("dashboard_gestion.calidad.todo_en_orden"))
+            return
+        self.lbl_calidad_alertas.setText("\n".join(f"• {self._i18n.t(item.i18n_key)}" for item in calidad.alertas))
+
+    def _abrir_citas_hoy(self) -> None:
+        self._navegar_a("citas")
 
     def _texto_senales(self, cita: CitaVigilarDTO) -> str:
         claves = []
@@ -335,6 +386,8 @@ class PageGestionDashboard(QWidget):
             ]
         )
         self.lbl_sin_vigilancia.setText(self._i18n.t("dashboard_gestion.citas_vigilar.vacio"))
+        self.lbl_calidad_titulo.setText(self._i18n.t("dashboard_gestion.calidad.titulo"))
+        self.btn_abrir_citas_hoy.setText(self._i18n.t("dashboard_gestion.calidad.btn.abrir_citas_hoy"))
         self.lbl_uso_semana_titulo.setText(self._i18n.t("dashboard_gestion.uso_semana.titulo"))
         self.tabla_vigilancia.setHorizontalHeaderLabels(
             [
