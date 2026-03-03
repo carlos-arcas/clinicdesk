@@ -1,0 +1,62 @@
+{% comment %}
+  Componente Panel
+  Uso:
+  {% include "webapp/_ui_componentes.html" with componente="panel_inicio" titulo="Iniciar sesión" clases="mb-4" %}
+  ...contenido...
+  {% include "webapp/_ui_componentes.html" with componente="panel_fin" %}
+
+  Componente Campo
+  Uso:
+  {% include "webapp/_ui_componentes.html" with componente="campo" id="correo" nombre="correo" etiqueta="Correo" tipo="email" valor=form.correo.value requerido=True %}
+{% endcomment %}
+
+{% if componente == "panel_inicio" %}
+<section class="panel {{ clases|default:'' }}">
+  {% if titulo %}
+  <header class="panel-encabezado">
+    <h2>{{ titulo }}</h2>
+  </header>
+  {% endif %}
+  <div class="panel-contenido">
+{% elif componente == "panel_fin" %}
+  </div>
+</section>
+{% elif componente == "campo" %}
+<div class="grupo-campo {{ clases|default:'' }}">
+  {% if etiqueta %}
+  <label for="{{ id }}" class="etiqueta-campo">{{ etiqueta }}</label>
+  {% endif %}
+  {% if tipo == "textarea" %}
+  <textarea
+    id="{{ id }}"
+    name="{{ nombre }}"
+    class="input"
+    rows="{{ filas|default:'4' }}"
+    {% if placeholder %}placeholder="{{ placeholder }}"{% endif %}
+    {% if requerido %}required{% endif %}
+  >{{ valor|default:'' }}</textarea>
+  {% elif tipo == "select" %}
+  <select
+    id="{{ id }}"
+    name="{{ nombre }}"
+    class="input"
+    {% if requerido %}required{% endif %}
+  >
+    {{ opciones|safe }}
+  </select>
+  {% else %}
+  <input
+    id="{{ id }}"
+    type="{{ tipo|default:'text' }}"
+    name="{{ nombre }}"
+    class="input"
+    value="{{ valor|default:'' }}"
+    {% if placeholder %}placeholder="{{ placeholder }}"{% endif %}
+    {% if requerido %}required{% endif %}
+  />
+  {% endif %}
+  {% if ayuda %}
+  <small class="ayuda-campo">{{ ayuda }}</small>
+  {% endif %}
+</div>
+{% endif %}
