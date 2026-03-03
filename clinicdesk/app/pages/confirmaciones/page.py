@@ -25,6 +25,9 @@ from clinicdesk.app.application.confirmaciones import (
     PaginacionConfirmacionesDTO,
 )
 from clinicdesk.app.application.citas.filtros import redactar_texto_busqueda
+from clinicdesk.app.application.prediccion_ausencias.aviso_salud_prediccion import (
+    debe_mostrar_aviso_salud_prediccion,
+)
 from clinicdesk.app.container import AppContainer
 from clinicdesk.app.i18n import I18nManager
 from clinicdesk.app.pages.citas.recordatorio_cita_dialog import RecordatorioCitaDialog
@@ -130,7 +133,7 @@ class PageConfirmaciones(QWidget):
     def _retranslate(self) -> None:
         t = self._i18n.t
         self.lbl_title.setText(t("confirmaciones.titulo"))
-        self.btn_ir_prediccion.setText(t("confirmaciones.accion.ir_prediccion"))
+        self.btn_ir_prediccion.setText(t("prediccion_ausencias.ir_a_prediccion"))
         self.btn_actualizar.setText(t("confirmaciones.filtro.actualizar"))
         self.btn_prev.setText(t("confirmaciones.paginacion.anterior"))
         self.btn_next.setText(t("confirmaciones.paginacion.siguiente"))
@@ -279,8 +282,19 @@ class PageConfirmaciones(QWidget):
         self.chk_todo_visible.setCheckState(Qt.Unchecked)
         self._actualizar_estado_seleccion()
     def _render_banner(self, estado: str) -> None:
-        self.banner.setText(self._i18n.t(f"confirmaciones.prediccion.{estado.lower()}"))
-        self.btn_ir_prediccion.setVisible(estado != "VERDE")
+        mostrar = debe_mostrar_aviso_salud_prediccion(self._riesgo_activado(), estado)
+        self.banner.setText(self._i18n.t("prediccion_ausencias.aviso_salud_prediccion") if mostrar else "")
+        self.banner.setVisible(mostrar)
+        self.btn_ir_prediccion.setVisible(mostrar)
+        if mostrar:
+            LOGGER.info(
+                "aviso_salud_prediccion_mostrar",
+                extra={"action": "aviso_salud_prediccion_mostrar", "page": "confirmaciones", "estado": estado},
+            )
+
+    @staticmethod
+    def _riesgo_activado() -> bool:
+        return True
     def _show_error(self) -> None:
         msg = QMessageBox(self)
         msg.setText(self._i18n.t("confirmaciones.error.carga"))
@@ -304,6 +318,10 @@ class PageConfirmaciones(QWidget):
         self._offset += _PAGE_SIZE
         self._load_data(reset=False)
     def _ir_a_prediccion(self) -> None:
+        LOGGER.info(
+            "aviso_salud_prediccion_cta",
+            extra={"action": "aviso_salud_prediccion_cta", "page": "confirmaciones", "destino": "prediccion"},
+        )
         window = self.window()
         if hasattr(window, "navigate"):
             window.navigate("prediccion_ausencias")
