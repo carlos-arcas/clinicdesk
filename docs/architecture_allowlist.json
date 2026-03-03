@@ -1,0 +1,220 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "rule": "application_no_infra_ui",
+      "path": "clinicdesk/app/application/prediccion_ausencias/riesgo_agenda.py",
+      "imports": [
+        "clinicdesk.app.infrastructure.prediccion_ausencias"
+      ],
+      "reason": "Acoplamiento histórico en transición a puertos/adaptadores en application."
+    },
+    {
+      "rule": "application_no_infra_ui",
+      "path": "clinicdesk/app/application/prediccion_ausencias/usecases.py",
+      "imports": [
+        "clinicdesk.app.infrastructure.prediccion_ausencias"
+      ],
+      "reason": "Acoplamiento histórico en transición a puertos/adaptadores en application."
+    },
+    {
+      "rule": "application_no_infra_ui",
+      "path": "clinicdesk/app/application/prediccion_operativa/usecases.py",
+      "imports": [
+        "clinicdesk.app.infrastructure.prediccion_operativa"
+      ],
+      "reason": "Acoplamiento histórico en transición a puertos/adaptadores en application."
+    },
+    {
+      "rule": "application_no_infra_ui",
+      "path": "clinicdesk/app/application/services/prediccion_ausencias_facade.py",
+      "imports": [
+        "clinicdesk.app.infrastructure.sqlite.proveedor_conexion_sqlite"
+      ],
+      "reason": "Acoplamiento histórico en transición a puertos/adaptadores en application."
+    },
+    {
+      "rule": "application_no_infra_ui",
+      "path": "clinicdesk/app/application/usecases/ajustar_stock_material.py",
+      "imports": [
+        "clinicdesk.app.infrastructure.sqlite.repos_incidencias",
+        "clinicdesk.app.infrastructure.sqlite.repos_movimientos_materiales"
+      ],
+      "reason": "Acoplamiento histórico en transición a puertos/adaptadores en application."
+    },
+    {
+      "rule": "application_no_infra_ui",
+      "path": "clinicdesk/app/application/usecases/ajustar_stock_medicamento.py",
+      "imports": [
+        "clinicdesk.app.infrastructure.sqlite.repos_incidencias",
+        "clinicdesk.app.infrastructure.sqlite.repos_movimientos_medicamentos"
+      ],
+      "reason": "Acoplamiento histórico en transición a puertos/adaptadores en application."
+    },
+    {
+      "rule": "application_no_infra_ui",
+      "path": "clinicdesk/app/application/usecases/crear_cita.py",
+      "imports": [
+        "clinicdesk.app.infrastructure.sqlite.repos_incidencias"
+      ],
+      "reason": "Acoplamiento histórico en transición a puertos/adaptadores en application."
+    },
+    {
+      "rule": "application_no_infra_ui",
+      "path": "clinicdesk/app/application/usecases/dispensar_medicamento.py",
+      "imports": [
+        "clinicdesk.app.infrastructure.sqlite.repos_dispensaciones",
+        "clinicdesk.app.infrastructure.sqlite.repos_incidencias",
+        "clinicdesk.app.infrastructure.sqlite.repos_movimientos_medicamentos"
+      ],
+      "reason": "Acoplamiento histórico en transición a puertos/adaptadores en application."
+    },
+    {
+      "rule": "application_no_infra_ui",
+      "path": "clinicdesk/app/application/usecases/seed_demo_data.py",
+      "imports": [
+        "clinicdesk.app.infrastructure.sqlite.demo_data_seeder"
+      ],
+      "reason": "Acoplamiento histórico en transición a puertos/adaptadores en application."
+    },
+    {
+      "rule": "ui_no_domain_directo",
+      "path": "clinicdesk/app/ui/error_presenter.py",
+      "imports": [
+        "clinicdesk.app.domain.exceptions"
+      ],
+      "reason": "UI legacy usa tipos/errores de dominio; migrar a DTOs de application."
+    },
+    {
+      "rule": "pages_no_domain_directo",
+      "path": "clinicdesk/app/pages/citas/estado_cita_presentacion.py",
+      "imports": [
+        "clinicdesk.app.domain.enums"
+      ],
+      "reason": "Pages legacy usa modelos/excepciones de dominio; migrar a facades/DTOs de application."
+    },
+    {
+      "rule": "pages_no_domain_directo",
+      "path": "clinicdesk/app/pages/gestion/page.py",
+      "imports": [
+        "clinicdesk.app.domain.exceptions"
+      ],
+      "reason": "Pages legacy usa modelos/excepciones de dominio; migrar a facades/DTOs de application."
+    },
+    {
+      "rule": "pages_no_domain_directo",
+      "path": "clinicdesk/app/pages/incidencias/page.py",
+      "imports": [
+        "clinicdesk.app.domain.enums"
+      ],
+      "reason": "Pages legacy usa modelos/excepciones de dominio; migrar a facades/DTOs de application."
+    },
+    {
+      "rule": "pages_no_domain_directo",
+      "path": "clinicdesk/app/pages/materiales/dialogs/ajuste_stock.py",
+      "imports": [
+        "clinicdesk.app.domain.exceptions"
+      ],
+      "reason": "Pages legacy usa modelos/excepciones de dominio; migrar a facades/DTOs de application."
+    },
+    {
+      "rule": "pages_no_domain_directo",
+      "path": "clinicdesk/app/pages/materiales/dialogs/material_form.py",
+      "imports": [
+        "clinicdesk.app.domain.exceptions",
+        "clinicdesk.app.domain.modelos"
+      ],
+      "reason": "Pages legacy usa modelos/excepciones de dominio; migrar a facades/DTOs de application."
+    },
+    {
+      "rule": "pages_no_domain_directo",
+      "path": "clinicdesk/app/pages/materiales/page.py",
+      "imports": [
+        "clinicdesk.app.domain.exceptions"
+      ],
+      "reason": "Pages legacy usa modelos/excepciones de dominio; migrar a facades/DTOs de application."
+    },
+    {
+      "rule": "pages_no_domain_directo",
+      "path": "clinicdesk/app/pages/medicamentos/dialogs/ajuste_stock.py",
+      "imports": [
+        "clinicdesk.app.domain.exceptions"
+      ],
+      "reason": "Pages legacy usa modelos/excepciones de dominio; migrar a facades/DTOs de application."
+    },
+    {
+      "rule": "pages_no_domain_directo",
+      "path": "clinicdesk/app/pages/medicamentos/dialogs/medicamento_form.py",
+      "imports": [
+        "clinicdesk.app.domain.exceptions",
+        "clinicdesk.app.domain.modelos"
+      ],
+      "reason": "Pages legacy usa modelos/excepciones de dominio; migrar a facades/DTOs de application."
+    },
+    {
+      "rule": "pages_no_domain_directo",
+      "path": "clinicdesk/app/pages/medicamentos/page.py",
+      "imports": [
+        "clinicdesk.app.domain.exceptions"
+      ],
+      "reason": "Pages legacy usa modelos/excepciones de dominio; migrar a facades/DTOs de application."
+    },
+    {
+      "rule": "pages_no_domain_directo",
+      "path": "clinicdesk/app/pages/medicos/dialogs/medico_form.py",
+      "imports": [
+        "clinicdesk.app.domain.enums",
+        "clinicdesk.app.domain.exceptions",
+        "clinicdesk.app.domain.modelos"
+      ],
+      "reason": "Pages legacy usa modelos/excepciones de dominio; migrar a facades/DTOs de application."
+    },
+    {
+      "rule": "pages_no_domain_directo",
+      "path": "clinicdesk/app/pages/pacientes/dialogs/paciente_form.py",
+      "imports": [
+        "clinicdesk.app.domain.enums",
+        "clinicdesk.app.domain.exceptions",
+        "clinicdesk.app.domain.modelos"
+      ],
+      "reason": "Pages legacy usa modelos/excepciones de dominio; migrar a facades/DTOs de application."
+    },
+    {
+      "rule": "pages_no_domain_directo",
+      "path": "clinicdesk/app/pages/personal/dialogs/personal_form.py",
+      "imports": [
+        "clinicdesk.app.domain.enums",
+        "clinicdesk.app.domain.exceptions",
+        "clinicdesk.app.domain.modelos"
+      ],
+      "reason": "Pages legacy usa modelos/excepciones de dominio; migrar a facades/DTOs de application."
+    },
+    {
+      "rule": "pages_no_domain_directo",
+      "path": "clinicdesk/app/pages/salas/dialogs/sala_form.py",
+      "imports": [
+        "clinicdesk.app.domain.enums",
+        "clinicdesk.app.domain.exceptions",
+        "clinicdesk.app.domain.modelos"
+      ],
+      "reason": "Pages legacy usa modelos/excepciones de dominio; migrar a facades/DTOs de application."
+    },
+    {
+      "rule": "pages_no_domain_directo",
+      "path": "clinicdesk/app/pages/salas/page.py",
+      "imports": [
+        "clinicdesk.app.domain.enums",
+        "clinicdesk.app.domain.exceptions"
+      ],
+      "reason": "Pages legacy usa modelos/excepciones de dominio; migrar a facades/DTOs de application."
+    },
+    {
+      "rule": "pages_no_domain_directo",
+      "path": "clinicdesk/app/pages/turnos/dialogs/bloque_form.py",
+      "imports": [
+        "clinicdesk.app.domain.exceptions"
+      ],
+      "reason": "Pages legacy usa modelos/excepciones de dominio; migrar a facades/DTOs de application."
+    }
+  ]
+}

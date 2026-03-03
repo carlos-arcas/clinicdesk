@@ -48,3 +48,9 @@ El contexto de recordatorios aplica inversión de dependencias así:
 - **Composición** (`composicion_recordatorios.py`) decide el adaptador concreto (SQLite) y lo inyecta a los casos de uso tipado como puerto.
 
 Regla: los casos de uso de `application/usecases/recordatorios_citas.py` dependen del protocolo y no importan infraestructura concreta.
+
+## Relación con Architecture Contract
+
+Las reglas globales de capas, importaciones permitidas y política legacy se definen en `docs/architecture_contract.md`.
+La composición debe respetar ese contrato y es el único lugar donde se decide infraestructura concreta.
+
