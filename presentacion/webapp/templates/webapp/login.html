@@ -1,0 +1,22 @@
+{% extends "webapp/base.html" %}
+
+{% block contenido %}
+<main class="contenedor contenedor-auth">
+  {% include "webapp/_ui_componentes.html" with componente="panel_inicio" titulo="Iniciar sesión" clases="panel-auth" %}
+    {% if error %}
+    <div class="banner-rojo" role="alert">{{ error }}</div>
+    {% endif %}
+
+    <form method="post" class="formulario-auth" novalidate>
+      {% csrf_token %}
+      {% include "webapp/_ui_componentes.html" with componente="campo" id="id_usuario" nombre="usuario" etiqueta="Usuario o correo" tipo="text" valor=usuario placeholder="tu@correo.com" requerido=True %}
+      {% include "webapp/_ui_componentes.html" with componente="campo" id="id_password" nombre="password" etiqueta="Contraseña" tipo="password" requerido=True %}
+
+      <div class="acciones-auth">
+        <button type="submit" class="boton boton-grande">Entrar</button>
+        <a href="{% url 'ui_registro' %}" class="boton boton-secundario boton-grande">Crear cuenta</a>
+      </div>
+    </form>
+  {% include "webapp/_ui_componentes.html" with componente="panel_fin" %}
+</main>
+{% endblock %}
