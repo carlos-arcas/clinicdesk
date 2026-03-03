@@ -120,7 +120,9 @@ def main() -> int:
                 if controlador.ventana_principal is not None:
                     controlador.ventana_principal.hide()
                 if not open_authenticated_session():
-                    app.quit()
+                    app.setQuitOnLastWindowClosed(True)
+                    for widget in app.topLevelWidgets():
+                        widget.close()
 
             contexto = ContextoSesionAutenticada(
                 username=login.outcome.username,
@@ -131,7 +133,7 @@ def main() -> int:
                 return True
             LOGGER.error(
                 "post_login_transition_fail",
-                extra={"action": "post_login_transition_fail", "reason_code": "dependency_wiring_failed"},
+                extra={"action": "post_login_transition_fail", "reason_code": "dependency_wiring_failed", "exc_type": "none"},
             )
 
     if not open_authenticated_session():

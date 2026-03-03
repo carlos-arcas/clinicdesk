@@ -7,6 +7,7 @@ from clinicdesk.app.session_controller import (
     ContextoSesionAutenticada,
     ControladorSesionAutenticada,
     crear_sesion_autenticada,
+    debe_mantener_referencia_ventana_principal,
 )
 
 
@@ -74,6 +75,12 @@ def test_crear_sesion_autenticada_devuelve_ventana_no_nula() -> None:
     assert fabrica.contexto == contexto
 
 
+
+
+def test_debe_mantener_referencia_ventana_principal() -> None:
+    assert debe_mantener_referencia_ventana_principal(object()) is True
+    assert debe_mantener_referencia_ventana_principal(None) is False
+
 def test_controlador_guarda_referencia_en_app_y_controlador() -> None:
     fabrica = FabricaFalsa()
     app = AppFalsa()
@@ -97,3 +104,30 @@ def test_flujo_no_define_sys_exit_en_controlador() -> None:
 
     assert "sys.exit" not in contenido
     assert ".quit(" not in contenido
+
+
+def test_controlador_reporta_error_si_fabrica_devuelve_none() -> None:
+    class FabricaNula(FabricaFalsa):
+        def crear_ventana_principal(self, contexto: ContextoSesionAutenticada, on_logout):
+            self.contexto = contexto
+            self.logout = on_logout
+            return None
+
+    fabrica = FabricaNula()
+    app = AppFalsa()
+    logger = LoggerFalso()
+    errores: list[str] = []
+    controlador = ControladorSesionAutenticada(app, I18nFalso(), logger, fabrica, errores.append)
+
+    ok = controlador.transicionar_post_login(
+        ContextoSesionAutenticada(username="ana", demo_mode=False, run_id="r1"),
+        on_logout=lambda: None,
+    )
+
+    assert ok is False
+    assert errores == ["session.error.open_failed"]
+    assert logger.eventos[-1][1] == {
+        "action": "post_login_transition_fail",
+        "reason_code": "main_window_init_failed",
+        "exc_type": "none",
+    }
