@@ -7,6 +7,7 @@ from PySide6.QtCore import QSettings, Qt, QTimer
 from PySide6.QtGui import QAction, QColor
 from PySide6.QtWidgets import (
     QCalendarWidget,
+    QCheckBox,
     QHBoxLayout,
     QLabel,
     QMenu,
@@ -67,9 +68,11 @@ from clinicdesk.app.pages.citas.widgets.persistencia_citas_settings import (
     serializar_filtros_citas,
 )
 from clinicdesk.app.pages.citas.widgets.tooltip_citas import CLAVES_TOOLTIP_POR_DEFECTO, construir_tooltip_cita
+from clinicdesk.app.pages.citas.lote_hitos_controller import GestorLoteHitosCitas
 from clinicdesk.app.pages.prediccion_operativa.helpers import construir_bullets_explicacion
 from clinicdesk.app.queries.citas_queries import CitaRow, CitasQueries
 from clinicdesk.app.infrastructure.sqlite.repos_citas_hitos import CitasHitosRepository
+from clinicdesk.app.infrastructure.sqlite.db_path import resolver_db_path_desde_conexion
 
 LOGGER = get_logger(__name__)
 
@@ -115,6 +118,8 @@ class PageCitas(QWidget):
         self._intent_navegacion_pendiente: CitasNavigationIntentDTO | None = None
         self._filtros_previos_calidad: FiltrosCitasDTO | None = None
         self._filtro_calidad_activo: str | None = None
+        self._seleccionadas_lote: set[int] = set()
+        self._actualizando_checks_lote = False
         self._riesgo_enabled = False
         self._estimaciones_enabled = False
         self._token_refresh_salud = 0
@@ -130,6 +135,7 @@ class PageCitas(QWidget):
         )
         self._estimaciones_duracion: dict[int, str] = {}
         self._estimaciones_espera: dict[int, str] = {}
+        self._db_path = self._resolver_db_path()
 
         self._build_ui()
         self._bind_events()
@@ -194,6 +200,16 @@ class PageCitas(QWidget):
         self.table_lista = QTableWidget(0, 0, tab_lista)
         self.table_lista.setEditTriggers(QTableWidget.NoEditTriggers)
         self.table_lista.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.chk_seleccionar_todo = QCheckBox(self._i18n.t("citas.hitos.lote.seleccionar_todo"), tab_lista)
+        self._lote_hitos = GestorLoteHitosCitas(
+            tab_lista,
+            self._i18n,
+            self._db_path,
+            selected_ids=self._ids_seleccionados_lote,
+            on_done=self._on_lote_hitos_done,
+        )
+        self._lote_hitos.retranslate()
+        self.chk_seleccionar_todo.setVisible(False)
 
         barra = QHBoxLayout()
         barra.addWidget(self.btn_columnas)
@@ -217,6 +233,8 @@ class PageCitas(QWidget):
         aviso_lista.addWidget(self.btn_ir_prediccion_lista)
         aviso_lista.addStretch(1)
         layout_lista.addLayout(aviso_lista)
+        layout_lista.addWidget(self.chk_seleccionar_todo)
+        layout_lista.addWidget(self._lote_hitos.barra)
         layout_lista.addWidget(self.lbl_aviso_columnas)
         layout_lista.addWidget(self.table_lista)
 
@@ -240,6 +258,8 @@ class PageCitas(QWidget):
         self.btn_quitar_filtro_calidad.clicked.connect(self._quitar_filtro_calidad)
         self.table_lista.itemDoubleClicked.connect(self._on_lista_item_double_clicked)
         self.table_lista.customContextMenuRequested.connect(self._on_lista_context_menu)
+        self.table_lista.itemChanged.connect(self._on_lista_item_changed)
+        self.chk_seleccionar_todo.stateChanged.connect(self._on_toggle_seleccionar_todo_visible)
 
     def on_show(self) -> None:
         self._riesgo_enabled = bool(int(self._settings.value(SETTINGS_KEY_RIESGO_AGENDA, 0)))
@@ -278,6 +298,7 @@ class PageCitas(QWidget):
         self._refrescar_vistas_principales()
 
     def _aplicar_intent_calidad(self, intent: CitasNavigationIntentDTO) -> None:
+        self._seleccionadas_lote.clear()
         self._filtros_previos_calidad = self._filtros_aplicados
         self._filtro_calidad_activo = intent.filtro_calidad
         self._intent_navegacion_pendiente = None
@@ -302,13 +323,16 @@ class PageCitas(QWidget):
         self.lbl_banner_calidad.setText(self._i18n.t("citas.calidad.banner", tipo=tipo))
         self.lbl_banner_calidad.setVisible(True)
         self.btn_quitar_filtro_calidad.setVisible(True)
+        self._actualizar_ui_lote_hitos()
 
     def _desactivar_filtro_calidad_temporal(self) -> None:
+        self._seleccionadas_lote.clear()
         self._filtro_calidad_activo = None
         self._filtros_previos_calidad = None
         self.lbl_banner_calidad.setText("")
         self.lbl_banner_calidad.setVisible(False)
         self.btn_quitar_filtro_calidad.setVisible(False)
+        self._actualizar_ui_lote_hitos()
 
     def _quitar_filtro_calidad(self) -> None:
         self.tabs.setCurrentIndex(1)
@@ -317,6 +341,9 @@ class PageCitas(QWidget):
         self._filtros_aplicados = filtros
         self.panel_filtros.set_filtros(self._filtros_aplicados)
         self._refrescar_vistas_principales()
+
+    def _resolver_db_path(self) -> str:
+        return resolver_db_path_desde_conexion(self._container.connection)
 
     def _refrescar_vistas_principales(self) -> None:
         self._token_refresh_salud += 1
@@ -418,18 +445,34 @@ class PageCitas(QWidget):
         self._resolver_intent_navegacion("LISTA")
 
     def _render_lista(self, rows: list[dict[str, object]]) -> None:
+        self._actualizando_checks_lote = True
         self.table_lista.setRowCount(0)
         columnas, _ = sanear_columnas_citas(self._columnas_lista)
         visibles = [c for c in columnas if c != "cita_id"]
+        mostrar_lote = bool(self._filtro_calidad_activo)
+        headers_visibles = [self._i18n.t("citas.hitos.lote.columna_seleccion")] if mostrar_lote else []
         headers = {x.clave: self._i18n.t(x.i18n_key_cabecera) for x in ATRIBUTOS_CITA}
-        self.table_lista.setColumnCount(len(visibles))
-        self.table_lista.setHorizontalHeaderLabels([headers[c] for c in visibles])
+        headers_visibles.extend(headers[c] for c in visibles)
+        self.table_lista.setColumnCount(len(headers_visibles))
+        self.table_lista.setHorizontalHeaderLabels(headers_visibles)
         self._citas_lista_ids = [int(row["cita_id"]) for row in rows]
+        visibles_ahora = set(self._citas_lista_ids)
+        self._seleccionadas_lote = {cita_id for cita_id in self._seleccionadas_lote if cita_id in visibles_ahora}
         for row in rows:
             idx = self.table_lista.rowCount()
             self.table_lista.insertRow(idx)
+            offset = 0
+            cita_id = int(row["cita_id"])
+            if mostrar_lote:
+                check_item = QTableWidgetItem()
+                check_item.setFlags(Qt.ItemIsEnabled | Qt.ItemIsUserCheckable)
+                check_item.setCheckState(Qt.Checked if cita_id in self._seleccionadas_lote else Qt.Unchecked)
+                self.table_lista.setItem(idx, 0, check_item)
+                offset = 1
             for col, clave in enumerate(visibles):
-                self.table_lista.setItem(idx, col, QTableWidgetItem(formatear_valor_atributo_cita(clave, row)))
+                self.table_lista.setItem(idx, col + offset, QTableWidgetItem(formatear_valor_atributo_cita(clave, row)))
+        self._actualizando_checks_lote = False
+        self._actualizar_ui_lote_hitos()
 
     def _resolver_intent_navegacion(self, vista: str) -> None:
         intent = self._intent_navegacion_pendiente
@@ -688,6 +731,49 @@ class PageCitas(QWidget):
         if item is None:
             return
         self._abrir_menu_cita(self._cita_id_lista(item.row()), self.table_lista.mapToGlobal(point), "lista")
+
+    def _on_lista_item_changed(self, item: QTableWidgetItem) -> None:
+        if self._actualizando_checks_lote or not self._filtro_calidad_activo or item.column() != 0:
+            return
+        cita_id = self._cita_id_lista(item.row())
+        if cita_id is None:
+            return
+        if item.checkState() == Qt.Checked:
+            self._seleccionadas_lote.add(cita_id)
+        else:
+            self._seleccionadas_lote.discard(cita_id)
+        self._actualizar_ui_lote_hitos()
+
+    def _on_toggle_seleccionar_todo_visible(self, estado: int) -> None:
+        if self._actualizando_checks_lote or not self._filtro_calidad_activo:
+            return
+        self._actualizando_checks_lote = True
+        seleccionado = estado == Qt.Checked
+        for row in range(self.table_lista.rowCount()):
+            cita_id = self._cita_id_lista(row)
+            if cita_id is None:
+                continue
+            item = self.table_lista.item(row, 0)
+            if item is None:
+                continue
+            item.setCheckState(Qt.Checked if seleccionado else Qt.Unchecked)
+            if seleccionado:
+                self._seleccionadas_lote.add(cita_id)
+            else:
+                self._seleccionadas_lote.discard(cita_id)
+        self._actualizando_checks_lote = False
+        self._actualizar_ui_lote_hitos()
+
+    def _actualizar_ui_lote_hitos(self) -> None:
+        filtro_activo = bool(self._filtro_calidad_activo)
+        self.chk_seleccionar_todo.setVisible(filtro_activo and bool(self._citas_lista_ids))
+        self._lote_hitos.actualizar_visibilidad(len(self._seleccionadas_lote), filtro_activo)
+
+    def _ids_seleccionados_lote(self) -> tuple[int, ...]:
+        return tuple(sorted(self._seleccionadas_lote))
+
+    def _on_lote_hitos_done(self) -> None:
+        self._refresh_lista()
 
     def _on_calendario_context_menu(self, point) -> None:
         item = self.table.itemAt(point)

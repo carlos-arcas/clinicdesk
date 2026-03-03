@@ -34,13 +34,15 @@ class CitasHitosRepositorioPuerto(Protocol):
 
     def actualizar_hito_atencion(self, cita_id: int, campo_timestamp: str, valor_datetime: datetime) -> bool: ...
 
+    def obtener_inicios_programados_por_cita_ids(self, cita_ids: tuple[int, ...]) -> dict[int, datetime]: ...
+
 
 @dataclass(frozen=True, slots=True)
 class RegistrarHitoAtencionCita:
     repositorio: CitasHitosRepositorioPuerto
     reloj: RelojPuerto
 
-    def ejecutar(self, cita_id: int, hito: HitoAtencion) -> ResultadoRegistrarHitoDTO:
+    def ejecutar(self, cita_id: int, hito: HitoAtencion, marca_tiempo: datetime | None = None) -> ResultadoRegistrarHitoDTO:
         cita = self.repositorio.obtener_cita_por_id(cita_id)
         if cita is None:
             return self._resultado(cita_id, hito, False, False, "cita_no_encontrada")
@@ -53,7 +55,7 @@ class RegistrarHitoAtencionCita:
         if not valido:
             return self._resultado(cita_id, hito, False, False, reason_code)
 
-        aplicado = self.repositorio.actualizar_hito_atencion(cita_id, campo, self.reloj.ahora())
+        aplicado = self.repositorio.actualizar_hito_atencion(cita_id, campo, marca_tiempo or self.reloj.ahora())
         reason = "ok" if aplicado else "cita_no_encontrada"
         return self._resultado(cita_id, hito, aplicado, False, reason)
 

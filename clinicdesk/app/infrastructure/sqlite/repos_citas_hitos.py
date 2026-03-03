@@ -15,13 +15,27 @@ class CitasHitosRepository:
     def obtener_cita_por_id(self, cita_id: int) -> dict[str, object] | None:
         row = self._con.execute(
             """
-            SELECT id, check_in_at, llamado_a_consulta_at, consulta_inicio_at, consulta_fin_at, check_out_at
+            SELECT id, inicio, check_in_at, llamado_a_consulta_at, consulta_inicio_at, consulta_fin_at, check_out_at
             FROM citas
             WHERE id = ?
             """,
             (cita_id,),
         ).fetchone()
         return dict(row) if row else None
+
+    def obtener_inicios_programados_por_cita_ids(self, cita_ids: tuple[int, ...]) -> dict[int, datetime]:
+        if not cita_ids:
+            return {}
+        placeholders = ",".join("?" for _ in cita_ids)
+        rows = self._con.execute(
+            f"SELECT id, inicio FROM citas WHERE id IN ({placeholders})",
+            cita_ids,
+        ).fetchall()
+        return {
+            int(row["id"]): datetime.fromisoformat(str(row["inicio"]))
+            for row in rows
+            if row["inicio"] is not None
+        }
 
     def actualizar_hito_atencion(self, cita_id: int, campo_timestamp: str, valor_datetime: datetime) -> bool:
         campos_permitidos = {
