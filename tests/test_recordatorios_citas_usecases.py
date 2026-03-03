@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from clinicdesk.app.application.ports.recordatorios_citas_port import (
+from clinicdesk.app.application.recordatorios.puertos import (
     DatosRecordatorioCitaDTO,
     EstadoRecordatorioDTO,
 )

@@ -4,11 +4,11 @@ from dataclasses import dataclass
 from typing import Callable
 from datetime import datetime, timezone
 
-from clinicdesk.app.application.ports.recordatorios_citas_port import (
+from clinicdesk.app.application.recordatorios.puertos import (
     DatosRecordatorioCitaDTO,
     EstadoRecordatorioDTO,
     RecordatorioPreviewDTO,
-    RecordatoriosCitasPort,
+    GatewayRecordatoriosCitas,
 )
 from clinicdesk.app.bootstrap_logging import get_logger
 
@@ -20,7 +20,7 @@ ESTADOS_VALIDOS = {"PREPARADO", "ENVIADO"}
 
 @dataclass(slots=True)
 class PrepararRecordatorioCita:
-    recordatorios: RecordatoriosCitasPort
+    recordatorios: GatewayRecordatoriosCitas
 
     def ejecutar(self, cita_id: int, canal: str, traductor: Callable[[str], str]) -> RecordatorioPreviewDTO:
         canal_normalizado = _validar_canal(canal)
@@ -40,7 +40,7 @@ class PrepararRecordatorioCita:
 
 @dataclass(slots=True)
 class RegistrarRecordatorioCita:
-    recordatorios: RecordatoriosCitasPort
+    recordatorios: GatewayRecordatoriosCitas
 
     def ejecutar(self, cita_id: int, canal: str, estado: str = "PREPARADO") -> None:
         canal_normalizado = _validar_canal(canal)
@@ -55,7 +55,7 @@ class RegistrarRecordatorioCita:
 
 @dataclass(slots=True)
 class ObtenerEstadoRecordatorioCita:
-    recordatorios: RecordatoriosCitasPort
+    recordatorios: GatewayRecordatoriosCitas
 
     def ejecutar(self, cita_id: int) -> tuple[EstadoRecordatorioDTO, ...]:
         return self.recordatorios.obtener_estado_recordatorio(cita_id)
@@ -77,7 +77,7 @@ class ResultadoLoteRecordatoriosDTO:
 
 @dataclass(slots=True)
 class PrepararRecordatoriosEnLote:
-    recordatorios: RecordatoriosCitasPort
+    recordatorios: GatewayRecordatoriosCitas
 
     def ejecutar(self, cita_ids: tuple[int, ...], canal: str) -> ResultadoLoteRecordatoriosDTO:
         canal_normalizado = _validar_canal_lote(canal)
@@ -95,7 +95,7 @@ class PrepararRecordatoriosEnLote:
 
 @dataclass(slots=True)
 class MarcarRecordatoriosEnviadosEnLote:
-    recordatorios: RecordatoriosCitasPort
+    recordatorios: GatewayRecordatoriosCitas
 
     def ejecutar(self, cita_ids: tuple[int, ...], canal: str | None = None) -> ResultadoLoteRecordatoriosDTO:
         if not cita_ids:
