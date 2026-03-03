@@ -23,6 +23,7 @@ class FilaConfirmacionDTO:
     estado_cita: str
     riesgo: str
     recordatorio_estado: str
+    tiene_telefono: bool
 
 
 @dataclass(frozen=True, slots=True)

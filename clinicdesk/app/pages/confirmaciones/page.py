@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 from datetime import date, timedelta
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import QThread, Qt
 from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
@@ -30,10 +30,11 @@ from clinicdesk.app.application.prediccion_ausencias.aviso_salud_prediccion impo
 )
 from clinicdesk.app.container import AppContainer
 from clinicdesk.app.i18n import I18nManager
-from clinicdesk.app.pages.citas.recordatorio_cita_dialog import RecordatorioCitaDialog
 from clinicdesk.app.pages.citas.riesgo_ausencia_dialog import RiesgoAusenciaDialog
 from clinicdesk.app.pages.confirmaciones.columnas import claves_columnas_confirmaciones
 from clinicdesk.app.pages.confirmaciones.lote_controller import GestorLoteConfirmaciones
+from clinicdesk.app.pages.confirmaciones.lote_worker import AccionLoteDTO, WorkerRecordatoriosLote
+from clinicdesk.app.pages.confirmaciones.acciones_whatsapp_rapido import estado_accion_whatsapp_rapida
 from clinicdesk.app.pages.confirmaciones.tabla_actions import crear_actions_confirmacion
 from clinicdesk.app.queries.confirmaciones_queries import ConfirmacionesQueries
 
@@ -50,6 +51,9 @@ class PageConfirmaciones(QWidget):
         self._offset = 0
         self._total = 0
         self._citas_seleccionadas: set[int] = set()
+        self._cita_en_preparacion: int | None = None
+        self._thread_rapido: QThread | None = None
+        self._worker_rapido: WorkerRecordatoriosLote | None = None
         self._uc = ObtenerConfirmacionesCitas(
             queries=ConfirmacionesQueries(container.connection),
             obtener_riesgo_uc=container.prediccion_ausencias_facade.obtener_riesgo_agenda_uc,
@@ -241,14 +245,21 @@ class PageConfirmaciones(QWidget):
         self.table.setItem(row, 5, QTableWidgetItem(item.estado_cita))
         self.table.setItem(row, 6, QTableWidgetItem(self._i18n.t(f"confirmaciones.riesgo.{item.riesgo.lower()}")))
         self.table.setItem(row, 7, QTableWidgetItem(self._i18n.t(f"confirmaciones.recordatorio.{item.recordatorio_estado.lower()}")))
-        self.table.setCellWidget(row, 8, self._crear_actions(item.cita_id))
-    def _crear_actions(self, cita_id: int) -> QWidget:
+        self.table.setCellWidget(row, 8, self._crear_actions(item))
+
+    def _crear_actions(self, item) -> QWidget:
+        estado = estado_accion_whatsapp_rapida(item.riesgo, item.recordatorio_estado, item.tiene_telefono)
+        tooltip = self._i18n.t(estado.tooltip_key) if estado.tooltip_key else ""
         return crear_actions_confirmacion(
             self.table,
             self._i18n.t("confirmaciones.accion.ver_riesgo"),
-            self._i18n.t("confirmaciones.accion.preparar_recordatorio"),
-            lambda: self._abrir_riesgo(cita_id),
-            lambda: self._abrir_recordatorio(cita_id),
+            self._i18n.t("confirmaciones.accion.preparar_whatsapp_rapido"),
+            self._i18n.t("confirmaciones.accion.preparando_fila"),
+            estado,
+            self._cita_en_preparacion == item.cita_id,
+            tooltip,
+            lambda: self._abrir_riesgo(item.cita_id),
+            lambda: self._preparar_whatsapp_rapido(item),
         )
     def _toggle_todo_visible(self, state: int) -> None:
         check_state = Qt.Checked if state == Qt.Checked else Qt.Unchecked
@@ -306,9 +317,56 @@ class PageConfirmaciones(QWidget):
         salud = self._container.prediccion_ausencias_facade.obtener_salud_uc.ejecutar()
         dialog = RiesgoAusenciaDialog(self._i18n, explicacion, salud, self)
         dialog.exec()
-    def _abrir_recordatorio(self, cita_id: int) -> None:
-        dialog = RecordatorioCitaDialog(self._container, self._i18n, cita_id, self)
-        dialog.exec()
+    def _preparar_whatsapp_rapido(self, item) -> None:
+        if self._cita_en_preparacion is not None:
+            return
+        self._cita_en_preparacion = item.cita_id
+        self._load_data(reset=False)
+        self._log_whatsapp_rapido_click(item)
+        self._arrancar_worker_rapido(item.cita_id)
+
+    def _arrancar_worker_rapido(self, cita_id: int) -> None:
+        self._thread_rapido = QThread(self)
+        accion = AccionLoteDTO(tipo="PREPARAR", cita_ids=(cita_id,), canal="WHATSAPP")
+        self._worker_rapido = WorkerRecordatoriosLote(self._container.recordatorios_citas_facade, accion)
+        self._worker_rapido.moveToThread(self._thread_rapido)
+        self._thread_rapido.started.connect(self._worker_rapido.run)
+        self._worker_rapido.finished_ok.connect(self._on_whatsapp_rapido_ok)
+        self._worker_rapido.finished_error.connect(self._on_whatsapp_rapido_fail)
+        self._worker_rapido.finished.connect(self._thread_rapido.quit)
+        self._worker_rapido.finished.connect(self._worker_rapido.deleteLater)
+        self._thread_rapido.finished.connect(self._thread_rapido.deleteLater)
+        self._thread_rapido.start()
+
+    def _on_whatsapp_rapido_ok(self, _dto) -> None:
+        LOGGER.info(
+            "confirmaciones_whatsapp_rapido_ok",
+            extra={"action": "confirmaciones_whatsapp_rapido_ok", "reason_code": "ok"},
+        )
+        self._cita_en_preparacion = None
+        self._load_data(reset=False)
+        QMessageBox.information(self, self._i18n.t("confirmaciones.titulo"), self._i18n.t("confirmaciones.accion.hecho"))
+
+    def _on_whatsapp_rapido_fail(self, reason_code: str) -> None:
+        LOGGER.warning(
+            "confirmaciones_whatsapp_rapido_fail",
+            extra={"action": "confirmaciones_whatsapp_rapido_fail", "reason_code": reason_code},
+        )
+        self._cita_en_preparacion = None
+        self._load_data(reset=False)
+        QMessageBox.warning(self, self._i18n.t("confirmaciones.titulo"), self._i18n.t("confirmaciones.accion.error_guardar"))
+
+    def _log_whatsapp_rapido_click(self, item) -> None:
+        LOGGER.info(
+            "confirmaciones_whatsapp_rapido_click",
+            extra={
+                "action": "confirmaciones_whatsapp_rapido_click",
+                "cita_id": item.cita_id,
+                "riesgo": item.riesgo,
+                "estado_recordatorio": item.recordatorio_estado,
+            },
+        )
+
     def _prev(self) -> None:
         self._offset = max(0, self._offset - _PAGE_SIZE)
         self._load_data(reset=False)

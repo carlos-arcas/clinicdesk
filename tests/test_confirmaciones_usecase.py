@@ -47,9 +47,9 @@ class FakeSalud:
 
 def test_obtener_confirmaciones_mapea_filtra_y_ejecuta_en_lote() -> None:
     rows = [
-        CitaConfirmacionRow(1, "2030-01-01T09:00:00", "A", "M", "PENDIENTE", 11, 21, "SIN_PREPARAR"),
-        CitaConfirmacionRow(2, "2030-01-02T09:00:00", "B", "M", "PENDIENTE", 12, 21, "PREPARADO"),
-        CitaConfirmacionRow(3, "2030-01-03T09:00:00", "C", "M", "PENDIENTE", 13, 21, "ENVIADO"),
+        CitaConfirmacionRow(1, "2030-01-01T09:00:00", "A", "M", "PENDIENTE", 11, 21, "SIN_PREPARAR", True),
+        CitaConfirmacionRow(2, "2030-01-02T09:00:00", "B", "M", "PENDIENTE", 12, 21, "PREPARADO", False),
+        CitaConfirmacionRow(3, "2030-01-03T09:00:00", "C", "M", "PENDIENTE", 13, 21, "ENVIADO", True),
     ]
     riesgo = FakeRiesgo({1: "ALTO", 2: "MEDIO", 3: "BAJO"})
     salud = FakeSalud()
@@ -67,6 +67,8 @@ def test_obtener_confirmaciones_mapea_filtra_y_ejecuta_en_lote() -> None:
     assert [item.cita_id for item in result.items] == [1, 2]
     assert result.total == 3
     assert result.mostrados == 2
+    assert result.items[0].tiene_telefono is True
+    assert result.items[1].tiene_telefono is False
     assert riesgo.calls == 1
     assert salud.calls == 1
 
