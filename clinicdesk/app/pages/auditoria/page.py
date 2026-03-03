@@ -21,12 +21,15 @@ from clinicdesk.app.application.usecases.exportar_auditoria_csv import Exportaci
 from clinicdesk.app.application.usecases.filtros_auditoria import PRESET_PERSONALIZADO
 from clinicdesk.app.application.usecases.obtener_resumen_auditoria import ObtenerResumenAuditoria
 from clinicdesk.app.application.usecases.paginacion_incremental import calcular_siguiente_offset
+from clinicdesk.app.application.usecases.registrar_telemetria import RegistrarTelemetria
+from clinicdesk.app.application.security import UserContext
 from clinicdesk.app.bootstrap_logging import get_logger
 from clinicdesk.app.i18n import I18nManager
 from clinicdesk.app.pages.auditoria.exportador_csv import ExportadorCsvAuditoria
 from clinicdesk.app.pages.auditoria.filtros_ui import columnas_tabla, opciones_accion, opciones_entidad, opciones_rango, parse_fecha_iso
 from clinicdesk.app.pages.shared.table_utils import set_item
 from clinicdesk.app.queries.auditoria_accesos_queries import AuditoriaAccesosQueries, FiltrosAuditoriaAccesos
+from clinicdesk.app.infrastructure.sqlite.repos_telemetria_eventos import RepositorioTelemetriaEventosSqlite
 
 LOGGER = get_logger(__name__)
 
@@ -37,6 +40,8 @@ class PageAuditoria(QWidget):
         self._i18n = I18nManager("es")
         self._settings = QSettings("clinicdesk", "ui")
         self._queries = AuditoriaAccesosQueries(connection)
+        self._uc_telemetria = RegistrarTelemetria(RepositorioTelemetriaEventosSqlite(connection))
+        self._contexto_telemetria = UserContext()
         self._uc_buscar = BuscarAuditoriaAccesos(self._queries)
         self._uc_resumen = ObtenerResumenAuditoria(self._queries)
         self._uc_exportar = ExportarAuditoriaCSV(self._queries)
@@ -140,6 +145,7 @@ class PageAuditoria(QWidget):
         if self._total_actual is None or len(self._items_acumulados) >= self._total_actual:
             return
         LOGGER.info("auditoria_cargar_mas_click", extra={"action": "auditoria_cargar_mas_click"})
+        self._registrar_telemetria("auditoria_cargar_mas", "click")
         self._buscar(incremental=True)
 
     def _buscar(self, *, incremental: bool) -> None:
@@ -154,12 +160,14 @@ class PageAuditoria(QWidget):
         except Exception:
             self._set_estado("error_more" if incremental and self._items_acumulados else "error")
             LOGGER.warning("auditoria_cargar_mas_fail", extra={"action": "auditoria_cargar_mas_fail"})
+            self._registrar_telemetria("auditoria_cargar_mas", "fail")
             return
         self._total_actual = resultado.total
         self._offset_actual = calcular_siguiente_offset(self._offset_actual, self._limit, resultado.total)
         if incremental:
             self._append_filas(resultado.items)
             LOGGER.info("auditoria_cargar_mas_ok", extra={"action": "auditoria_cargar_mas_ok"})
+            self._registrar_telemetria("auditoria_cargar_mas", "ok")
         else:
             self._items_acumulados = list(resultado.items)
             self._render_filas()
@@ -232,6 +240,7 @@ class PageAuditoria(QWidget):
     def _on_exportar(self) -> None:
         if not self._total_actual or not self._exportador.confirmar(self._total_actual):
             return
+        self._registrar_telemetria("auditoria_export", "click")
         filtros = self._build_filtros()
         if filtros is None:
             return
@@ -239,8 +248,21 @@ class PageAuditoria(QWidget):
             exp = self._uc_exportar.execute(filtros, preset_rango=self.combo_rango.currentData())
         except (ExportacionAuditoriaDemasiadasFilasError, ExportacionAuditoriaError) as exc:
             self._exportador.mostrar_error(exc.reason_code, permitir_reintento=False)
+            self._registrar_telemetria("auditoria_export", "fail")
             return
         self._exportador.guardar_con_reintento(exp.csv_texto, exp.filas, exp.nombre_archivo_sugerido, self.combo_rango.currentData())
+        self._registrar_telemetria("auditoria_export", "ok")
+
+
+    def _registrar_telemetria(self, evento: str, resultado: str) -> None:
+        try:
+            self._uc_telemetria.ejecutar(
+                contexto_usuario=self._contexto_telemetria,
+                evento=evento,
+                contexto=f"page=auditoria;resultado={resultado}",
+            )
+        except Exception:
+            return
 
     def _tr(self, key: str) -> str:
         return self._i18n.t(key)

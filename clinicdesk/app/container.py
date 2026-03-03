@@ -40,6 +40,7 @@ from clinicdesk.app.infrastructure.sqlite.repos_pacientes import PacientesReposi
 from clinicdesk.app.infrastructure.sqlite.repos_personal import PersonalRepository
 from clinicdesk.app.infrastructure.sqlite.repos_recetas import RecetasRepository
 from clinicdesk.app.infrastructure.sqlite.repos_salas import SalasRepository
+from clinicdesk.app.infrastructure.sqlite.repos_telemetria_eventos import RepositorioTelemetriaEventosSqlite
 from clinicdesk.app.infrastructure.sqlite.repos_turnos import TurnosRepository
 from clinicdesk.app.infrastructure.sqlite.recordatorios_citas_gateway import RecordatoriosCitasSqliteGateway
 from clinicdesk.app.infrastructure.sqlite.proveedor_conexion_sqlite import ProveedorConexionSqlitePorHilo
@@ -82,6 +83,7 @@ class AppContainer:
     citas_repo: CitasRepository
     incidencias_repo: IncidenciasRepository
     auditoria_accesos_repo: RepositorioAuditoriaAccesoSqlite
+    telemetria_eventos_repo: RepositorioTelemetriaEventosSqlite
     user_context: UserContext
 
     def close(self) -> None:
@@ -113,6 +115,7 @@ def build_container(connection: sqlite3.Connection) -> AppContainer:
     citas_repo = CitasRepository(connection)
     incidencias_repo = IncidenciasRepository(connection)
     auditoria_accesos_repo = RepositorioAuditoriaAccesoSqlite(connection)
+    telemetria_eventos_repo = RepositorioTelemetriaEventosSqlite(connection)
 
     demo_ml_facade = _build_demo_ml_facade(connection, citas_repo, incidencias_repo)
     proveedor_prediccion = _build_proveedor_conexion_prediccion(connection)
@@ -150,6 +153,7 @@ def build_container(connection: sqlite3.Connection) -> AppContainer:
         citas_repo=citas_repo,
         incidencias_repo=incidencias_repo,
         auditoria_accesos_repo=auditoria_accesos_repo,
+        telemetria_eventos_repo=telemetria_eventos_repo,
         user_context=user_context,
     )
 

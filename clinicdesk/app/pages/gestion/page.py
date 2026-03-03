@@ -27,17 +27,21 @@ from clinicdesk.app.application.usecases.dashboard_gestion import (
 from clinicdesk.app.application.usecases.dashboard_gestion_prediccion import CitaVigilarDTO
 from clinicdesk.app.application.citas.navigation_intent import CitasNavigationIntentDTO
 from clinicdesk.app.application.usecases.obtener_metricas_operativas import ObtenerMetricasOperativas
+from clinicdesk.app.application.usecases.obtener_resumen_telemetria_semana import ObtenerResumenTelemetriaSemana
+from clinicdesk.app.application.usecases.registrar_telemetria import RegistrarTelemetria
 from clinicdesk.app.container import AppContainer
 from clinicdesk.app.pages.gestion.adapters import PrediccionAusenciasGestionAdapter, PrediccionOperativaGestionAdapter
 from clinicdesk.app.domain.exceptions import ValidationError
 from clinicdesk.app.i18n import I18nManager
 from clinicdesk.app.queries.dashboard_gestion_queries import DashboardGestionQueries
 from clinicdesk.app.queries.metricas_operativas_queries import MetricasOperativasQueries
+from clinicdesk.app.queries.telemetria_eventos_queries import TelemetriaEventosQueries
 
 
 class PageGestionDashboard(QWidget):
     def __init__(self, container: AppContainer, i18n: I18nManager, parent: QWidget | None = None) -> None:
         super().__init__(parent)
+        self._container = container
         self._i18n = i18n
         metricas_uc = ObtenerMetricasOperativas(MetricasOperativasQueries(container.connection))
         self._use_case = ObtenerDashboardGestion(
@@ -46,6 +50,8 @@ class PageGestionDashboard(QWidget):
             PrediccionOperativaGestionAdapter(container),
             DashboardGestionQueries(container.connection),
         )
+        self._uc_telemetria = RegistrarTelemetria(container.telemetria_eventos_repo)
+        self._uc_resumen_telemetria = ObtenerResumenTelemetriaSemana(TelemetriaEventosQueries(container.connection))
         self._build_ui()
         self._i18n.subscribe(self._retranslate)
         self._retranslate()
@@ -61,6 +67,7 @@ class PageGestionDashboard(QWidget):
         root.addWidget(self._build_alertas())
         root.addWidget(self._build_tabla_medicos())
         root.addWidget(self._build_tabla_vigilancia())
+        root.addWidget(self._build_uso_semana())
 
     def _build_filtros(self) -> QHBoxLayout:
         layout = QHBoxLayout()
@@ -141,6 +148,16 @@ class PageGestionDashboard(QWidget):
         lay.addWidget(self.tabla_vigilancia)
         return box
 
+    def _build_uso_semana(self) -> QGroupBox:
+        box = QGroupBox()
+        layout = QVBoxLayout(box)
+        self.lbl_uso_semana_titulo = QLabel()
+        self.lbl_uso_semana_contenido = QLabel("-")
+        self.lbl_uso_semana_contenido.setWordWrap(True)
+        layout.addWidget(self.lbl_uso_semana_titulo)
+        layout.addWidget(self.lbl_uso_semana_contenido)
+        return box
+
     def _on_cambio_preset(self) -> None:
         preset = self.cmb_preset.currentData()
         habilitado = preset == PRESET_PERSONALIZADO
@@ -160,6 +177,7 @@ class PageGestionDashboard(QWidget):
             self._mostrar_error(self._i18n.t("dashboard_gestion.estado.error"))
             return
         self._render_resultado(resultado)
+        self._render_uso_semana()
 
     def _leer_filtros(self) -> FiltrosDashboardDTO:
         return FiltrosDashboardDTO(
@@ -243,7 +261,39 @@ class PageGestionDashboard(QWidget):
             accion="ABRIR_DETALLE",
             resaltar=True,
         )
+        self._registrar_telemetria("gestion_abrir_cita", contexto="page=gestion", entidad_tipo="cita", entidad_id=cita_id)
         self._navegar_a("citas", intent=intent)
+
+
+    def _render_uso_semana(self) -> None:
+        resumen = self._uc_resumen_telemetria.ejecutar()
+        if not resumen.top_eventos:
+            self.lbl_uso_semana_contenido.setText(self._i18n.t("dashboard_gestion.uso_semana.vacio"))
+            return
+        lineas = [
+            f"• {self._i18n.t(f'dashboard_gestion.telemetria.evento.{item.evento}')} ({item.total})"
+            for item in resumen.top_eventos
+        ]
+        self.lbl_uso_semana_contenido.setText("\n".join(lineas))
+
+    def _registrar_telemetria(
+        self,
+        evento: str,
+        *,
+        contexto: str | None = None,
+        entidad_tipo: str | None = None,
+        entidad_id: int | str | None = None,
+    ) -> None:
+        try:
+            self._uc_telemetria.ejecutar(
+                contexto_usuario=self._container.user_context,
+                evento=evento,
+                contexto=contexto,
+                entidad_tipo=entidad_tipo,
+                entidad_id=entidad_id,
+            )
+        except Exception:
+            return
 
     def _navegar_a(self, key: str, intent: object | None = None) -> None:
         parent = self.parentWidget()
@@ -285,6 +335,7 @@ class PageGestionDashboard(QWidget):
             ]
         )
         self.lbl_sin_vigilancia.setText(self._i18n.t("dashboard_gestion.citas_vigilar.vacio"))
+        self.lbl_uso_semana_titulo.setText(self._i18n.t("dashboard_gestion.uso_semana.titulo"))
         self.tabla_vigilancia.setHorizontalHeaderLabels(
             [
                 self._i18n.t("dashboard_gestion.citas_vigilar.hora"),
