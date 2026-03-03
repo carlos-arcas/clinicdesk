@@ -17,6 +17,8 @@ from PySide6.QtWidgets import (
 )
 
 from clinicdesk.app.application.services.prediccion_operativa_facade import PrediccionOperativaFacade
+from clinicdesk.app.application.security import UserContext
+from clinicdesk.app.application.usecases.registrar_telemetria import RegistrarTelemetria
 from clinicdesk.app.i18n import I18nManager
 from clinicdesk.app.pages.prediccion_operativa.helpers import (
     construir_bullets_explicacion,
@@ -47,10 +49,19 @@ class _RefsBloque:
 
 
 class PagePrediccionOperativa(QWidget):
-    def __init__(self, facade: PrediccionOperativaFacade, i18n: I18nManager, parent: QWidget | None = None) -> None:
+    def __init__(
+        self,
+        facade: PrediccionOperativaFacade,
+        i18n: I18nManager,
+        telemetria_uc: RegistrarTelemetria,
+        contexto_usuario: UserContext,
+        parent: QWidget | None = None,
+    ) -> None:
         super().__init__(parent)
         self._facade = facade
         self._i18n = i18n
+        self._telemetria_uc = telemetria_uc
+        self._contexto_usuario = contexto_usuario
         self._thread_duracion: QThread | None = None
         self._thread_espera: QThread | None = None
         self._worker_duracion: WorkerEntrenarOperativo | None = None
@@ -128,6 +139,7 @@ class PagePrediccionOperativa(QWidget):
         bloque.btn_comprobar.setEnabled(False)
         bloque.btn_reintentar.setVisible(False)
         bloque.lbl_feedback.setText(self._i18n.t("prediccion_operativa.estado.actualizando"))
+        self._registrar_telemetria("estimaciones_preparar", f"click_{tipo}")
         self._ejecutar_worker(tipo)
 
     def _ejecutar_worker(self, tipo: str) -> None:
@@ -155,6 +167,7 @@ class PagePrediccionOperativa(QWidget):
         bloque.btn_comprobar.setEnabled(True)
         self._comprobar_datos(tipo)
         self._cargar_previsualizacion()
+        self._registrar_telemetria("estimaciones_preparar", f"ok_{tipo}")
 
     def _on_train_fail(self, tipo: str) -> None:
         bloque = self._bloque(tipo)
@@ -163,6 +176,7 @@ class PagePrediccionOperativa(QWidget):
         bloque.btn_reintentar.setVisible(True)
         bloque.btn_preparar.setEnabled(True)
         bloque.btn_comprobar.setEnabled(True)
+        self._registrar_telemetria("estimaciones_preparar", f"fail_{tipo}")
 
     def _cargar_previsualizacion(self) -> None:
         if not debe_cargar_previsualizacion(self.chk_mostrar_agenda.isChecked()):
@@ -193,6 +207,20 @@ class PagePrediccionOperativa(QWidget):
         uc = self._facade.explicar_duracion_uc if tipo == "duracion" else self._facade.explicar_espera_uc
         exp = uc.ejecutar(cita_id, nivel)
         QMessageBox.information(self, self._i18n.t("prediccion_operativa.btn.ver_por_que"), construir_bullets_explicacion(exp, self._i18n))
+        self._registrar_telemetria("explicacion_ver_por_que", f"ok_{tipo}", cita_id=cita_id)
+
+
+    def _registrar_telemetria(self, evento: str, resultado: str, cita_id: int | None = None) -> None:
+        try:
+            self._telemetria_uc.ejecutar(
+                contexto_usuario=self._contexto_usuario,
+                evento=evento,
+                contexto=f"page=prediccion_operativa;resultado={resultado}",
+                entidad_tipo="cita" if cita_id is not None else None,
+                entidad_id=cita_id,
+            )
+        except Exception:
+            return
 
     def _vaciar_tablas(self) -> None:
         for bloque in (self._bloque_duracion, self._bloque_espera):

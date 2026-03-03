@@ -33,6 +33,8 @@ from clinicdesk.app.application.prediccion_ausencias.preferencias_resultados_rec
 from clinicdesk.app.application.services.prediccion_ausencias_facade import PrediccionAusenciasFacade
 from clinicdesk.app.bootstrap_logging import get_contexto_log, get_logger
 from clinicdesk.app.i18n import I18nManager
+from clinicdesk.app.application.security import UserContext
+from clinicdesk.app.application.usecases.registrar_telemetria import RegistrarTelemetria
 from clinicdesk.app.infrastructure.prediccion_ausencias.incidentes import escribir_incidente_entrenamiento
 from clinicdesk.app.pages.prediccion_ausencias.cerrar_citas_antiguas_dialog import CerrarCitasAntiguasDialog
 from clinicdesk.app.pages.prediccion_ausencias.entrenar_worker import (
@@ -51,10 +53,19 @@ from clinicdesk.app.pages.shared.persistencia_estimaciones_settings import (
 )
 LOGGER = get_logger(__name__)
 class PagePrediccionAusencias(QWidget):
-    def __init__(self, facade: PrediccionAusenciasFacade, i18n: I18nManager, parent: QWidget | None = None) -> None:
+    def __init__(
+        self,
+        facade: PrediccionAusenciasFacade,
+        i18n: I18nManager,
+        telemetria_uc: RegistrarTelemetria,
+        contexto_usuario: UserContext,
+        parent: QWidget | None = None,
+    ) -> None:
         super().__init__(parent)
         self._facade = facade
         self._i18n = i18n
+        self._telemetria_uc = telemetria_uc
+        self._contexto_usuario = contexto_usuario
         self._datos_aptos = False
         self._entrenamiento_activo = False
         self._entrenar_thread: QThread | None = None
@@ -360,6 +371,7 @@ class PagePrediccionAusencias(QWidget):
             self._actualizar_resultados_recientes()
             self._cargar_previsualizacion()
             LOGGER.info("prediccion_entrenar_ok", extra={"action": "prediccion_entrenar_ok", "page": "prediccion_ausencias", "citas_usadas": resultado.citas_usadas, "fecha_metadata": resultado.fecha_entrenamiento})
+            self._registrar_telemetria("prediccion_entrenar", "ok")
         except Exception:  # noqa: BLE001
             LOGGER.exception("prediccion_entrenar_ok_handler_crash", extra={"action": "prediccion_entrenar_ok_handler_crash", "page": "prediccion_ausencias"})
             self._set_estado_error("unexpected_error")
@@ -383,6 +395,7 @@ class PagePrediccionAusencias(QWidget):
                     "error_message": error_ctx.error_message,
                 },
             )
+            self._registrar_telemetria("prediccion_entrenar", "fail")
         except Exception:  # noqa: BLE001
             LOGGER.exception(
                 "prediccion_entrenar_fail_handler_crash",
@@ -420,6 +433,17 @@ class PagePrediccionAusencias(QWidget):
                 "prediccion_entrenar_incidente_fail",
                 extra={"action": "prediccion_entrenar_incidente_fail", "reason_code": reason_code},
             )
+
+    def _registrar_telemetria(self, evento: str, resultado: str) -> None:
+        try:
+            self._telemetria_uc.ejecutar(
+                contexto_usuario=self._contexto_usuario,
+                evento=evento,
+                contexto=f"page=prediccion_ausencias;resultado={resultado}",
+            )
+        except Exception:
+            return
+
     def _on_entrenar_finish(self) -> None:
         self._entrenamiento_activo = False
         self._actualizar_estado_botones()

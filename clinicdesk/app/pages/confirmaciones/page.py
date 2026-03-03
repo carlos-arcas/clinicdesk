@@ -29,6 +29,7 @@ from clinicdesk.app.application.prediccion_ausencias.aviso_salud_prediccion impo
     debe_mostrar_aviso_salud_prediccion,
 )
 from clinicdesk.app.container import AppContainer
+from clinicdesk.app.application.usecases.registrar_telemetria import RegistrarTelemetria
 from clinicdesk.app.i18n import I18nManager
 from clinicdesk.app.pages.citas.riesgo_ausencia_dialog import RiesgoAusenciaDialog
 from clinicdesk.app.pages.confirmaciones.columnas import claves_columnas_confirmaciones
@@ -52,6 +53,7 @@ class PageConfirmaciones(QWidget):
         self._total = 0
         self._citas_seleccionadas: set[int] = set()
         self._cita_en_preparacion: int | None = None
+        self._uc_telemetria = RegistrarTelemetria(container.telemetria_eventos_repo)
         self._thread_rapido: QThread | None = None
         self._worker_rapido: WorkerRecordatoriosLote | None = None
         self._uc = ObtenerConfirmacionesCitas(
@@ -317,12 +319,14 @@ class PageConfirmaciones(QWidget):
         salud = self._container.prediccion_ausencias_facade.obtener_salud_uc.ejecutar()
         dialog = RiesgoAusenciaDialog(self._i18n, explicacion, salud, self)
         dialog.exec()
+        self._registrar_telemetria("explicacion_ver_por_que", "ok", cita_id)
     def _preparar_whatsapp_rapido(self, item) -> None:
         if self._cita_en_preparacion is not None:
             return
         self._cita_en_preparacion = item.cita_id
         self._load_data(reset=False)
         self._log_whatsapp_rapido_click(item)
+        self._registrar_telemetria("confirmaciones_whatsapp_rapido", "click", item.cita_id)
         self._arrancar_worker_rapido(item.cita_id)
 
     def _arrancar_worker_rapido(self, cita_id: int) -> None:
@@ -343,6 +347,7 @@ class PageConfirmaciones(QWidget):
             "confirmaciones_whatsapp_rapido_ok",
             extra={"action": "confirmaciones_whatsapp_rapido_ok", "reason_code": "ok"},
         )
+        self._registrar_telemetria("confirmaciones_whatsapp_rapido", "ok", self._cita_en_preparacion)
         self._cita_en_preparacion = None
         self._load_data(reset=False)
         QMessageBox.information(self, self._i18n.t("confirmaciones.titulo"), self._i18n.t("confirmaciones.accion.hecho"))
@@ -352,6 +357,7 @@ class PageConfirmaciones(QWidget):
             "confirmaciones_whatsapp_rapido_fail",
             extra={"action": "confirmaciones_whatsapp_rapido_fail", "reason_code": reason_code},
         )
+        self._registrar_telemetria("confirmaciones_whatsapp_rapido", "fail", self._cita_en_preparacion)
         self._cita_en_preparacion = None
         self._load_data(reset=False)
         QMessageBox.warning(self, self._i18n.t("confirmaciones.titulo"), self._i18n.t("confirmaciones.accion.error_guardar"))
@@ -366,6 +372,19 @@ class PageConfirmaciones(QWidget):
                 "estado_recordatorio": item.recordatorio_estado,
             },
         )
+
+
+    def _registrar_telemetria(self, evento: str, resultado: str, cita_id: int | None) -> None:
+        try:
+            self._uc_telemetria.ejecutar(
+                contexto_usuario=self._container.user_context,
+                evento=evento,
+                contexto=f"page=confirmaciones;resultado={resultado}",
+                entidad_tipo="cita",
+                entidad_id=cita_id,
+            )
+        except Exception:
+            return
 
     def _prev(self) -> None:
         self._offset = max(0, self._offset - _PAGE_SIZE)

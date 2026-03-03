@@ -35,6 +35,7 @@ from clinicdesk.app.application.citas import (
 )
 from clinicdesk.app.application.citas.navigation_intent import CitasNavigationIntentDTO, debe_abrir_detalle
 from clinicdesk.app.application.prediccion_ausencias.riesgo_agenda import RIESGO_NO_DISPONIBLE
+from clinicdesk.app.application.usecases.registrar_telemetria import RegistrarTelemetria
 from clinicdesk.app.application.prediccion_ausencias.aviso_salud_prediccion import CacheSaludPrediccionPorRefresh
 from clinicdesk.app.application.prediccion_operativa.ux_estimaciones import (
     debe_mostrar_aviso_salud_estimacion,
@@ -104,6 +105,7 @@ class PageCitas(QWidget):
         self._controller = CitasController(self, container)
         self._registrar_hito_uc = RegistrarHitoAtencionCita(CitasHitosRepository(container.connection), _RelojSistema())
         self._can_write = container.user_context.can_write
+        self._uc_telemetria = RegistrarTelemetria(container.telemetria_eventos_repo)
         self._settings = QSettings("clinicdesk", "ui")
         self._filtros_aplicados = FiltrosCitasDTO()
         self._columnas_lista: tuple[str, ...] = tuple()
@@ -393,6 +395,16 @@ class PageCitas(QWidget):
                 "vista_final": vista_final,
             },
         )
+        try:
+            self._uc_telemetria.ejecutar(
+                contexto_usuario=self._container.user_context,
+                evento="citas_intent_aplicado",
+                contexto=f"vista={vista_final};found={int(encontrado)}",
+                entidad_tipo="cita",
+                entidad_id=intent.cita_id_destino,
+            )
+        except Exception:
+            pass
         self._intent_navegacion_pendiente = None
 
     def _resolver_seleccion_intent(self, intent: CitasNavigationIntentDTO, vista: str) -> tuple[bool, str]:

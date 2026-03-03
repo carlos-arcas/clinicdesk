@@ -493,3 +493,21 @@ CREATE TABLE IF NOT EXISTS auditoria_accesos (
 
 CREATE INDEX IF NOT EXISTS idx_auditoria_accesos_timestamp ON auditoria_accesos(timestamp_utc);
 CREATE INDEX IF NOT EXISTS idx_auditoria_accesos_accion_entidad ON auditoria_accesos(accion, entidad_tipo, entidad_id);
+
+-- ============================================================
+-- TELEMETRÍA DE USO (sin PII)
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS telemetria_eventos (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    timestamp_utc TEXT NOT NULL,
+    usuario TEXT NOT NULL,
+    modo_demo INTEGER NOT NULL,
+    evento TEXT NOT NULL,
+    contexto TEXT,
+    entidad_tipo TEXT,
+    entidad_id TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_telemetria_eventos_timestamp ON telemetria_eventos(timestamp_utc);
+CREATE INDEX IF NOT EXISTS idx_telemetria_eventos_evento ON telemetria_eventos(evento);
