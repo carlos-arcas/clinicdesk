@@ -32,6 +32,7 @@ class WorkerRecordatoriosLote(QObject):
         except Exception:
             self.fail.emit("confirmaciones.lote.error_accionable")
         finally:
+            self._facade.cerrar_conexion_hilo_actual()
             self.finished.emit()
 
     def _resolver_accion(self) -> ResultadoLoteRecordatoriosDTO:

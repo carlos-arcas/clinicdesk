@@ -140,3 +140,19 @@ def test_marcar_enviados_en_lote_es_idempotente() -> None:
     assert segundo.enviadas == 2
     assert fake._estados_lote[(10, "EMAIL")] == "ENVIADO"
     assert fake._estados_lote[(11, "EMAIL")] == "ENVIADO"
+
+
+def test_preparar_recordatorios_en_lote_preparado_es_idempotente() -> None:
+    fake = _FakePort(
+        None,
+        contactos={1: ("600", "a@x.com")},
+        estados_lote={(1, "WHATSAPP"): "PREPARADO"},
+    )
+    uc = PrepararRecordatoriosEnLote(fake)
+
+    resultado = uc.ejecutar((1,), "WHATSAPP")
+
+    assert resultado.preparadas == 1
+    assert resultado.omitidas_sin_contacto == 0
+    assert resultado.omitidas_ya_enviado == 0
+

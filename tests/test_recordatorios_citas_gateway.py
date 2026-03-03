@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import sqlite3
+import threading
 from pathlib import Path
 
 from clinicdesk.app.infrastructure.sqlite.recordatorios_citas_gateway import RecordatoriosCitasSqliteGateway
+from clinicdesk.app.infrastructure.sqlite.proveedor_conexion_sqlite import ProveedorConexionSqlitePorHilo
 
 
 def _build_connection() -> sqlite3.Connection:
@@ -91,3 +93,36 @@ def test_gateway_contacto_citas_devuelve_minimo() -> None:
     assert set(contactos.keys()) == {1, 2}
     assert contactos[1] == ("600000000", "ana@test.com")
     assert contactos[2] == (None, "eva@test.com")
+
+
+def test_gateway_con_proveedor_no_comparte_conexion_entre_hilos(tmp_path) -> None:
+    db_path = tmp_path / "recordatorios.sqlite"
+    con = sqlite3.connect(db_path)
+    con.row_factory = sqlite3.Row
+    schema_path = Path("clinicdesk/app/infrastructure/sqlite/schema.sql")
+    con.executescript(schema_path.read_text(encoding="utf-8"))
+    _seed_minimo(con)
+    con.commit()
+    con.close()
+
+    proveedor = ProveedorConexionSqlitePorHilo(db_path)
+    gateway = RecordatoriosCitasSqliteGateway(proveedor_conexion=proveedor)
+    conexiones: list[int] = []
+    lock = threading.Lock()
+
+    def _run() -> None:
+        gateway.obtener_contacto_citas((1, 2))
+        with lock:
+            conexiones.append(id(proveedor.obtener()))
+        proveedor.cerrar_conexion_del_hilo_actual()
+
+    t1 = threading.Thread(target=_run)
+    t2 = threading.Thread(target=_run)
+    t1.start()
+    t2.start()
+    t1.join()
+    t2.join()
+
+    assert len(conexiones) == 2
+    assert conexiones[0] != conexiones[1]
+
