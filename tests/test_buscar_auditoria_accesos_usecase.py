@@ -1,16 +1,22 @@
 from __future__ import annotations
 
+from datetime import UTC, datetime
+
 from clinicdesk.app.application.usecases.buscar_auditoria_accesos import BuscarAuditoriaAccesos
 from clinicdesk.app.queries.auditoria_accesos_queries import AuditoriaAccesoItemQuery, FiltrosAuditoriaAccesos
 
 
 class GatewayFake:
+    def __init__(self) -> None:
+        self.recibido: FiltrosAuditoriaAccesos | None = None
+
     def buscar_auditoria_accesos(
         self,
         filtros: FiltrosAuditoriaAccesos,
         limit: int,
         offset: int,
     ) -> tuple[list[AuditoriaAccesoItemQuery], int]:
+        self.recibido = filtros
         assert filtros.usuario_contiene == "audit"
         assert limit == 10
         assert offset == 20
@@ -30,12 +36,14 @@ class GatewayFake:
 
 
 def test_buscar_auditoria_accesos_usecase_mapea_resultado() -> None:
-    usecase = BuscarAuditoriaAccesos(GatewayFake())
+    gateway = GatewayFake()
+    usecase = BuscarAuditoriaAccesos(gateway)
 
     resultado = usecase.execute(
         FiltrosAuditoriaAccesos(usuario_contiene="audit"),
         limit=10,
         offset=20,
+        preset_rango="personalizado",
     )
 
     assert resultado.total == 55
@@ -46,3 +54,15 @@ def test_buscar_auditoria_accesos_usecase_mapea_resultado() -> None:
     assert item.accion == "VER_DETALLE_CITA"
     assert item.entidad_tipo == "CITA"
     assert item.entidad_id == "88"
+    assert gateway.recibido is not None
+
+
+def test_buscar_auditoria_aplica_preset_hoy() -> None:
+    gateway = GatewayFake()
+    usecase = BuscarAuditoriaAccesos(gateway)
+    usecase.execute(FiltrosAuditoriaAccesos(usuario_contiene="audit"), limit=10, offset=20, preset_rango="hoy")
+
+    assert gateway.recibido is not None
+    assert isinstance(gateway.recibido.desde_utc, datetime)
+    assert isinstance(gateway.recibido.hasta_utc, datetime)
+    assert gateway.recibido.desde_utc.tzinfo == UTC

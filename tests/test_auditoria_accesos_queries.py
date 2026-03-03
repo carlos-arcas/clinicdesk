@@ -18,7 +18,7 @@ def _insert_auditoria_row(
             timestamp_utc, usuario, modo_demo, accion, entidad_tipo, entidad_id, metadata_json, created_at_utc
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         """,
-        (timestamp_utc, usuario, 0, accion, entidad_tipo, entidad_id, None, timestamp_utc),
+        (timestamp_utc, usuario, 0, accion, entidad_tipo, entidad_id, '{"x":"y"}', timestamp_utc),
     )
     db_connection.commit()
 
@@ -115,3 +115,38 @@ def test_buscar_auditoria_accesos_filtra_por_rango_fechas(db_connection) -> None
     assert total == 1
     assert len(items) == 1
     assert items[0].entidad_id == "11"
+
+
+def test_resumen_y_exportacion_queries(db_connection) -> None:
+    _insert_auditoria_row(
+        db_connection,
+        timestamp_utc="2026-02-12T09:00:00+00:00",
+        usuario="ana",
+        accion="VER_DETALLE_CITA",
+        entidad_tipo="CITA",
+        entidad_id="1",
+    )
+    _insert_auditoria_row(
+        db_connection,
+        timestamp_utc="2026-02-12T10:00:00+00:00",
+        usuario="ana",
+        accion="VER_DETALLE_CITA",
+        entidad_tipo="CITA",
+        entidad_id="2",
+    )
+    _insert_auditoria_row(
+        db_connection,
+        timestamp_utc="2026-02-12T11:00:00+00:00",
+        usuario="bea",
+        accion="VER_HISTORIAL_PACIENTE",
+        entidad_tipo="PACIENTE",
+        entidad_id="3",
+    )
+    queries = AuditoriaAccesosQueries(db_connection)
+
+    assert queries.contar_accesos_por_rango("2026-02-12T00:00:00+00:00", "2026-02-12T23:59:59+00:00") == 3
+    top = queries.top_acciones_por_rango("2026-02-12T00:00:00+00:00", "2026-02-12T23:59:59+00:00")
+    assert [item.accion for item in top] == ["VER_DETALLE_CITA", "VER_HISTORIAL_PACIENTE"]
+    export_rows = queries.exportar_auditoria_accesos(FiltrosAuditoriaAccesos(usuario_contiene="ana"), max_filas=1)
+    assert len(export_rows) == 1
+    assert export_rows[0].usuario == "ana"
