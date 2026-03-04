@@ -2,6 +2,7 @@ from __future__ import annotations
 from clinicdesk.app.i18n_prediccion_resultados_catalog import PREDICCION_RESULTADOS_TRANSLATIONS
 from clinicdesk.app.i18n_prediccion_recordatorio_catalog import PREDICCION_RECORDATORIO_TRANSLATIONS
 from clinicdesk.app.i18n_recordatorio_catalog import RECORDATORIO_TRANSLATIONS
+
 _TRANSLATIONS = {
     "es": {
         "app.title": "ClinicDesk",
@@ -44,6 +45,11 @@ _TRANSLATIONS = {
         "comun.si": "Sí",
         "comun.no": "No",
         "comun.cerrar": "Cerrar",
+        "ux_states.retry": "Reintentar",
+        "ux_states.pacientes.loading": "Cargando pacientes…",
+        "ux_states.pacientes.empty": "No hay pacientes con los filtros actuales.",
+        "ux_states.pacientes.error": "No se pudo cargar la lista de pacientes.",
+        "ux_states.pacientes.cta_refresh": "Actualizar",
         "pacientes.tooltip.listado": "Documento: {documento}\nTeléfono: {telefono}\nActivo: {estado}",
         "pacientes.historial.boton": "Historial",
         "pacientes.historial.titulo": "Historial del paciente",
@@ -238,6 +244,11 @@ _TRANSLATIONS = {
         "comun.si": "Yes",
         "comun.no": "No",
         "comun.cerrar": "Close",
+        "ux_states.retry": "Retry",
+        "ux_states.pacientes.loading": "Loading patients…",
+        "ux_states.pacientes.empty": "No patients found for current filters.",
+        "ux_states.pacientes.error": "Could not load the patient list.",
+        "ux_states.pacientes.cta_refresh": "Refresh",
         "pacientes.tooltip.listado": "Document: {documento}\nPhone: {telefono}\nActive: {estado}",
         "pacientes.historial.boton": "History",
         "pacientes.historial.titulo": "Patient history",

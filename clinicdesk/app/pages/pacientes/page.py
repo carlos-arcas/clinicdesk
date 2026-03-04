@@ -4,7 +4,7 @@ from typing import Optional
 
 import logging
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import QThread, Qt
 from PySide6.QtWidgets import (
     QHBoxLayout,
     QMessageBox,
@@ -26,10 +26,14 @@ from clinicdesk.app.application.usecases.pacientes_crud import (
 from clinicdesk.app.application.services.pacientes_listado_contrato import ContratoListadoPacientesService
 from clinicdesk.app.application.usecases.obtener_detalle_cita import ObtenerDetalleCita
 from clinicdesk.app.application.auditoria_acceso import AccionAuditoriaAcceso, EntidadAuditoriaAcceso
-from clinicdesk.app.application.historial_paciente import BuscarHistorialCitasPaciente, BuscarHistorialRecetasPaciente, ObtenerResumenHistorialPaciente
+from clinicdesk.app.application.historial_paciente import (
+    BuscarHistorialCitasPaciente,
+    BuscarHistorialRecetasPaciente,
+    ObtenerResumenHistorialPaciente,
+)
 from clinicdesk.app.application.usecases.obtener_historial_paciente import ObtenerHistorialPaciente
 from clinicdesk.app.application.usecases.registrar_auditoria_acceso import RegistrarAuditoriaAcceso
-from clinicdesk.app.common.search_utils import has_search_values, normalize_search_text
+from clinicdesk.app.common.search_utils import normalize_search_text
 from clinicdesk.app.pages.pacientes.dialogs.historial_paciente_dialog import HistorialPacienteDialog
 from clinicdesk.app.pages.pacientes.dialogs.paciente_form import PacienteFormDialog
 from clinicdesk.app.pages.shared.filtro_listado import FiltroListadoWidget
@@ -37,16 +41,22 @@ from clinicdesk.app.pages.shared.crud_page_helpers import confirm_deactivation, 
 from clinicdesk.app.pages.shared.table_utils import apply_row_style, set_item
 from clinicdesk.app.queries.historial_paciente_queries import HistorialPacienteQueries
 from clinicdesk.app.queries.historial_listados_queries import HistorialListadosQueries
-from clinicdesk.app.queries.pacientes_queries import PacientesQueries, PacienteRow
+from clinicdesk.app.queries.pacientes_queries import PacienteRow
 from clinicdesk.app.queries.recetas_queries import RecetasQueries
 from clinicdesk.app.ui.error_presenter import present_error
+from clinicdesk.app.ui.widgets.estado_pantalla_widget import EstadoPantallaWidget
+from clinicdesk.app.infrastructure.sqlite.db_path import resolver_db_path_desde_conexion
+from clinicdesk.app.ui.workers.listado_async_workers import CargaPacientesWorker
+
+
+LOGGER = logging.getLogger(__name__)
 
 
 class PagePacientes(QWidget):
     def __init__(self, container: AppContainer, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
         self._container = container
-        self._queries = PacientesQueries(container.connection)
+        self._db_path = resolver_db_path_desde_conexion(container.connection)
         self._can_write = container.user_context.can_write
         self._uc_crear = CrearPacienteUseCase(container.pacientes_repo, container.user_context)
         self._uc_editar = EditarPacienteUseCase(container.pacientes_repo, container.user_context)
@@ -66,6 +76,9 @@ class PagePacientes(QWidget):
         self._uc_buscar_historial_recetas = BuscarHistorialRecetasPaciente(historial_queries)
         self._uc_resumen_historial = ObtenerResumenHistorialPaciente(historial_queries)
         self._uc_auditoria_acceso = RegistrarAuditoriaAcceso(container.auditoria_accesos_repo)
+        self._thread_carga: QThread | None = None
+        self._worker_carga: CargaPacientesWorker | None = None
+        self._token_carga = 0
 
         self._build_ui()
         self._connect_signals()
@@ -99,9 +112,16 @@ class PagePacientes(QWidget):
         self.table.horizontalHeader().setStretchLastSection(True)
         self.table.setContextMenuPolicy(Qt.CustomContextMenu)
 
+        self._estado_pantalla = EstadoPantallaWidget(self._i18n, self)
+        contenido = QWidget(self)
+        contenido_layout = QVBoxLayout(contenido)
+        contenido_layout.setContentsMargins(0, 0, 0, 0)
+        contenido_layout.addWidget(self.table)
+        self._estado_pantalla.set_content(contenido)
+
         root.addWidget(self.filtros)
         root.addLayout(actions)
-        root.addWidget(self.table)
+        root.addWidget(self._estado_pantalla)
 
     def _connect_signals(self) -> None:
         self.filtros.filtros_cambiados.connect(self._refresh)
@@ -118,19 +138,64 @@ class PagePacientes(QWidget):
         self._refresh()
 
     def _refresh(self) -> None:
+        self._token_carga += 1
+        token = self._token_carga
         selected_id = self._selected_id()
         activo = self.filtros.activo()
-        base_rows = self._queries.list_all(activo=activo)
         texto = normalize_search_text(self.filtros.texto())
-        if not has_search_values(texto):
-            rows = base_rows
-        else:
-            rows = self._queries.search(texto=texto, activo=activo)
-        self.filtros.set_contador(len(rows), len(base_rows))
+        self._estado_pantalla.set_loading("ux_states.pacientes.loading")
+        self._arrancar_worker_carga(token=token, selected_id=selected_id, activo=activo, texto=texto)
+
+    def _arrancar_worker_carga(self, *, token: int, selected_id: int | None, activo: bool, texto: str) -> None:
+        if self._thread_carga is not None and self._thread_carga.isRunning():
+            return
+        self._thread_carga = QThread(self)
+        self._worker_carga = CargaPacientesWorker(self._db_path, activo, texto)
+        self._worker_carga.moveToThread(self._thread_carga)
+        self._thread_carga.started.connect(self._worker_carga.run)
+        self._worker_carga.finished_ok.connect(lambda payload: self._on_carga_ok(payload, token, selected_id))
+        self._worker_carga.finished_error.connect(lambda error: self._on_carga_error(error, token))
+        self._worker_carga.finished.connect(self._thread_carga.quit)
+        self._worker_carga.finished.connect(self._worker_carga.deleteLater)
+        self._thread_carga.finished.connect(self._thread_carga.deleteLater)
+        self._thread_carga.finished.connect(self._reset_carga_worker)
+        self._thread_carga.start()
+
+    def _reset_carga_worker(self) -> None:
+        self._thread_carga = None
+        self._worker_carga = None
+
+    def _on_carga_ok(self, payload: object, token: int, selected_id: int | None) -> None:
+        if token != self._token_carga or not isinstance(payload, dict):
+            return
+        rows = payload.get("rows", [])
+        total_base = int(payload.get("total_base", len(rows)))
+        self.filtros.set_contador(len(rows), total_base)
         self._render(rows)
         if selected_id is not None:
             self._select_by_id(selected_id)
         self._update_buttons()
+        if not rows:
+            self._estado_pantalla.set_empty(
+                "ux_states.pacientes.empty",
+                cta_text_key="ux_states.pacientes.cta_refresh",
+                on_cta=self._refresh,
+            )
+            return
+        self._estado_pantalla.set_content(self.table.parentWidget())
+
+    def _on_carga_error(self, error_type: str, token: int) -> None:
+        if token != self._token_carga:
+            return
+        LOGGER.warning(
+            "pacientes_carga_error",
+            extra={"action": "pacientes_carga_error", "error": error_type},
+        )
+        self._estado_pantalla.set_error(
+            "ux_states.pacientes.error",
+            detalle_tecnico=error_type,
+            on_retry=self._refresh,
+        )
 
     def _render(self, rows: list[PacienteRow]) -> None:
         self.table.setRowCount(0)
@@ -177,10 +242,7 @@ class PagePacientes(QWidget):
         try:
             self._uc_crear.execute(data.paciente)
         except Exception as exc:
-            context = (
-                f"Tipo documento: {data.paciente.tipo_documento.value}\n"
-                f"Documento: {data.paciente.documento}"
-            )
+            context = f"Tipo documento: {data.paciente.tipo_documento.value}\nDocumento: {data.paciente.documento}"
             present_error(self, exc, context=context)
             return
         self._reset_filters()
@@ -203,10 +265,7 @@ class PagePacientes(QWidget):
         try:
             self._uc_editar.execute(data.paciente)
         except Exception as exc:
-            context = (
-                f"Tipo documento: {data.paciente.tipo_documento.value}\n"
-                f"Documento: {data.paciente.documento}"
-            )
+            context = f"Tipo documento: {data.paciente.tipo_documento.value}\nDocumento: {data.paciente.documento}"
             present_error(self, exc, context=context)
             return
         self._refresh()
@@ -248,8 +307,7 @@ class PagePacientes(QWidget):
         QMessageBox.information(
             self,
             "CSV",
-            "Esta acción está disponible en la ventana principal. "
-            "Ejecuta la aplicación con: python -m clinicdesk",
+            "Esta acción está disponible en la ventana principal. Ejecuta la aplicación con: python -m clinicdesk",
         )
 
     def _reset_filters(self) -> None:
@@ -308,7 +366,5 @@ class PagePacientes(QWidget):
 
 
 if __name__ == "__main__":
-    logging.getLogger(__name__).info(
-        "Este módulo no se ejecuta directamente. Usa: python -m clinicdesk"
-    )
+    logging.getLogger(__name__).info("Este módulo no se ejecuta directamente. Usa: python -m clinicdesk")
     raise SystemExit(2)
