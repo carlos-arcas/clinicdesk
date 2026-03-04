@@ -1,0 +1,3 @@
+# Dependencias runtime directas (fuente de verdad para lock)
+PySide6
+cryptography

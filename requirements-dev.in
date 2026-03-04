@@ -1,0 +1,8 @@
+# Dependencias de desarrollo directas (fuente de verdad para lock)
+-r requirements.in
+ruff
+pytest
+pytest-cov
+pip-audit
+mypy
+pip-tools

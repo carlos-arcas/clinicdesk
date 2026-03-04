@@ -269,3 +269,31 @@ En la pantalla **Analítica (Demo)** un usuario no técnico puede ejecutar el fl
 Notas UX:
 - Las versiones internas (`dataset_version`, `model_version`) están ocultas por defecto dentro de **Avanzado**.
 - La UI no ejecuta lógica técnica; delega el flujo al `AnalyticsWorkflowService`.
+
+## 🔒 Dependencias deterministas (pip-tools)
+
+Se gestionan desde archivos fuente `.in` y se bloquean en archivos `.txt`:
+
+- Runtime directo: `requirements.in` → lock en `requirements.txt`
+- Desarrollo directo: `requirements-dev.in` → lock en `requirements-dev.txt`
+
+### Cómo actualizar dependencias
+
+1. Edita `requirements.in` y/o `requirements-dev.in`.
+2. Regenera los locks:
+
+```bash
+python -m scripts.lock_deps
+```
+
+3. Verifica el gate completo antes de abrir PR:
+
+```bash
+python -m scripts.gate_pr
+```
+
+### Política de actualización
+
+- Los cambios de dependencias deben ir en un PR separado de cambios funcionales.
+- `requirements*.txt` deben permanecer pinneados (`==`) para asegurar reproducibilidad.
+- El quality gate bloquea dependencias no pinneadas.
