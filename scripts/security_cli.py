@@ -120,7 +120,9 @@ def rotar_claves(
             raise
         offset += len(filas)
 
-    _auditar_rotacion(con, filas_leidas=total_leidas, filas_actualizadas=total_actualizadas, campos_recifrados=total_campos)
+    _auditar_rotacion(
+        con, filas_leidas=total_leidas, filas_actualizadas=total_actualizadas, campos_recifrados=total_campos
+    )
     return ResultadoRotacion(
         filas_leidas=total_leidas,
         filas_actualizadas=total_actualizadas,
