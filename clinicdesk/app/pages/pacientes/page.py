@@ -79,6 +79,7 @@ class PagePacientes(QWidget):
         self._thread_carga: QThread | None = None
         self._worker_carga: CargaPacientesWorker | None = None
         self._token_carga = 0
+        self._thread_busqueda_rapida: QThread | None = None
 
         self._build_ui()
         self._connect_signals()
@@ -162,6 +163,42 @@ class PagePacientes(QWidget):
         self._estado_pantalla.set_loading("ux_states.pacientes.loading")
         self._set_busy(True, "busy.loading_pacientes")
         self._arrancar_worker_carga(token=token, selected_id=selected_id, activo=activo, texto=texto)
+
+    def refrescar_desde_atajo(self) -> None:
+        self._refresh()
+
+    def atajo_nuevo(self) -> None:
+        if self._can_write:
+            self._on_nuevo()
+
+    def buscar_rapido_async(self, texto: str, on_done) -> None:
+        if self._thread_busqueda_rapida is not None and self._thread_busqueda_rapida.isRunning():
+            return
+        activo = self.filtros.activo()
+        self._thread_busqueda_rapida = QThread(self)
+        worker = CargaPacientesWorker(self._db_path, activo, normalize_search_text(texto))
+        worker.moveToThread(self._thread_busqueda_rapida)
+        self._thread_busqueda_rapida.started.connect(worker.run)
+        worker.finished_ok.connect(lambda payload: self._on_busqueda_rapida_ok(payload, on_done))
+        worker.finished.connect(self._thread_busqueda_rapida.quit)
+        worker.finished.connect(worker.deleteLater)
+        self._thread_busqueda_rapida.finished.connect(self._thread_busqueda_rapida.deleteLater)
+        self._thread_busqueda_rapida.finished.connect(self._reset_thread_busqueda_rapida)
+        self._thread_busqueda_rapida.start()
+
+    def _on_busqueda_rapida_ok(self, payload: object, on_done) -> None:
+        if not isinstance(payload, dict):
+            on_done([])
+            return
+        rows = payload.get("rows", [])
+        on_done(rows)
+
+    def _reset_thread_busqueda_rapida(self) -> None:
+        self._thread_busqueda_rapida = None
+
+    def seleccionar_paciente_desde_busqueda(self, paciente: PacienteRow) -> None:
+        self._select_by_id(paciente.id)
+        self.table.setFocus()
 
     def _arrancar_worker_carga(self, *, token: int, selected_id: int | None, activo: bool, texto: str) -> None:
         if self._thread_carga is not None and self._thread_carga.isRunning():

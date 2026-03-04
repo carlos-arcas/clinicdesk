@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Any, Callable, Dict, Optional
 
 from PySide6.QtCore import QTimer, Qt
-from PySide6.QtGui import QAction
+from PySide6.QtGui import QAction, QKeySequence, QShortcut
 from PySide6.QtWidgets import (
     QFileDialog,
     QLabel,
@@ -29,6 +29,7 @@ from clinicdesk.app.ui.vistas.main_window import state_controller, validacion_pr
 from clinicdesk.app.ui.navigation_intent_store import IntentConsumible
 from clinicdesk.app.ui.widgets.toast_manager import ToastManager, ToastPayload
 from clinicdesk.app.ui.jobs.job_manager import JobCancelledError, JobManager, JobState
+from clinicdesk.app.ui.widgets.quick_search_dialog import ContextoBusquedaRapida, QuickSearchDialog
 from clinicdesk.app.application.usecases.seed_demo_data import SeedDemoDataRequest
 
 
@@ -129,10 +130,67 @@ class MainWindow(QMainWindow):
 
         self.sidebar.currentRowChanged.connect(self._on_sidebar_changed)
         self._build_status_feedback()
+        self._quick_search_dialog = QuickSearchDialog(self._i18n, self)
+        self._build_shortcuts()
 
         self._i18n.subscribe(self._retranslate)
         self._retranslate()
         self.navigate("home")
+
+    def _build_shortcuts(self) -> None:
+        self._shortcut_busqueda = QShortcut(QKeySequence("Ctrl+K"), self)
+        self._shortcut_busqueda.activated.connect(self._open_quick_search_for_current_page)
+        self._shortcut_refresh = QShortcut(QKeySequence("F5"), self)
+        self._shortcut_refresh.activated.connect(self._refresh_current_page)
+        self._shortcut_new = QShortcut(QKeySequence("Ctrl+N"), self)
+        self._shortcut_new.activated.connect(self._new_on_current_page)
+
+    def _current_page_key(self) -> str | None:
+        row = self.sidebar.currentRow()
+        if row < 0:
+            return None
+        item = self.sidebar.item(row)
+        return item.data(Qt.UserRole)
+
+    def _current_page_widget(self) -> QWidget | None:
+        return self.stack.currentWidget()
+
+    def _open_quick_search_for_current_page(self) -> None:
+        key = self._current_page_key()
+        page = self._current_page_widget()
+        if key == "pacientes" and page is not None and hasattr(page, "buscar_rapido_async"):
+            contexto = ContextoBusquedaRapida(
+                titulo_key="quick_search.title.pacientes",
+                placeholder_key="quick_search.placeholder.pacientes",
+                empty_key="quick_search.empty.pacientes",
+                buscar_async=page.buscar_rapido_async,
+                render_item=lambda paciente: paciente.nombre_completo,
+                on_select=page.seleccionar_paciente_desde_busqueda,
+            )
+            self._quick_search_dialog.open_for(contexto)
+            return
+        if key == "confirmaciones" and page is not None and hasattr(page, "buscar_rapido_async"):
+            contexto = ContextoBusquedaRapida(
+                titulo_key="quick_search.title.confirmaciones",
+                placeholder_key="quick_search.placeholder.confirmaciones",
+                empty_key="quick_search.empty.confirmaciones",
+                buscar_async=page.buscar_rapido_async,
+                render_item=lambda fila: f"{fila.inicio[:16]} · {fila.paciente} · {fila.estado_cita}",
+                on_select=lambda fila: page.seleccionar_cita_desde_busqueda(fila.cita_id),
+            )
+            self._quick_search_dialog.open_for(contexto)
+
+    def _refresh_current_page(self) -> None:
+        page = self._current_page_widget()
+        refresh = getattr(page, "refrescar_desde_atajo", None)
+        if callable(refresh):
+            refresh()
+
+    def _new_on_current_page(self) -> None:
+        page = self._current_page_widget()
+        nuevo = getattr(page, "atajo_nuevo", None)
+        if callable(nuevo):
+            nuevo()
 
     def open_csv_dialog(self) -> None:
         self._csv_controller.open_dialog()
