@@ -39,8 +39,10 @@ def create_payload(
     paciente: Paciente,
     protection: PacientesFieldProtection,
     encryptor,
+    *,
+    use_field_crypto: bool,
 ) -> tuple[object, ...]:
-    payload = _common_payload(paciente, protection, encryptor)
+    payload = _common_payload(paciente, protection, encryptor, use_field_crypto=use_field_crypto)
     return (*payload, None, encryptor(paciente.alergias), encryptor(paciente.observaciones))
 
 
@@ -48,8 +50,10 @@ def update_payload(
     paciente: Paciente,
     protection: PacientesFieldProtection,
     encryptor,
+    *,
+    use_field_crypto: bool,
 ) -> tuple[object, ...]:
-    payload = _common_payload(paciente, protection, encryptor)
+    payload = _common_payload(paciente, protection, encryptor, use_field_crypto=use_field_crypto)
     return (*payload, encryptor(paciente.alergias), encryptor(paciente.observaciones))
 
 
@@ -57,8 +61,10 @@ def _common_payload(
     paciente: Paciente,
     protection: PacientesFieldProtection,
     encryptor,
+    *,
+    use_field_crypto: bool,
 ) -> tuple[object, ...]:
-    if not protection.enabled:
+    if not use_field_crypto:
         return (
             paciente.tipo_documento.value,
             paciente.documento,
@@ -102,11 +108,12 @@ def fetch_by_documento(
     *,
     tipo: str,
     documento: str,
+    lookup_hash: str | None,
 ) -> sqlite3.Row | None:
-    if protection.enabled:
+    if protection.enabled and lookup_hash:
         return con.execute(
             "SELECT id FROM pacientes WHERE tipo_documento = ? AND documento_hash = ?",
-            (tipo, protection.hash_for_lookup("documento", documento)),
+            (tipo, lookup_hash),
         ).fetchone()
     return con.execute(
         "SELECT id FROM pacientes WHERE tipo_documento = ? AND documento = ?",

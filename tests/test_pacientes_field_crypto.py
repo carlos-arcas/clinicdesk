@@ -11,7 +11,10 @@ from clinicdesk.app.common.crypto_field_protection import decrypt, encrypt, hash
 from clinicdesk.app.domain.enums import TipoDocumento
 from clinicdesk.app.domain.modelos import Paciente
 from clinicdesk.app.infrastructure.sqlite import db
-from clinicdesk.app.infrastructure.sqlite.repos_pacientes import PacientesRepository
+from clinicdesk.app.infrastructure.sqlite.repos_pacientes import (
+    PacientesRepository,
+    PiiProtectionPolicyError,
+)
 
 
 def _schema_path() -> Path:
@@ -49,7 +52,7 @@ def test_hash_lookup_is_stable_after_normalization(monkeypatch: pytest.MonkeyPat
     assert left == right
 
 
-def test_sqlite_pacientes_stores_ciphertext_when_feature_flag_enabled(
+def test_sqlite_pacientes_stores_ciphertext_and_no_plaintext_pii(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -79,7 +82,8 @@ def test_sqlite_pacientes_stores_ciphertext_when_feature_flag_enabled(
     assert row["email"] is None
     assert row["direccion"] is None
     assert row["documento_enc"] is not None
-    assert row["documento_hash"] is not None
+    assert row["telefono_enc"] is not None
+    assert row["email_enc"] is not None
 
     loaded = repo.get_by_id(paciente_id)
     assert loaded is not None
@@ -98,3 +102,68 @@ def test_sqlite_pacientes_stores_ciphertext_when_feature_flag_enabled(
 
     for secret in (b"12345678", b"600999888", b"ana@clinic.test", b"Calle Secreta 123"):
         assert secret not in all_bytes
+
+
+def test_search_by_hash_for_documento_email_telefono(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("CLINICDESK_PII_ENCRYPTION_ENABLED", "0")
+    monkeypatch.delenv("CLINICDESK_PII_ENCRYPTION_KEY", raising=False)
+    monkeypatch.setenv("CLINICDESK_FIELD_CRYPTO", "1")
+    monkeypatch.setenv("CLINICDESK_CRYPTO_KEY", "test-key-material")
+
+    con = db.bootstrap(tmp_path / "search-hash.sqlite", _schema_path(), apply=True)
+    repo = PacientesRepository(con)
+    paciente_id = repo.create(_build_paciente())
+
+    assert [p.id for p in repo.search(documento="12345678")] == [paciente_id]
+    assert [p.id for p in repo.search(email="ana@clinic.test")] == [paciente_id]
+    assert [p.id for p in repo.search(telefono="600999888")] == [paciente_id]
+
+
+def test_policy_blocks_create_without_crypto_key_by_default(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("CLINICDESK_PII_ENCRYPTION_ENABLED", "0")
+    monkeypatch.delenv("CLINICDESK_PII_ENCRYPTION_KEY", raising=False)
+    monkeypatch.setenv("CLINICDESK_FIELD_CRYPTO", "1")
+    monkeypatch.delenv("CLINICDESK_CRYPTO_KEY", raising=False)
+    monkeypatch.delenv("CLINICDESK_ALLOW_PII_PLAINTEXT_DEMO", raising=False)
+
+    con = db.bootstrap(tmp_path / "policy-block.sqlite", _schema_path(), apply=True)
+    repo = PacientesRepository(con)
+
+    with pytest.raises(PiiProtectionPolicyError) as exc_info:
+        repo.create(_build_paciente())
+
+    assert exc_info.value.reason_code == "missing_crypto_key"
+
+
+def test_policy_allows_plaintext_only_with_demo_opt_in_and_audits_warning(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    monkeypatch.setenv("CLINICDESK_PII_ENCRYPTION_ENABLED", "0")
+    monkeypatch.delenv("CLINICDESK_PII_ENCRYPTION_KEY", raising=False)
+    monkeypatch.setenv("CLINICDESK_FIELD_CRYPTO", "1")
+    monkeypatch.delenv("CLINICDESK_CRYPTO_KEY", raising=False)
+    monkeypatch.setenv("CLINICDESK_ALLOW_PII_PLAINTEXT_DEMO", "1")
+
+    con = db.bootstrap(tmp_path / "policy-demo.sqlite", _schema_path(), apply=True)
+    repo = PacientesRepository(con)
+    paciente_id = repo.create(_build_paciente())
+
+    row = con.execute(
+        "SELECT documento, documento_enc, telefono, telefono_enc, email, email_enc FROM pacientes WHERE id = ?",
+        (paciente_id,),
+    ).fetchone()
+    assert row["documento"] == "12345678"
+    assert row["documento_enc"] is None
+    assert row["telefono"] == "600999888"
+    assert row["telefono_enc"] is None
+    assert row["email"] == "ana@clinic.test"
+    assert row["email_enc"] is None
+    assert "paciente_write_plaintext_demo" in caplog.text

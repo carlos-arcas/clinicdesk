@@ -16,6 +16,11 @@ def search_filters(
     texto: str | None,
     tipo_documento: str | None,
     documento: str | None,
+    telefono: str | None,
+    email: str | None,
+    documento_hash: str | None,
+    telefono_hash: str | None,
+    email_hash: str | None,
     activo: bool | None,
 ) -> tuple[list[str], list[object]]:
     clauses: list[str] = []
@@ -29,12 +34,28 @@ def search_filters(
         params.append(like_value(tipo_documento))
 
     if documento:
-        if field_protection.enabled:
+        if field_protection.enabled and documento_hash:
             clauses.append("documento_hash = ?")
-            params.append(field_protection.hash_for_lookup("documento", documento))
+            params.append(documento_hash)
         else:
             clauses.append("documento LIKE ? COLLATE NOCASE")
             params.append(like_value(documento))
+
+    if telefono:
+        if field_protection.enabled and telefono_hash:
+            clauses.append("telefono_hash = ?")
+            params.append(telefono_hash)
+        else:
+            clauses.append("telefono LIKE ? COLLATE NOCASE")
+            params.append(like_value(telefono))
+
+    if email:
+        if field_protection.enabled and email_hash:
+            clauses.append("email_hash = ?")
+            params.append(email_hash)
+        else:
+            clauses.append("email LIKE ? COLLATE NOCASE")
+            params.append(like_value(email))
 
     if activo is not None:
         clauses.append("activo = ?")
