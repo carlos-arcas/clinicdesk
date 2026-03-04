@@ -98,3 +98,24 @@ def test_sqlite_pacientes_stores_ciphertext_when_feature_flag_enabled(
 
     for secret in (b"12345678", b"600999888", b"ana@clinic.test", b"Calle Secreta 123"):
         assert secret not in all_bytes
+
+
+def test_decrypt_usa_previous_key_durante_rotacion(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("CLINICDESK_CRYPTO_KEY", "k" * 32 + "OLD-old-old")
+    token = encrypt("secreto-rotacion")
+
+    monkeypatch.setenv("CLINICDESK_CRYPTO_KEY", "n" * 32 + "NEW-new-new")
+    monkeypatch.setenv("CLINICDESK_CRYPTO_KEY_PREVIOUS", "k" * 32 + "OLD-old-old")
+
+    assert decrypt(token) == "secreto-rotacion"
+
+
+def test_decrypt_falla_con_error_controlado_si_no_hay_clave_valida(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("CLINICDESK_CRYPTO_KEY", "k" * 32 + "OLD-old-old")
+    token = encrypt("secreto")
+
+    monkeypatch.setenv("CLINICDESK_CRYPTO_KEY", "n" * 32 + "NEW-new-new")
+    monkeypatch.delenv("CLINICDESK_CRYPTO_KEY_PREVIOUS", raising=False)
+
+    with pytest.raises(RuntimeError, match="No se pudo descifrar"):
+        decrypt(token)
