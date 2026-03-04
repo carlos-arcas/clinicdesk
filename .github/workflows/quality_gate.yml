@@ -180,24 +180,34 @@ jobs:
             pip install -r requirements-dev.txt
           fi
 
-      - name: Run UI extended tests when present
+      - name: Run UI Qt tests when present
         env:
           PYTHONPATH: .
           QT_QPA_PLATFORM: offscreen
         run: |
-          if [ -d tests/ui ] || rg -n "@pytest\.mark\.ui|pytestmark\s*=.*ui" tests >/dev/null 2>&1; then
+          if [ -d tests/ui ] || rg -n "@pytest\.mark\.uiqt|pytestmark\s*=.*uiqt" tests >/dev/null 2>&1; then
             set +e
-            xvfb-run -a python -m pytest -q -m "ui and not smoke"
+            xvfb-run -a python -m pytest -q -m "uiqt" | tee uiqt.log
             rc=$?
             set -e
             if [ "$rc" -eq 5 ]; then
-              echo "UI extended selector found no tests; skipping cleanly."
+              echo "UI Qt selector found no tests; skipping cleanly."
               exit 0
             fi
             exit "$rc"
           else
-            echo "No UI tests/markers detected; skipping ui_extended job."
+            echo "No UI Qt tests/markers detected; skipping ui_extended job."
           fi
+
+      - name: Upload UI Qt logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: uiqt-logs
+          if-no-files-found: ignore
+          path: |
+            uiqt.log
+            logs/*.log
 
   build_release:
     name: build_release
