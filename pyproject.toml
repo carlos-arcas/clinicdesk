@@ -26,6 +26,7 @@ testpaths = ["tests"]
 addopts = "-q"
 markers = [
   "ui: pruebas de interfaz grafica/no bloqueantes en quality gate core",
+  "uiqt: pruebas UI con pytest-qt y xvfb",
   "slow: pruebas lentas",
   "integration: pruebas de integracion",
 ]

@@ -3,6 +3,7 @@
 ruff
 pytest
 pytest-cov
+pytest-qt
 pip-audit
 mypy
 pip-tools
