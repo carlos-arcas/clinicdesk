@@ -5,6 +5,8 @@ import re
 import sys
 from pathlib import Path
 
+from clinicdesk import __version__
+
 REPO_ROOT = Path(__file__).resolve().parents[2]
 if Path.cwd() != REPO_ROOT:
     os.chdir(REPO_ROOT)
@@ -42,3 +44,4 @@ SECRET_PATTERNS: tuple[re.Pattern[str], ...] = (
     ),
 )
 MENSAJE_INSTALAR_DEPS_DEV = "Instala dependencias dev: pip install -r requirements-dev.txt"
+APP_VERSION = __version__
