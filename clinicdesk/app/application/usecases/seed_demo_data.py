@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import UTC, date, datetime, timedelta
+from pathlib import Path
+import sqlite3
 
 from clinicdesk.app.application.auditoria.audit_service import AuditService
 from clinicdesk.app.bootstrap_logging import get_logger
@@ -13,6 +15,7 @@ from clinicdesk.app.application.demo_data.generator import (
     generate_patients,
     generate_personal,
 )
+from clinicdesk.app.application.seguridad.politica_rutas_seguras import es_ruta_db_segura_para_reset
 from clinicdesk.app.application.security import Action, AutorizadorAcciones, UserContext
 from clinicdesk.app.infrastructure.sqlite.demo_data_seeder import DemoDataSeeder
 
@@ -35,6 +38,16 @@ class SeedDemoDataRequest:
     n_movimientos: int = 2000
     turns_months: int = 2
     n_ausencias: int = 60
+    reset_db: bool = False
+    db_path: str | None = None
+    confirmar_reset: bool = False
+    confirmacion: str | None = None
+
+
+class SeedDemoDataSeguridadError(ValueError):
+    def __init__(self, reason_code: str) -> None:
+        super().__init__(reason_code)
+        self.reason_code = reason_code
 
 
 @dataclass(slots=True)
@@ -75,6 +88,7 @@ class SeedDemoData:
     def execute(self, request: SeedDemoDataRequest) -> SeedDemoDataResponse:
         try:
             self._exigir_permisos()
+            self._exigir_guardrails_reset(request)
             started_at = datetime.now(UTC)
             start_date, end_date = _resolve_dates(request.from_date, request.to_date)
             doctors, patients, staff, appointments, incidences = self._generate_entities(request, start_date, end_date)
@@ -98,6 +112,17 @@ class SeedDemoData:
         if self._user_context is None or self._autorizador_acciones is None:
             return
         self._autorizador_acciones.exigir(self._user_context, Action.DEMO_SEED)
+
+    def _exigir_guardrails_reset(self, request: SeedDemoDataRequest) -> None:
+        if not request.reset_db:
+            return
+        db_path = _resolver_db_path(request, self._seeder)
+        if db_path is None:
+            raise SeedDemoDataSeguridadError("db_path_required")
+        if not es_ruta_db_segura_para_reset(db_path):
+            raise SeedDemoDataSeguridadError("unsafe_db_path")
+        if not _confirmacion_reset_valida(request):
+            raise SeedDemoDataSeguridadError("confirmation_required")
 
     def _generate_entities(
         self,
@@ -210,6 +235,7 @@ class SeedDemoData:
                 "from_date": response.from_date,
                 "to_date": response.to_date,
                 "dataset_version": response.dataset_version,
+                "reason_code": "ok",
             },
         )
 
@@ -227,6 +253,7 @@ class SeedDemoData:
                 "n_doctors": request.n_doctors,
                 "n_patients": request.n_patients,
                 "n_appointments": request.n_appointments,
+                "reason_code": getattr(exc, "reason_code", "unexpected_error"),
                 "error_type": exc.__class__.__name__,
             },
         )
@@ -244,3 +271,22 @@ def _resolve_dates(from_date: str | None, to_date: str | None) -> tuple[date, da
 def _dataset_version(seed: int) -> str:
     stamp = datetime.now(UTC).strftime("%Y%m%d%H%M%S")
     return f"demo_{stamp}_s{seed}"
+
+
+def _resolver_db_path(request: SeedDemoDataRequest, seeder: DemoDataSeeder) -> Path | None:
+    if request.db_path:
+        return Path(request.db_path).expanduser().resolve()
+    connection = getattr(seeder, "_connection", None)
+    if not isinstance(connection, sqlite3.Connection):
+        return None
+    row = connection.execute("PRAGMA database_list").fetchone()
+    if not row:
+        return None
+    db_path = row[2]
+    if not db_path:
+        return None
+    return Path(db_path).expanduser().resolve()
+
+
+def _confirmacion_reset_valida(request: SeedDemoDataRequest) -> bool:
+    return request.confirmar_reset or request.confirmacion == "RESET-DEMO"

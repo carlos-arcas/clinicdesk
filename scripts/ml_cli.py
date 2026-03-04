@@ -348,7 +348,7 @@ def _handle_seed_demo(args: argparse.Namespace) -> int:
         reset_demo_database(target_path, confirmation_token=args.confirm_reset)
     connection = _open_sqlite_connection(target_path)
     try:
-        response = _run_seed_demo_use_case(args, connection)
+        response = _run_seed_demo_use_case(args, connection, target_path, should_reset)
     finally:
         connection.close()
     _LOGGER.info(
@@ -363,7 +363,12 @@ def _handle_seed_demo(args: argparse.Namespace) -> int:
     return 0
 
 
-def _run_seed_demo_use_case(args: argparse.Namespace, connection: sqlite3.Connection):
+def _run_seed_demo_use_case(
+    args: argparse.Namespace,
+    connection: sqlite3.Connection,
+    target_path: Path,
+    should_reset: bool,
+):
     request = SeedDemoDataRequest(
         seed=args.seed,
         n_doctors=args.doctors,
@@ -379,6 +384,9 @@ def _run_seed_demo_use_case(args: argparse.Namespace, connection: sqlite3.Connec
         n_movimientos=args.movements,
         turns_months=args.turns_months,
         n_ausencias=args.absences,
+        reset_db=should_reset,
+        db_path=target_path.as_posix(),
+        confirmacion=args.confirm_reset,
     )
     if not args.turbo:
         _LOGGER.info("seed_demo_turbo_disabled")
@@ -395,7 +403,7 @@ def _resolve_sqlite_path(raw_sqlite_path: str | None) -> Path:
 def _resolve_reset_flag(reset_arg: bool | None, sqlite_path: Path) -> bool:
     if reset_arg is not None:
         return reset_arg
-    return evaluate_reset_safety(sqlite_path).reason_code in {"default_demo_db", "inside_demo_data_dir"}
+    return False
 
 
 def _open_sqlite_connection(sqlite_path: Path) -> sqlite3.Connection:

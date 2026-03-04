@@ -2,13 +2,16 @@ from __future__ import annotations
 
 import csv
 import errno
+import os
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from io import StringIO
 from typing import Any, Mapping, Protocol
 
-from clinicdesk.app.bootstrap_logging import get_logger
+from clinicdesk.app.application.auditoria.audit_service import AuditService
+from clinicdesk.app.application.security import Action, AutorizadorAcciones, Role, UserContext
 from clinicdesk.app.application.usecases.filtros_auditoria import aplicar_preset_rango_auditoria, redactar_texto_filtro_auditoria
+from clinicdesk.app.bootstrap_logging import get_logger
 from clinicdesk.app.queries.auditoria_accesos_queries import AuditoriaAccesoItemQuery, FiltrosAuditoriaAccesos
 
 COLUMNAS_EXPORTACION_AUDITORIA = (
@@ -20,8 +23,11 @@ COLUMNAS_EXPORTACION_AUDITORIA = (
     "entidad_id",
 )
 
+_CONFIRMACION_EXPORT_PII = "EXPORT-PII"
+_ENV_EXPORT_PII = "CLINICDESK_EXPORT_PII"
 
 LOGGER = get_logger(__name__)
+
 
 class ExportacionAuditoriaError(Exception):
     def __init__(self, reason_code: str) -> None:
@@ -61,21 +67,83 @@ class ExportarAuditoriaCSVGateway(Protocol):
 class ExportarAuditoriaCSV:
     _MAX_FILAS_DEFENSIVO = 10_000
 
-    def __init__(self, gateway: ExportarAuditoriaCSVGateway) -> None:
+    def __init__(
+        self,
+        gateway: ExportarAuditoriaCSVGateway,
+        *,
+        user_context: UserContext | None = None,
+        autorizador_acciones: AutorizadorAcciones | None = None,
+        audit_service: AuditService | None = None,
+    ) -> None:
         self._gateway = gateway
+        self._user_context = user_context
+        self._autorizador_acciones = autorizador_acciones
+        self._audit_service = audit_service
 
-    def execute(self, filtros: FiltrosAuditoriaAccesos, preset_rango: str | None = None) -> ExportacionCSVDTO:
-        filtros_finales = aplicar_preset_rango_auditoria(filtros, preset_rango)
-        _, total = self._gateway.buscar_auditoria_accesos(filtros_finales, limit=1, offset=0)
-        if total > self._MAX_FILAS_DEFENSIVO:
-            LOGGER.warning("auditoria_exportacion_denegada_limite", extra=_payload_log_exportacion_auditoria(filtros_finales, "auditoria_exportacion_denegada_limite"))
-            raise ExportacionAuditoriaDemasiadasFilasError()
-        filas = self._gateway.exportar_auditoria_accesos(filtros_finales, max_filas=self._MAX_FILAS_DEFENSIVO)
-        LOGGER.info("auditoria_exportacion_generada", extra=_payload_log_exportacion_auditoria(filtros_finales, "auditoria_exportacion_generada"))
-        return ExportacionCSVDTO(
-            nombre_archivo_sugerido=_build_file_name(),
-            csv_texto=_render_csv(filas),
-            filas=len(filas),
+    def execute(
+        self,
+        filtros: FiltrosAuditoriaAccesos,
+        preset_rango: str | None = None,
+        *,
+        incluir_pii: bool = False,
+        confirmacion: str | None = None,
+    ) -> ExportacionCSVDTO:
+        try:
+            self._exigir_permiso_exportacion()
+            self._exigir_guardrail_pii(incluir_pii, confirmacion)
+            filtros_finales = aplicar_preset_rango_auditoria(filtros, preset_rango)
+            _, total = self._gateway.buscar_auditoria_accesos(filtros_finales, limit=1, offset=0)
+            if total > self._MAX_FILAS_DEFENSIVO:
+                LOGGER.warning(
+                    "auditoria_exportacion_denegada_limite",
+                    extra=_payload_log_exportacion_auditoria(filtros_finales, "auditoria_exportacion_denegada_limite"),
+                )
+                raise ExportacionAuditoriaDemasiadasFilasError()
+            filas = self._gateway.exportar_auditoria_accesos(filtros_finales, max_filas=self._MAX_FILAS_DEFENSIVO)
+            LOGGER.info(
+                "auditoria_exportacion_generada",
+                extra=_payload_log_exportacion_auditoria(filtros_finales, "auditoria_exportacion_generada"),
+            )
+            dto = ExportacionCSVDTO(
+                nombre_archivo_sugerido=_build_file_name(),
+                csv_texto=_render_csv(filas),
+                filas=len(filas),
+            )
+            self._registrar_auditoria("ok", "ok", dto.filas)
+            return dto
+        except Exception as exc:
+            self._registrar_auditoria("fail", getattr(exc, "reason_code", "unexpected_error"), 0)
+            raise
+
+    def _exigir_permiso_exportacion(self) -> None:
+        if self._user_context is None or self._autorizador_acciones is None:
+            return
+        self._autorizador_acciones.exigir(self._user_context, Action.AUDITORIA_EXPORTAR_CSV)
+
+    def _exigir_guardrail_pii(self, incluir_pii: bool, confirmacion: str | None) -> None:
+        if not incluir_pii:
+            return
+        if os.getenv(_ENV_EXPORT_PII, "0") != "1":
+            raise ExportacionAuditoriaError("pii_export_disabled")
+        if self._user_context is None or self._user_context.role != Role.ADMIN:
+            raise ExportacionAuditoriaError("admin_required_for_pii_export")
+        if confirmacion != _CONFIRMACION_EXPORT_PII:
+            raise ExportacionAuditoriaError("confirmation_required")
+        self._registrar_auditoria("ok", "pii_export_warning", 0)
+
+    def _registrar_auditoria(self, outcome: str, reason_code: str, filas: int) -> None:
+        if self._audit_service is None or self._user_context is None:
+            return
+        self._audit_service.registrar(
+            action="AUDITORIA_EXPORTAR_CSV",
+            outcome=outcome,
+            actor_username=self._user_context.username,
+            actor_role=self._user_context.role,
+            correlation_id=self._user_context.run_id,
+            metadata={
+                "reason_code": reason_code,
+                "export_rows": filas,
+            },
         )
 
 
