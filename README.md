@@ -326,3 +326,29 @@ En la pantalla **Analítica (Demo)** un usuario no técnico puede ejecutar el fl
 Notas UX:
 - Las versiones internas (`dataset_version`, `model_version`) están ocultas por defecto dentro de **Avanzado**.
 - La UI no ejecuta lógica técnica; delega el flujo al `AnalyticsWorkflowService`.
+
+## Release bundle
+
+Para construir un paquete reproducible de distribución:
+
+```bash
+python -m scripts.build_release
+```
+
+Esto genera `dist/clinicdesk-<version>.zip` con el contenido mínimo ejecutable (código, scripts, requisitos, README y guías de seguridad), excluyendo caches, logs y bases de datos.
+
+Uso recomendado del zip:
+
+1. Descomprimir el archivo en una carpeta de trabajo.
+2. Crear entorno e instalar dependencias:
+   ```bash
+   python -m venv .venv
+   source .venv/bin/activate  # En Windows: .venv\Scripts\activate
+   pip install -r requirements.txt
+   pip install -r requirements-dev.txt
+   ```
+3. Inicializar y ejecutar:
+   ```bash
+   python -m scripts.setup
+   python -m scripts.run_app
+   ```
