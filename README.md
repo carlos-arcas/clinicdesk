@@ -4,6 +4,38 @@
 
 Arquitectura ML reproducible para predicción de riesgo en citas clínicas, con gobernanza de artefactos y exportación de datos estable para consumo en Power BI.
 
+
+## Qué es / Para quién
+- **Qué es**: producto de escritorio (PySide6) para operación clínica con analítica de riesgo en citas y exportación contractual a BI.
+- **Para quién (no técnico)**: responsables de operación/gestión que necesitan priorizar citas y monitorear riesgo con indicadores claros.
+- **Para quién (técnico)**: equipos de ingeniería que valoran Clean Architecture, quality gates estrictos y mantenibilidad en Python.
+
+## Demo rápida (3 min)
+- Guion de demo para entrevista/reclutamiento: [docs/recruiter_kit.md](docs/recruiter_kit.md).
+- Objetivo: mostrar el flujo end-to-end (seed, features, train, score, drift, export) en 3 minutos.
+
+## Arquitectura (C4)
+- Diagramas C4 en Mermaid (contexto, contenedores y componentes): [docs/arquitectura_c4.md](docs/arquitectura_c4.md).
+
+## Calidad
+- Comando canónico de calidad para PR (local y CI):
+
+```bash
+python -m scripts.gate_pr
+```
+
+## Seguridad / Privacidad
+- Sanitización y redacción de metadata para evitar PII en auditoría/logs.
+- Cifrado opcional de columnas sensibles en SQLite vía variables de entorno.
+- Escaneo de secretos con **gitleaks** dentro del gate completo.
+- Escaneo de dependencias con **pip-audit** (con política de allowlist explícita).
+- Documentación de threat model y hardening para operación responsable.
+
+## Release bundle (atajo)
+- Bundle reproducible disponible con `python -m scripts.build_release`.
+- Detalle de uso en la sección [Release bundle](#release-bundle).
+
+
 ## 🚀 Getting Started (1 comando)
 
 ### Requisitos
