@@ -26,7 +26,7 @@ from clinicdesk.app.application.usecases.pacientes_crud import (
 from clinicdesk.app.application.services.pacientes_listado_contrato import ContratoListadoPacientesService
 from clinicdesk.app.application.usecases.obtener_detalle_cita import ObtenerDetalleCita
 from clinicdesk.app.application.auditoria_acceso import AccionAuditoriaAcceso, EntidadAuditoriaAcceso
-from clinicdesk.app.application.preferencias.preferencias_usuario import MARCADOR_REDACTADO, sanitize_search_text
+from clinicdesk.app.application.preferencias.preferencias_usuario import sanitize_search_text
 from clinicdesk.app.application.historial_paciente import (
     BuscarHistorialCitasPaciente,
     BuscarHistorialRecetasPaciente,
@@ -196,8 +196,12 @@ class PagePacientes(QWidget):
         texto_seguro = sanitize_search_text(self.filtros.texto())
         preferencias.filtros_pacientes = {
             "activo": self.filtros.activo(),
-            "texto": texto_seguro if texto_seguro not in {None, MARCADOR_REDACTADO} else "",
+            "texto": texto_seguro or "",
         }
+        if texto_seguro is None:
+            preferencias.last_search_by_context.pop("pacientes", None)
+        else:
+            preferencias.last_search_by_context["pacientes"] = texto_seguro
         self._container.preferencias_service.set(preferencias)
 
     def buscar_rapido_async(self, texto: str, on_done) -> None:

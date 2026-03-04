@@ -1,28 +1,48 @@
 # Preferencias UX persistidas
 
-ClinicDesk persiste preferencias de experiencia de usuario en `data/user_prefs.json` por perfil.
+ClinicDesk persiste preferencias de UX por perfil en JSON local para restaurar estado útil de trabajo entre sesiones.
 
-## Campos persistidos
+## Qué se guarda y por qué
 
-- `pagina_ultima`: última página activa en la barra lateral.
-- `filtros_pacientes`:
-  - `activo`: estado del filtro (activos/inactivos/todos).
-  - `texto`: texto de filtro solo si no parece PII.
-- `filtros_confirmaciones`:
-  - `rango`, `riesgo`, `recordatorio`.
-  - `texto`: texto de búsqueda solo si no parece PII.
-- `last_search_by_context`:
-  - última búsqueda de `Ctrl+K` por contexto (`pacientes`, `confirmaciones`).
-  - si el texto parece PII se guarda como `"[REDACTED]"`.
-- `columnas_por_contexto`: reservado para ancho/orden de columnas por listado.
+Archivo por defecto: `data/user_prefs.json`.
 
-## Campos NO persistidos (privacidad)
+Campos persistidos:
 
-No se persisten valores sensibles completos como:
+- `pagina_ultima`: última pantalla activa para restaurar navegación al arrancar.
+- `filtros_pacientes`: filtros funcionales del listado de pacientes (estado y texto no sensible).
+- `filtros_confirmaciones`: filtros del listado de confirmaciones (`rango`, `riesgo`, `recordatorio`, texto no sensible).
+- `last_search_by_context`: última búsqueda de `Ctrl+K` por contexto (`pacientes`, `confirmaciones`) ya saneada.
+- `columnas_por_contexto`: mapa opcional para ancho/orden de columnas por contexto.
 
-- DNI/documento completo.
-- Email completo.
-- Teléfono completo.
-- Datos clínicos o de contacto específicos del paciente.
+## Qué NO se guarda (privacidad)
 
-El saneamiento se hace con `sanitize_search_text` para evitar persistir búsquedas con PII.
+No se persisten datos que parezcan PII:
+
+- email completo,
+- DNI/documento,
+- teléfono,
+- direcciones completas.
+
+Tampoco se persisten entradas abusivas (> 120 caracteres).
+
+## Política de saneamiento aplicada
+
+Se aplica `sanitize_search_text(text)` con política **bloquear persistencia de PII**:
+
+- si detecta PII o input excesivo: devuelve `None` y no se guarda nada;
+- si el texto es normal: se guarda normalizado (`strip` + colapso de espacios).
+
+Ejemplos:
+
+- `" ana   pérez  "` → `"ana pérez"` (se persiste).
+- `"test@example.com"` → `None` (se omite).
+- `"+34 666 777 888"` → `None` (se omite).
+- `"Calle Mayor 12"` → `None` (se omite).
+
+## Variable de entorno
+
+Se puede sobrescribir la ruta de persistencia con:
+
+- `CLINICDESK_PREFS_PATH=/ruta/relativa/o/absoluta/prefs.json`
+
+Si no existe el archivo/directorio, el repositorio devuelve defaults y crea la ruta al guardar.

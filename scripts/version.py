@@ -13,10 +13,7 @@ def assert_tag_matches_version(tag: str, version: str) -> None:
 
     version_desde_tag = tag[1:]
     if version_desde_tag != version:
-        raise ValueError(
-            "El tag no coincide con la versión actual: "
-            f"tag={tag!r} version={version!r}."
-        )
+        raise ValueError(f"El tag no coincide con la versión actual: tag={tag!r} version={version!r}.")
 
 
 def _obtener_logger() -> logging.Logger:
