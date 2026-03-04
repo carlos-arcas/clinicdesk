@@ -24,7 +24,7 @@ from clinicdesk.app.application.confirmaciones import (
     PaginacionConfirmacionesDTO,
 )
 from clinicdesk.app.application.citas.filtros import redactar_texto_busqueda
-from clinicdesk.app.application.preferencias.preferencias_usuario import MARCADOR_REDACTADO, sanitize_search_text
+from clinicdesk.app.application.preferencias.preferencias_usuario import sanitize_search_text
 from clinicdesk.app.application.prediccion_ausencias.aviso_salud_prediccion import (
     debe_mostrar_aviso_salud_prediccion,
 )
@@ -250,8 +250,12 @@ class PageConfirmaciones(QWidget):
             "rango": str(self.cmb_rango.currentData()),
             "riesgo": str(self.cmb_riesgo.currentData()),
             "recordatorio": str(self.cmb_recordatorio.currentData()),
-            "texto": texto_seguro if texto_seguro not in {None, MARCADOR_REDACTADO} else "",
+            "texto": texto_seguro or "",
         }
+        if texto_seguro is None:
+            preferencias.last_search_by_context.pop("confirmaciones", None)
+        else:
+            preferencias.last_search_by_context["confirmaciones"] = texto_seguro
         self._container.preferencias_service.set(preferencias)
 
     @staticmethod

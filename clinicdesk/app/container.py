@@ -3,7 +3,6 @@ from __future__ import annotations
 import os
 import sqlite3
 from dataclasses import dataclass
-from pathlib import Path
 from typing import Any
 
 from clinicdesk.app.application.auditoria.audit_service import AuditService
@@ -117,7 +116,7 @@ def build_container(connection: sqlite3.Connection) -> AppContainer:
         audit_service=AuditService(repos.auditoria_eventos_repo),
         user_context=user_context,
         autorizador_acciones=autorizador_acciones,
-        preferencias_service=PreferenciasService(RepositorioPreferenciasJson(Path("./data/user_prefs.json"))),
+        preferencias_service=PreferenciasService(RepositorioPreferenciasJson()),
     )
 
 

@@ -41,8 +41,7 @@ def check_changelog(path: Path, version: str) -> None:
     bloque = _bloque_version(contenido, version)
     if not _tiene_bullet_en_secciones(bloque):
         raise ValueError(
-            "La sección de la versión actual debe incluir al menos un bullet "
-            "en Added/Changed/Fixed/Security."
+            "La sección de la versión actual debe incluir al menos un bullet en Added/Changed/Fixed/Security."
         )
 
 

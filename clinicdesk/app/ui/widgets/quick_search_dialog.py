@@ -16,7 +16,6 @@ from PySide6.QtWidgets import (
 )
 
 from clinicdesk.app.application.preferencias.preferencias_usuario import (
-    MARCADOR_REDACTADO,
     PreferenciasService,
     sanitize_search_text,
 )
@@ -82,7 +81,7 @@ class QuickSearchDialog(QDialog):
         busqueda_guardada = preferencias.last_search_by_context.get(contexto.contexto_id, "")
         self.setWindowTitle(self._i18n.t(contexto.titulo_key))
         self._input.setPlaceholderText(self._i18n.t(contexto.placeholder_key))
-        self._input.setText(busqueda_guardada if busqueda_guardada != MARCADOR_REDACTADO else "")
+        self._input.setText(busqueda_guardada)
         self._lista.clear()
         self._estado.setText(self._i18n.t(contexto.empty_key))
         self.show()

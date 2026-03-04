@@ -1,5 +1,4 @@
 from clinicdesk.app.application.preferencias.preferencias_usuario import (
-    MARCADOR_REDACTADO,
     PreferenciasRepository,
     PreferenciasService,
     PreferenciasUsuario,
@@ -7,7 +6,6 @@ from clinicdesk.app.application.preferencias.preferencias_usuario import (
 )
 
 __all__ = [
-    "MARCADOR_REDACTADO",
     "PreferenciasRepository",
     "PreferenciasService",
     "PreferenciasUsuario",
