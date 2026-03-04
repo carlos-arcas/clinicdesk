@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 import platform
 import shutil
+import sys
 from datetime import datetime, timezone
 from pathlib import Path, PurePosixPath
 from zipfile import ZIP_DEFLATED, ZipFile
@@ -33,6 +35,19 @@ _DIRECTORIOS_EXCLUIDOS = {
     "dist",
 }
 _EXT_EXCLUIDAS = {".pyc", ".sqlite", ".db"}
+
+
+def _obtener_logger() -> logging.Logger:
+    logger = logging.getLogger("scripts.build_release")
+    if logger.handlers:
+        return logger
+
+    handler = logging.StreamHandler(stream=sys.stdout)
+    handler.setFormatter(logging.Formatter("%(message)s"))
+    logger.addHandler(handler)
+    logger.setLevel(logging.INFO)
+    logger.propagate = False
+    return logger
 
 
 def _es_ruta_excluida(ruta_relativa: Path) -> bool:
@@ -94,7 +109,7 @@ def construir_release_bundle(raiz_repo: Path | None = None) -> Path:
 def main() -> None:
     """Entrada CLI del generador de release bundle."""
     salida = construir_release_bundle()
-    print(salida.as_posix())
+    _obtener_logger().info("zip generado: %s", salida.as_posix())
 
 
 if __name__ == "__main__":

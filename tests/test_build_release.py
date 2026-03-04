@@ -48,3 +48,24 @@ def test_build_release_generates_zip_and_manifest(tmp_path: Path) -> None:
         prohibidos = ("__pycache__", ".pyc", "/logs/", "/data/", ".sqlite", ".db")
         for nombre in nombres:
             assert not any(p in nombre for p in prohibidos), nombre
+
+
+def test_main_emite_ruta_zip_por_stdout(tmp_path: Path, monkeypatch, capsys) -> None:
+    _write_file(tmp_path / "clinicdesk" / "__init__.py", '__version__ = "0.1.0"\n')
+    _write_file(tmp_path / "clinicdesk" / "app.py")
+    _write_file(tmp_path / "scripts" / "run_app.py")
+    _write_file(tmp_path / "requirements.txt")
+    _write_file(tmp_path / "requirements-dev.txt")
+    _write_file(tmp_path / "README.md")
+    _write_file(tmp_path / "docs" / "security_hardening.md")
+    _write_file(tmp_path / "docs" / "security_keys.md")
+
+    monkeypatch.chdir(tmp_path)
+
+    from scripts.build_release import main
+
+    main()
+
+    salida = capsys.readouterr()
+    assert salida.out.strip().startswith("zip generado: ")
+    assert "clinicdesk-" in salida.out
