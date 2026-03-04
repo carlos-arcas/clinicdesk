@@ -15,6 +15,11 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from clinicdesk.app.application.preferencias.preferencias_usuario import (
+    MARCADOR_REDACTADO,
+    PreferenciasService,
+    sanitize_search_text,
+)
 from clinicdesk.app.i18n import I18nManager
 from clinicdesk.app.ui.quick_search_debounce import DespachadorDebounce
 
@@ -23,6 +28,7 @@ TResultado = TypeVar("TResultado")
 
 @dataclass(frozen=True, slots=True)
 class ContextoBusquedaRapida(Generic[TResultado]):
+    contexto_id: str
     titulo_key: str
     placeholder_key: str
     empty_key: str
@@ -32,9 +38,15 @@ class ContextoBusquedaRapida(Generic[TResultado]):
 
 
 class QuickSearchDialog(QDialog):
-    def __init__(self, i18n: I18nManager, parent: QWidget | None = None) -> None:
+    def __init__(
+        self,
+        i18n: I18nManager,
+        preferencias_service: PreferenciasService,
+        parent: QWidget | None = None,
+    ) -> None:
         super().__init__(parent)
         self._i18n = i18n
+        self._preferencias_service = preferencias_service
         self._contexto: ContextoBusquedaRapida[object] | None = None
         self._resultados: list[object] = []
         self._token_busqueda = 0
@@ -66,9 +78,11 @@ class QuickSearchDialog(QDialog):
         self._contexto = contexto
         self._resultados = []
         self._token_busqueda += 1
+        preferencias = self._preferencias_service.get()
+        busqueda_guardada = preferencias.last_search_by_context.get(contexto.contexto_id, "")
         self.setWindowTitle(self._i18n.t(contexto.titulo_key))
         self._input.setPlaceholderText(self._i18n.t(contexto.placeholder_key))
-        self._input.clear()
+        self._input.setText(busqueda_guardada if busqueda_guardada != MARCADOR_REDACTADO else "")
         self._lista.clear()
         self._estado.setText(self._i18n.t(contexto.empty_key))
         self.show()
@@ -129,6 +143,21 @@ class QuickSearchDialog(QDialog):
             return
         self._contexto.on_select(self._resultados[fila])
         self.close()
+
+    def closeEvent(self, event) -> None:  # noqa: N802
+        self._guardar_ultima_busqueda_contexto()
+        super().closeEvent(event)
+
+    def _guardar_ultima_busqueda_contexto(self) -> None:
+        if self._contexto is None:
+            return
+        preferencias = self._preferencias_service.get()
+        texto_seguro = sanitize_search_text(self._input.text())
+        if texto_seguro is None:
+            preferencias.last_search_by_context.pop(self._contexto.contexto_id, None)
+        else:
+            preferencias.last_search_by_context[self._contexto.contexto_id] = texto_seguro
+        self._preferencias_service.set(preferencias)
 
     @staticmethod
     def _ahora_ms() -> int:

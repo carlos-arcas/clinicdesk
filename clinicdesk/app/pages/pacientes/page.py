@@ -26,6 +26,7 @@ from clinicdesk.app.application.usecases.pacientes_crud import (
 from clinicdesk.app.application.services.pacientes_listado_contrato import ContratoListadoPacientesService
 from clinicdesk.app.application.usecases.obtener_detalle_cita import ObtenerDetalleCita
 from clinicdesk.app.application.auditoria_acceso import AccionAuditoriaAcceso, EntidadAuditoriaAcceso
+from clinicdesk.app.application.preferencias.preferencias_usuario import MARCADOR_REDACTADO, sanitize_search_text
 from clinicdesk.app.application.historial_paciente import (
     BuscarHistorialCitasPaciente,
     BuscarHistorialRecetasPaciente,
@@ -80,6 +81,7 @@ class PagePacientes(QWidget):
         self._worker_carga: CargaPacientesWorker | None = None
         self._token_carga = 0
         self._thread_busqueda_rapida: QThread | None = None
+        self._preferencias_restauradas = False
 
         self._build_ui()
         self._connect_signals()
@@ -152,9 +154,13 @@ class PagePacientes(QWidget):
             toast(key)
 
     def on_show(self) -> None:
+        if not self._preferencias_restauradas:
+            self._restaurar_preferencias()
+            self._preferencias_restauradas = True
         self._refresh()
 
     def _refresh(self) -> None:
+        self._guardar_preferencias()
         self._token_carga += 1
         token = self._token_carga
         selected_id = self._selected_id()
@@ -170,6 +176,29 @@ class PagePacientes(QWidget):
     def atajo_nuevo(self) -> None:
         if self._can_write:
             self._on_nuevo()
+
+    def _restaurar_preferencias(self) -> None:
+        preferencias = self._container.preferencias_service.get()
+        filtros = preferencias.filtros_pacientes
+        texto = filtros.get("texto", "")
+        self.filtros.txt_busqueda.setText(texto if isinstance(texto, str) else "")
+        activo = filtros.get("activo")
+        if activo is True:
+            index = self.filtros.cbo_estado.findText("Activos")
+        elif activo is False:
+            index = self.filtros.cbo_estado.findText("Inactivos")
+        else:
+            index = self.filtros.cbo_estado.findText("Todos")
+        self.filtros.cbo_estado.setCurrentIndex(index if index >= 0 else 0)
+
+    def _guardar_preferencias(self) -> None:
+        preferencias = self._container.preferencias_service.get()
+        texto_seguro = sanitize_search_text(self.filtros.texto())
+        preferencias.filtros_pacientes = {
+            "activo": self.filtros.activo(),
+            "texto": texto_seguro if texto_seguro not in {None, MARCADOR_REDACTADO} else "",
+        }
+        self._container.preferencias_service.set(preferencias)
 
     def buscar_rapido_async(self, texto: str, on_done) -> None:
         if self._thread_busqueda_rapida is not None and self._thread_busqueda_rapida.isRunning():

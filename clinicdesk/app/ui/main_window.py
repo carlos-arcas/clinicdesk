@@ -130,12 +130,12 @@ class MainWindow(QMainWindow):
 
         self.sidebar.currentRowChanged.connect(self._on_sidebar_changed)
         self._build_status_feedback()
-        self._quick_search_dialog = QuickSearchDialog(self._i18n, self)
+        self._quick_search_dialog = QuickSearchDialog(self._i18n, self.container.preferencias_service, self)
         self._build_shortcuts()
 
         self._i18n.subscribe(self._retranslate)
         self._retranslate()
-        self.navigate("home")
+        self._restaurar_pagina_ultima()
 
     def _build_shortcuts(self) -> None:
         self._shortcut_busqueda = QShortcut(QKeySequence("Ctrl+K"), self)
@@ -160,6 +160,7 @@ class MainWindow(QMainWindow):
         page = self._current_page_widget()
         if key == "pacientes" and page is not None and hasattr(page, "buscar_rapido_async"):
             contexto = ContextoBusquedaRapida(
+                contexto_id="pacientes",
                 titulo_key="quick_search.title.pacientes",
                 placeholder_key="quick_search.placeholder.pacientes",
                 empty_key="quick_search.empty.pacientes",
@@ -171,6 +172,7 @@ class MainWindow(QMainWindow):
             return
         if key == "confirmaciones" and page is not None and hasattr(page, "buscar_rapido_async"):
             contexto = ContextoBusquedaRapida(
+                contexto_id="confirmaciones",
                 titulo_key="quick_search.title.confirmaciones",
                 placeholder_key="quick_search.placeholder.confirmaciones",
                 empty_key="quick_search.empty.confirmaciones",
@@ -495,6 +497,7 @@ class MainWindow(QMainWindow):
             self.stack.setCurrentIndex(index)
             self._call_on_show_index(index)
             self._aplicar_intent_navegacion(key, intent)
+            self._guardar_pagina_ultima(key)
 
             for row in range(self.sidebar.count()):
                 it = self.sidebar.item(row)
@@ -503,6 +506,18 @@ class MainWindow(QMainWindow):
                     break
         finally:
             self.sidebar.blockSignals(False)
+
+    def _restaurar_pagina_ultima(self) -> None:
+        preferencias = self.container.preferencias_service.get()
+        key = preferencias.pagina_ultima or "home"
+        if key not in self._factory_by_key:
+            key = "home"
+        self.navigate(key)
+
+    def _guardar_pagina_ultima(self, key: str) -> None:
+        preferencias = self.container.preferencias_service.get()
+        preferencias.pagina_ultima = key
+        self.container.preferencias_service.set(preferencias)
 
     def _aplicar_intent_navegacion(self, key: str, intent: Any | None) -> None:
         if key != "citas":
@@ -532,6 +547,7 @@ class MainWindow(QMainWindow):
         self.stack.setCurrentIndex(index)
         self._call_on_show_index(index)
         self._aplicar_intent_navegacion(key, None)
+        self._guardar_pagina_ultima(key)
 
     def _normalize_input_heights(self) -> None:
         state_controller._normalize_input_heights(self)

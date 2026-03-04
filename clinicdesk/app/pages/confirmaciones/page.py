@@ -24,6 +24,7 @@ from clinicdesk.app.application.confirmaciones import (
     PaginacionConfirmacionesDTO,
 )
 from clinicdesk.app.application.citas.filtros import redactar_texto_busqueda
+from clinicdesk.app.application.preferencias.preferencias_usuario import MARCADOR_REDACTADO, sanitize_search_text
 from clinicdesk.app.application.prediccion_ausencias.aviso_salud_prediccion import (
     debe_mostrar_aviso_salud_prediccion,
 )
@@ -63,6 +64,7 @@ class PageConfirmaciones(QWidget):
         self._token_carga = 0
         self._cita_focus_pendiente: int | None = None
         self._db_path = resolver_db_path_desde_conexion(container.connection)
+        self._preferencias_restauradas = False
         self._build_ui()
         self._i18n.subscribe(self._retranslate)
         self._retranslate()
@@ -88,6 +90,9 @@ class PageConfirmaciones(QWidget):
             toast(key)
 
     def on_show(self) -> None:
+        if not self._preferencias_restauradas:
+            self._restaurar_preferencias()
+            self._preferencias_restauradas = True
         self._load_data(reset=True)
 
     def _build_ui(self) -> None:
@@ -112,6 +117,11 @@ class PageConfirmaciones(QWidget):
         self.btn_actualizar = QPushButton()
         self.btn_actualizar.clicked.connect(lambda: self._load_data(reset=True))
         self.cmb_rango.currentIndexChanged.connect(self._on_rango_changed)
+        self.cmb_riesgo.currentIndexChanged.connect(self._guardar_preferencias)
+        self.cmb_recordatorio.currentIndexChanged.connect(self._guardar_preferencias)
+        self.txt_buscar.editingFinished.connect(self._guardar_preferencias)
+        self.desde.dateChanged.connect(self._guardar_preferencias)
+        self.hasta.dateChanged.connect(self._guardar_preferencias)
         widgets_filtro = (
             self.cmb_rango,
             self.desde,
@@ -224,6 +234,32 @@ class PageConfirmaciones(QWidget):
         self.desde.setEnabled(mode == "CUSTOM")
         self.hasta.setEnabled(mode == "CUSTOM")
 
+    def _restaurar_preferencias(self) -> None:
+        preferencias = self._container.preferencias_service.get()
+        filtros = preferencias.filtros_confirmaciones
+        self._set_current_data(self.cmb_rango, str(filtros.get("rango", "7D")))
+        self._set_current_data(self.cmb_riesgo, str(filtros.get("riesgo", "TODOS")))
+        self._set_current_data(self.cmb_recordatorio, str(filtros.get("recordatorio", "TODOS")))
+        self._on_rango_changed()
+        self.txt_buscar.setText(str(filtros.get("texto", "")))
+
+    def _guardar_preferencias(self, *_args) -> None:
+        preferencias = self._container.preferencias_service.get()
+        texto_seguro = sanitize_search_text(self.txt_buscar.text())
+        preferencias.filtros_confirmaciones = {
+            "rango": str(self.cmb_rango.currentData()),
+            "riesgo": str(self.cmb_riesgo.currentData()),
+            "recordatorio": str(self.cmb_recordatorio.currentData()),
+            "texto": texto_seguro if texto_seguro not in {None, MARCADOR_REDACTADO} else "",
+        }
+        self._container.preferencias_service.set(preferencias)
+
+    @staticmethod
+    def _set_current_data(combo: QComboBox, value: str) -> None:
+        idx = combo.findData(value)
+        if idx >= 0:
+            combo.setCurrentIndex(idx)
+
     def _build_filtros(self) -> FiltrosConfirmacionesDTO:
         return FiltrosConfirmacionesDTO(
             desde=self.desde.date().toString("yyyy-MM-dd"),
@@ -234,6 +270,7 @@ class PageConfirmaciones(QWidget):
         )
 
     def _load_data(self, *, reset: bool) -> None:
+        self._guardar_preferencias()
         self._token_carga += 1
         token = self._token_carga
         if reset:
