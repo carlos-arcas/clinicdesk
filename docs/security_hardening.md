@@ -53,3 +53,8 @@ Todos los intentos se auditan (`ok`/`fail`) con `reason_code`, evitando PII en m
 - `CLINICDESK_EXPORT_PII` (default: `0`)
   - `0`: bloquea exportación solicitada con PII.
   - `1`: habilita, pero mantiene requisitos de ADMIN + confirmación explícita.
+
+
+## Referencias
+
+- [Gestión de claves de cifrado](./security_keys.md)
