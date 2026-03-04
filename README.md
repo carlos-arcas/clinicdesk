@@ -45,6 +45,22 @@ python scripts/run_app.py
 python -m scripts.gate_pr
 ```
 
+### Dependencias deterministas (lock con pip-tools)
+
+- Las dependencias directas se editan en `requirements.in` (runtime) y `requirements-dev.in` (dev).
+- Los locks versionados son `requirements.txt` y `requirements-dev.txt`.
+- Para regenerar locks:
+
+```bash
+python -m scripts.lock_deps
+```
+
+Política de actualización:
+- Cualquier bump de dependencias debe ir en PR separado del cambio funcional.
+- Nunca editar a mano `requirements*.txt`: siempre regenerar desde los `.in`.
+- El quality gate/CI falla si detecta líneas no pinneadas (`==`) en `requirements*.txt`.
+
+
 ## 🎯 Problema
 En operación clínica, anticipar citas de riesgo (p. ej., potencial no-show o cita con fricción operativa) permite priorizar seguimiento y capacidad de respuesta. Este proyecto aborda ese problema con foco en gobernanza técnica:
 

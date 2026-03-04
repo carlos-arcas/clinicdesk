@@ -1,2 +1,4 @@
-PySide6>=6.8,<6.11
-cryptography>=46.0.5,<47
+# Archivo de lock runtime.
+# Regenerar con: python -m scripts.lock_deps
+PySide6==6.8.3
+cryptography==46.0.5

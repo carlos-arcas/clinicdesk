@@ -29,6 +29,30 @@ def _crear_venv_si_no_existe() -> None:
     _run_command([sys.executable, "-m", "venv", str(VENV_DIR)], "Crear entorno virtual .venv")
 
 
+def _requirements_con_rango(requirements_path: Path) -> list[tuple[int, str]]:
+    offenders: list[tuple[int, str]] = []
+    for numero_linea, linea in enumerate(requirements_path.read_text(encoding="utf-8").splitlines(), start=1):
+        contenido = linea.strip()
+        if not contenido or contenido.startswith("#") or contenido.startswith(("-", "--")):
+            continue
+        if "==" not in contenido:
+            offenders.append((numero_linea, contenido))
+    return offenders
+
+
+def _advertir_requirements_no_pinneados() -> None:
+    for nombre in ("requirements.txt", "requirements-dev.txt"):
+        ruta = PROJECT_ROOT / nombre
+        if not ruta.exists():
+            continue
+        offenders = _requirements_con_rango(ruta)
+        if not offenders:
+            continue
+        _log(f"[setup][warn] {nombre} contiene entradas sin pin estricto (==):")
+        for numero_linea, contenido in offenders:
+            _log(f"[setup][warn]   - linea {numero_linea}: {contenido}")
+
+
 def _instalar_dependencias(python_venv: Path) -> None:
     requirements = PROJECT_ROOT / "requirements.txt"
     requirements_dev = PROJECT_ROOT / "requirements-dev.txt"
@@ -63,6 +87,7 @@ def main() -> int:
         python_venv = _venv_python()
         if not python_venv.exists():
             raise RuntimeError(f"No se encontró el Python del venv: {python_venv}")
+        _advertir_requirements_no_pinneados()
         _instalar_dependencias(python_venv)
         _verificar_herramientas(python_venv)
     except RuntimeError as exc:
