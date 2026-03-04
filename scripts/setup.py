@@ -5,7 +5,15 @@ import subprocess
 import sys
 from pathlib import Path
 
-PROJECT_ROOT = Path(__file__).resolve().parent.parent
+
+def resolve_repo_root() -> Path:
+    override = os.environ.get("CLINICDESK_REPO_ROOT")
+    if override:
+        return Path(override).expanduser().resolve()
+    return Path(__file__).resolve().parents[1]
+
+
+PROJECT_ROOT = resolve_repo_root()
 VENV_DIR = PROJECT_ROOT / ".venv"
 
 
@@ -59,9 +67,12 @@ def _instalar_dependencias(python_venv: Path) -> None:
     if not requirements.exists() or not requirements_dev.exists():
         raise RuntimeError("No se encontraron requirements.txt y/o requirements-dev.txt en la raíz del repositorio.")
 
-    _run_command([str(python_venv), "-m", "pip", "install", "-r", "requirements.txt"], "Instalar dependencias runtime")
     _run_command(
-        [str(python_venv), "-m", "pip", "install", "-r", "requirements-dev.txt"],
+        [str(python_venv), "-m", "pip", "install", "-r", str(requirements)],
+        "Instalar dependencias runtime",
+    )
+    _run_command(
+        [str(python_venv), "-m", "pip", "install", "-r", str(requirements_dev)],
         "Instalar dependencias dev",
     )
 
