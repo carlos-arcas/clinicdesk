@@ -7,6 +7,7 @@ from pathlib import Path
 from clinicdesk.app.bootstrap_logging import configure_logging, set_run_context
 from scripts.structural_gate import run_structural_gate
 from scripts.check_changelog import check_changelog
+from scripts.check_security_docs import check_security_docs
 
 from . import config
 from .basic_repo_checks import check_forbidden_artifacts, check_no_print_calls, check_secret_patterns
@@ -52,6 +53,10 @@ def _run_pre_checks() -> int:
 
 
 def _run_docs_checks() -> int:
+    docs_rc = check_security_docs(repo_root=config.REPO_ROOT)
+    if docs_rc != 0:
+        return docs_rc
+
     try:
         check_changelog(path=config.REPO_ROOT / "CHANGELOG.md", version=config.APP_VERSION)
     except ValueError as exc:
