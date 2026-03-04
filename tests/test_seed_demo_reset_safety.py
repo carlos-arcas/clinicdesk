@@ -26,7 +26,7 @@ def test_reset_demo_database_allows_safe_path_and_recreates_db(tmp_path) -> None
     connection.commit()
     connection.close()
 
-    reset_demo_database(sqlite_path)
+    reset_demo_database(sqlite_path, confirmation_token="RESET-DEMO")
 
     check_connection = bootstrap_database(apply_schema=True, sqlite_path=sqlite_path.as_posix())
     try:
@@ -54,9 +54,9 @@ def test_reset_demo_database_requires_strong_confirmation_for_demo_name_outside_
     safety = evaluate_reset_safety(suspicious_path)
     assert safety.is_allowed is True
     assert safety.requires_strong_confirmation is True
-    assert safety.reason_code == "safe_by_demo_name_only"
+    assert safety.reason_code == "safe_path_requires_confirmation"
 
-    with pytest.raises(UnsafeDatabaseResetError, match="missing_strong_confirmation"):
+    with pytest.raises(UnsafeDatabaseResetError, match="confirmation_required"):
         reset_demo_database(suspicious_path)
 
 
@@ -65,6 +65,7 @@ def test_reset_demo_database_accepts_strong_confirmation_for_suspicious_path(tmp
     suspicious_path.write_text("placeholder", encoding="utf-8")
 
     confirmation = build_reset_confirmation_help(suspicious_path)
+    assert confirmation == "RESET-DEMO"
     reset_demo_database(suspicious_path, confirmation_token=confirmation)
 
     assert suspicious_path.exists()

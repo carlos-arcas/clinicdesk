@@ -4,6 +4,7 @@ from dataclasses import dataclass
 import hashlib
 from pathlib import Path
 
+from clinicdesk.app.application.seguridad.politica_rutas_seguras import es_ruta_db_segura_para_reset
 from clinicdesk.app.bootstrap import bootstrap_database
 from clinicdesk.app.bootstrap_logging import get_logger
 
@@ -36,17 +37,9 @@ def is_safe_demo_db_path(sqlite_path: Path) -> bool:
 
 def evaluate_reset_safety(sqlite_path: Path) -> ResetSafetyDecision:
     resolved = sqlite_path.expanduser().resolve()
-    demo_data_dir = (_repo_root() / "data").resolve()
-    default_demo_db = (demo_data_dir / "clinicdesk.db").resolve()
-    is_inside_data_dir = demo_data_dir in resolved.parents
-    has_demo_name = "demo" in resolved.name.lower()
-    if resolved == default_demo_db:
-        return ResetSafetyDecision(True, False, "default_demo_db")
-    if is_inside_data_dir:
-        return ResetSafetyDecision(True, False, "inside_demo_data_dir")
-    if has_demo_name:
-        return ResetSafetyDecision(True, True, "safe_by_demo_name_only")
-    return ResetSafetyDecision(False, False, "outside_demo_zone")
+    if not es_ruta_db_segura_para_reset(resolved):
+        return ResetSafetyDecision(False, False, "unsafe_db_path")
+    return ResetSafetyDecision(True, True, "safe_path_requires_confirmation")
 
 
 def reset_demo_database(sqlite_path: Path, *, confirmation_token: str | None = None) -> None:
@@ -60,26 +53,19 @@ def reset_demo_database(sqlite_path: Path, *, confirmation_token: str | None = N
             path_hint,
         )
         raise UnsafeDatabaseResetError(reason=safety.reason_code, path_hint=path_hint)
-    if safety.requires_strong_confirmation:
-        expected_token = _build_expected_confirmation_token(target)
-        if confirmation_token != expected_token:
-            LOGGER.warning(
-                "seed_demo_reset_blocked reason=missing_strong_confirmation safety=%s target=%s",
-                safety.reason_code,
-                path_hint,
-            )
-            raise UnsafeDatabaseResetError(reason="missing_strong_confirmation", path_hint=path_hint)
-        LOGGER.info(
-            "seed_demo_reset_permission_granted reason=strong_confirmation safety=%s target=%s",
+    expected_token = _build_expected_confirmation_token(target)
+    if safety.requires_strong_confirmation and confirmation_token != expected_token:
+        LOGGER.warning(
+            "seed_demo_reset_blocked reason=confirmation_required safety=%s target=%s",
             safety.reason_code,
             path_hint,
         )
-    else:
-        LOGGER.info(
-            "seed_demo_reset_permission_granted reason=safe_zone safety=%s target=%s",
-            safety.reason_code,
-            path_hint,
-        )
+        raise UnsafeDatabaseResetError(reason="confirmation_required", path_hint=path_hint)
+    LOGGER.info(
+        "seed_demo_reset_permission_granted reason=explicit_confirmation safety=%s target=%s",
+        safety.reason_code,
+        path_hint,
+    )
     if target.exists():
         target.unlink()
         LOGGER.info("seed_demo_db_removed target=%s", path_hint)
@@ -93,13 +79,11 @@ def build_reset_confirmation_help(sqlite_path: Path) -> str:
 
 
 def _build_expected_confirmation_token(target: Path) -> str:
-    return f"RESET::{target.name}"
+    _ = target
+    return "RESET-DEMO"
 
 
 def _path_hint(target: Path) -> str:
     digest = hashlib.sha256(target.as_posix().encode("utf-8")).hexdigest()[:8]
     return f"{target.name}#{digest}"
 
-
-def _repo_root() -> Path:
-    return Path(__file__).resolve().parents[4]

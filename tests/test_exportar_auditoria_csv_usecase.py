@@ -6,11 +6,15 @@ from typing import Any
 
 import pytest
 
+from clinicdesk.app.application.auditoria.audit_service import AuditEvent, AuditService
+from clinicdesk.app.application.security import AutorizadorAcciones, Role, UserContext
 from clinicdesk.app.application.usecases.exportar_auditoria_csv import (
     COLUMNAS_EXPORTACION_AUDITORIA,
     ExportacionAuditoriaDemasiadasFilasError,
+    ExportacionAuditoriaError,
     ExportarAuditoriaCSV,
 )
+from clinicdesk.app.domain.exceptions import AuthorizationError
 from clinicdesk.app.queries.auditoria_accesos_queries import AuditoriaAccesoItemQuery, FiltrosAuditoriaAccesos
 
 
@@ -35,6 +39,14 @@ class GatewayFake:
     ) -> list[AuditoriaAccesoItemQuery | dict[str, Any]]:
         assert max_filas == 10_000
         return self.rows
+
+
+class _RepoAuditoriaFake:
+    def __init__(self) -> None:
+        self.events: list[AuditEvent] = []
+
+    def append(self, event: AuditEvent) -> None:
+        self.events.append(event)
 
 
 def test_exportar_auditoria_csv_solo_serializa_columnas_permitidas() -> None:
@@ -85,3 +97,34 @@ def test_exportar_auditoria_csv_limite_defensivo() -> None:
 
     with pytest.raises(ExportacionAuditoriaDemasiadasFilasError):
         usecase.execute(FiltrosAuditoriaAccesos(accion="VER_DETALLE_CITA"))
+
+
+def test_exportar_auditoria_csv_exige_rbac_y_audita_fail() -> None:
+    repo = _RepoAuditoriaFake()
+    usecase = ExportarAuditoriaCSV(
+        GatewayFake(total=1, rows=[]),
+        user_context=UserContext(role=Role.READONLY, username="readonly"),
+        autorizador_acciones=AutorizadorAcciones(),
+        audit_service=AuditService(repo),
+    )
+
+    with pytest.raises(AuthorizationError):
+        usecase.execute(FiltrosAuditoriaAccesos(accion="VER_DETALLE_CITA"))
+
+    assert repo.events[-1].outcome == "fail"
+
+
+def test_exportar_auditoria_csv_pii_requiere_confirmacion(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("CLINICDESK_EXPORT_PII", "1")
+    repo = _RepoAuditoriaFake()
+    usecase = ExportarAuditoriaCSV(
+        GatewayFake(total=1, rows=[]),
+        user_context=UserContext(role=Role.ADMIN, username="admin"),
+        autorizador_acciones=AutorizadorAcciones(),
+        audit_service=AuditService(repo),
+    )
+
+    with pytest.raises(ExportacionAuditoriaError, match="confirmation_required"):
+        usecase.execute(FiltrosAuditoriaAccesos(accion="VER_DETALLE_CITA"), incluir_pii=True)
+
+    assert repo.events[-1].metadata["reason_code"] == "confirmation_required"

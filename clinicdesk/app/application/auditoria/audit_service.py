@@ -54,6 +54,9 @@ class AuditService:
             "from_date",
             "to_date",
             "dataset_version",
+            "reason_code",
+            "db_path_hint",
+            "export_rows",
         }
     )
     _BLOCKED_KEY_PATTERNS: tuple[re.Pattern[str], ...] = (
