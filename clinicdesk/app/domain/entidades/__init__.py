@@ -1,11 +1,13 @@
-"""Entidades de dominio para farmacia y stock (fachada de compatibilidad)."""
+"""Paquete de entidades de dominio agrupadas por cohesión."""
 
-from clinicdesk.app.domain.entidades import (
-    Dispensacion,
+from clinicdesk.app.domain.entidades.entidades_farmacia_stock import (
     Material,
     Medicamento,
     MovimientoMaterial,
     MovimientoMedicamento,
+)
+from clinicdesk.app.domain.entidades.entidades_recetas import (
+    Dispensacion,
     Receta,
     RecetaLinea,
 )

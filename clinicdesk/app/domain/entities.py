@@ -1,7 +1,7 @@
 """Entidades de dominio (módulo de compatibilidad)."""
 
 from clinicdesk.app.domain.citas import Cita, Incidencia, Sala
-from clinicdesk.app.domain.farmacia import (
+from clinicdesk.app.domain.entidades import (
     Dispensacion,
     Material,
     Medicamento,
