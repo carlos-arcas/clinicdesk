@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from typing import Optional
+from pathlib import Path
 
 from PySide6.QtCore import QSettings
 from PySide6.QtWidgets import (
@@ -17,7 +18,11 @@ from PySide6.QtWidgets import (
 )
 
 from clinicdesk.app.application.usecases.buscar_auditoria_accesos import BuscarAuditoriaAccesos
-from clinicdesk.app.application.usecases.exportar_auditoria_csv import ExportacionAuditoriaDemasiadasFilasError, ExportacionAuditoriaError, ExportarAuditoriaCSV
+from clinicdesk.app.application.usecases.exportar_auditoria_csv import (
+    ExportacionAuditoriaDemasiadasFilasError,
+    ExportacionAuditoriaError,
+    ExportarAuditoriaCSV,
+)
 from clinicdesk.app.application.usecases.filtros_auditoria import PRESET_PERSONALIZADO
 from clinicdesk.app.application.usecases.obtener_resumen_auditoria import ObtenerResumenAuditoria
 from clinicdesk.app.application.usecases.paginacion_incremental import calcular_siguiente_offset
@@ -26,10 +31,17 @@ from clinicdesk.app.application.security import UserContext
 from clinicdesk.app.bootstrap_logging import get_logger
 from clinicdesk.app.i18n import I18nManager
 from clinicdesk.app.pages.auditoria.exportador_csv import ExportadorCsvAuditoria
-from clinicdesk.app.pages.auditoria.filtros_ui import columnas_tabla, opciones_accion, opciones_entidad, opciones_rango, parse_fecha_iso
+from clinicdesk.app.pages.auditoria.filtros_ui import (
+    columnas_tabla,
+    opciones_accion,
+    opciones_entidad,
+    opciones_rango,
+    parse_fecha_iso,
+)
 from clinicdesk.app.pages.shared.table_utils import set_item
 from clinicdesk.app.queries.auditoria_accesos_queries import AuditoriaAccesosQueries, FiltrosAuditoriaAccesos
 from clinicdesk.app.infrastructure.sqlite.repos_telemetria_eventos import RepositorioTelemetriaEventosSqlite
+from clinicdesk.app.ui.jobs.job_manager import JobCancelledError
 
 LOGGER = get_logger(__name__)
 
@@ -93,7 +105,14 @@ class PageAuditoria(QWidget):
         self.input_usuario, self.input_desde, self.input_hasta = QLineEdit(), QLineEdit(), QLineEdit()
         self.combo_rango, self.combo_accion, self.combo_entidad = QComboBox(), QComboBox(), QComboBox()
         self.btn_buscar, self.btn_limpiar = QPushButton(), QPushButton()
-        for key, widget in (("auditoria.filtro.rango", self.combo_rango), ("auditoria.filtro.usuario", self.input_usuario), ("auditoria.filtro.accion", self.combo_accion), ("auditoria.filtro.entidad", self.combo_entidad), ("auditoria.filtro.desde", self.input_desde), ("auditoria.filtro.hasta", self.input_hasta)):
+        for key, widget in (
+            ("auditoria.filtro.rango", self.combo_rango),
+            ("auditoria.filtro.usuario", self.input_usuario),
+            ("auditoria.filtro.accion", self.combo_accion),
+            ("auditoria.filtro.entidad", self.combo_entidad),
+            ("auditoria.filtro.desde", self.input_desde),
+            ("auditoria.filtro.hasta", self.input_hasta),
+        ):
             filtros.addWidget(QLabel(self._tr(key)))
             filtros.addWidget(widget)
         filtros.addWidget(self.btn_buscar)
@@ -114,7 +133,11 @@ class PageAuditoria(QWidget):
         self._set_estado("idle")
 
     def _cargar_combos(self) -> None:
-        for combo, opciones in ((self.combo_rango, opciones_rango(self._tr)), (self.combo_accion, opciones_accion(self._tr)), (self.combo_entidad, opciones_entidad(self._tr))):
+        for combo, opciones in (
+            (self.combo_rango, opciones_rango(self._tr)),
+            (self.combo_accion, opciones_accion(self._tr)),
+            (self.combo_entidad, opciones_entidad(self._tr)),
+        ):
             combo.clear()
             for item in opciones:
                 combo.addItem(item.texto, item.valor)
@@ -154,7 +177,13 @@ class PageAuditoria(QWidget):
             return
         self._set_estado("loading_more" if incremental else "loading")
         try:
-            resultado = self._uc_buscar.execute(filtros, self._limit, self._offset_actual, preset_rango=self.combo_rango.currentData(), total_conocido=self._total_actual)
+            resultado = self._uc_buscar.execute(
+                filtros,
+                self._limit,
+                self._offset_actual,
+                preset_rango=self.combo_rango.currentData(),
+                total_conocido=self._total_actual,
+            )
             if not incremental:
                 self._render_resumen(self._uc_resumen.execute(filtros.desde_utc, filtros.hasta_utc))
         except Exception:
@@ -189,7 +218,9 @@ class PageAuditoria(QWidget):
         )
 
     def _error_fecha(self, campo: str) -> None:
-        QMessageBox.warning(self, self._tr("auditoria.titulo"), self._tr("auditoria.error.fecha_invalida").format(campo=campo))
+        QMessageBox.warning(
+            self, self._tr("auditoria.titulo"), self._tr("auditoria.error.fecha_invalida").format(campo=campo)
+        )
         return None
 
     def _append_filas(self, items) -> None:
@@ -244,15 +275,56 @@ class PageAuditoria(QWidget):
         filtros = self._build_filtros()
         if filtros is None:
             return
+        ruta_guardado = self._exportador.pedir_ruta_guardado("auditoria_accesos.csv")
+        if not ruta_guardado:
+            return
+
+        parent_window = self.window()
+        if not hasattr(parent_window, "run_premium_job"):
+            return
+
+        def worker_factory():
+            def _worker(cancel_token, report_progress):
+                report_progress(15, "job.export_auditoria.progress.preflight")
+                if cancel_token.is_cancelled:
+                    raise JobCancelledError()
+                report_progress(55, "job.export_auditoria.progress.export")
+                exp = self._uc_exportar.execute(filtros, preset_rango=self.combo_rango.currentData())
+                if cancel_token.is_cancelled:
+                    raise JobCancelledError()
+                report_progress(85, "job.export_auditoria.progress.write")
+                Path(ruta_guardado).write_text(exp.csv_texto, encoding="utf-8")
+                report_progress(100, "job.export_auditoria.progress.done")
+                return ruta_guardado
+
+            return _worker
+
+        def _on_success(result: object) -> None:
+            if isinstance(result, str):
+                self._exportador.registrar_ruta_exito(result)
+            self._registrar_telemetria("auditoria_export", "ok")
+
         try:
-            exp = self._uc_exportar.execute(filtros, preset_rango=self.combo_rango.currentData())
+            parent_window.run_premium_job(
+                job_id="export_auditoria_csv",
+                title_key="job.export_auditoria.title",
+                worker_factory=worker_factory,
+                cancellable=True,
+                toast_success_key="job.done",
+                toast_failed_key="job.failed",
+                toast_cancelled_key="job.cancelled",
+                on_success=_on_success,
+            )
         except (ExportacionAuditoriaDemasiadasFilasError, ExportacionAuditoriaError) as exc:
             self._exportador.mostrar_error(exc.reason_code, permitir_reintento=False)
             self._registrar_telemetria("auditoria_export", "fail")
-            return
-        self._exportador.guardar_con_reintento(exp.csv_texto, exp.filas, exp.nombre_archivo_sugerido, self.combo_rango.currentData())
-        self._registrar_telemetria("auditoria_export", "ok")
-
+        except OSError as exc:
+            self._exportador.mostrar_error("disk_write_error", permitir_reintento=False)
+            LOGGER.warning(
+                "auditoria_export_fail",
+                extra={"action": "auditoria_export_fail", "reason_code": "disk_write_error", "error": str(exc)},
+            )
+            self._registrar_telemetria("auditoria_export", "fail")
 
     def _registrar_telemetria(self, evento: str, resultado: str) -> None:
         try:

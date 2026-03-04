@@ -5,6 +5,7 @@ from typing import Any, Callable, Dict, Optional
 from PySide6.QtCore import QTimer, Qt
 from PySide6.QtGui import QAction
 from PySide6.QtWidgets import (
+    QFileDialog,
     QLabel,
     QHBoxLayout,
     QListWidget,
@@ -27,6 +28,8 @@ from clinicdesk.app.pages.pages_registry import get_pages
 from clinicdesk.app.ui.vistas.main_window import state_controller, validacion_preventiva
 from clinicdesk.app.ui.navigation_intent_store import IntentConsumible
 from clinicdesk.app.ui.widgets.toast_manager import ToastManager, ToastPayload
+from clinicdesk.app.ui.jobs.job_manager import JobCancelledError, JobManager, JobState
+from clinicdesk.app.application.usecases.seed_demo_data import SeedDemoDataRequest
 
 
 _PAGE_TITLES_BY_LANG = {
@@ -110,6 +113,12 @@ class MainWindow(QMainWindow):
         self._intent_citas = IntentConsumible[CitasNavigationIntentDTO]()
         self._busy_key: str | None = None
         self._busy_default_key = "status.ready"
+        self._job_manager = JobManager(self)
+        self._active_job_id: str | None = None
+        self._job_toast_success_by_id: dict[str, str] = {}
+        self._job_toast_fail_by_id: dict[str, str] = {}
+        self._job_toast_cancel_by_id: dict[str, str] = {}
+        self._job_success_cb_by_id: dict[str, Callable[[object], None]] = {}
 
         for p in get_pages(container, self._i18n):
             self._factory_by_key[p.key] = p.factory
@@ -141,6 +150,9 @@ class MainWindow(QMainWindow):
         self.action_exit = QAction("", self)
         self.action_exit.triggered.connect(self.close)
 
+        self.action_seed_demo_reset = QAction("", self)
+        self.action_seed_demo_reset.triggered.connect(self._on_seed_demo_reset)
+
         self.menu_language = menu_bar.addMenu("")
         self.action_lang_es = QAction("", self)
         self.action_lang_es.triggered.connect(lambda: self._i18n.set_language("es"))
@@ -149,6 +161,7 @@ class MainWindow(QMainWindow):
 
         self.menu_archivo.addAction(self.action_csv)
         self.menu_archivo.addAction(self.action_logout)
+        self.menu_archivo.addAction(self.action_seed_demo_reset)
         self.menu_archivo.addSeparator()
         self.menu_archivo.addAction(self.action_exit)
 
@@ -161,11 +174,15 @@ class MainWindow(QMainWindow):
 
         self._busy_label = QLabel(self)
         self._busy_indicator = QProgressBar(self)
-        self._busy_indicator.setRange(0, 0)
+        self._busy_indicator.setRange(0, 100)
         self._busy_indicator.setMaximumWidth(120)
         self._busy_indicator.hide()
+        self._job_cancel_btn = QPushButton(self)
+        self._job_cancel_btn.hide()
+        self._job_cancel_btn.clicked.connect(self._on_cancel_active_job)
         self._status_bar.addPermanentWidget(self._busy_label)
         self._status_bar.addPermanentWidget(self._busy_indicator)
+        self._status_bar.addPermanentWidget(self._job_cancel_btn)
 
         self._toast_close_btn = QPushButton(self)
         self._toast_close_btn.clicked.connect(self._close_toast)
@@ -185,12 +202,18 @@ class MainWindow(QMainWindow):
             cancelar=self._cancelar_toast,
         )
         self._toast_manager.subscribe(self._render_toast)
+        self._job_manager.started.connect(self._on_job_started)
+        self._job_manager.progress.connect(self._on_job_progress)
+        self._job_manager.finished.connect(self._on_job_finished)
+        self._job_manager.failed.connect(self._on_job_failed)
+        self._job_manager.cancelled.connect(self._on_job_cancelled)
 
     def _retranslate(self) -> None:
         self.setWindowTitle(self._i18n.t("app.title"))
         self.menu_archivo.setTitle(self._i18n.t("menu.file"))
         self.action_csv.setText(self._i18n.t("menu.csv"))
         self.action_logout.setText(self._i18n.t("menu.logout"))
+        self.action_seed_demo_reset.setText(self._i18n.t("menu.seed_demo_reset"))
         self.action_exit.setText(self._i18n.t("menu.exit"))
         self.menu_language.setTitle(self._i18n.t("menu.language"))
         self.action_lang_es.setText(self._i18n.t("lang.es"))
@@ -207,6 +230,7 @@ class MainWindow(QMainWindow):
             item.setText(labels.get(key, item.text()))
 
         self._toast_close_btn.setText(self._i18n.t("comun.cerrar"))
+        self._job_cancel_btn.setText(self._i18n.t("job.cancel"))
         if self._busy_key is None:
             self._busy_label.setText(self._i18n.t(self._busy_default_key))
         else:
@@ -256,6 +280,108 @@ class MainWindow(QMainWindow):
             return
         self._busy_indicator.hide()
         self._busy_label.setText(self._i18n.t(self._busy_default_key))
+
+    def run_premium_job(
+        self,
+        *,
+        job_id: str,
+        title_key: str,
+        worker_factory,
+        cancellable: bool,
+        toast_success_key: str,
+        toast_failed_key: str,
+        toast_cancelled_key: str,
+        on_success=None,
+    ) -> None:
+        self._job_toast_success_by_id[job_id] = toast_success_key
+        self._job_toast_fail_by_id[job_id] = toast_failed_key
+        self._job_toast_cancel_by_id[job_id] = toast_cancelled_key
+        if callable(on_success):
+            self._job_success_cb_by_id[job_id] = on_success
+        self._job_manager.run_job(job_id, title_key, worker_factory, cancellable=cancellable)
+
+    def _on_job_started(self, state: JobState) -> None:
+        self._active_job_id = state.id
+        self._busy_indicator.show()
+        self._busy_indicator.setValue(0)
+        self._job_cancel_btn.setVisible(state.cancellable)
+        self._busy_label.setText(self._format_job_status(state))
+
+    def _on_job_progress(self, state: JobState) -> None:
+        self._busy_indicator.setValue(state.progress)
+        self._busy_label.setText(self._format_job_status(state))
+
+    def _on_job_finished(self, state: JobState, result: object) -> None:
+        self._reset_job_status()
+        self.toast_success(self._job_toast_success_by_id.pop(state.id, "job.done"))
+        self._job_toast_fail_by_id.pop(state.id, None)
+        self._job_toast_cancel_by_id.pop(state.id, None)
+        callback = self._job_success_cb_by_id.pop(state.id, None)
+        if callback is not None:
+            callback(result)
+
+    def _on_job_failed(self, state: JobState, _error: str) -> None:
+        self._reset_job_status()
+        self.toast_error(self._job_toast_fail_by_id.pop(state.id, "job.failed"))
+        self._job_toast_success_by_id.pop(state.id, None)
+        self._job_toast_cancel_by_id.pop(state.id, None)
+        self._job_success_cb_by_id.pop(state.id, None)
+
+    def _on_job_cancelled(self, state: JobState) -> None:
+        self._reset_job_status()
+        self.toast_info(self._job_toast_cancel_by_id.pop(state.id, "job.cancelled"))
+        self._job_toast_success_by_id.pop(state.id, None)
+        self._job_toast_fail_by_id.pop(state.id, None)
+        self._job_success_cb_by_id.pop(state.id, None)
+
+    def _on_cancel_active_job(self) -> None:
+        if self._active_job_id is None:
+            return
+        self._job_manager.cancel_job(self._active_job_id)
+
+    def _reset_job_status(self) -> None:
+        self._active_job_id = None
+        self._busy_indicator.hide()
+        self._job_cancel_btn.hide()
+        self._busy_label.setText(self._i18n.t(self._busy_default_key))
+
+    def _format_job_status(self, state: JobState) -> str:
+        return self._i18n.t("job.status.pattern").format(
+            title=self._i18n.t(state.title_key),
+            progress=state.progress,
+            message=self._i18n.t(state.message_key),
+        )
+
+    def _on_seed_demo_reset(self) -> None:
+        path, _ = QFileDialog.getOpenFileName(self, self._i18n.t("job.seed_demo.pick_db"), "", "SQLite (*.db)")
+        if not path:
+            return
+
+        def worker_factory():
+            def _worker(cancel_token, report_progress):
+                report_progress(10, "job.seed_demo.progress.preflight")
+                if cancel_token.is_cancelled:
+                    raise JobCancelledError()
+                report_progress(40, "job.seed_demo.progress.reset")
+                req = SeedDemoDataRequest(reset_db=True, db_path=path, confirmacion="RESET-DEMO", batch_size=200)
+                response = self.container.demo_ml_facade.seed_demo(req)
+                report_progress(90, "job.seed_demo.progress.batches")
+                if cancel_token.is_cancelled:
+                    raise JobCancelledError()
+                report_progress(100, "job.seed_demo.progress.done")
+                return response
+
+            return _worker
+
+        self.run_premium_job(
+            job_id="seed_demo_reset",
+            title_key="job.rotate_crypto.title",
+            worker_factory=worker_factory,
+            cancellable=True,
+            toast_success_key="job.done",
+            toast_failed_key="job.failed",
+            toast_cancelled_key="job.cancelled",
+        )
 
     def _on_csv_imported(self, entity: str) -> None:
         key_by_entity = {

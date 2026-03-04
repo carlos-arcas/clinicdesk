@@ -25,10 +25,14 @@ class ExportadorCsvAuditoria:
         msg = self._tr("auditoria.exportar.confirmacion").format(total=total)
         return QMessageBox.question(self._parent, self._tr("auditoria.titulo"), msg) == QMessageBox.Yes
 
-    def guardar_con_reintento(self, csv_texto: str, total_filas: int, nombre_archivo: str, preset_rango: str | None) -> None:
+    def guardar_con_reintento(
+        self, csv_texto: str, total_filas: int, nombre_archivo: str, preset_rango: str | None
+    ) -> None:
         ruta_sugerida = self._ruta_sugerida(nombre_archivo)
         while True:
-            ruta_guardado, _ = QFileDialog.getSaveFileName(self._parent, self._tr("auditoria.exportar.titulo_guardar"), ruta_sugerida, "CSV (*.csv)")
+            ruta_guardado, _ = QFileDialog.getSaveFileName(
+                self._parent, self._tr("auditoria.exportar.titulo_guardar"), ruta_sugerida, "CSV (*.csv)"
+            )
             if not ruta_guardado:
                 return
             try:
@@ -38,9 +42,23 @@ class ExportadorCsvAuditoria:
                     return
                 ruta_sugerida = ruta_guardado
                 continue
-            self._settings.setValue(clave_ultima_ruta_exportacion_auditoria(), str(Path(ruta_guardado).expanduser().resolve().parent))
+            self._settings.setValue(
+                clave_ultima_ruta_exportacion_auditoria(), str(Path(ruta_guardado).expanduser().resolve().parent)
+            )
             QMessageBox.information(self._parent, self._tr("auditoria.titulo"), self._tr("auditoria.export_ok"))
             return
+
+    def pedir_ruta_guardado(self, nombre_archivo: str) -> str:
+        ruta_sugerida = self._ruta_sugerida(nombre_archivo)
+        ruta_guardado, _ = QFileDialog.getSaveFileName(
+            self._parent, self._tr("auditoria.exportar.titulo_guardar"), ruta_sugerida, "CSV (*.csv)"
+        )
+        return ruta_guardado
+
+    def registrar_ruta_exito(self, ruta_guardado: str) -> None:
+        self._settings.setValue(
+            clave_ultima_ruta_exportacion_auditoria(), str(Path(ruta_guardado).expanduser().resolve().parent)
+        )
 
     def _ruta_sugerida(self, nombre_archivo: str) -> str:
         ultima_ruta = self._settings.value(clave_ultima_ruta_exportacion_auditoria(), "", type=str)
@@ -70,6 +88,8 @@ class ExportadorCsvAuditoria:
         box.setText(self._tr(f"auditoria.export_error_texto_{reason_code}"))
         box.setInformativeText(self._tr(f"auditoria.export_error_sugerencia_{reason_code}"))
         cancelar = box.addButton(self._tr("auditoria.cancelar"), QMessageBox.RejectRole)
-        reintentar = box.addButton(self._tr("auditoria.reintentar"), QMessageBox.AcceptRole) if permitir_reintento else None
+        reintentar = (
+            box.addButton(self._tr("auditoria.reintentar"), QMessageBox.AcceptRole) if permitir_reintento else None
+        )
         box.exec()
         return bool(permitir_reintento and box.clickedButton() == reintentar and box.clickedButton() is not cancelar)
