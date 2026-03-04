@@ -15,6 +15,7 @@ from clinicdesk.app.queries.pacientes_queries import PacientesQueries
 
 
 class CargaPacientesWorker(QObject):
+    started = Signal()
     finished_ok = Signal(object)
     finished_error = Signal(str)
     finished = Signal()
@@ -26,6 +27,7 @@ class CargaPacientesWorker(QObject):
         self._texto = texto
 
     def run(self) -> None:
+        self.started.emit()
         connection: sqlite3.Connection | None = None
         try:
             connection = sqlite3.connect(self._db_path)
@@ -47,6 +49,7 @@ class CargaPacientesWorker(QObject):
 
 
 class CargaConfirmacionesWorker(QObject):
+    started = Signal()
     finished_ok = Signal(object)
     finished_error = Signal(str)
     finished = Signal()
@@ -68,6 +71,7 @@ class CargaConfirmacionesWorker(QObject):
         self._salud_uc = salud_uc
 
     def run(self) -> None:
+        self.started.emit()
         connection: sqlite3.Connection | None = None
         try:
             connection = sqlite3.connect(self._db_path)

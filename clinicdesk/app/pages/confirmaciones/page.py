@@ -65,6 +65,26 @@ class PageConfirmaciones(QWidget):
         self._i18n.subscribe(self._retranslate)
         self._retranslate()
 
+    def _set_busy(self, activo: bool, mensaje_key: str) -> None:
+        set_busy = getattr(self.window(), "set_busy", None)
+        if callable(set_busy):
+            set_busy(activo, mensaje_key)
+
+    def _toast_success(self, key: str) -> None:
+        toast = getattr(self.window(), "toast_success", None)
+        if callable(toast):
+            toast(key)
+
+    def _toast_info(self, key: str) -> None:
+        toast = getattr(self.window(), "toast_info", None)
+        if callable(toast):
+            toast(key)
+
+    def _toast_error(self, key: str) -> None:
+        toast = getattr(self.window(), "toast_error", None)
+        if callable(toast):
+            toast(key)
+
     def on_show(self) -> None:
         self._load_data(reset=True)
 
@@ -219,6 +239,7 @@ class PageConfirmaciones(QWidget):
         self._log_carga(reset)
         self._limpiar_seleccion()
         self._estado_pantalla.set_loading("ux_states.confirmaciones.loading")
+        self._set_busy(True, "busy.loading_confirmaciones")
         self._arrancar_worker_carga(token=token)
 
     def _arrancar_worker_carga(self, *, token: int) -> None:
@@ -249,6 +270,7 @@ class PageConfirmaciones(QWidget):
     def _on_carga_ok(self, result, token: int) -> None:
         if token != self._token_carga:
             return
+        self._set_busy(False, "busy.loading_confirmaciones")
         self._total = result.total
         self._render_banner(result.salud_prediccion.estado if result.salud_prediccion else "ROJO")
         self._render_rows(result.items)
@@ -261,12 +283,16 @@ class PageConfirmaciones(QWidget):
                 cta_text_key="ux_states.confirmaciones.cta_refresh",
                 on_cta=lambda: self._load_data(reset=True),
             )
+            self._toast_info("toast.refresh_empty_confirmaciones")
+            self._toast_success("toast.refresh_ok_confirmaciones")
             return
         self._estado_pantalla.set_content(self.table.parentWidget())
+        self._toast_success("toast.refresh_ok_confirmaciones")
 
     def _on_carga_error(self, error_type: str, token: int) -> None:
         if token != self._token_carga:
             return
+        self._set_busy(False, "busy.loading_confirmaciones")
         LOGGER.warning(
             "confirmaciones_carga_error",
             extra={"action": "confirmaciones_carga_error", "error": error_type},
@@ -276,6 +302,7 @@ class PageConfirmaciones(QWidget):
             detalle_tecnico=error_type,
             on_retry=lambda: self._load_data(reset=False),
         )
+        self._toast_error("toast.refresh_fail")
 
     def _log_carga(self, reset: bool) -> None:
         LOGGER.info(

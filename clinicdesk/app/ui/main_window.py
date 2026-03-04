@@ -2,15 +2,19 @@ from __future__ import annotations
 
 from typing import Any, Callable, Dict, Optional
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import QTimer, Qt
 from PySide6.QtGui import QAction
 from PySide6.QtWidgets import (
+    QLabel,
     QHBoxLayout,
     QListWidget,
     QListWidgetItem,
     QMainWindow,
+    QPushButton,
+    QProgressBar,
     QSizePolicy,
     QStackedWidget,
+    QStatusBar,
     QWidget,
 )
 
@@ -22,7 +26,7 @@ from clinicdesk.app.i18n import I18nManager
 from clinicdesk.app.pages.pages_registry import get_pages
 from clinicdesk.app.ui.vistas.main_window import state_controller, validacion_preventiva
 from clinicdesk.app.ui.navigation_intent_store import IntentConsumible
-
+from clinicdesk.app.ui.widgets.toast_manager import ToastManager, ToastPayload
 
 
 _PAGE_TITLES_BY_LANG = {
@@ -104,6 +108,8 @@ class MainWindow(QMainWindow):
         self._factory_by_key: Dict[str, Callable[[], QWidget]] = {}
         self._sidebar_item_by_key: Dict[str, QListWidgetItem] = {}
         self._intent_citas = IntentConsumible[CitasNavigationIntentDTO]()
+        self._busy_key: str | None = None
+        self._busy_default_key = "status.ready"
 
         for p in get_pages(container, self._i18n):
             self._factory_by_key[p.key] = p.factory
@@ -113,6 +119,7 @@ class MainWindow(QMainWindow):
             self._sidebar_item_by_key[p.key] = item
 
         self.sidebar.currentRowChanged.connect(self._on_sidebar_changed)
+        self._build_status_feedback()
 
         self._i18n.subscribe(self._retranslate)
         self._retranslate()
@@ -148,6 +155,37 @@ class MainWindow(QMainWindow):
         self.menu_language.addAction(self.action_lang_es)
         self.menu_language.addAction(self.action_lang_en)
 
+    def _build_status_feedback(self) -> None:
+        self._status_bar = QStatusBar(self)
+        self.setStatusBar(self._status_bar)
+
+        self._busy_label = QLabel(self)
+        self._busy_indicator = QProgressBar(self)
+        self._busy_indicator.setRange(0, 0)
+        self._busy_indicator.setMaximumWidth(120)
+        self._busy_indicator.hide()
+        self._status_bar.addPermanentWidget(self._busy_label)
+        self._status_bar.addPermanentWidget(self._busy_indicator)
+
+        self._toast_close_btn = QPushButton(self)
+        self._toast_close_btn.clicked.connect(self._close_toast)
+        self._toast_label = QLabel(self)
+        self._toast_widget = QWidget(self)
+        toast_layout = QHBoxLayout(self._toast_widget)
+        toast_layout.setContentsMargins(8, 2, 8, 2)
+        toast_layout.setSpacing(8)
+        toast_layout.addWidget(self._toast_label)
+        toast_layout.addWidget(self._toast_close_btn)
+        self._status_bar.addPermanentWidget(self._toast_widget)
+        self._toast_widget.hide()
+
+        self._toast_manager = ToastManager(
+            traducir=self._i18n.t,
+            programar=self._programar_toast,
+            cancelar=self._cancelar_toast,
+        )
+        self._toast_manager.subscribe(self._render_toast)
+
     def _retranslate(self) -> None:
         self.setWindowTitle(self._i18n.t("app.title"))
         self.menu_archivo.setTitle(self._i18n.t("menu.file"))
@@ -167,6 +205,57 @@ class MainWindow(QMainWindow):
                 item.setText(self._i18n.t("nav.confirmaciones"))
                 continue
             item.setText(labels.get(key, item.text()))
+
+        self._toast_close_btn.setText(self._i18n.t("comun.cerrar"))
+        if self._busy_key is None:
+            self._busy_label.setText(self._i18n.t(self._busy_default_key))
+        else:
+            self._busy_label.setText(self._i18n.t(self._busy_key))
+
+    def _programar_toast(self, delay_ms: int, callback: Callable[[], None]) -> QTimer:
+        timer = QTimer(self)
+        timer.setSingleShot(True)
+        timer.timeout.connect(callback)
+        timer.start(delay_ms)
+        return timer
+
+    def _cancelar_toast(self, timer: QTimer) -> None:
+        timer.stop()
+        timer.deleteLater()
+
+    def _close_toast(self) -> None:
+        self._toast_manager.close_current()
+
+    def _render_toast(self, payload: ToastPayload | None) -> None:
+        if payload is None:
+            self._toast_widget.hide()
+            return
+        estilo = {
+            "success": "background:#0f5132;color:#ffffff;border-radius:4px;",
+            "info": "background:#055160;color:#ffffff;border-radius:4px;",
+            "error": "background:#842029;color:#ffffff;border-radius:4px;",
+        }.get(payload.tipo, "")
+        self._toast_widget.setStyleSheet(estilo)
+        self._toast_label.setText(payload.mensaje)
+        self._toast_widget.show()
+
+    def toast_success(self, key: str) -> None:
+        self._toast_manager.success(key)
+
+    def toast_info(self, key: str) -> None:
+        self._toast_manager.info(key)
+
+    def toast_error(self, key: str) -> None:
+        self._toast_manager.error(key)
+
+    def set_busy(self, busy: bool, mensaje_key: str) -> None:
+        self._busy_key = mensaje_key if busy else None
+        if busy:
+            self._busy_indicator.show()
+            self._busy_label.setText(self._i18n.t(mensaje_key))
+            return
+        self._busy_indicator.hide()
+        self._busy_label.setText(self._i18n.t(self._busy_default_key))
 
     def _on_csv_imported(self, entity: str) -> None:
         key_by_entity = {
@@ -259,7 +348,6 @@ class MainWindow(QMainWindow):
         self.stack.setCurrentIndex(index)
         self._call_on_show_index(index)
         self._aplicar_intent_navegacion(key, None)
-
 
     def _normalize_input_heights(self) -> None:
         state_controller._normalize_input_heights(self)

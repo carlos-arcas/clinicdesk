@@ -134,6 +134,22 @@ class PagePacientes(QWidget):
         self.btn_historial.clicked.connect(self._on_historial)
         self.btn_csv.clicked.connect(self._open_csv_dialog)
 
+    def _set_busy(self, activo: bool, mensaje_key: str) -> None:
+        window = self.window()
+        set_busy = getattr(window, "set_busy", None)
+        if callable(set_busy):
+            set_busy(activo, mensaje_key)
+
+    def _toast_success(self, key: str) -> None:
+        toast = getattr(self.window(), "toast_success", None)
+        if callable(toast):
+            toast(key)
+
+    def _toast_error(self, key: str) -> None:
+        toast = getattr(self.window(), "toast_error", None)
+        if callable(toast):
+            toast(key)
+
     def on_show(self) -> None:
         self._refresh()
 
@@ -144,6 +160,7 @@ class PagePacientes(QWidget):
         activo = self.filtros.activo()
         texto = normalize_search_text(self.filtros.texto())
         self._estado_pantalla.set_loading("ux_states.pacientes.loading")
+        self._set_busy(True, "busy.loading_pacientes")
         self._arrancar_worker_carga(token=token, selected_id=selected_id, activo=activo, texto=texto)
 
     def _arrancar_worker_carga(self, *, token: int, selected_id: int | None, activo: bool, texto: str) -> None:
@@ -168,6 +185,7 @@ class PagePacientes(QWidget):
     def _on_carga_ok(self, payload: object, token: int, selected_id: int | None) -> None:
         if token != self._token_carga or not isinstance(payload, dict):
             return
+        self._set_busy(False, "busy.loading_pacientes")
         rows = payload.get("rows", [])
         total_base = int(payload.get("total_base", len(rows)))
         self.filtros.set_contador(len(rows), total_base)
@@ -181,12 +199,15 @@ class PagePacientes(QWidget):
                 cta_text_key="ux_states.pacientes.cta_refresh",
                 on_cta=self._refresh,
             )
+            self._toast_success("toast.refresh_ok_pacientes")
             return
         self._estado_pantalla.set_content(self.table.parentWidget())
+        self._toast_success("toast.refresh_ok_pacientes")
 
     def _on_carga_error(self, error_type: str, token: int) -> None:
         if token != self._token_carga:
             return
+        self._set_busy(False, "busy.loading_pacientes")
         LOGGER.warning(
             "pacientes_carga_error",
             extra={"action": "pacientes_carga_error", "error": error_type},
@@ -196,6 +217,7 @@ class PagePacientes(QWidget):
             detalle_tecnico=error_type,
             on_retry=self._refresh,
         )
+        self._toast_error("toast.refresh_fail")
 
     def _render(self, rows: list[PacienteRow]) -> None:
         self.table.setRowCount(0)
