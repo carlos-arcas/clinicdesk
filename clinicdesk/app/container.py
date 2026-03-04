@@ -3,9 +3,11 @@ from __future__ import annotations
 import os
 import sqlite3
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any
 
 from clinicdesk.app.application.auditoria.audit_service import AuditService
+from clinicdesk.app.application.preferencias.preferencias_usuario import PreferenciasService
 from clinicdesk.app.application.security import AutorizadorAcciones, Role, UserContext
 from clinicdesk.app.application.services.demo_ml_facade import DemoMLFacade
 from clinicdesk.app.application.services.prediccion_ausencias_facade import PrediccionAusenciasFacade
@@ -18,6 +20,7 @@ from clinicdesk.app.composicion.composicion_proveedores import build_proveedor_c
 from clinicdesk.app.composicion.composicion_queries import build_farmacia_queries
 from clinicdesk.app.composicion.composicion_recordatorios import build_recordatorios_citas_facade
 from clinicdesk.app.composicion.composicion_repositorios_sqlite import build_repositorios_sqlite
+from clinicdesk.app.infrastructure.preferencias.repositorio_preferencias_json import RepositorioPreferenciasJson
 from clinicdesk.app.queries.farmacia_queries import FarmaciaQueries
 
 
@@ -62,6 +65,7 @@ class AppContainer:
     audit_service: AuditService
     user_context: UserContext
     autorizador_acciones: AutorizadorAcciones
+    preferencias_service: PreferenciasService
 
     def close(self) -> None:
         try:
@@ -113,6 +117,7 @@ def build_container(connection: sqlite3.Connection) -> AppContainer:
         audit_service=AuditService(repos.auditoria_eventos_repo),
         user_context=user_context,
         autorizador_acciones=autorizador_acciones,
+        preferencias_service=PreferenciasService(RepositorioPreferenciasJson(Path("./data/user_prefs.json"))),
     )
 
 
