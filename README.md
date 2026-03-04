@@ -4,6 +4,47 @@
 
 Arquitectura ML reproducible para predicción de riesgo en citas clínicas, con gobernanza de artefactos y exportación de datos estable para consumo en Power BI.
 
+## 🚀 Getting Started (1 comando)
+
+### Requisitos
+- Python **3.11** o superior.
+- `pip` disponible en la instalación de Python.
+
+### Setup reproducible
+Desde la raíz del repo:
+
+- **Windows (CMD/PowerShell):**
+
+```bat
+scripts\setup.bat
+```
+
+- **Linux/macOS (bash):**
+
+```bash
+./scripts/setup.sh
+```
+
+- **Alternativa multiplataforma:**
+
+```bash
+python scripts/setup.py
+```
+
+El setup crea `.venv/` si no existe, instala `requirements.txt` + `requirements-dev.txt`, y valida `ruff`, `pytest`, `pip-audit` y `mypy`.
+
+### Ejecutar la app
+
+```bash
+python scripts/run_app.py
+```
+
+### Ejecutar gate de PR
+
+```bash
+python -m scripts.gate_pr
+```
+
 ## 🎯 Problema
 En operación clínica, anticipar citas de riesgo (p. ej., potencial no-show o cita con fricción operativa) permite priorizar seguimiento y capacidad de respuesta. Este proyecto aborda ese problema con foco en gobernanza técnica:
 
