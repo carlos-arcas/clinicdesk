@@ -11,6 +11,7 @@ from . import config
 from .basic_repo_checks import check_forbidden_artifacts, check_no_print_calls, check_secret_patterns
 from .mypy_checks import run_mypy_blocking_scope, run_mypy_report
 from .pii_guardrail import check_pii_logging_guardrail
+from .requirements_pin_check import check_requirements_pinneados
 from .pip_audit_check import run_pip_audit
 from .pytest_and_coverage import compute_core_coverage, run_coverage_report, run_pytest_with_trace
 from .ruff_checks import run_required_ruff_checks
@@ -38,6 +39,7 @@ def _run_pre_checks() -> int:
         check_no_print_calls,
         check_forbidden_artifacts,
         check_secret_patterns,
+        check_requirements_pinneados,
         run_pip_audit,
         run_secrets_scan,
         check_pii_logging_guardrail,
