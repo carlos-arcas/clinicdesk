@@ -59,7 +59,9 @@ class PageConfirmaciones(QWidget):
         self._worker_rapido: WorkerRecordatoriosLote | None = None
         self._thread_carga: QThread | None = None
         self._worker_carga: CargaConfirmacionesWorker | None = None
+        self._thread_busqueda_rapida: QThread | None = None
         self._token_carga = 0
+        self._cita_focus_pendiente: int | None = None
         self._db_path = resolver_db_path_desde_conexion(container.connection)
         self._build_ui()
         self._i18n.subscribe(self._retranslate)
@@ -242,6 +244,50 @@ class PageConfirmaciones(QWidget):
         self._set_busy(True, "busy.loading_confirmaciones")
         self._arrancar_worker_carga(token=token)
 
+    def refrescar_desde_atajo(self) -> None:
+        self._load_data(reset=True)
+
+    def buscar_rapido_async(self, texto: str, on_done) -> None:
+        if self._thread_busqueda_rapida is not None and self._thread_busqueda_rapida.isRunning():
+            return
+        self._thread_busqueda_rapida = QThread(self)
+        filtros = self._build_filtros()
+        filtros = FiltrosConfirmacionesDTO(
+            desde=filtros.desde,
+            hasta=filtros.hasta,
+            texto_paciente=texto,
+            recordatorio_filtro=filtros.recordatorio_filtro,
+            riesgo_filtro=filtros.riesgo_filtro,
+        )
+        worker = CargaConfirmacionesWorker(
+            db_path=self._db_path,
+            filtros=filtros,
+            paginacion=PaginacionConfirmacionesDTO(limit=_PAGE_SIZE, offset=0),
+            riesgo_uc=self._container.prediccion_ausencias_facade.obtener_riesgo_agenda_uc,
+            salud_uc=self._container.prediccion_ausencias_facade.obtener_salud_uc,
+        )
+        worker.moveToThread(self._thread_busqueda_rapida)
+        self._thread_busqueda_rapida.started.connect(worker.run)
+        worker.finished_ok.connect(lambda result: on_done(result.items))
+        worker.finished.connect(self._thread_busqueda_rapida.quit)
+        worker.finished.connect(worker.deleteLater)
+        self._thread_busqueda_rapida.finished.connect(self._thread_busqueda_rapida.deleteLater)
+        self._thread_busqueda_rapida.finished.connect(self._reset_thread_busqueda_rapida)
+        self._thread_busqueda_rapida.start()
+
+    def _reset_thread_busqueda_rapida(self) -> None:
+        self._thread_busqueda_rapida = None
+
+    def seleccionar_cita_desde_busqueda(self, cita_id: int) -> None:
+        for row in range(self.table.rowCount()):
+            item = self.table.item(row, _COL_CHECK)
+            if item is not None and item.data(Qt.UserRole) == cita_id:
+                self.table.setCurrentCell(row, _COL_CHECK)
+                self.table.setFocus()
+                return
+        self._cita_focus_pendiente = cita_id
+        self._load_data(reset=True)
+
     def _arrancar_worker_carga(self, *, token: int) -> None:
         if self._thread_carga is not None and self._thread_carga.isRunning():
             return
@@ -274,6 +320,9 @@ class PageConfirmaciones(QWidget):
         self._total = result.total
         self._render_banner(result.salud_prediccion.estado if result.salud_prediccion else "ROJO")
         self._render_rows(result.items)
+        if self._cita_focus_pendiente is not None:
+            self.seleccionar_cita_desde_busqueda(self._cita_focus_pendiente)
+            self._cita_focus_pendiente = None
         self.lbl_totales.setText(
             self._i18n.t("confirmaciones.paginacion.mostrando").format(mostrados=result.mostrados, total=result.total)
         )
