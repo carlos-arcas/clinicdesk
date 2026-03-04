@@ -1,0 +1,35 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "regla": "ml_demo_no_importa_citas",
+      "origen": "clinicdesk/app/application/ml/naive_bayes_citas.py",
+      "destino": "clinicdesk.app.application.features.citas_features",
+      "motivo": "Dependencia transitoria: extracción de features en proceso de migración a puerto explícito."
+    },
+    {
+      "regla": "ml_demo_no_importa_citas",
+      "origen": "clinicdesk/app/application/services/demo_ml_facade.py",
+      "destino": "clinicdesk.app.application.features.citas_features",
+      "motivo": "Facade demo legacy usa features de citas; pendiente desacople por DTO de entrenamiento."
+    },
+    {
+      "regla": "ml_demo_no_importa_citas",
+      "origen": "clinicdesk/app/application/ml/evaluation.py",
+      "destino": "clinicdesk.app.application.features.citas_features",
+      "motivo": "Dependencia transitoria: extracción de features en proceso de migración a puerto explícito."
+    },
+    {
+      "regla": "ml_demo_no_importa_citas",
+      "origen": "clinicdesk/app/application/ml/drift.py",
+      "destino": "clinicdesk.app.application.features.citas_features",
+      "motivo": "Dependencia transitoria: extracción de features en proceso de migración a puerto explícito."
+    },
+    {
+      "regla": "ml_demo_no_importa_citas",
+      "origen": "clinicdesk/app/application/ml/targets.py",
+      "destino": "clinicdesk.app.application.features.citas_features",
+      "motivo": "Dependencia transitoria: extracción de features en proceso de migración a puerto explícito."
+    }
+  ]
+}
