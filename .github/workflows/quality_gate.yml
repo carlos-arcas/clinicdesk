@@ -168,7 +168,20 @@ jobs:
       - name: Install Linux UI libs
         run: |
           sudo apt-get update
-          sudo apt-get install -y xvfb libegl1 libgl1 libxcb-cursor0 libxkbcommon-x11-0
+          sudo apt-get install -y \
+            xvfb \
+            libegl1 \
+            libgl1 \
+            libglib2.0-0 \
+            libxkbcommon-x11-0 \
+            libxcb-cursor0 \
+            libxcb-icccm4 \
+            libxcb-image0 \
+            libxcb-keysyms1 \
+            libxcb-randr0 \
+            libxcb-render-util0 \
+            libxcb-xinerama0 \
+            libxcb-xfixes0
 
       - name: Install dependencies
         run: |
@@ -184,10 +197,11 @@ jobs:
         env:
           PYTHONPATH: .
           QT_QPA_PLATFORM: offscreen
+          QT_LOGGING_RULES: qt.qpa.*=false
         run: |
           if [ -d tests/ui ] || rg -n "@pytest\.mark\.uiqt|pytestmark\s*=.*uiqt" tests >/dev/null 2>&1; then
             set +e
-            xvfb-run -a python -m pytest -q -m "uiqt" | tee uiqt.log
+            xvfb-run -a python -m pytest -q -m "uiqt" -rs tests/ui | tee uiqt.log
             rc=$?
             set -e
             if [ "$rc" -eq 5 ]; then
@@ -198,6 +212,34 @@ jobs:
           else
             echo "No UI Qt tests/markers detected; skipping ui_extended job."
           fi
+
+      - name: Validate UI Qt run is not all-skipped
+        if: always()
+        run: |
+          if [ ! -f uiqt.log ]; then
+            echo "uiqt.log not found; skipping UI Qt skip validation."
+            exit 0
+          fi
+          python - <<'PY'
+          import re
+          import sys
+          from pathlib import Path
+
+          log = Path("uiqt.log").read_text(encoding="utf-8", errors="ignore")
+          no_ejecutados = bool(re.search(r"=+\s*0\s+passed\b", log)) or bool(
+              re.search(r"collected\s+0\s+items", log)
+          )
+          con_skipped = "skipped" in log.lower()
+
+          if no_ejecutados and con_skipped:
+              print(
+                  "UI Qt job failed: pytest reported skips with zero executed tests. "
+                  "Review Qt runtime dependencies and headless setup."
+              )
+              sys.exit(1)
+
+          print("UI Qt skip validation passed.")
+          PY
 
       - name: Upload UI Qt logs
         if: always()
