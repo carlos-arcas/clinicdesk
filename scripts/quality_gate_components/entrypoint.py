@@ -6,6 +6,7 @@ from pathlib import Path
 
 from clinicdesk.app.bootstrap_logging import configure_logging, set_run_context
 from scripts.structural_gate import run_structural_gate
+from scripts.check_changelog import check_changelog
 
 from . import config
 from .basic_repo_checks import check_forbidden_artifacts, check_no_print_calls, check_secret_patterns
@@ -50,6 +51,18 @@ def _run_pre_checks() -> int:
     return 0
 
 
+def _run_docs_checks() -> int:
+    try:
+        check_changelog(path=config.REPO_ROOT / "CHANGELOG.md", version=config.APP_VERSION)
+    except ValueError as exc:
+        _LOGGER.error("[quality-gate] ❌ CHANGELOG inválido: %s", exc)
+        return 2
+    except OSError as exc:
+        _LOGGER.error("[quality-gate] ❌ No se pudo leer CHANGELOG.md: %s", exc)
+        return 2
+    return 0
+
+
 def _run_test_and_coverage() -> int:
     pytest_args = ["-q", "-m", "not ui"]
     _LOGGER.info("[quality-gate] Ejecutando pytest: python -m pytest %s", " ".join(pytest_args))
@@ -91,7 +104,7 @@ def main() -> int:
     configure_logging("clinicdesk-quality-gate", config.REPO_ROOT / "logs", level="INFO", json=False)
     set_run_context("qualitygate")
 
-    for stage in (_run_pre_checks, _run_post_static_checks, _run_test_and_coverage):
+    for stage in (_run_pre_checks, _run_post_static_checks, _run_test_and_coverage, _run_docs_checks):
         rc = stage()
         if rc != 0:
             return rc

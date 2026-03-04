@@ -1,0 +1,62 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  release:
+    name: release-tag
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          set -euxo pipefail
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+          python -m pip install -r requirements-dev.txt
+
+      - name: Validate tag matches __version__
+        id: validar_version
+        env:
+          GIT_TAG: ${{ github.ref_name }}
+        run: |
+          set -euxo pipefail
+          python - <<'PY'
+          import os
+
+          from clinicdesk import __version__
+          from scripts.version import assert_tag_matches_version
+
+          assert_tag_matches_version(tag=os.environ["GIT_TAG"], version=__version__)
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as salida:
+              salida.write(f"version={__version__}\n")
+          PY
+
+      - name: Run canonical PR gate (blocking)
+        env:
+          PYTHONPATH: .
+        run: python -m scripts.gate_pr
+
+      - name: Build release bundle
+        env:
+          PYTHONPATH: .
+        run: python -m scripts.build_release
+
+      - name: Upload release artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: clinicdesk-release-v${{ steps.validar_version.outputs.version }}
+          path: dist/clinicdesk-${{ steps.validar_version.outputs.version }}.zip
+          if-no-files-found: error
