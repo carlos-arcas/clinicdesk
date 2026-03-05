@@ -65,15 +65,90 @@ clinicdesk/app/infrastructure/sqlite/demo_seed/orchestration.py:83: error: Argum
 clinicdesk/app/infrastructure/sqlite/demo_seed/orchestration.py:84: error: Argument 1 to "seed_turnos_y_calendario" has incompatible type "object"; expected "Connection"  [arg-type]
 clinicdesk/app/infrastructure/sqlite/demo_seed/orchestration.py:85: error: Argument 1 to "seed_ausencias" has incompatible type "object"; expected "Connection"  [arg-type]
 clinicdesk/app/infrastructure/sqlite/demo_seed/orchestration.py:141: error: "SeederProtocol" has no attribute "_build_result"  [attr-defined]
-clinicdesk/app/bootstrap_logging.py:70: error: Argument 2 of "process" is incompatible with supertype "logging.LoggerAdapter"; supertype defines the argument type as "MutableMapping[str, Any]"  [override]
-clinicdesk/app/bootstrap_logging.py:70: note: This violates the Liskov substitution principle
-clinicdesk/app/bootstrap_logging.py:70: note: See https://mypy.readthedocs.io/en/stable/common_issues.html#incompatible-overrides
+clinicdesk/app/bootstrap_logging.py:73: error: Argument 1 to "LogRecord" has incompatible type "None"; expected "str"  [arg-type]
+clinicdesk/app/bootstrap_logging.py:73: error: Argument 2 to "LogRecord" has incompatible type "None"; expected "int"  [arg-type]
+clinicdesk/app/bootstrap_logging.py:137: error: Argument 2 of "process" is incompatible with supertype "logging.LoggerAdapter"; supertype defines the argument type as "MutableMapping[str, Any]"  [override]
+clinicdesk/app/bootstrap_logging.py:137: note: This violates the Liskov substitution principle
+clinicdesk/app/bootstrap_logging.py:137: note: See https://mypy.readthedocs.io/en/stable/common_issues.html#incompatible-overrides
 clinicdesk/app/application/services/feature_store_service.py:80: error: Argument 1 to "asdict" has incompatible type "DataclassInstance | type[DataclassInstance]"; expected "DataclassInstance"  [arg-type]
 clinicdesk/app/application/ml/drift.py:54: error: Cannot infer type of lambda  [misc]
 clinicdesk/app/application/ml/drift.py:55: error: Cannot infer type of lambda  [misc]
+clinicdesk/app/ui/widgets/quick_search_dialog.py:55: error: "type[Qt]" has no attribute "WindowContextHelpButtonHint"  [attr-defined]
+clinicdesk/app/ui/widgets/quick_search_dialog.py:93: error: "type[Qt]" has no attribute "Key_Escape"  [attr-defined]
+clinicdesk/app/ui/widgets/quick_search_dialog.py:124: error: Item "None" of "ContextoBusquedaRapida[object] | None" has no attribute "render_item"  [union-attr]
+clinicdesk/app/ui/widgets/quick_search_dialog.py:127: error: Item "None" of "ContextoBusquedaRapida[object] | None" has no attribute "empty_key"  [union-attr]
+clinicdesk/app/ui/widgets/estado_pantalla_widget.py:34: error: Item "None" of "Any | None" has no attribute "addWidget"  [union-attr]
+clinicdesk/app/ui/widgets/estado_pantalla_widget.py:41: error: Item "None" of "Any | None" has no attribute "addWidget"  [union-attr]
+clinicdesk/app/ui/widgets/estado_pantalla_widget.py:42: error: Item "None" of "Any | None" has no attribute "addWidget"  [union-attr]
+clinicdesk/app/ui/widgets/estado_pantalla_widget.py:51: error: Item "None" of "Any | None" has no attribute "addWidget"  [union-attr]
+clinicdesk/app/ui/widgets/estado_pantalla_widget.py:52: error: Item "None" of "Any | None" has no attribute "addWidget"  [union-attr]
+clinicdesk/app/ui/widgets/estado_pantalla_widget.py:53: error: Item "None" of "Any | None" has no attribute "addWidget"  [union-attr]
 clinicdesk/app/pages/home/page.py:16: error: "type[Qt]" has no attribute "AlignCenter"  [attr-defined]
 clinicdesk/app/pages/home/page.py:18: error: "type[Qt]" has no attribute "AlignCenter"  [attr-defined]
 clinicdesk/app/pages/citas/riesgo_ausencia_dialog.py:69: error: "type[Qt]" has no attribute "NoFocus"  [attr-defined]
+clinicdesk/app/queries/auditoria_accesos_queries.py:144: error: Incompatible return value type (got "tuple[list[AuditoriaAccesoItemQuery], int | None]", expected "tuple[list[AuditoriaAccesoItemQuery], int]")  [return-value]
+clinicdesk/app/application/usecases/dashboard_gestion_prediccion.py:99: error: "object" not callable  [operator]
+clinicdesk/app/ui/viewmodels/pacientes_vm.py:78: error: Argument "tipo" to "EventoUI" has incompatible type "str"; expected "Literal['toast', 'job', 'nav']"  [arg-type]
+clinicdesk/app/pages/turnos/dialogs/bloque_form.py:42: error: Argument 1 to "int" has incompatible type "int | None"; expected "str | Buffer | SupportsInt | SupportsIndex | SupportsTrunc"  [arg-type]
+clinicdesk/app/application/usecases/filtros_auditoria.py:22: error: Argument 1 to "_calcular_rango_por_preset" has incompatible type "str | None"; expected "str"  [arg-type]
+clinicdesk/app/infrastructure/sqlite/demo_seed/appointments.py:53: error: Argument 1 to "int" has incompatible type "int | None"; expected "str | Buffer | SupportsInt | SupportsIndex | SupportsTrunc"  [arg-type]
+clinicdesk/app/application/usecases/dashboard_gestion.py:95: error: Argument 1 to "execute" of "ObtenerMetricasOperativasPort" has incompatible type "date | None"; expected "date"  [arg-type]
+clinicdesk/app/application/usecases/dashboard_gestion.py:95: error: Argument 2 to "execute" of "ObtenerMetricasOperativasPort" has incompatible type "date | None"; expected "date"  [arg-type]
+clinicdesk/app/application/usecases/dashboard_gestion.py:98: error: Item "None" of "date | None" has no attribute "isoformat"  [union-attr]
+clinicdesk/app/application/usecases/dashboard_gestion.py:99: error: Item "None" of "date | None" has no attribute "isoformat"  [union-attr]
+clinicdesk/app/pages/pacientes/ui_builder.py:65: error: "type[Qt]" has no attribute "CustomContextMenu"  [attr-defined]
+clinicdesk/app/pages/pacientes/render_pacientes.py:54: error: "object" has no attribute "nombre"  [attr-defined]
+clinicdesk/app/pages/pacientes/render_pacientes.py:55: error: "object" has no attribute "nombre"  [attr-defined]
+clinicdesk/app/application/usecases/exportar_auditoria_csv.py:109: error: Argument 1 to "_render_csv" has incompatible type "list[AuditoriaAccesoItemQuery]"; expected "list[AuditoriaAccesoItemQuery | Mapping[str, Any]]"  [arg-type]
+clinicdesk/app/application/usecases/exportar_auditoria_csv.py:109: note: "list" is invariant -- see https://mypy.readthedocs.io/en/stable/common_issues.html#variance
+clinicdesk/app/application/usecases/exportar_auditoria_csv.py:109: note: Consider using "Sequence" instead, which is covariant
+clinicdesk/app/pages/auditoria/exportador_csv.py:65: error: Argument 1 to "normalizar_ruta_sugerida_exportacion" has incompatible type "object"; expected "str | None"  [arg-type]
+clinicdesk/app/application/prediccion_operativa/usecases.py:26: error: Incompatible return value type (got "list[FilaEntrenamientoDuracion]", expected "list[object]")  [return-value]
+clinicdesk/app/application/prediccion_operativa/usecases.py:26: note: "list" is invariant -- see https://mypy.readthedocs.io/en/stable/common_issues.html#variance
+clinicdesk/app/application/prediccion_operativa/usecases.py:26: note: Consider using "Sequence" instead, which is covariant
+clinicdesk/app/application/prediccion_operativa/usecases.py:27: error: Incompatible return value type (got "list[FilaEntrenamientoEspera]", expected "list[object]")  [return-value]
+clinicdesk/app/application/prediccion_operativa/usecases.py:27: note: "list" is invariant -- see https://mypy.readthedocs.io/en/stable/common_issues.html#variance
+clinicdesk/app/application/prediccion_operativa/usecases.py:27: note: Consider using "Sequence" instead, which is covariant
+clinicdesk/app/application/prediccion_operativa/usecases.py:40: error: "object" has no attribute "entrenar"  [attr-defined]
+clinicdesk/app/application/prediccion_ausencias/resultados_recientes.py:110: error: Need type annotation for "filas"  [var-annotated]
+clinicdesk/app/pages/auditoria/page.py:59: error: Argument 1 to "ExportarAuditoriaCSV" has incompatible type "AuditoriaAccesosQueries"; expected "ExportarAuditoriaCSVGateway"  [arg-type]
+clinicdesk/app/pages/auditoria/page.py:59: note: Following member(s) of "AuditoriaAccesosQueries" have conflicts:
+clinicdesk/app/pages/auditoria/page.py:59: note:     Expected:
+clinicdesk/app/pages/auditoria/page.py:59: note:         def buscar_auditoria_accesos(self, filtros: FiltrosAuditoriaAccesos, limit: int, offset: int) -> tuple[list[AuditoriaAccesoItemQuery], int]
+clinicdesk/app/pages/auditoria/page.py:59: note:     Got:
+clinicdesk/app/pages/auditoria/page.py:59: note:         def buscar_auditoria_accesos(self, filtros: FiltrosAuditoriaAccesos, limit: int, offset: int, *, calcular_total: bool = ...) -> tuple[list[AuditoriaAccesoItemQuery], int | None]
+clinicdesk/app/pages/auditoria/page.py:63: error: Need type annotation for "_items_acumulados" (hint: "_items_acumulados: list[<type>] = ...")  [var-annotated]
+clinicdesk/app/pages/auditoria/page.py:205: error: Name "_build_filtros" already defined on line 103  [no-redef]
+clinicdesk/app/pages/auditoria/page.py:209: error: "_error_fecha" of "PageAuditoria" does not return a value (it only ever returns None)  [func-returns-value]
+clinicdesk/app/pages/auditoria/page.py:211: error: "_error_fecha" of "PageAuditoria" does not return a value (it only ever returns None)  [func-returns-value]
+clinicdesk/app/application/usecases/export_csv.py:156: error: Argument 3 to "_write_csv" has incompatible type "list[tuple[str, str, str, str, str, str, str]]"; expected "list[tuple[str, ...]]"  [arg-type]
+clinicdesk/app/application/usecases/export_csv.py:156: note: "list" is invariant -- see https://mypy.readthedocs.io/en/stable/common_issues.html#variance
+clinicdesk/app/application/usecases/export_csv.py:156: note: Consider using "Sequence" instead, which is covariant
+clinicdesk/app/application/usecases/export_csv.py:176: error: Argument 3 to "_write_csv" has incompatible type "list[tuple[str, str, str, str, str]]"; expected "list[tuple[str, ...]]"  [arg-type]
+clinicdesk/app/application/usecases/export_csv.py:176: note: "list" is invariant -- see https://mypy.readthedocs.io/en/stable/common_issues.html#variance
+clinicdesk/app/application/usecases/export_csv.py:176: note: Consider using "Sequence" instead, which is covariant
+clinicdesk/app/pages/prediccion_ausencias/cerrar_citas_antiguas_dialog.py:41: error: Need type annotation for "_items" (hint: "_items: list[<type>] = ...")  [var-annotated]
+clinicdesk/app/pages/prediccion_operativa/page.py:117: error: Incompatible types in assignment (expression has type "list[CitaProximaOperativaDTO]", variable has type "list[object]")  [assignment]
+clinicdesk/app/pages/prediccion_operativa/page.py:117: note: "list" is invariant -- see https://mypy.readthedocs.io/en/stable/common_issues.html#variance
+clinicdesk/app/pages/prediccion_operativa/page.py:117: note: Consider using "Sequence" instead, which is covariant
+clinicdesk/app/pages/prediccion_operativa/page.py:196: error: "object" has no attribute "cita_id"  [attr-defined]
+clinicdesk/app/pages/prediccion_operativa/page.py:197: error: "object" has no attribute "fecha"  [attr-defined]
+clinicdesk/app/pages/prediccion_operativa/page.py:197: error: "object" has no attribute "hora"  [attr-defined]
+clinicdesk/app/pages/prediccion_operativa/page.py:197: error: "object" has no attribute "paciente"  [attr-defined]
+clinicdesk/app/pages/prediccion_operativa/page.py:197: error: "object" has no attribute "medico"  [attr-defined]
+clinicdesk/app/pages/prediccion_operativa/page.py:201: error: "object" has no attribute "cita_id"  [attr-defined]
+clinicdesk/app/pages/prediccion_operativa/page.py:234: error: "type[Qt]" has no attribute "Checked"  [attr-defined]
+clinicdesk/app/pages/prediccion_ausencias/page.py:489: error: "type[Qt]" has no attribute "Checked"  [attr-defined]
+clinicdesk/app/pages/prediccion_ausencias/page.py:491: error: "type[Qt]" has no attribute "Checked"  [attr-defined]
+clinicdesk/app/pages/prediccion_ausencias/page.py:495: error: No overload variant of "int" matches argument type "object"  [call-overload]
+clinicdesk/app/pages/prediccion_ausencias/page.py:495: note: Possible overload variants:
+clinicdesk/app/pages/prediccion_ausencias/page.py:495: note:     def int(str | Buffer | SupportsInt | SupportsIndex | SupportsTrunc = ..., /) -> int
+clinicdesk/app/pages/prediccion_ausencias/page.py:495: note:     def int(str | bytes | bytearray, /, base: SupportsIndex) -> int
+clinicdesk/app/pages/citas/lote_hitos_worker.py:56: error: Unused "type: ignore" comment  [unused-ignore]
+clinicdesk/app/pages/citas/widgets/panel_filtros_citas_widget.py:118: error: Argument 1 to "get" of "dict" has incompatible type "str | None"; expected "str"  [arg-type]
+clinicdesk/app/pages/citas/widgets/panel_filtros_citas_widget.py:120: error: "object" has no attribute "setFocus"  [attr-defined]
+clinicdesk/app/pages/medicamentos/dialogs/medicamento_form.py:66: error: Unexpected keyword argument "cantidad_en_almacen" for "Medicamento"; did you mean "cantidad_almacen"?  [call-arg]
+clinicdesk/app/pages/materiales/dialogs/material_form.py:67: error: Unexpected keyword argument "cantidad_en_almacen" for "Material"; did you mean "cantidad_almacen"?  [call-arg]
 clinicdesk/app/infrastructure/sqlite/repos_salas.py:69: error: Argument 1 to "int" has incompatible type "int | None"; expected "str | Buffer | SupportsInt | SupportsIndex | SupportsTrunc"  [arg-type]
 clinicdesk/app/infrastructure/sqlite/repos_salas.py:129: error: Need type annotation for "params" (hint: "params: list[<type>] = ...")  [var-annotated]
 clinicdesk/app/infrastructure/sqlite/repos_salas.py:170: error: Argument 1 to "append" of "list" has incompatible type "int"; expected "str"  [arg-type]
@@ -129,95 +204,19 @@ clinicdesk/app/application/csv/csv_mapping.py:73: error: "CsvMappingMixin" has n
 clinicdesk/app/application/csv/csv_mapping.py:80: error: "CsvMappingMixin" has no attribute "_parse_tipo_sala"  [attr-defined]
 clinicdesk/app/application/csv/csv_mapping.py:81: error: "CsvMappingMixin" has no attribute "_none_if_empty"  [attr-defined]
 clinicdesk/app/application/csv/csv_mapping.py:82: error: "CsvMappingMixin" has no attribute "_parse_bool_default"  [attr-defined]
-clinicdesk/app/queries/auditoria_accesos_queries.py:144: error: Incompatible return value type (got "tuple[list[AuditoriaAccesoItemQuery], int | None]", expected "tuple[list[AuditoriaAccesoItemQuery], int]")  [return-value]
-clinicdesk/app/application/usecases/dashboard_gestion_prediccion.py:99: error: "object" not callable  [operator]
-clinicdesk/app/pages/turnos/dialogs/bloque_form.py:42: error: Argument 1 to "int" has incompatible type "int | None"; expected "str | Buffer | SupportsInt | SupportsIndex | SupportsTrunc"  [arg-type]
-clinicdesk/app/pages/medicamentos/dialogs/medicamento_form.py:66: error: Unexpected keyword argument "cantidad_en_almacen" for "Medicamento"; did you mean "cantidad_almacen"?  [call-arg]
-clinicdesk/app/pages/materiales/dialogs/material_form.py:67: error: Unexpected keyword argument "cantidad_en_almacen" for "Material"; did you mean "cantidad_almacen"?  [call-arg]
 clinicdesk/app/infrastructure/sqlite/repos_pacientes.py:39: error: Argument 1 to "int" has incompatible type "int | None"; expected "str | Buffer | SupportsInt | SupportsIndex | SupportsTrunc"  [arg-type]
-clinicdesk/app/infrastructure/repositorios_sqlite.py:44: error: Argument 1 to "int" has incompatible type "int | None"; expected "str | Buffer | SupportsInt | SupportsIndex | SupportsTrunc"  [arg-type]
-clinicdesk/app/infrastructure/repositorios_sqlite.py:58: error: Return type "list[Paciente]" of "listar_todos" incompatible with return type "list[Medico]" in supertype "clinicdesk.app.domain.repositorios.RepositorioMedicos"  [override]
-clinicdesk/app/infrastructure/repositorios_sqlite.py:73: error: Signature of "crear" incompatible with supertype "clinicdesk.app.domain.repositorios.RepositorioMedicos"  [override]
-clinicdesk/app/infrastructure/repositorios_sqlite.py:73: note:      Superclass:
-clinicdesk/app/infrastructure/repositorios_sqlite.py:73: note:          def crear(self, id_medico: int, tipo_documento: str, n_documento: str, nombre: str, especialidad: str, telefono: str) -> int
-clinicdesk/app/infrastructure/repositorios_sqlite.py:73: note:      Subclass:
-clinicdesk/app/infrastructure/repositorios_sqlite.py:73: note:          def crear(self, nombre: str, telefono: str) -> int
-clinicdesk/app/infrastructure/repositorios_sqlite.py:79: error: Argument 1 to "int" has incompatible type "int | None"; expected "str | Buffer | SupportsInt | SupportsIndex | SupportsTrunc"  [arg-type]
-clinicdesk/app/infrastructure/repositorios_sqlite.py:95: error: Unexpected keyword argument "id_paciente" for "Cita"  [call-arg]
-clinicdesk/app/infrastructure/repositorios_sqlite.py:95: error: Unexpected keyword argument "fecha_hora" for "Cita"  [call-arg]
-clinicdesk/app/infrastructure/repositorios_sqlite.py:111: error: Argument 1 to "int" has incompatible type "int | None"; expected "str | Buffer | SupportsInt | SupportsIndex | SupportsTrunc"  [arg-type]
-clinicdesk/app/application/usecases/pacientes_crud.py:17: error: "RepositorioPacientes" has no attribute "create"  [attr-defined]
-clinicdesk/app/application/usecases/pacientes_crud.py:27: error: "RepositorioPacientes" has no attribute "update"  [attr-defined]
-clinicdesk/app/application/usecases/pacientes_crud.py:37: error: "RepositorioPacientes" has no attribute "delete"  [attr-defined]
-clinicdesk/app/application/usecases/eliminar_cita.py:18: error: "RepositorioCitas" has no attribute "delete"  [attr-defined]
-clinicdesk/app/application/usecases/filtros_auditoria.py:22: error: Argument 1 to "_calcular_rango_por_preset" has incompatible type "str | None"; expected "str"  [arg-type]
-clinicdesk/app/infrastructure/sqlite/demo_seed/appointments.py:53: error: Argument 1 to "int" has incompatible type "int | None"; expected "str | Buffer | SupportsInt | SupportsIndex | SupportsTrunc"  [arg-type]
-clinicdesk/app/application/usecases/dashboard_gestion.py:95: error: Argument 1 to "execute" of "ObtenerMetricasOperativasPort" has incompatible type "date | None"; expected "date"  [arg-type]
-clinicdesk/app/application/usecases/dashboard_gestion.py:95: error: Argument 2 to "execute" of "ObtenerMetricasOperativasPort" has incompatible type "date | None"; expected "date"  [arg-type]
-clinicdesk/app/application/usecases/dashboard_gestion.py:98: error: Item "None" of "date | None" has no attribute "isoformat"  [union-attr]
-clinicdesk/app/application/usecases/dashboard_gestion.py:99: error: Item "None" of "date | None" has no attribute "isoformat"  [union-attr]
-clinicdesk/app/application/usecases/exportar_auditoria_csv.py:77: error: Argument 1 to "_render_csv" has incompatible type "list[AuditoriaAccesoItemQuery]"; expected "list[AuditoriaAccesoItemQuery | Mapping[str, Any]]"  [arg-type]
-clinicdesk/app/application/usecases/exportar_auditoria_csv.py:77: note: "list" is invariant -- see https://mypy.readthedocs.io/en/stable/common_issues.html#variance
-clinicdesk/app/application/usecases/exportar_auditoria_csv.py:77: note: Consider using "Sequence" instead, which is covariant
 clinicdesk/app/pages/pacientes/dialogs/historial_paciente_dialog.py:235: error: Item "None" of "Any | None" has no attribute "setData"  [union-attr]
 clinicdesk/app/pages/pacientes/dialogs/historial_paciente_dialog.py:295: error: Argument "desde_iso" to "EstadoPersistidoFiltros" has incompatible type "object"; expected "str | None"  [arg-type]
 clinicdesk/app/pages/pacientes/dialogs/historial_paciente_dialog.py:296: error: Argument "hasta_iso" to "EstadoPersistidoFiltros" has incompatible type "object"; expected "str | None"  [arg-type]
 clinicdesk/app/pages/pacientes/dialogs/historial_paciente_dialog.py:297: error: Argument "texto" to "EstadoPersistidoFiltros" has incompatible type "object"; expected "str | None"  [arg-type]
 clinicdesk/app/pages/pacientes/dialogs/historial_paciente_dialog.py:298: error: Argument "estado" to "EstadoPersistidoFiltros" has incompatible type "object"; expected "str | None"  [arg-type]
 clinicdesk/app/pages/pacientes/dialogs/historial_paciente_dialog.py:383: error: Item "None" of "Any | None" has no attribute "data"  [union-attr]
-clinicdesk/app/pages/auditoria/exportador_csv.py:47: error: Argument 1 to "normalizar_ruta_sugerida_exportacion" has incompatible type "object"; expected "str | None"  [arg-type]
-clinicdesk/app/application/prediccion_operativa/usecases.py:26: error: Incompatible return value type (got "list[FilaEntrenamientoDuracion]", expected "list[object]")  [return-value]
-clinicdesk/app/application/prediccion_operativa/usecases.py:26: note: "list" is invariant -- see https://mypy.readthedocs.io/en/stable/common_issues.html#variance
-clinicdesk/app/application/prediccion_operativa/usecases.py:26: note: Consider using "Sequence" instead, which is covariant
-clinicdesk/app/application/prediccion_operativa/usecases.py:27: error: Incompatible return value type (got "list[FilaEntrenamientoEspera]", expected "list[object]")  [return-value]
-clinicdesk/app/application/prediccion_operativa/usecases.py:27: note: "list" is invariant -- see https://mypy.readthedocs.io/en/stable/common_issues.html#variance
-clinicdesk/app/application/prediccion_operativa/usecases.py:27: note: Consider using "Sequence" instead, which is covariant
-clinicdesk/app/application/prediccion_operativa/usecases.py:40: error: "object" has no attribute "entrenar"  [attr-defined]
-clinicdesk/app/application/prediccion_ausencias/resultados_recientes.py:110: error: Need type annotation for "filas"  [var-annotated]
 clinicdesk/app/infrastructure/sqlite/demo_data_seeder.py:79: error: Argument "seeder" to "persist_demo_data" has incompatible type "DemoDataSeeder"; expected "SeederProtocol"  [arg-type]
 clinicdesk/app/infrastructure/sqlite/demo_data_seeder.py:79: note: Following member(s) of "DemoDataSeeder" have conflicts:
 clinicdesk/app/infrastructure/sqlite/demo_data_seeder.py:79: note:     _connection: expected "object", got "Connection"
-clinicdesk/app/pages/citas/lote_hitos_worker.py:56: error: Unused "type: ignore" comment  [unused-ignore]
-clinicdesk/app/pages/citas/widgets/panel_filtros_citas_widget.py:118: error: Argument 1 to "get" of "dict" has incompatible type "str | None"; expected "str"  [arg-type]
-clinicdesk/app/pages/citas/widgets/panel_filtros_citas_widget.py:120: error: "object" has no attribute "setFocus"  [attr-defined]
-clinicdesk/app/pages/auditoria/page.py:47: error: Argument 1 to "ExportarAuditoriaCSV" has incompatible type "AuditoriaAccesosQueries"; expected "ExportarAuditoriaCSVGateway"  [arg-type]
-clinicdesk/app/pages/auditoria/page.py:47: note: Following member(s) of "AuditoriaAccesosQueries" have conflicts:
-clinicdesk/app/pages/auditoria/page.py:47: note:     Expected:
-clinicdesk/app/pages/auditoria/page.py:47: note:         def buscar_auditoria_accesos(self, filtros: FiltrosAuditoriaAccesos, limit: int, offset: int) -> tuple[list[AuditoriaAccesoItemQuery], int]
-clinicdesk/app/pages/auditoria/page.py:47: note:     Got:
-clinicdesk/app/pages/auditoria/page.py:47: note:         def buscar_auditoria_accesos(self, filtros: FiltrosAuditoriaAccesos, limit: int, offset: int, *, calcular_total: bool = ...) -> tuple[list[AuditoriaAccesoItemQuery], int | None]
-clinicdesk/app/pages/auditoria/page.py:51: error: Need type annotation for "_items_acumulados" (hint: "_items_acumulados: list[<type>] = ...")  [var-annotated]
-clinicdesk/app/pages/auditoria/page.py:176: error: Name "_build_filtros" already defined on line 91  [no-redef]
-clinicdesk/app/pages/auditoria/page.py:180: error: "_error_fecha" of "PageAuditoria" does not return a value (it only ever returns None)  [func-returns-value]
-clinicdesk/app/pages/auditoria/page.py:182: error: "_error_fecha" of "PageAuditoria" does not return a value (it only ever returns None)  [func-returns-value]
-clinicdesk/app/application/usecases/export_csv.py:156: error: Argument 3 to "_write_csv" has incompatible type "list[tuple[str, str, str, str, str, str, str]]"; expected "list[tuple[str, ...]]"  [arg-type]
-clinicdesk/app/application/usecases/export_csv.py:156: note: "list" is invariant -- see https://mypy.readthedocs.io/en/stable/common_issues.html#variance
-clinicdesk/app/application/usecases/export_csv.py:156: note: Consider using "Sequence" instead, which is covariant
-clinicdesk/app/application/usecases/export_csv.py:176: error: Argument 3 to "_write_csv" has incompatible type "list[tuple[str, str, str, str, str]]"; expected "list[tuple[str, ...]]"  [arg-type]
-clinicdesk/app/application/usecases/export_csv.py:176: note: "list" is invariant -- see https://mypy.readthedocs.io/en/stable/common_issues.html#variance
-clinicdesk/app/application/usecases/export_csv.py:176: note: Consider using "Sequence" instead, which is covariant
-clinicdesk/app/pages/prediccion_ausencias/cerrar_citas_antiguas_dialog.py:41: error: Need type annotation for "_items" (hint: "_items: list[<type>] = ...")  [var-annotated]
 clinicdesk/app/application/services/demo_ml_facade.py:227: error: "BaselineCitasPredictor" has no attribute "threshold"  [attr-defined]
-clinicdesk/app/pages/prediccion_operativa/page.py:117: error: Incompatible types in assignment (expression has type "list[CitaProximaOperativaDTO]", variable has type "list[object]")  [assignment]
-clinicdesk/app/pages/prediccion_operativa/page.py:117: note: "list" is invariant -- see https://mypy.readthedocs.io/en/stable/common_issues.html#variance
-clinicdesk/app/pages/prediccion_operativa/page.py:117: note: Consider using "Sequence" instead, which is covariant
-clinicdesk/app/pages/prediccion_operativa/page.py:196: error: "object" has no attribute "cita_id"  [attr-defined]
-clinicdesk/app/pages/prediccion_operativa/page.py:197: error: "object" has no attribute "fecha"  [attr-defined]
-clinicdesk/app/pages/prediccion_operativa/page.py:197: error: "object" has no attribute "hora"  [attr-defined]
-clinicdesk/app/pages/prediccion_operativa/page.py:197: error: "object" has no attribute "paciente"  [attr-defined]
-clinicdesk/app/pages/prediccion_operativa/page.py:197: error: "object" has no attribute "medico"  [attr-defined]
-clinicdesk/app/pages/prediccion_operativa/page.py:201: error: "object" has no attribute "cita_id"  [attr-defined]
-clinicdesk/app/pages/prediccion_operativa/page.py:234: error: "type[Qt]" has no attribute "Checked"  [attr-defined]
-clinicdesk/app/pages/prediccion_ausencias/page.py:489: error: "type[Qt]" has no attribute "Checked"  [attr-defined]
-clinicdesk/app/pages/prediccion_ausencias/page.py:491: error: "type[Qt]" has no attribute "Checked"  [attr-defined]
-clinicdesk/app/pages/prediccion_ausencias/page.py:495: error: No overload variant of "int" matches argument type "object"  [call-overload]
-clinicdesk/app/pages/prediccion_ausencias/page.py:495: note: Possible overload variants:
-clinicdesk/app/pages/prediccion_ausencias/page.py:495: note:     def int(str | Buffer | SupportsInt | SupportsIndex | SupportsTrunc = ..., /) -> int
-clinicdesk/app/pages/prediccion_ausencias/page.py:495: note:     def int(str | bytes | bytearray, /, base: SupportsIndex) -> int
-clinicdesk/app/queries/citas_queries.py:97: error: Incompatible types in assignment (expression has type "str | None", variable has type "str")  [assignment]
 clinicdesk/app/pages/turnos/page.py:87: error: "type[Qt]" has no attribute "CustomContextMenu"  [attr-defined]
 clinicdesk/app/pages/turnos/page.py:173: error: Incompatible types in assignment (expression has type "BloqueCalendarioPersonal", variable has type "BloqueCalendarioMedico")  [assignment]
-clinicdesk/app/pages/turnos/page.py:182: error: Argument 1 to "create" of "CalendarioPersonalRepository" has incompatible type "BloqueCalendarioMedico"; expected "BloqueCalendarioPersonal"  [arg-type]
 clinicdesk/app/pages/turnos/page.py:233: error: "None" has no attribute "setEnabled"  [attr-defined]
 clinicdesk/app/pages/salas/page.py:49: error: Name "QComboBox" is not defined  [name-defined]
 clinicdesk/app/pages/salas/page.py:72: error: "type[Qt]" has no attribute "CustomContextMenu"  [attr-defined]
@@ -226,31 +225,21 @@ clinicdesk/app/pages/salas/page.py:211: error: "None" has no attribute "setEnabl
 clinicdesk/app/pages/personal/page.py:71: error: "type[Qt]" has no attribute "CustomContextMenu"  [attr-defined]
 clinicdesk/app/pages/personal/page.py:231: error: "None" has no attribute "setEnabled"  [attr-defined]
 clinicdesk/app/pages/personal/page.py:232: error: "None" has no attribute "setEnabled"  [attr-defined]
-clinicdesk/app/pages/pacientes/page.py:51: error: Argument 1 to "CrearPacienteUseCase" has incompatible type "PacientesRepository"; expected "RepositorioPacientes"  [arg-type]
-clinicdesk/app/pages/pacientes/page.py:52: error: Argument 1 to "EditarPacienteUseCase" has incompatible type "PacientesRepository"; expected "RepositorioPacientes"  [arg-type]
-clinicdesk/app/pages/pacientes/page.py:53: error: Argument 1 to "DesactivarPacienteUseCase" has incompatible type "PacientesRepository"; expected "RepositorioPacientes"  [arg-type]
-clinicdesk/app/pages/pacientes/page.py:100: error: "type[Qt]" has no attribute "CustomContextMenu"  [attr-defined]
-clinicdesk/app/pages/pacientes/page.py:292: error: "None" has no attribute "setEnabled"  [attr-defined]
-clinicdesk/app/pages/pacientes/page.py:293: error: "None" has no attribute "setEnabled"  [attr-defined]
-clinicdesk/app/pages/pacientes/page.py:294: error: "None" has no attribute "setEnabled"  [attr-defined]
-clinicdesk/app/pages/pacientes/page.py:296: error: "None" has no attribute "setEnabled"  [attr-defined]
-clinicdesk/app/pages/pacientes/page.py:297: error: "None" has no attribute "setEnabled"  [attr-defined]
-clinicdesk/app/pages/pacientes/page.py:298: error: "None" has no attribute "setEnabled"  [attr-defined]
 clinicdesk/app/pages/medicos/page.py:71: error: "type[Qt]" has no attribute "CustomContextMenu"  [attr-defined]
 clinicdesk/app/pages/medicos/page.py:231: error: "None" has no attribute "setEnabled"  [attr-defined]
 clinicdesk/app/pages/medicos/page.py:232: error: "None" has no attribute "setEnabled"  [attr-defined]
-clinicdesk/app/pages/confirmaciones/page.py:238: error: "type[Qt]" has no attribute "ItemIsEnabled"  [attr-defined]
-clinicdesk/app/pages/confirmaciones/page.py:238: error: "type[Qt]" has no attribute "ItemIsUserCheckable"  [attr-defined]
-clinicdesk/app/pages/confirmaciones/page.py:239: error: "type[Qt]" has no attribute "Checked"  [attr-defined]
-clinicdesk/app/pages/confirmaciones/page.py:239: error: "type[Qt]" has no attribute "Unchecked"  [attr-defined]
-clinicdesk/app/pages/confirmaciones/page.py:240: error: "type[Qt]" has no attribute "UserRole"  [attr-defined]
-clinicdesk/app/pages/confirmaciones/page.py:267: error: "type[Qt]" has no attribute "Checked"  [attr-defined]
-clinicdesk/app/pages/confirmaciones/page.py:267: error: "type[Qt]" has no attribute "Unchecked"  [attr-defined]
-clinicdesk/app/pages/confirmaciones/page.py:282: error: "type[Qt]" has no attribute "UserRole"  [attr-defined]
-clinicdesk/app/pages/confirmaciones/page.py:285: error: "type[Qt]" has no attribute "Checked"  [attr-defined]
-clinicdesk/app/pages/confirmaciones/page.py:295: error: "type[Qt]" has no attribute "Unchecked"  [attr-defined]
+clinicdesk/app/pages/confirmaciones/page.py:325: error: "type[Qt]" has no attribute "UserRole"  [attr-defined]
+clinicdesk/app/pages/confirmaciones/page.py:420: error: "type[Qt]" has no attribute "ItemIsEnabled"  [attr-defined]
+clinicdesk/app/pages/confirmaciones/page.py:420: error: "type[Qt]" has no attribute "ItemIsUserCheckable"  [attr-defined]
+clinicdesk/app/pages/confirmaciones/page.py:421: error: "type[Qt]" has no attribute "Checked"  [attr-defined]
+clinicdesk/app/pages/confirmaciones/page.py:421: error: "type[Qt]" has no attribute "Unchecked"  [attr-defined]
+clinicdesk/app/pages/confirmaciones/page.py:422: error: "type[Qt]" has no attribute "UserRole"  [attr-defined]
+clinicdesk/app/pages/confirmaciones/page.py:452: error: "type[Qt]" has no attribute "Checked"  [attr-defined]
+clinicdesk/app/pages/confirmaciones/page.py:452: error: "type[Qt]" has no attribute "Unchecked"  [attr-defined]
+clinicdesk/app/pages/confirmaciones/page.py:469: error: "type[Qt]" has no attribute "UserRole"  [attr-defined]
+clinicdesk/app/pages/confirmaciones/page.py:472: error: "type[Qt]" has no attribute "Checked"  [attr-defined]
+clinicdesk/app/pages/confirmaciones/page.py:484: error: "type[Qt]" has no attribute "Unchecked"  [attr-defined]
 clinicdesk/app/controllers/incidencias_controller.py:18: error: Argument 1 to "IncidenciasQueries" has incompatible type "AppContainer"; expected "Connection"  [arg-type]
-clinicdesk/app/application/usecases/crear_cita.py:210: error: Argument "confirmado_por_personal_id" to "Incidencia" has incompatible type "int | None"; expected "int"  [arg-type]
 clinicdesk/app/application/usecases/ajustar_stock_material.py:269: error: Item "None" of "str | None" has no attribute "strip"  [union-attr]
 clinicdesk/app/application/csv/csv_service.py:33: error: Argument 4 to "_export_entities" of "CsvService" has incompatible type "Callable[[Paciente], dict[str, Any]]"; expected "Callable[[object], dict[str, object]]"  [arg-type]
 clinicdesk/app/application/csv/csv_service.py:41: error: Argument 4 to "_export_entities" of "CsvService" has incompatible type "Callable[[Medico], dict[str, Any]]"; expected "Callable[[object], dict[str, object]]"  [arg-type]
@@ -258,19 +247,9 @@ clinicdesk/app/application/csv/csv_service.py:49: error: Argument 4 to "_export_
 clinicdesk/app/application/csv/csv_service.py:53: error: Argument 4 to "_export_entities" of "CsvService" has incompatible type "Callable[[Medicamento], dict[str, Any]]"; expected "Callable[[object], dict[str, object]]"  [arg-type]
 clinicdesk/app/application/csv/csv_service.py:57: error: Argument 4 to "_export_entities" of "CsvService" has incompatible type "Callable[[Material], dict[str, Any]]"; expected "Callable[[object], dict[str, object]]"  [arg-type]
 clinicdesk/app/application/csv/csv_service.py:61: error: Argument 4 to "_export_entities" of "CsvService" has incompatible type "Callable[[Sala], dict[str, Any]]"; expected "Callable[[object], dict[str, object]]"  [arg-type]
-clinicdesk/app/application/csv/csv_service.py:69: error: Argument "updater" to "_import_entities" of "CsvService" has incompatible type "Callable[[Paciente], None]"; expected "Callable[[object], object]"  [arg-type]
-clinicdesk/app/application/csv/csv_service.py:70: error: Argument "creator" to "_import_entities" of "CsvService" has incompatible type "Callable[[Paciente], int]"; expected "Callable[[object], object]"  [arg-type]
-clinicdesk/app/application/csv/csv_service.py:79: error: Argument "updater" to "_import_entities" of "CsvService" has incompatible type "Callable[[Medico], None]"; expected "Callable[[object], object]"  [arg-type]
-clinicdesk/app/application/csv/csv_service.py:80: error: Argument "creator" to "_import_entities" of "CsvService" has incompatible type "Callable[[Medico], int]"; expected "Callable[[object], object]"  [arg-type]
-clinicdesk/app/application/csv/csv_service.py:89: error: Argument "updater" to "_import_entities" of "CsvService" has incompatible type "Callable[[Personal], None]"; expected "Callable[[object], object]"  [arg-type]
-clinicdesk/app/application/csv/csv_service.py:90: error: Argument "creator" to "_import_entities" of "CsvService" has incompatible type "Callable[[Personal], int]"; expected "Callable[[object], object]"  [arg-type]
-clinicdesk/app/application/csv/csv_service.py:99: error: Argument "updater" to "_import_entities" of "CsvService" has incompatible type "Callable[[Medicamento], None]"; expected "Callable[[object], object]"  [arg-type]
-clinicdesk/app/application/csv/csv_service.py:100: error: Argument "creator" to "_import_entities" of "CsvService" has incompatible type "Callable[[Medicamento], int]"; expected "Callable[[object], object]"  [arg-type]
-clinicdesk/app/application/csv/csv_service.py:109: error: Argument "updater" to "_import_entities" of "CsvService" has incompatible type "Callable[[Material], None]"; expected "Callable[[object], object]"  [arg-type]
-clinicdesk/app/application/csv/csv_service.py:110: error: Argument "creator" to "_import_entities" of "CsvService" has incompatible type "Callable[[Material], int]"; expected "Callable[[object], object]"  [arg-type]
-clinicdesk/app/application/csv/csv_service.py:119: error: Argument "updater" to "_import_entities" of "CsvService" has incompatible type "Callable[[Sala], None]"; expected "Callable[[object], object]"  [arg-type]
-clinicdesk/app/application/csv/csv_service.py:120: error: Argument "creator" to "_import_entities" of "CsvService" has incompatible type "Callable[[Sala], int]"; expected "Callable[[object], object]"  [arg-type]
 clinicdesk/app/application/csv/csv_service.py:146: error: "object" has no attribute "id"  [attr-defined]
+clinicdesk/app/pages/demo_ml/page.py:467: error: Argument 1 to "setText" of "QLineEdit" has incompatible type "object"; expected "str"  [arg-type]
+clinicdesk/app/pages/demo_ml/page.py:472: error: Argument 1 to "setPlainText" of "QTextEdit" has incompatible type "object"; expected "str"  [arg-type]
 clinicdesk/app/pages/gestion/page.py:285: error: Unexpected keyword argument "total" for "t" of "I18nManager"  [call-arg]
 clinicdesk/app/i18n.py:47: note: "t" of "I18nManager" defined here
 clinicdesk/app/pages/gestion/page.py:285: error: Unexpected keyword argument "completas" for "t" of "I18nManager"  [call-arg]
@@ -287,7 +266,6 @@ clinicdesk/app/pages/gestion/page.py:309: error: Item "None" of "date | None" ha
 clinicdesk/app/pages/gestion/page.py:312: error: Argument "filtro_calidad" to "CitasNavigationIntentDTO" has incompatible type "str"; expected "Literal['SIN_CHECKIN', 'SIN_INICIO_FIN', 'SIN_SALIDA'] | None"  [arg-type]
 clinicdesk/app/pages/ausencias/page.py:85: error: "type[Qt]" has no attribute "CustomContextMenu"  [attr-defined]
 clinicdesk/app/pages/ausencias/page.py:162: error: Incompatible types in assignment (expression has type "AusenciaPersonal", variable has type "AusenciaMedico")  [assignment]
-clinicdesk/app/pages/ausencias/page.py:171: error: Argument 1 to "create" of "AusenciasPersonalRepository" has incompatible type "AusenciaMedico"; expected "AusenciaPersonal"  [arg-type]
 clinicdesk/app/pages/ausencias/page.py:219: error: "None" has no attribute "setEnabled"  [attr-defined]
 clinicdesk/app/pages/farmacia/page.py:166: error: Argument "warnings" to "OverrideDialog" has incompatible type "list[WarningItem]"; expected "list[object]"  [arg-type]
 clinicdesk/app/pages/farmacia/page.py:166: note: "list" is invariant -- see https://mypy.readthedocs.io/en/stable/common_issues.html#variance
@@ -300,10 +278,6 @@ clinicdesk/app/controllers/farmacia_controller.py:51: error: "RecetaLineaRow" ha
 clinicdesk/app/controllers/farmacia_controller.py:67: error: Argument "warnings" to "OverrideDialog" has incompatible type "list[WarningItem]"; expected "list[object]"  [arg-type]
 clinicdesk/app/controllers/farmacia_controller.py:67: note: "list" is invariant -- see https://mypy.readthedocs.io/en/stable/common_issues.html#variance
 clinicdesk/app/controllers/farmacia_controller.py:67: note: Consider using "Sequence" instead, which is covariant
-clinicdesk/app/controllers/citas_controller.py:25: error: Argument 1 to "EliminarCitaUseCase" has incompatible type "CitasRepository"; expected "RepositorioCitas"  [arg-type]
-clinicdesk/app/controllers/citas_controller.py:61: error: Argument "warnings" to "OverrideDialog" has incompatible type "list[WarningItem]"; expected "list[object]"  [arg-type]
-clinicdesk/app/controllers/citas_controller.py:61: note: "list" is invariant -- see https://mypy.readthedocs.io/en/stable/common_issues.html#variance
-clinicdesk/app/controllers/citas_controller.py:61: note: Consider using "Sequence" instead, which is covariant
 clinicdesk/app/pages/medicamentos/page.py:80: error: "type[Qt]" has no attribute "CustomContextMenu"  [attr-defined]
 clinicdesk/app/pages/medicamentos/page.py:249: error: Argument "warnings" to "OverrideDialog" has incompatible type "list[WarningItem]"; expected "list[object]"  [arg-type]
 clinicdesk/app/pages/medicamentos/page.py:249: note: "list" is invariant -- see https://mypy.readthedocs.io/en/stable/common_issues.html#variance
@@ -322,8 +296,47 @@ clinicdesk/app/pages/dialog_csv.py:65: error: "type[QSizePolicy]" has no attribu
 clinicdesk/app/pages/dialog_csv.py:65: error: "type[QSizePolicy]" has no attribute "Minimum"  [attr-defined]
 clinicdesk/app/pages/dialog_csv.py:74: error: "type[QSizePolicy]" has no attribute "Expanding"  [attr-defined]
 clinicdesk/app/pages/dialog_csv.py:74: error: "type[QSizePolicy]" has no attribute "Minimum"  [attr-defined]
-clinicdesk/app/pages/demo_ml/page.py:467: error: Argument 1 to "setText" of "QLineEdit" has incompatible type "object"; expected "str | None"  [arg-type]
-clinicdesk/app/pages/demo_ml/page.py:472: error: Argument 1 to "setPlainText" of "QTextEdit" has incompatible type "object"; expected "str"  [arg-type]
+clinicdesk/app/infrastructure/repositorios_sqlite.py:44: error: Argument 1 to "int" has incompatible type "int | None"; expected "str | Buffer | SupportsInt | SupportsIndex | SupportsTrunc"  [arg-type]
+clinicdesk/app/infrastructure/repositorios_sqlite.py:58: error: Return type "list[Paciente]" of "listar_todos" incompatible with return type "list[Medico]" in supertype "clinicdesk.app.domain.repositorios.RepositorioMedicos"  [override]
+clinicdesk/app/infrastructure/repositorios_sqlite.py:73: error: Signature of "crear" incompatible with supertype "clinicdesk.app.domain.repositorios.RepositorioMedicos"  [override]
+clinicdesk/app/infrastructure/repositorios_sqlite.py:73: note:      Superclass:
+clinicdesk/app/infrastructure/repositorios_sqlite.py:73: note:          def crear(self, id_medico: int, tipo_documento: str, n_documento: str, nombre: str, especialidad: str, telefono: str) -> int
+clinicdesk/app/infrastructure/repositorios_sqlite.py:73: note:      Subclass:
+clinicdesk/app/infrastructure/repositorios_sqlite.py:73: note:          def crear(self, nombre: str, telefono: str) -> int
+clinicdesk/app/infrastructure/repositorios_sqlite.py:79: error: Argument 1 to "int" has incompatible type "int | None"; expected "str | Buffer | SupportsInt | SupportsIndex | SupportsTrunc"  [arg-type]
+clinicdesk/app/infrastructure/repositorios_sqlite.py:95: error: Unexpected keyword argument "id_paciente" for "Cita"  [call-arg]
+clinicdesk/app/infrastructure/repositorios_sqlite.py:95: error: Unexpected keyword argument "fecha_hora" for "Cita"  [call-arg]
+clinicdesk/app/infrastructure/repositorios_sqlite.py:111: error: Argument 1 to "int" has incompatible type "int | None"; expected "str | Buffer | SupportsInt | SupportsIndex | SupportsTrunc"  [arg-type]
+clinicdesk/app/application/usecases/pacientes_crud.py:17: error: "RepositorioPacientes" has no attribute "create"  [attr-defined]
+clinicdesk/app/application/usecases/pacientes_crud.py:27: error: "RepositorioPacientes" has no attribute "update"  [attr-defined]
+clinicdesk/app/application/usecases/pacientes_crud.py:37: error: "RepositorioPacientes" has no attribute "delete"  [attr-defined]
+clinicdesk/app/application/usecases/eliminar_cita.py:18: error: "RepositorioCitas" has no attribute "delete"  [attr-defined]
+clinicdesk/app/pages/pacientes/acciones_pacientes.py:60: error: Argument 1 to "set_paciente" of "PacienteFormDialog" has incompatible type "object"; expected "Paciente"  [arg-type]
+clinicdesk/app/pages/pacientes/acciones_pacientes.py:107: error: Argument "contexto_usuario" to "execute" of "RegistrarAuditoriaAcceso" has incompatible type "object"; expected "UserContext"  [arg-type]
+clinicdesk/app/pages/pacientes/acciones_pacientes.py:121: error: Argument "contexto_usuario" to "HistorialPacienteDialog" has incompatible type "object"; expected "UserContext"  [arg-type]
+clinicdesk/app/pages/pacientes/acciones_pacientes.py:147: error: "None" has no attribute "setEnabled"  [attr-defined]
+clinicdesk/app/pages/pacientes/acciones_pacientes.py:148: error: "None" has no attribute "setEnabled"  [attr-defined]
+clinicdesk/app/pages/pacientes/acciones_pacientes.py:149: error: "None" has no attribute "setEnabled"  [attr-defined]
+clinicdesk/app/pages/pacientes/acciones_pacientes.py:151: error: "None" has no attribute "setEnabled"  [attr-defined]
+clinicdesk/app/pages/pacientes/acciones_pacientes.py:152: error: "None" has no attribute "setEnabled"  [attr-defined]
+clinicdesk/app/pages/pacientes/acciones_pacientes.py:153: error: "None" has no attribute "setEnabled"  [attr-defined]
+clinicdesk/app/pages/pacientes/page.py:133: error: Argument "activo" to "actualizar_contexto" of "PacientesViewModel" has incompatible type "bool | None"; expected "bool"  [arg-type]
+clinicdesk/app/pages/pacientes/page.py:133: error: Argument "texto" to "actualizar_contexto" of "PacientesViewModel" has incompatible type "str | None"; expected "str"  [arg-type]
+clinicdesk/app/pages/pacientes/page.py:136: error: Argument "activo" to "_arrancar_worker_carga" of "PagePacientes" has incompatible type "bool | None"; expected "bool"  [arg-type]
+clinicdesk/app/pages/pacientes/page.py:136: error: Argument "texto" to "_arrancar_worker_carga" of "PagePacientes" has incompatible type "str | None"; expected "str"  [arg-type]
+clinicdesk/app/pages/pacientes/page.py:157: error: Argument "activo" to "arrancar_busqueda_rapida" has incompatible type "bool | None"; expected "bool"  [arg-type]
+clinicdesk/app/pages/pacientes/page.py:158: error: Argument "texto" to "arrancar_busqueda_rapida" has incompatible type "str | None"; expected "str"  [arg-type]
+clinicdesk/app/queries/citas_queries.py:97: error: Incompatible types in assignment (expression has type "str | None", variable has type "str")  [assignment]
+clinicdesk/app/application/usecases/crear_cita.py:115: error: Argument "metadata" to "registrar" of "AuditService" has incompatible type "dict[str, int | None]"; expected "dict[str, str | int | float | bool | None] | None"  [arg-type]
+clinicdesk/app/application/usecases/crear_cita.py:115: note: "dict" is invariant -- see https://mypy.readthedocs.io/en/stable/common_issues.html#variance
+clinicdesk/app/application/usecases/crear_cita.py:115: note: Consider using "Mapping" instead, which is covariant in the value type
+clinicdesk/app/application/usecases/crear_cita.py:126: error: Argument "metadata" to "registrar" of "AuditService" has incompatible type "dict[str, str | int]"; expected "dict[str, str | int | float | bool | None] | None"  [arg-type]
+clinicdesk/app/application/usecases/crear_cita.py:126: note: "dict" is invariant -- see https://mypy.readthedocs.io/en/stable/common_issues.html#variance
+clinicdesk/app/application/usecases/crear_cita.py:126: note: Consider using "Mapping" instead, which is covariant in the value type
+clinicdesk/app/application/usecases/crear_cita.py:175: error: Argument "confirmado_por_personal_id" to "Incidencia" has incompatible type "int | None"; expected "int"  [arg-type]
+clinicdesk/app/controllers/citas_controller.py:61: error: Argument "warnings" to "OverrideDialog" has incompatible type "list[WarningItem]"; expected "list[object]"  [arg-type]
+clinicdesk/app/controllers/citas_controller.py:61: note: "list" is invariant -- see https://mypy.readthedocs.io/en/stable/common_issues.html#variance
+clinicdesk/app/controllers/citas_controller.py:61: note: Consider using "Sequence" instead, which is covariant
 clinicdesk/app/pages/citas/page.py:202: error: "type[Qt]" has no attribute "CustomContextMenu"  [attr-defined]
 clinicdesk/app/pages/citas/page.py:265: error: No overload variant of "int" matches argument type "object"  [call-overload]
 clinicdesk/app/pages/citas/page.py:265: note: Possible overload variants:
@@ -381,9 +394,10 @@ clinicdesk/app/pages/citas/page.py:781: error: "type[Qt]" has no attribute "Unch
 clinicdesk/app/pages/citas/page.py:783: error: "type[Qt]" has no attribute "Checked"  [attr-defined]
 clinicdesk/app/pages/citas/page.py:785: error: "type[Qt]" has no attribute "PartiallyChecked"  [attr-defined]
 clinicdesk/app/pages/pages_registry.py:41: error: Missing positional argument "i18n" in call to "register"  [call-arg]
-clinicdesk/app/ui/main_window.py:98: error: "type[QSizePolicy]" has no attribute "Expanding"  [attr-defined]
-clinicdesk/app/ui/main_window.py:111: error: "type[Qt]" has no attribute "UserRole"  [attr-defined]
-clinicdesk/app/ui/main_window.py:228: error: "type[Qt]" has no attribute "UserRole"  [attr-defined]
-clinicdesk/app/ui/main_window.py:253: error: "type[Qt]" has no attribute "UserRole"  [attr-defined]
+clinicdesk/app/ui/main_window.py:106: error: "type[QSizePolicy]" has no attribute "Expanding"  [attr-defined]
+clinicdesk/app/ui/main_window.py:127: error: "type[Qt]" has no attribute "UserRole"  [attr-defined]
+clinicdesk/app/ui/main_window.py:153: error: "type[Qt]" has no attribute "UserRole"  [attr-defined]
+clinicdesk/app/ui/main_window.py:504: error: "type[Qt]" has no attribute "UserRole"  [attr-defined]
+clinicdesk/app/ui/main_window.py:541: error: "type[Qt]" has no attribute "UserRole"  [attr-defined]
 clinicdesk/app/main.py:101: error: Argument "logger" to "ControladorSesionAutenticada" has incompatible type "LoggerAdapter[Any]"; expected "ContextLoggerAdapter"  [arg-type]
-Found 310 errors in 83 files (checked 419 source files)
+Found 320 errors in 89 files (checked 466 source files)
