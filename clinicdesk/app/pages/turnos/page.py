@@ -15,7 +15,6 @@ from PySide6.QtWidgets import (
     QMenu,
     QPushButton,
     QTableWidget,
-    QTableWidgetItem,
     QVBoxLayout,
     QWidget,
     QDialog,
