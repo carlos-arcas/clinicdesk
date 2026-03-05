@@ -40,14 +40,33 @@ def _texto_error_red(stderr: str) -> bool:
     return any(re.search(patron, stderr, flags=re.IGNORECASE) for patron in patrones_red)
 
 
+def _comando_instalacion_requirements(nombre_archivo: str) -> tuple[list[str], str]:
+    wheelhouse = RAIZ_REPO / "wheelhouse"
+    ruta_requirements = RAIZ_REPO / nombre_archivo
+    comando_base = [sys.executable, "-m", "pip", "install"]
+    if nombre_archivo == "requirements-dev.txt" and wheelhouse.exists():
+        comando = [
+            *comando_base,
+            "--no-index",
+            "--find-links",
+            "wheelhouse",
+            "-r",
+            str(ruta_requirements),
+        ]
+        return comando, "modo offline (wheelhouse)"
+
+    comando = [*comando_base, "-r", str(ruta_requirements)]
+    return comando, "modo estándar"
+
+
 def _instalar_archivo_requirements(nombre_archivo: str) -> bool:
     ruta_requirements = RAIZ_REPO / nombre_archivo
     if not ruta_requirements.exists():
         _log(f"[setup_sandbox][error] No existe {nombre_archivo} en {RAIZ_REPO}.")
         return False
 
-    comando = [sys.executable, "-m", "pip", "install", "-r", str(ruta_requirements)]
-    _log(f"[setup_sandbox] Instalando {nombre_archivo}...")
+    comando, detalle_modo = _comando_instalacion_requirements(nombre_archivo)
+    _log(f"[setup_sandbox] Instalando {nombre_archivo} en {detalle_modo}...")
     resultado = subprocess.run(
         comando,
         cwd=RAIZ_REPO,
@@ -76,6 +95,8 @@ def _instalar_archivo_requirements(nombre_archivo: str) -> bool:
     if stderr:
         _log("[setup_sandbox][stderr] Resumen de pip:")
         _log(stderr.splitlines()[-1])
+    _log("Dependencias no instalables en este entorno.")
+    _log("Use wheelhouse offline o ejecute setup en un entorno con internet.")
     return False
 
 
