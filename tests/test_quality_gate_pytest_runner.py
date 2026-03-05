@@ -8,8 +8,10 @@ from scripts.quality_gate_components import entrypoint, pytest_and_coverage
 
 
 class _ProcessResult:
-    def __init__(self, returncode: int = 0):
+    def __init__(self, returncode: int = 0, stdout: str = "", stderr: str = ""):
         self.returncode = returncode
+        self.stdout = stdout
+        self.stderr = stderr
 
 
 def _import_coverage_ok(_: str) -> object:
@@ -196,3 +198,50 @@ def test_run_coverage_report_falla_controlado_si_falta_modulo(monkeypatch, caplo
     assert rc == pytest_and_coverage.RC_DEPENDENCIA_FALTANTE
     assert "Falta dependencia 'coverage'" in caplog.text
     assert llamadas == []
+
+
+def test_run_pytest_with_coverage_genera_diagnostico_en_255_si_env_activa(monkeypatch, tmp_path: Path):
+    logs_dir = tmp_path / "logs"
+
+    def fake_run(cmd, check, env, **kwargs):
+        if cmd[:4] == [pytest_and_coverage.sys.executable, "-m", "coverage", "erase"]:
+            return _ProcessResult(returncode=0)
+        return _ProcessResult(
+            returncode=255,
+            stdout="\n".join([f"linea {i}" for i in range(130)]),
+            stderr="email paciente@example.com\nDNI 12345678Z",
+        )
+
+    monkeypatch.setenv("CLINICDESK_DIAGNOSTICO_PYTEST_255", "1")
+    monkeypatch.setattr(pytest_and_coverage.importlib, "import_module", _import_coverage_ok)
+    monkeypatch.setattr(pytest_and_coverage.subprocess, "run", fake_run)
+    monkeypatch.setattr(pytest_and_coverage.config, "REPO_ROOT", tmp_path)
+
+    rc = pytest_and_coverage.run_pytest_with_coverage(["-q", "-m", "not ui"])
+
+    assert rc == 255
+    assert logs_dir.joinpath("pytest_stdout.log").exists()
+    assert logs_dir.joinpath("pytest_stderr.log").exists()
+    resumen = json.loads(logs_dir.joinpath("pytest_failure_summary.json").read_text(encoding="utf-8"))
+    assert len(resumen["stdout_lineas"]) == 120
+    assert "paciente@example.com" not in "\n".join(resumen["stderr_lineas"])
+    assert "12345678Z" not in "\n".join(resumen["stderr_lineas"])
+
+
+def test_run_pytest_with_coverage_no_genera_diagnostico_si_env_inactiva(monkeypatch, tmp_path: Path):
+    logs_dir = tmp_path / "logs"
+
+    def fake_run(cmd, check, env, **kwargs):
+        if cmd[:4] == [pytest_and_coverage.sys.executable, "-m", "coverage", "erase"]:
+            return _ProcessResult(returncode=0)
+        return _ProcessResult(returncode=255, stdout="fallo", stderr="error")
+
+    monkeypatch.delenv("CLINICDESK_DIAGNOSTICO_PYTEST_255", raising=False)
+    monkeypatch.setattr(pytest_and_coverage.importlib, "import_module", _import_coverage_ok)
+    monkeypatch.setattr(pytest_and_coverage.subprocess, "run", fake_run)
+    monkeypatch.setattr(pytest_and_coverage.config, "REPO_ROOT", tmp_path)
+
+    rc = pytest_and_coverage.run_pytest_with_coverage(["-q", "-m", "not ui"])
+
+    assert rc == 255
+    assert not logs_dir.joinpath("pytest_failure_summary.json").exists()

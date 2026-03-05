@@ -9,6 +9,8 @@ import sys
 from pathlib import Path
 from typing import Iterable
 
+from scripts.diagnosticar_pytest_255 import diagnostico_habilitado, ejecutar_diagnostico_pytest_255
+
 from . import config
 from .sandbox_mode import sandbox_mode_activo
 
@@ -36,6 +38,24 @@ def _build_pytest_env() -> dict[str, str]:
 
 def _run_cmd(comando: list[str], *, env: dict[str, str]) -> int:
     return subprocess.run(comando, check=False, env=env).returncode
+
+
+def _run_cmd_resultado(comando: list[str], *, env: dict[str, str]) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(comando, check=False, env=env, capture_output=True, text=True)
+
+
+def _ejecutar_pytest_con_diagnostico(comando: list[str], *, env: dict[str, str]) -> int:
+    if not diagnostico_habilitado(env):
+        return _run_cmd(comando, env=env)
+
+    resultado = _run_cmd_resultado(comando, env=env)
+    if resultado.stdout:
+        sys.stdout.write(resultado.stdout)
+    if resultado.stderr:
+        sys.stderr.write(resultado.stderr)
+    if resultado.returncode == 255:
+        ejecutar_diagnostico_pytest_255(comando=comando, resultado=resultado, logs_dir=config.REPO_ROOT / "logs")
+    return resultado.returncode
 
 
 def _coverage_disponible() -> bool:
@@ -74,14 +94,14 @@ def run_pytest_with_coverage(pytest_args: list[str], env: dict[str, str] | None 
     entorno = env or _build_pytest_env()
     _run_cmd([sys.executable, "-m", "coverage", "erase"], env=entorno)
     comando = [sys.executable, "-m", "coverage", "run", "-m", "pytest", *pytest_args]
-    return _run_cmd(comando, env=entorno)
+    return _ejecutar_pytest_con_diagnostico(comando, env=entorno)
 
 
 def run_pytest_core_con_coverage(pytest_args: list[str]) -> float | None:
     entorno = _build_pytest_env()
     if omitir_coverage_por_sandbox():
         comando_pytest = [sys.executable, "-m", "pytest", *pytest_args]
-        if _run_cmd(comando_pytest, env=entorno) != 0:
+        if _ejecutar_pytest_con_diagnostico(comando_pytest, env=entorno) != 0:
             return None
         return 0.0
 
