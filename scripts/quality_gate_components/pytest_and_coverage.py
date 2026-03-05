@@ -37,10 +37,16 @@ def _coverage_disponible() -> bool:
     return importlib.util.find_spec("coverage") is not None
 
 
+def _validar_dependencia_coverage() -> bool:
+    if _coverage_disponible():
+        return True
+    _LOGGER.error(_MENSAJE_COVERAGE_FALTANTE)
+    return False
+
+
 def run_pytest_with_coverage(pytest_args: list[str], env: dict[str, str] | None = None) -> int:
     # Root cause CI: pytest-qt entraba por autoload de entrypoints aunque el selector fuera "not ui".
-    if not _coverage_disponible():
-        _LOGGER.error(_MENSAJE_COVERAGE_FALTANTE)
+    if not _validar_dependencia_coverage():
         return RC_DEPENDENCIA_FALTANTE
 
     entorno = env or _build_pytest_env()
@@ -92,6 +98,9 @@ def _buscar_resumen_archivo(archivos: dict[str, dict], core_path: Path) -> dict 
 
 
 def run_coverage_report(coverage_xml_path: Path | None = None, env: dict[str, str] | None = None) -> int:
+    if not _validar_dependencia_coverage():
+        return RC_DEPENDENCIA_FALTANTE
+
     xml_path = coverage_xml_path or config.COVERAGE_XML_PATH
     xml_path.parent.mkdir(parents=True, exist_ok=True)
     comando = [sys.executable, "-m", "coverage", "xml", "-o", str(xml_path)]
@@ -102,6 +111,9 @@ def run_coverage_report(coverage_xml_path: Path | None = None, env: dict[str, st
 
 
 def run_coverage_json(coverage_json_path: Path | None = None, env: dict[str, str] | None = None) -> int:
+    if not _validar_dependencia_coverage():
+        return RC_DEPENDENCIA_FALTANTE
+
     json_path = coverage_json_path or config.REPO_ROOT / "docs" / "coverage.json"
     json_path.parent.mkdir(parents=True, exist_ok=True)
     comando = [sys.executable, "-m", "coverage", "json", "-o", str(json_path)]

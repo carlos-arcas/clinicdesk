@@ -125,3 +125,21 @@ def test_run_pytest_with_coverage_falla_controlado_si_falta_modulo(monkeypatch, 
     assert rc == pytest_and_coverage.RC_DEPENDENCIA_FALTANTE
     assert "Falta dependencia 'coverage'" in caplog.text
     assert llamadas == []
+
+
+def test_run_coverage_report_falla_controlado_si_falta_modulo(monkeypatch, caplog):
+    llamadas: list[list[str]] = []
+
+    def fake_run(cmd, check, env):
+        llamadas.append(list(cmd))
+        return _ProcessResult()
+
+    monkeypatch.setattr(pytest_and_coverage.importlib.util, "find_spec", lambda _: None)
+    monkeypatch.setattr(pytest_and_coverage.subprocess, "run", fake_run)
+
+    with caplog.at_level("ERROR"):
+        rc = pytest_and_coverage.run_coverage_report()
+
+    assert rc == pytest_and_coverage.RC_DEPENDENCIA_FALTANTE
+    assert "Falta dependencia 'coverage'" in caplog.text
+    assert llamadas == []
