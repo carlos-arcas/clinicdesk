@@ -167,3 +167,6 @@ docker compose up --build
 ```bash
 curl http://localhost:8000/healthz
 ```
+
+## Operación legacy
+- Guía operador para cierre de storage legacy por proyecto: [docs/operacion/cierre_storage_legacy.md](docs/operacion/cierre_storage_legacy.md).
