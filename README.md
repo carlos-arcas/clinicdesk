@@ -22,8 +22,8 @@ Guion recomendado para entrevista:
 1. **Setup** (normal o sandbox):
    - Normal: `./scripts/setup.sh` (Linux/macOS) o `scripts\setup.bat` (Windows) o `python scripts/setup.py`.
    - Sandbox: `python scripts/setup_sandbox.py`.
-2. **Seed demo**: desde la app (módulo Demo & ML) ejecutar carga de datos demo reproducibles.
-3. **Run demo**: ejecutar pipeline completo (`seed -> build-features -> train -> score -> drift -> export`) y mostrar versiones generadas.
+2. **Arranque demo en 1 comando**: `python scripts/run_demo.py` (siembra datos demo + abre la app usando una DB demo en `./data/demo/`).
+3. **Run demo**: dentro de la app, ejecutar pipeline completo (`seed -> build-features -> train -> score -> drift -> export`) y mostrar versiones generadas.
 4. **Export/report**: abrir `exports/` y enseñar los CSV contractuales para BI (`features`, `metrics`, `scoring`, `drift`).
 
 Guion extendido para recruiters: [docs/recruiter_kit.md](docs/recruiter_kit.md).
@@ -31,7 +31,8 @@ Guion extendido para recruiters: [docs/recruiter_kit.md](docs/recruiter_kit.md).
 ## Ejecutar (1 comando)
 - **Camino normal**
   - Setup: `python scripts/setup.py`
-  - Run app: `python scripts/run_app.py`
+  - Demo 1 comando: `python scripts/run_demo.py`
+  - (Opcional) Run app sin seed: `python scripts/run_app.py`
 - **Camino sandbox**
   - Setup sandbox: `python scripts/setup_sandbox.py`
   - Gate sandbox (entrypoint): `python -m scripts.gate_sandbox`
