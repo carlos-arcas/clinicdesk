@@ -11,6 +11,6 @@ def register(registry: PageRegistry, container: AppContainer) -> None:
         PageDef(
             key="auditoria",
             title="Auditoría",
-            factory=lambda: PageAuditoria(container.connection),
+            factory=lambda: PageAuditoria(container),
         )
     )

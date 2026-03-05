@@ -1,21 +1,7 @@
 from __future__ import annotations
 
-from typing import Optional
-from pathlib import Path
-
 from PySide6.QtCore import QSettings
-from PySide6.QtWidgets import (
-    QComboBox,
-    QGridLayout,
-    QHBoxLayout,
-    QLabel,
-    QLineEdit,
-    QMessageBox,
-    QPushButton,
-    QTableWidget,
-    QVBoxLayout,
-    QWidget,
-)
+from PySide6.QtWidgets import QMessageBox, QWidget
 
 from clinicdesk.app.application.usecases.buscar_auditoria_accesos import BuscarAuditoriaAccesos
 from clinicdesk.app.application.usecases.exportar_auditoria_csv import (
@@ -29,132 +15,81 @@ from clinicdesk.app.application.usecases.paginacion_incremental import calcular_
 from clinicdesk.app.application.usecases.registrar_telemetria import RegistrarTelemetria
 from clinicdesk.app.application.security import UserContext
 from clinicdesk.app.bootstrap_logging import get_logger
+from clinicdesk.app.container import AppContainer
 from clinicdesk.app.i18n import I18nManager
+from clinicdesk.app.pages.auditoria.acciones_auditoria import limpiar_filtros
+from clinicdesk.app.pages.auditoria.contratos_ui import AuditoriaUIRefs
 from clinicdesk.app.pages.auditoria.exportador_csv import ExportadorCsvAuditoria
-from clinicdesk.app.pages.auditoria.filtros_ui import (
-    columnas_tabla,
-    opciones_accion,
-    opciones_entidad,
-    opciones_rango,
-    parse_fecha_iso,
-)
-from clinicdesk.app.pages.shared.table_utils import set_item
+from clinicdesk.app.pages.auditoria.filtros_ui import parse_fecha_iso
+from clinicdesk.app.pages.auditoria.preferencias_auditoria import guardar_preferencias, restaurar_preferencias
+from clinicdesk.app.pages.auditoria.render_auditoria import apply_selection, render_estado, render_resumen, render_tabla
+from clinicdesk.app.pages.auditoria.ui_builder import build_auditoria_ui
+from clinicdesk.app.pages.auditoria.workers_auditoria import crear_worker_exportacion
 from clinicdesk.app.queries.auditoria_accesos_queries import AuditoriaAccesosQueries, FiltrosAuditoriaAccesos
 from clinicdesk.app.infrastructure.sqlite.repos_telemetria_eventos import RepositorioTelemetriaEventosSqlite
-from clinicdesk.app.ui.jobs.job_manager import JobCancelledError
+from clinicdesk.app.ui.viewmodels.auditoria_viewmodel import AuditoriaViewModel
 
 LOGGER = get_logger(__name__)
 
 
 class PageAuditoria(QWidget):
-    def __init__(self, connection, parent: Optional[QWidget] = None) -> None:
+    def __init__(self, container: AppContainer, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self._i18n = I18nManager("es")
         self._settings = QSettings("clinicdesk", "ui")
-        self._queries = AuditoriaAccesosQueries(connection)
-        self._uc_telemetria = RegistrarTelemetria(RepositorioTelemetriaEventosSqlite(connection))
+        self._preferencias_service = container.preferencias_service
+        self._queries = AuditoriaAccesosQueries(container.connection)
+        self._uc_telemetria = RegistrarTelemetria(RepositorioTelemetriaEventosSqlite(container.connection))
         self._contexto_telemetria = UserContext()
         self._uc_buscar = BuscarAuditoriaAccesos(self._queries)
         self._uc_resumen = ObtenerResumenAuditoria(self._queries)
         self._uc_exportar = ExportarAuditoriaCSV(self._queries)
         self._exportador = ExportadorCsvAuditoria(self, self._settings, self._tr)
+        self._vm = AuditoriaViewModel(self._listar_primer_bloque)
+        self._ui: AuditoriaUIRefs = build_auditoria_ui(self, self._tr)
         self._offset_actual, self._limit = 0, 50
         self._total_actual: int | None = None
-        self._items_acumulados = []
-        self._build_ui()
+        self._items_acumulados: list[object] = []
+        self._conectar_signals()
+        self._vm.subscribe(self._on_estado_vm)
+        self._vm.subscribe_eventos(self._on_evento_vm)
         self._retranslate()
+        restaurar_preferencias(preferencias_service=self._preferencias_service, ui=self._ui)
         self._cargar_primera_pagina()
 
     def on_show(self) -> None:
         self._cargar_primera_pagina()
 
-    def _build_ui(self) -> None:
-        root = QVBoxLayout(self)
-        root.addLayout(self._build_resumen())
-        root.addLayout(self._build_filtros())
-        self.tabla = QTableWidget(0, 6)
-        root.addWidget(self.tabla)
-        pie = QHBoxLayout()
-        self.lbl_estado = QLabel()
-        self.btn_reintentar, self.btn_exportar, self.btn_cargar_mas = QPushButton(), QPushButton(), QPushButton()
-        pie.addWidget(self.lbl_estado)
-        pie.addWidget(self.btn_reintentar)
-        pie.addStretch(1)
-        pie.addWidget(self.btn_exportar)
-        pie.addWidget(self.btn_cargar_mas)
-        root.addLayout(pie)
-        self.btn_buscar.clicked.connect(self._on_buscar)
-        self.btn_limpiar.clicked.connect(self._on_limpiar)
-        self.btn_reintentar.clicked.connect(self._on_reintentar)
-        self.btn_cargar_mas.clicked.connect(self._on_cargar_mas)
-        self.btn_exportar.clicked.connect(self._on_exportar)
-
-    def _build_resumen(self) -> QGridLayout:
-        grid = QGridLayout()
-        self.lbl_accesos_hoy, self.lbl_accesos_7_dias, self.lbl_top_acciones = QLabel("0"), QLabel("0"), QLabel("-")
-        grid.addWidget(QLabel(self._tr("auditoria.resumen.accesos_hoy")), 0, 0)
-        grid.addWidget(self.lbl_accesos_hoy, 0, 1)
-        grid.addWidget(QLabel(self._tr("auditoria.resumen.accesos_7_dias")), 0, 2)
-        grid.addWidget(self.lbl_accesos_7_dias, 0, 3)
-        grid.addWidget(QLabel(self._tr("auditoria.resumen.top_acciones")), 1, 0)
-        grid.addWidget(self.lbl_top_acciones, 1, 1, 1, 3)
-        return grid
-
-    def _build_filtros(self) -> QHBoxLayout:
-        filtros = QHBoxLayout()
-        self.input_usuario, self.input_desde, self.input_hasta = QLineEdit(), QLineEdit(), QLineEdit()
-        self.combo_rango, self.combo_accion, self.combo_entidad = QComboBox(), QComboBox(), QComboBox()
-        self.btn_buscar, self.btn_limpiar = QPushButton(), QPushButton()
-        for key, widget in (
-            ("auditoria.filtro.rango", self.combo_rango),
-            ("auditoria.filtro.usuario", self.input_usuario),
-            ("auditoria.filtro.accion", self.combo_accion),
-            ("auditoria.filtro.entidad", self.combo_entidad),
-            ("auditoria.filtro.desde", self.input_desde),
-            ("auditoria.filtro.hasta", self.input_hasta),
-        ):
-            filtros.addWidget(QLabel(self._tr(key)))
-            filtros.addWidget(widget)
-        filtros.addWidget(self.btn_buscar)
-        filtros.addWidget(self.btn_limpiar)
-        self.combo_rango.currentIndexChanged.connect(self._on_preset_cambiado)
-        return filtros
+    def _conectar_signals(self) -> None:
+        self._ui.combo_rango.currentIndexChanged.connect(self._on_preset_cambiado)
+        self._ui.btn_buscar.clicked.connect(self._on_buscar)
+        self._ui.btn_limpiar.clicked.connect(self._on_limpiar)
+        self._ui.btn_reintentar.clicked.connect(self._on_reintentar)
+        self._ui.btn_cargar_mas.clicked.connect(self._on_cargar_mas)
+        self._ui.btn_exportar.clicked.connect(self._on_exportar)
 
     def _retranslate(self) -> None:
-        self.btn_buscar.setText(self._tr("auditoria.accion.buscar"))
-        self.btn_limpiar.setText(self._tr("auditoria.accion.limpiar"))
-        self.btn_cargar_mas.setText(self._tr("auditoria.accion.cargar_mas"))
-        self.btn_exportar.setText(self._tr("auditoria.accion.exportar_csv"))
-        self.btn_reintentar.setText(self._tr("auditoria.accion.reintentar"))
-        self.input_desde.setPlaceholderText(self._tr("auditoria.filtro.fecha_placeholder"))
-        self.input_hasta.setPlaceholderText(self._tr("auditoria.filtro.fecha_placeholder"))
-        self.tabla.setHorizontalHeaderLabels([self._tr(k) for k in columnas_tabla()])
-        self._cargar_combos()
+        self._ui.btn_buscar.setText(self._tr("auditoria.accion.buscar"))
+        self._ui.btn_limpiar.setText(self._tr("auditoria.accion.limpiar"))
+        self._ui.btn_cargar_mas.setText(self._tr("auditoria.accion.cargar_mas"))
+        self._ui.btn_exportar.setText(self._tr("auditoria.accion.exportar_csv"))
+        self._ui.btn_reintentar.setText(self._tr("auditoria.accion.reintentar"))
+        self._ui.input_desde.setPlaceholderText(self._tr("auditoria.filtro.fecha_placeholder"))
+        self._ui.input_hasta.setPlaceholderText(self._tr("auditoria.filtro.fecha_placeholder"))
         self._set_estado("idle")
 
-    def _cargar_combos(self) -> None:
-        for combo, opciones in (
-            (self.combo_rango, opciones_rango(self._tr)),
-            (self.combo_accion, opciones_accion(self._tr)),
-            (self.combo_entidad, opciones_entidad(self._tr)),
-        ):
-            combo.clear()
-            for item in opciones:
-                combo.addItem(item.texto, item.valor)
-
     def _on_preset_cambiado(self) -> None:
-        personalizado = self.combo_rango.currentData() == PRESET_PERSONALIZADO
-        self.input_desde.setEnabled(personalizado)
-        self.input_hasta.setEnabled(personalizado)
+        personalizado = self._ui.combo_rango.currentData() == PRESET_PERSONALIZADO
+        self._ui.input_desde.setEnabled(personalizado)
+        self._ui.input_hasta.setEnabled(personalizado)
 
     def _on_buscar(self) -> None:
-        self._cargar_primera_pagina()
+        guardar_preferencias(preferencias_service=self._preferencias_service, ui=self._ui)
+        self._vm.aplicar_filtro(self._ui.input_usuario.text())
 
     def _on_limpiar(self) -> None:
-        for control in (self.input_usuario, self.input_desde, self.input_hasta):
-            control.clear()
-        for combo in (self.combo_rango, self.combo_accion, self.combo_entidad):
-            combo.setCurrentIndex(0)
+        limpiar_filtros(self._ui)
+        guardar_preferencias(preferencias_service=self._preferencias_service, ui=self._ui)
         self._cargar_primera_pagina()
 
     def _on_reintentar(self) -> None:
@@ -171,133 +106,105 @@ class PageAuditoria(QWidget):
         self._registrar_telemetria("auditoria_cargar_mas", "click")
         self._buscar(incremental=True)
 
+    def _listar_primer_bloque(self, filtro_texto: str) -> list[object]:
+        filtros = self._build_filtros(filtro_texto=filtro_texto)
+        if filtros is None:
+            return []
+        result = self._uc_buscar.execute(
+            filtros,
+            self._limit,
+            0,
+            preset_rango=self._ui.combo_rango.currentData(),
+            total_conocido=None,
+        )
+        self._items_acumulados = list(result.items)
+        self._total_actual = result.total
+        self._offset_actual = calcular_siguiente_offset(0, self._limit, result.total)
+        self._render_resumen_para(filtros)
+        self._set_estado("empty" if result.total == 0 else "ok")
+        return list(result.items)
+
     def _buscar(self, *, incremental: bool) -> None:
-        filtros = self._build_filtros()
+        filtros = self._build_filtros(filtro_texto=self._ui.input_usuario.text())
         if filtros is None:
             return
         self._set_estado("loading_more" if incremental else "loading")
         try:
-            resultado = self._uc_buscar.execute(
+            result = self._uc_buscar.execute(
                 filtros,
                 self._limit,
                 self._offset_actual,
-                preset_rango=self.combo_rango.currentData(),
+                preset_rango=self._ui.combo_rango.currentData(),
                 total_conocido=self._total_actual,
             )
             if not incremental:
-                self._render_resumen(self._uc_resumen.execute(filtros.desde_utc, filtros.hasta_utc))
+                self._render_resumen_para(filtros)
         except Exception:
             self._set_estado("error_more" if incremental and self._items_acumulados else "error")
             LOGGER.warning("auditoria_cargar_mas_fail", extra={"action": "auditoria_cargar_mas_fail"})
             self._registrar_telemetria("auditoria_cargar_mas", "fail")
             return
-        self._total_actual = resultado.total
-        self._offset_actual = calcular_siguiente_offset(self._offset_actual, self._limit, resultado.total)
+        self._total_actual = result.total
+        self._offset_actual = calcular_siguiente_offset(self._offset_actual, self._limit, result.total)
         if incremental:
-            self._append_filas(resultado.items)
+            self._items_acumulados.extend(result.items)
             LOGGER.info("auditoria_cargar_mas_ok", extra={"action": "auditoria_cargar_mas_ok"})
             self._registrar_telemetria("auditoria_cargar_mas", "ok")
         else:
-            self._items_acumulados = list(resultado.items)
-            self._render_filas()
-        self._set_estado("empty" if resultado.total == 0 else "ok")
+            self._items_acumulados = list(result.items)
+        self._vm.seleccionar(None)
+        self._vm.set_items(list(self._items_acumulados))
+        self._set_estado("empty" if result.total == 0 else "ok")
 
-    def _build_filtros(self) -> FiltrosAuditoriaAccesos | None:
-        desde_texto, hasta_texto = self.input_desde.text().strip(), self.input_hasta.text().strip()
+    def _build_filtros(self, *, filtro_texto: str) -> FiltrosAuditoriaAccesos | None:
+        desde_texto = self._ui.input_desde.text().strip()
+        hasta_texto = self._ui.input_hasta.text().strip()
         desde, hasta = parse_fecha_iso(desde_texto), parse_fecha_iso(hasta_texto)
         if desde_texto and desde is None:
             return self._error_fecha(self._tr("auditoria.filtro.desde"))
         if hasta_texto and hasta is None:
             return self._error_fecha(self._tr("auditoria.filtro.hasta"))
         return FiltrosAuditoriaAccesos(
-            usuario_contiene=self.input_usuario.text().strip() or None,
-            accion=self.combo_accion.currentData(),
-            entidad_tipo=self.combo_entidad.currentData(),
+            usuario_contiene=filtro_texto.strip() or None,
+            accion=self._ui.combo_accion.currentData(),
+            entidad_tipo=self._ui.combo_entidad.currentData(),
             desde_utc=desde,
             hasta_utc=hasta,
         )
 
     def _error_fecha(self, campo: str) -> None:
-        QMessageBox.warning(
-            self, self._tr("auditoria.titulo"), self._tr("auditoria.error.fecha_invalida").format(campo=campo)
-        )
+        QMessageBox.warning(self, self._tr("auditoria.titulo"), self._tr("auditoria.error.fecha_invalida").format(campo=campo))
         return None
 
-    def _append_filas(self, items) -> None:
-        scroll = self.tabla.verticalScrollBar()
-        posicion = scroll.value()
-        self._items_acumulados.extend(items)
-        for indice, item in enumerate(items, self.tabla.rowCount()):
-            self._insertar_fila(indice, item)
-        scroll.setValue(posicion)
+    def _render_resumen_para(self, filtros: FiltrosAuditoriaAccesos) -> None:
+        render_resumen(self._ui, self._uc_resumen.execute(filtros.desde_utc, filtros.hasta_utc), self._tr)
 
-    def _render_filas(self) -> None:
-        self.tabla.setRowCount(0)
-        for row, item in enumerate(self._items_acumulados):
-            self._insertar_fila(row, item)
+    def _on_estado_vm(self, estado) -> None:
+        render_tabla(self._ui, list(estado.items), traducir=self._tr)
+        apply_selection(self._ui, estado.seleccion_id)
 
-    def _insertar_fila(self, row: int, item) -> None:
-        self.tabla.insertRow(row)
-        set_item(self.tabla, row, 0, item.timestamp_utc)
-        set_item(self.tabla, row, 1, item.usuario)
-        set_item(self.tabla, row, 2, self._tr("comun.si") if item.modo_demo else self._tr("comun.no"))
-        set_item(self.tabla, row, 3, item.accion)
-        set_item(self.tabla, row, 4, item.entidad_tipo)
-        set_item(self.tabla, row, 5, item.entidad_id)
-
-    def _set_estado(self, estado: str) -> None:
-        mostrados, total = len(self._items_acumulados), self._total_actual or 0
-        textos = {
-            "loading": self._tr("auditoria.estado.cargando"),
-            "loading_more": self._tr("auditoria.estado.cargando_mas"),
-            "empty": self._tr("auditoria.estado.vacio"),
-            "error": self._tr("auditoria.estado.error"),
-            "error_more": self._tr("auditoria.estado.error_cargar_mas"),
-            "ok": self._tr("auditoria.estado.mostrando_x_de_y").format(mostrados=mostrados, total=total),
-            "idle": "",
-        }
-        self.lbl_estado.setText(textos[estado])
-        self.btn_reintentar.setVisible(estado in {"error", "error_more"})
-        self.btn_exportar.setEnabled(total > 0)
-        self.btn_cargar_mas.setVisible(mostrados < total)
-        self.btn_cargar_mas.setEnabled(estado == "ok" and mostrados < total)
-
-    def _render_resumen(self, resumen) -> None:
-        self.lbl_accesos_hoy.setText(str(resumen.accesos_hoy))
-        self.lbl_accesos_7_dias.setText(str(resumen.accesos_ultimos_7_dias))
-        top = [f"{item.accion} ({item.total})" for item in resumen.top_acciones]
-        self.lbl_top_acciones.setText(", ".join(top) if top else self._tr("auditoria.resumen.sin_datos"))
+    def _on_evento_vm(self, evento) -> None:
+        if evento.tipo != "job":
+            return
+        if evento.payload.get("accion") == "exportar_auditoria_csv":
+            self._run_export_job()
 
     def _on_exportar(self) -> None:
         if not self._total_actual or not self._exportador.confirmar(self._total_actual):
             return
         self._registrar_telemetria("auditoria_export", "click")
-        filtros = self._build_filtros()
+        self._vm.exportar_csv()
+
+    def _run_export_job(self) -> None:
+        filtros = self._build_filtros(filtro_texto=self._ui.input_usuario.text())
         if filtros is None:
             return
         ruta_guardado = self._exportador.pedir_ruta_guardado("auditoria_accesos.csv")
         if not ruta_guardado:
             return
-
         parent_window = self.window()
         if not hasattr(parent_window, "run_premium_job"):
             return
-
-        def worker_factory():
-            def _worker(cancel_token, report_progress):
-                report_progress(15, "job.export_auditoria.progress.preflight")
-                if cancel_token.is_cancelled:
-                    raise JobCancelledError()
-                report_progress(55, "job.export_auditoria.progress.export")
-                exp = self._uc_exportar.execute(filtros, preset_rango=self.combo_rango.currentData())
-                if cancel_token.is_cancelled:
-                    raise JobCancelledError()
-                report_progress(85, "job.export_auditoria.progress.write")
-                Path(ruta_guardado).write_text(exp.csv_texto, encoding="utf-8")
-                report_progress(100, "job.export_auditoria.progress.done")
-                return ruta_guardado
-
-            return _worker
 
         def _on_success(result: object) -> None:
             if isinstance(result, str):
@@ -308,7 +215,12 @@ class PageAuditoria(QWidget):
             parent_window.run_premium_job(
                 job_id="export_auditoria_csv",
                 title_key="job.export_auditoria.title",
-                worker_factory=worker_factory,
+                worker_factory=lambda: crear_worker_exportacion(
+                    ejecutar_exportacion=self._uc_exportar.execute,
+                    filtros=filtros,
+                    preset_rango=self._ui.combo_rango.currentData(),
+                    ruta_guardado=ruta_guardado,
+                ),
                 cancellable=True,
                 toast_success_key="job.done",
                 toast_failed_key="job.failed",
@@ -325,6 +237,15 @@ class PageAuditoria(QWidget):
                 extra={"action": "auditoria_export_fail", "reason_code": "disk_write_error", "error": str(exc)},
             )
             self._registrar_telemetria("auditoria_export", "fail")
+
+    def _set_estado(self, estado: str) -> None:
+        render_estado(
+            self._ui,
+            estado=estado,
+            mostrados=len(self._items_acumulados),
+            total=self._total_actual or 0,
+            traducir=self._tr,
+        )
 
     def _registrar_telemetria(self, evento: str, resultado: str) -> None:
         try:
