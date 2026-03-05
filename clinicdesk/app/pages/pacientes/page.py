@@ -4,17 +4,8 @@ from typing import Optional
 
 import logging
 
-from PySide6.QtCore import QThread, Qt
-from PySide6.QtWidgets import (
-    QHBoxLayout,
-    QMessageBox,
-    QPushButton,
-    QTableWidget,
-    QVBoxLayout,
-    QWidget,
-    QDialog,
-    QMenu,
-)
+from PySide6.QtCore import QThread
+from PySide6.QtWidgets import QWidget
 
 from clinicdesk.app.container import AppContainer
 from clinicdesk.app.i18n import I18nManager
@@ -25,8 +16,6 @@ from clinicdesk.app.application.usecases.pacientes_crud import (
 )
 from clinicdesk.app.application.services.pacientes_listado_contrato import ContratoListadoPacientesService
 from clinicdesk.app.application.usecases.obtener_detalle_cita import ObtenerDetalleCita
-from clinicdesk.app.application.auditoria_acceso import AccionAuditoriaAcceso, EntidadAuditoriaAcceso
-from clinicdesk.app.application.preferencias.preferencias_usuario import sanitize_search_text
 from clinicdesk.app.application.historial_paciente import (
     BuscarHistorialCitasPaciente,
     BuscarHistorialRecetasPaciente,
@@ -35,19 +24,32 @@ from clinicdesk.app.application.historial_paciente import (
 from clinicdesk.app.application.usecases.obtener_historial_paciente import ObtenerHistorialPaciente
 from clinicdesk.app.application.usecases.registrar_auditoria_acceso import RegistrarAuditoriaAcceso
 from clinicdesk.app.common.search_utils import normalize_search_text
-from clinicdesk.app.pages.pacientes.dialogs.historial_paciente_dialog import HistorialPacienteDialog
-from clinicdesk.app.pages.pacientes.dialogs.paciente_form import PacienteFormDialog
-from clinicdesk.app.pages.shared.filtro_listado import FiltroListadoWidget
-from clinicdesk.app.pages.shared.crud_page_helpers import confirm_deactivation, set_buttons_enabled
-from clinicdesk.app.pages.shared.table_utils import apply_row_style, set_item
+from clinicdesk.app.pages.pacientes.acciones_pacientes import (
+    on_desactivar,
+    on_editar,
+    on_historial,
+    on_nuevo,
+    open_context_menu,
+    open_csv_dialog,
+)
+from clinicdesk.app.pages.pacientes.preferencias_pacientes import guardar_preferencias, restaurar_preferencias
+from clinicdesk.app.pages.pacientes.render_pacientes import (
+    apply_selection,
+    render_estado,
+    render_tabla,
+    selected_id as obtener_selected_id,
+    update_action_buttons,
+)
+from clinicdesk.app.pages.pacientes.window_feedback import set_busy, toast_error, toast_success
+from clinicdesk.app.pages.pacientes.workers_pacientes import arrancar_busqueda_rapida, arrancar_carga
+from clinicdesk.app.pages.pacientes.ui_builder import build_pacientes_ui
+from clinicdesk.app.pages.shared.crud_page_helpers import set_buttons_enabled
 from clinicdesk.app.queries.historial_paciente_queries import HistorialPacienteQueries
 from clinicdesk.app.queries.historial_listados_queries import HistorialListadosQueries
 from clinicdesk.app.queries.pacientes_queries import PacienteRow, PacientesQueries
 from clinicdesk.app.queries.recetas_queries import RecetasQueries
-from clinicdesk.app.ui.error_presenter import present_error
-from clinicdesk.app.ui.viewmodels.contratos import EstadoListado, EstadoPantalla, EventoUI
+from clinicdesk.app.ui.viewmodels.contratos import EstadoListado, EventoUI
 from clinicdesk.app.ui.viewmodels.pacientes_vm import PacientesViewModel
-from clinicdesk.app.ui.widgets.estado_pantalla_widget import EstadoPantallaWidget
 from clinicdesk.app.infrastructure.sqlite.db_path import resolver_db_path_desde_conexion
 from clinicdesk.app.ui.workers.listado_async_workers import CargaPacientesWorker
 
@@ -86,50 +88,23 @@ class PagePacientes(QWidget):
         self._preferencias_restauradas = False
         self._vm = PacientesViewModel(listar_pacientes=self._listar_pacientes_sync)
 
-        self._build_ui()
+        self._ui = build_pacientes_ui(
+            self,
+            self._i18n,
+            can_write=self._can_write,
+            headers=[self._i18n.t(col.clave_i18n) for col in self._columnas],
+        )
+        self.filtros = self._ui.filtros
+        self.table = self._ui.table
+        self.btn_nuevo = self._ui.btn_nuevo
+        self.btn_editar = self._ui.btn_editar
+        self.btn_desactivar = self._ui.btn_desactivar
+        self.btn_historial = self._ui.btn_historial
+        self.btn_csv = self._ui.btn_csv
         self._connect_signals()
         self._vm.subscribe(self._on_estado_vm)
         self._vm.subscribe_eventos(self._on_evento_vm)
         self._refresh()
-
-    def _build_ui(self) -> None:
-        root = QVBoxLayout(self)
-
-        self.filtros = FiltroListadoWidget(self)
-
-        actions = QHBoxLayout()
-        self.btn_nuevo = QPushButton("Nuevo")
-        self.btn_editar = QPushButton("Editar")
-        self.btn_desactivar = QPushButton("Desactivar")
-        self.btn_historial = QPushButton(self._i18n.t("pacientes.historial.boton"))
-        self.btn_csv = QPushButton("Importar/Exportar CSV…")
-        self.btn_editar.setEnabled(False)
-        self.btn_desactivar.setEnabled(False)
-        self.btn_historial.setEnabled(False)
-        self.btn_nuevo.setEnabled(self._can_write)
-        actions.addWidget(self.btn_nuevo)
-        actions.addWidget(self.btn_editar)
-        actions.addWidget(self.btn_desactivar)
-        actions.addWidget(self.btn_historial)
-        actions.addWidget(self.btn_csv)
-        actions.addStretch(1)
-
-        self.table = QTableWidget(0, len(self._columnas))
-        self.table.setHorizontalHeaderLabels([self._i18n.t(col.clave_i18n) for col in self._columnas])
-        self.table.setColumnHidden(0, True)
-        self.table.horizontalHeader().setStretchLastSection(True)
-        self.table.setContextMenuPolicy(Qt.CustomContextMenu)
-
-        self._estado_pantalla = EstadoPantallaWidget(self._i18n, self)
-        contenido = QWidget(self)
-        contenido_layout = QVBoxLayout(contenido)
-        contenido_layout.setContentsMargins(0, 0, 0, 0)
-        contenido_layout.addWidget(self.table)
-        self._estado_pantalla.set_content(contenido)
-
-        root.addWidget(self.filtros)
-        root.addLayout(actions)
-        root.addWidget(self._estado_pantalla)
 
     def _connect_signals(self) -> None:
         self.filtros.filtros_cambiados.connect(self._refresh)
@@ -142,22 +117,6 @@ class PagePacientes(QWidget):
         self.btn_historial.clicked.connect(self._on_historial)
         self.btn_csv.clicked.connect(self._open_csv_dialog)
 
-    def _set_busy(self, activo: bool, mensaje_key: str) -> None:
-        window = self.window()
-        set_busy = getattr(window, "set_busy", None)
-        if callable(set_busy):
-            set_busy(activo, mensaje_key)
-
-    def _toast_success(self, key: str) -> None:
-        toast = getattr(self.window(), "toast_success", None)
-        if callable(toast):
-            toast(key)
-
-    def _toast_error(self, key: str) -> None:
-        toast = getattr(self.window(), "toast_error", None)
-        if callable(toast):
-            toast(key)
-
     def on_show(self) -> None:
         if not self._preferencias_restauradas:
             self._restaurar_preferencias()
@@ -168,12 +127,12 @@ class PagePacientes(QWidget):
         self._guardar_preferencias()
         self._token_carga += 1
         token = self._token_carga
-        selected_id = self._selected_id()
+        selected_id = obtener_selected_id(self._ui)
         activo = self.filtros.activo()
         texto = normalize_search_text(self.filtros.texto())
         self._vm.actualizar_contexto(activo=activo, texto=texto, seleccion_id=selected_id)
         self._vm.set_loading()
-        self._set_busy(True, "busy.loading_pacientes")
+        set_busy(self, True, "busy.loading_pacientes")
         self._arrancar_worker_carga(token=token, selected_id=selected_id, activo=activo, texto=texto)
 
     def refrescar_desde_atajo(self) -> None:
@@ -184,46 +143,22 @@ class PagePacientes(QWidget):
             self._on_nuevo()
 
     def _restaurar_preferencias(self) -> None:
-        preferencias = self._container.preferencias_service.get()
-        filtros = preferencias.filtros_pacientes
-        texto = filtros.get("texto", "")
-        self.filtros.txt_busqueda.setText(texto if isinstance(texto, str) else "")
-        activo = filtros.get("activo")
-        if activo is True:
-            index = self.filtros.cbo_estado.findText("Activos")
-        elif activo is False:
-            index = self.filtros.cbo_estado.findText("Inactivos")
-        else:
-            index = self.filtros.cbo_estado.findText("Todos")
-        self.filtros.cbo_estado.setCurrentIndex(index if index >= 0 else 0)
+        restaurar_preferencias(preferencias_service=self._container.preferencias_service, filtros_widget=self.filtros)
 
     def _guardar_preferencias(self) -> None:
-        preferencias = self._container.preferencias_service.get()
-        texto_seguro = sanitize_search_text(self.filtros.texto())
-        preferencias.filtros_pacientes = {
-            "activo": self.filtros.activo(),
-            "texto": texto_seguro or "",
-        }
-        if texto_seguro is None:
-            preferencias.last_search_by_context.pop("pacientes", None)
-        else:
-            preferencias.last_search_by_context["pacientes"] = texto_seguro
-        self._container.preferencias_service.set(preferencias)
+        guardar_preferencias(preferencias_service=self._container.preferencias_service, filtros_widget=self.filtros)
 
     def buscar_rapido_async(self, texto: str, on_done) -> None:
         if self._thread_busqueda_rapida is not None and self._thread_busqueda_rapida.isRunning():
             return
-        activo = self.filtros.activo()
-        self._thread_busqueda_rapida = QThread(self)
-        worker = CargaPacientesWorker(self._db_path, activo, normalize_search_text(texto))
-        worker.moveToThread(self._thread_busqueda_rapida)
-        self._thread_busqueda_rapida.started.connect(worker.run)
-        worker.finished_ok.connect(lambda payload: self._on_busqueda_rapida_ok(payload, on_done))
-        worker.finished.connect(self._thread_busqueda_rapida.quit)
-        worker.finished.connect(worker.deleteLater)
-        self._thread_busqueda_rapida.finished.connect(self._thread_busqueda_rapida.deleteLater)
-        self._thread_busqueda_rapida.finished.connect(self._reset_thread_busqueda_rapida)
-        self._thread_busqueda_rapida.start()
+        self._thread_busqueda_rapida = arrancar_busqueda_rapida(
+            owner=self,
+            db_path=self._db_path,
+            activo=self.filtros.activo(),
+            texto=normalize_search_text(texto),
+            on_payload=lambda payload: self._on_busqueda_rapida_ok(payload, on_done),
+            on_thread_finished=self._reset_thread_busqueda_rapida,
+        )
 
     def _on_busqueda_rapida_ok(self, payload: object, on_done) -> None:
         if not isinstance(payload, dict):
@@ -242,17 +177,15 @@ class PagePacientes(QWidget):
     def _arrancar_worker_carga(self, *, token: int, selected_id: int | None, activo: bool, texto: str) -> None:
         if self._thread_carga is not None and self._thread_carga.isRunning():
             return
-        self._thread_carga = QThread(self)
-        self._worker_carga = CargaPacientesWorker(self._db_path, activo, texto)
-        self._worker_carga.moveToThread(self._thread_carga)
-        self._thread_carga.started.connect(self._worker_carga.run)
-        self._worker_carga.finished_ok.connect(lambda payload: self._on_carga_ok(payload, token, selected_id))
-        self._worker_carga.finished_error.connect(lambda error: self._on_carga_error(error, token))
-        self._worker_carga.finished.connect(self._thread_carga.quit)
-        self._worker_carga.finished.connect(self._worker_carga.deleteLater)
-        self._thread_carga.finished.connect(self._thread_carga.deleteLater)
-        self._thread_carga.finished.connect(self._reset_carga_worker)
-        self._thread_carga.start()
+        self._thread_carga, self._worker_carga = arrancar_carga(
+            owner=self,
+            db_path=self._db_path,
+            activo=activo,
+            texto=texto,
+            on_ok=lambda payload: self._on_carga_ok(payload, token, selected_id),
+            on_error=lambda error: self._on_carga_error(error, token),
+            on_thread_finished=self._reset_carga_worker,
+        )
 
     def _reset_carga_worker(self) -> None:
         self._thread_carga = None
@@ -261,7 +194,7 @@ class PagePacientes(QWidget):
     def _on_carga_ok(self, payload: object, token: int, selected_id: int | None) -> None:
         if token != self._token_carga or not isinstance(payload, dict):
             return
-        self._set_busy(False, "busy.loading_pacientes")
+        set_busy(self, False, "busy.loading_pacientes")
         rows = payload.get("rows", [])
         total_base = int(payload.get("total_base", len(rows)))
         self.filtros.set_contador(len(rows), total_base)
@@ -271,7 +204,7 @@ class PagePacientes(QWidget):
     def _on_carga_error(self, error_type: str, token: int) -> None:
         if token != self._token_carga:
             return
-        self._set_busy(False, "busy.loading_pacientes")
+        set_busy(self, False, "busy.loading_pacientes")
         LOGGER.warning(
             "pacientes_carga_error",
             extra={"action": "pacientes_carga_error", "error": error_type},
@@ -279,24 +212,14 @@ class PagePacientes(QWidget):
         self._vm.resolver_carga_error(error_key="ux_states.pacientes.error", emitir_toast=True)
 
     def _on_estado_vm(self, estado: EstadoListado[PacienteRow]) -> None:
-        if estado.estado_pantalla is EstadoPantalla.LOADING:
-            self._estado_pantalla.set_loading("ux_states.pacientes.loading")
-            return
-        if estado.estado_pantalla is EstadoPantalla.ERROR:
-            self._estado_pantalla.set_error(estado.error_key or "ux_states.pacientes.error", on_retry=self._refresh)
-            return
-        self._render(estado.items)
-        if estado.seleccion_id is not None:
-            self._select_by_id(estado.seleccion_id)
-        self._update_buttons()
-        if estado.estado_pantalla is EstadoPantalla.EMPTY:
-            self._estado_pantalla.set_empty(
-                "ux_states.pacientes.empty",
-                cta_text_key="ux_states.pacientes.cta_refresh",
-                on_cta=self._refresh,
-            )
-            return
-        self._estado_pantalla.set_content(self.table.parentWidget())
+        render_estado(
+            self._ui,
+            estado,
+            on_retry=self._refresh,
+            render_rows=self._render,
+            apply_selected_id=self._select_by_id,
+            update_buttons=self._update_buttons,
+        )
 
     def _on_evento_vm(self, evento: EventoUI) -> None:
         if evento.tipo != "toast":
@@ -305,9 +228,9 @@ class PagePacientes(QWidget):
         if not isinstance(key, str):
             return
         if key == "toast.refresh_fail":
-            self._toast_error(key)
+            toast_error(self, key)
             return
-        self._toast_success(key)
+        toast_success(self, key)
 
     def _listar_pacientes_sync(self, activo: bool, texto: str) -> list[PacienteRow]:
         queries = PacientesQueries(self._container.connection)
@@ -317,16 +240,14 @@ class PagePacientes(QWidget):
         return queries.search(texto=texto, activo=activo)
 
     def _render(self, rows: list[PacienteRow]) -> None:
-        self.table.setRowCount(0)
-        for p in rows:
-            row = self.table.rowCount()
-            self.table.insertRow(row)
-            for col_idx, descriptor in enumerate(self._columnas):
-                valor = self._valor_columna(p, descriptor.nombre)
-                valor_listado = self._contrato_listado.formatear_valor_listado(descriptor.nombre, valor)
-                set_item(self.table, row, col_idx, valor_listado)
-            tooltip = self._tooltip_mascarado(p)
-            apply_row_style(self.table, row, inactive=not p.activo, tooltip=tooltip)
+        render_tabla(
+            self._ui,
+            rows,
+            columnas=list(self._columnas),
+            obtener_valor_columna=self._valor_columna,
+            obtener_tooltip=self._tooltip_mascarado,
+            formatear_valor_listado=self._contrato_listado.formatear_valor_listado,
+        )
 
     def _valor_columna(self, paciente: PacienteRow, nombre_columna: str) -> object:
         if nombre_columna == "activo":
@@ -340,150 +261,65 @@ class PagePacientes(QWidget):
         return self._i18n.t("pacientes.tooltip.listado").format(documento=documento, telefono=telefono, estado=estado)
 
     def _update_buttons(self) -> None:
-        if not self._can_write:
-            self.btn_editar.setEnabled(False)
-            self.btn_desactivar.setEnabled(False)
-            self.btn_historial.setEnabled(self._selected_id() is not None)
-            return
-        set_buttons_enabled(
-            has_selection=self._selected_id() is not None,
-            buttons=[self.btn_editar, self.btn_desactivar],
-        )
-        self.btn_historial.setEnabled(self._selected_id() is not None)
+        update_action_buttons(self._ui, can_write=self._can_write, set_buttons_enabled=set_buttons_enabled)
 
     def _on_nuevo(self) -> None:
-        dialog = PacienteFormDialog(self)
-        if dialog.exec() != QDialog.Accepted:
-            return
-        data = dialog.get_data()
-        if not data:
-            return
-        try:
-            self._uc_crear.execute(data.paciente)
-        except Exception as exc:
-            context = f"Tipo documento: {data.paciente.tipo_documento.value}\nDocumento: {data.paciente.documento}"
-            present_error(self, exc, context=context)
-            return
+        on_nuevo(parent=self, uc_crear=self._uc_crear, on_success=self._on_nuevo_ok)
+
+    def _on_nuevo_ok(self) -> None:
         self._reset_filters()
         self._refresh()
 
     def _on_editar(self) -> None:
-        paciente_id = self._selected_id()
-        if not paciente_id:
-            return
-        paciente = self._container.pacientes_repo.get_by_id(paciente_id)
-        if not paciente:
-            return
-        dialog = PacienteFormDialog(self)
-        dialog.set_paciente(paciente)
-        if dialog.exec() != QDialog.Accepted:
-            return
-        data = dialog.get_data()
-        if not data:
-            return
-        try:
-            self._uc_editar.execute(data.paciente)
-        except Exception as exc:
-            context = f"Tipo documento: {data.paciente.tipo_documento.value}\nDocumento: {data.paciente.documento}"
-            present_error(self, exc, context=context)
-            return
-        self._refresh()
+        on_editar(
+            parent=self,
+            selected_id=obtener_selected_id(self._ui),
+            obtener_paciente=self._container.pacientes_repo.get_by_id,
+            uc_editar=self._uc_editar,
+            on_success=self._refresh,
+        )
 
     def _on_desactivar(self) -> None:
-        paciente_id = self._selected_id()
-        if not paciente_id:
-            return
-        if not confirm_deactivation(self, module_title="Pacientes", entity_label="paciente"):
-            return
-        self._uc_desactivar.execute(paciente_id)
-        self._refresh()
-
-    def _selected_id(self) -> Optional[int]:
-        current_row = self.table.currentRow()
-        if current_row < 0:
-            return None
-        item = self.table.item(current_row, 0)
-        if item is None:
-            return None
-        try:
-            return int(item.text())
-        except ValueError:
-            return None
+        on_desactivar(
+            parent=self,
+            selected_id=obtener_selected_id(self._ui),
+            uc_desactivar=self._uc_desactivar,
+            on_success=self._refresh,
+        )
 
     def _select_by_id(self, paciente_id: int) -> None:
-        for row in range(self.table.rowCount()):
-            item = self.table.item(row, 0)
-            if item and item.text() == str(paciente_id):
-                self.table.setCurrentCell(row, 0)
-                return
+        apply_selection(self._ui, paciente_id)
 
     def _open_csv_dialog(self) -> None:
-        window = self.window()
-        open_dialog = getattr(window, "open_csv_dialog", None)
-        if callable(open_dialog):
-            open_dialog()
-            return
-        QMessageBox.information(
-            self,
-            "CSV",
-            "Esta acción está disponible en la ventana principal. Ejecuta la aplicación con: python -m clinicdesk",
-        )
+        open_csv_dialog(self)
 
     def _reset_filters(self) -> None:
         self.filtros.limpiar()
 
     def _on_historial(self) -> None:
-        paciente_id = self._selected_id()
-        if not paciente_id:
-            return
-        self._uc_auditoria_acceso.execute(
+        on_historial(
+            parent=self,
+            i18n=self._i18n,
+            selected_id=obtener_selected_id(self._ui),
+            registrar_auditoria=self._uc_auditoria_acceso,
             contexto_usuario=self._container.user_context,
-            accion=AccionAuditoriaAcceso.VER_HISTORIAL_PACIENTE,
-            entidad_tipo=EntidadAuditoriaAcceso.PACIENTE,
-            entidad_id=paciente_id,
-        )
-        dialog = HistorialPacienteDialog(
-            self._i18n,
-            paciente_id=paciente_id,
             buscar_citas_uc=self._uc_buscar_historial_citas,
             buscar_recetas_uc=self._uc_buscar_historial_recetas,
             resumen_uc=self._uc_resumen_historial,
             historial_legacy_uc=self._uc_historial,
             detalle_cita_uc=self._uc_detalle_cita,
-            auditoria_uc=self._uc_auditoria_acceso,
-            contexto_usuario=self._container.user_context,
-            parent=self,
         )
-        dialog.exec()
 
     def _open_context_menu(self, pos) -> None:
-        row = self.table.rowAt(pos.y())
-        if row >= 0:
-            self.table.setCurrentCell(row, 0)
-        menu = QMenu(self)
-        action_new = menu.addAction("Nuevo")
-        action_edit = menu.addAction("Editar")
-        action_delete = menu.addAction("Desactivar")
-        action_historial = menu.addAction(self._i18n.t("pacientes.historial.boton"))
-        has_selection = self._selected_id() is not None
-        action_edit.setEnabled(has_selection)
-        action_delete.setEnabled(has_selection)
-        action_historial.setEnabled(has_selection)
-        if not self._can_write:
-            action_new.setEnabled(False)
-            action_edit.setEnabled(False)
-            action_delete.setEnabled(False)
-        action = menu.exec(self.table.viewport().mapToGlobal(pos))
-        if action == action_new:
-            self._on_nuevo()
-        elif action == action_edit:
-            self._on_editar()
-        elif action == action_delete:
-            self._on_desactivar()
-        elif action == action_historial:
-            self._on_historial()
-
-
-if __name__ == "__main__":
-    logging.getLogger(__name__).info("Este módulo no se ejecuta directamente. Usa: python -m clinicdesk")
-    raise SystemExit(2)
+        open_context_menu(
+            parent=self,
+            table=self.table,
+            pos=pos,
+            i18n=self._i18n,
+            can_write=self._can_write,
+            has_selection=obtener_selected_id(self._ui) is not None,
+            on_nuevo_cb=self._on_nuevo,
+            on_editar_cb=self._on_editar,
+            on_desactivar_cb=self._on_desactivar,
+            on_historial_cb=self._on_historial,
+        )
