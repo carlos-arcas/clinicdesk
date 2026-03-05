@@ -1,61 +1,48 @@
 # Recruiter Kit (ClinicDesk)
 
-## TL;DR
-ClinicDesk es una aplicación clínica con analítica de riesgo de citas y flujo demo end-to-end.
-Combina Clean Architecture, calidad automatizada y exportaciones listas para BI.
-Está pensada para mostrar ingeniería de producto mantenible (no solo un prototipo ML).
+## Qué enseñar en 3 minutos
 
-## Demo en 3 minutos
+### 0:00 - 0:30 · Contexto
+- "ClinicDesk ayuda a operación clínica a priorizar citas con riesgo y exportar resultados listos para BI".
+- Mensaje clave: no es solo ML, es producto mantenible (arquitectura + calidad + seguridad).
 
-### Objetivo de la demo
-Mostrar, sin entrar en código, cómo ClinicDesk pasa de datos clínicos demo a decisiones operativas y artefactos auditables.
+### 0:30 - 1:10 · Setup y arranque
+- Normal: `python scripts/setup.py` y luego `python scripts/run_app.py`.
+- Sandbox: `python scripts/setup_sandbox.py` y `python -m scripts.gate_sandbox`.
+- (añadir captura aquí: pantalla inicial de la app)
 
-### Guion exacto (minuto a minuto)
-1. **00:00 - 00:30 | Abrir app y contexto**
-   - Ejecuta `python scripts/run_app.py`.
-   - Muestra que hay un flujo funcional de escritorio y módulos clínicos.
-2. **00:30 - 01:15 | Cargar datos demo reproducibles**
-   - Ve a **Analítica (Demo)** o **Demo & ML**.
-   - Ejecuta seed/demo data para poblar médicos, pacientes y citas.
-   - Mensaje clave: entorno reproducible, sin depender de datos reales (PII).
-3. **01:15 - 02:15 | Ejecutar pipeline completo**
-   - Lanza el flujo completo (`seed -> build-features -> train -> score -> drift -> export`).
-   - Enseña progreso paso a paso y resultado final (versiones + estado).
-4. **02:15 - 02:45 | Enseñar resultados de negocio**
-   - Abre carpeta `exports/` y enseña los CSV (`features`, `metrics`, `scoring`, `drift`, KPIs).
-   - Explica que esos contratos alimentan Power BI.
-5. **02:45 - 03:00 | Cierre técnico**
-   - Enseña comando de calidad: `python -m scripts.gate_pr`.
-   - Mensaje final: arquitectura limpia + gates + seguridad de datos + entregable BI.
+### 1:10 - 2:15 · Flujo demo end-to-end
+- Ejecutar demo reproducible en módulo Demo & ML:
+  - `seed -> build-features -> train -> score -> drift -> export`.
+- Mostrar que el flujo deja artefactos versionados y auditables.
+- (añadir captura aquí: progreso del pipeline)
 
-## Puntos fuertes para CV
-- **Clean Architecture real**: separación explícita dominio/aplicación/infra/presentación.
-- **Quality gate canónico**: el estándar de PR se valida con `python -m scripts.gate_pr`.
-- **Seguridad y privacidad**: controles anti-PII en logs/auditoría y opción de cifrado de PII en reposo.
-- **i18n en UI**: catálogos y claves para evitar hardcodes visibles.
-- **UI asíncrona para operaciones largas**: workflows demo con progreso/cancelación sin bloquear experiencia.
+### 2:15 - 2:45 · Resultado de negocio
+- Abrir `exports/` y enseñar CSV contractuales para Power BI:
+  - `features_export.csv`
+  - `model_metrics_export.csv`
+  - `scoring_export.csv`
+  - `drift_export.csv`
+- (añadir captura aquí: carpeta exports o preview de CSV)
 
-## Qué miraría un tech lead
-- **Tests**: cobertura del core y pruebas por capas.
-- **Gates**: lint, typing, tests, cobertura, seguridad y checks de arquitectura.
-- **Separación de capas**: puertos/adaptadores y composición explícita.
-- **Seguridad**: minimización de PII y políticas de sanitización.
-- **DX**: setup reproducible, scripts de ejecución y comandos canónicos documentados.
+### 2:45 - 3:00 · Cierre técnico
+- Enseñar comando de gate estricto: `python -m scripts.gate_pr`.
+- Cierre: "arquitectura limpia + quality gates + seguridad/privacidad + datos exportables".
 
-## Cómo ejecutarlo
-1. Setup
-   - `./scripts/setup.sh` (Linux/macOS)
-   - `scripts\\setup.bat` (Windows)
-   - Alternativa: `python scripts/setup.py`
-2. Run app
-   - `python scripts/run_app.py`
-3. Gate completo PR
-   - `python -m scripts.gate_pr`
+## Qué decisiones técnicas resaltar
+- **Clean Architecture estricta**: dominio y casos de uso desacoplados de frameworks.
+- **Ports & Adapters**: infraestructura intercambiable sin romper contratos de aplicación.
+- **Determinismo**: pipeline y artefactos versionados con hashing para trazabilidad.
+- **Contrato de calidad canónico**: CI y PR validan con `python -m scripts.gate_pr`.
+- **Seguridad aplicada**: guardrails de logging, escaneo de secretos y auditoría de dependencias.
 
-## Roadmap corto (próximos 3 hits)
-1. **Demo grabada + dataset fixture oficial**
-   - Impacto: onboarding más rápido para recruiting/sales y demos consistentes.
-2. **Dashboard ejecutivo empaquetado (Power BI template)**
-   - Impacto: acorta tiempo desde scoring a valor visible para negocio.
-3. **Observabilidad operativa ampliada (SLA de jobs + trazas)**
-   - Impacto: mejora confiabilidad en escenarios reales y facilita soporte.
+## Qué trade-offs comentar
+- **Velocidad vs robustez**: más checks en gate completo, pero menos riesgo de regresiones.
+- **Simplicidad local vs extensibilidad**: SQLite/JSON facilitan demo y portabilidad, a cambio de límites de escala.
+- **Separación por capas vs curva inicial**: más estructura al inicio, mayor mantenibilidad en crecimiento.
+- **Pipeline offline reproducible vs serving online**: foco en trazabilidad y entregables BI antes de inferencia en tiempo real.
+
+## Frases cortas para entrevista
+- "Este repo demuestra criterio de ingeniería, no solo un modelo que corre".
+- "El valor está en la reproducibilidad y en contratos estables para negocio".
+- "Puedo explicar decisiones, límites y cómo escalarlo sin romper arquitectura".
