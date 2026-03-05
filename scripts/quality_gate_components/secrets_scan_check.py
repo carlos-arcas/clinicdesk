@@ -7,6 +7,7 @@ import subprocess
 from pathlib import Path
 
 from . import config
+from .secrets_scan_fallback import render_report, scan_repo
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -17,21 +18,6 @@ def find_command_path(candidates: tuple[str, ...]) -> str | None:
         if command_path:
             return command_path
     return None
-
-
-def _write_missing_tool_report(report_path: Path) -> None:
-    report_path.write_text(
-        json.dumps(
-            {
-                "error": "No se encontró gitleaks en PATH",
-                "instalacion_sugerida": "sudo apt-get install -y gitleaks",
-            },
-            ensure_ascii=False,
-            indent=2,
-        )
-        + "\n",
-        encoding="utf-8",
-    )
 
 
 def _normalize_json_report(report_path: Path, completed: subprocess.CompletedProcess[str]) -> None:
@@ -58,10 +44,25 @@ def run_secrets_scan(
 
     finder = command_finder or find_command_path
     scanner = finder(("gitleaks",))
+    # gitleaks puede no existir en entornos restringidos locales.
+    # En ese caso mantenemos el guardrail con un escaneo fallback en Python.
     if scanner is None:
-        _write_missing_tool_report(report)
-        _LOGGER.error("[quality-gate] ❌ Falta gitleaks en PATH. Revisa docs/ci_quality_gate.md para instalación.")
-        return 7
+        hallazgos = scan_repo(root)
+        report.write_text(render_report(hallazgos), encoding="utf-8")
+        _LOGGER.info(
+            "[quality-gate] secrets_scan metodo=fallback hallazgos=%s",
+            len(hallazgos),
+        )
+        if hallazgos:
+            _LOGGER.error("[quality-gate] ❌ Escaneo fallback detectó posibles secretos.")
+            return 7
+        return 0
+
+    report_argument = str(report)
+    try:
+        report_argument = str(report.relative_to(root))
+    except ValueError:
+        report_argument = str(report)
 
     command = [
         scanner,
@@ -73,11 +74,19 @@ def run_secrets_scan(
         "--report-format",
         "json",
         "--report-path",
-        "docs/secrets_scan_report.txt",
+        report_argument,
     ]
-    _LOGGER.info("[quality-gate] Ejecutando escaneo de secretos con gitleaks.")
+    _LOGGER.info("[quality-gate] secrets_scan metodo=gitleaks")
     completed = subprocess.run(command, cwd=root, capture_output=True, text=True, check=False)
     _normalize_json_report(report, completed)
+    findings = -1
+    if report.exists():
+        try:
+            parsed = json.loads(report.read_text(encoding="utf-8") or "[]")
+            findings = len(parsed) if isinstance(parsed, list) else -1
+        except json.JSONDecodeError:
+            findings = -1
+    _LOGGER.info("[quality-gate] secrets_scan metodo=gitleaks hallazgos=%s", findings)
     if completed.returncode == 0:
         return 0
     _LOGGER.error("[quality-gate] ❌ gitleaks detectó secretos o falló la ejecución.")

@@ -37,3 +37,9 @@
 - El core gate se rompía porque `pytest-qt` se cargaba por **autoload de entrypoints** (no por `pytest.ini`), incluso usando `-m "not ui"`, y en CI sin stack gráfico terminaba en error de `libEGL`.
 - Decisión técnica aplicada: ejecutar core con autoload apagado (`PYTEST_DISABLE_PLUGIN_AUTOLOAD=1`, `PYTEST_ADDOPTS=""`) y cobertura explícita vía `python -m coverage run -m pytest`, más generación de `docs/coverage.xml` y `docs/coverage.json`.
 - Ejecución actual separada: core corre `pytest -m "not ui"` aislado de plugins externos; UI corre headless (`QT_QPA_PLATFORM=offscreen` + `xvfb-run`) en jobs `ui_smoke`/`uiqt` con `libegl1` y librerías XCB mínimas.
+
+## Secrets scan fallback (gate PR estable)
+
+- Problema detectado: en entornos restringidos `gitleaks` puede no estar en `PATH` y el `gate_pr` fallaba por dependencia externa no disponible.
+- Solución aplicada: `secrets_scan_check` mantiene `gitleaks` cuando existe y activa un fallback Python conservador cuando no existe, manteniendo el check bloqueante.
+- Garantía de seguridad: reportes/logs solo incluyen metadatos y snippets redactados (`[REDACTED]` + hash corto), sin exponer secretos en claro.
