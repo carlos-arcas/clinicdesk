@@ -42,9 +42,11 @@ from clinicdesk.app.pages.shared.crud_page_helpers import confirm_deactivation, 
 from clinicdesk.app.pages.shared.table_utils import apply_row_style, set_item
 from clinicdesk.app.queries.historial_paciente_queries import HistorialPacienteQueries
 from clinicdesk.app.queries.historial_listados_queries import HistorialListadosQueries
-from clinicdesk.app.queries.pacientes_queries import PacienteRow
+from clinicdesk.app.queries.pacientes_queries import PacienteRow, PacientesQueries
 from clinicdesk.app.queries.recetas_queries import RecetasQueries
 from clinicdesk.app.ui.error_presenter import present_error
+from clinicdesk.app.ui.viewmodels.contratos import EstadoListado, EstadoPantalla, EventoUI
+from clinicdesk.app.ui.viewmodels.pacientes_vm import PacientesViewModel
 from clinicdesk.app.ui.widgets.estado_pantalla_widget import EstadoPantallaWidget
 from clinicdesk.app.infrastructure.sqlite.db_path import resolver_db_path_desde_conexion
 from clinicdesk.app.ui.workers.listado_async_workers import CargaPacientesWorker
@@ -82,9 +84,12 @@ class PagePacientes(QWidget):
         self._token_carga = 0
         self._thread_busqueda_rapida: QThread | None = None
         self._preferencias_restauradas = False
+        self._vm = PacientesViewModel(listar_pacientes=self._listar_pacientes_sync)
 
         self._build_ui()
         self._connect_signals()
+        self._vm.subscribe(self._on_estado_vm)
+        self._vm.subscribe_eventos(self._on_evento_vm)
         self._refresh()
 
     def _build_ui(self) -> None:
@@ -166,7 +171,8 @@ class PagePacientes(QWidget):
         selected_id = self._selected_id()
         activo = self.filtros.activo()
         texto = normalize_search_text(self.filtros.texto())
-        self._estado_pantalla.set_loading("ux_states.pacientes.loading")
+        self._vm.actualizar_contexto(activo=activo, texto=texto, seleccion_id=selected_id)
+        self._vm.set_loading()
         self._set_busy(True, "busy.loading_pacientes")
         self._arrancar_worker_carga(token=token, selected_id=selected_id, activo=activo, texto=texto)
 
@@ -259,20 +265,8 @@ class PagePacientes(QWidget):
         rows = payload.get("rows", [])
         total_base = int(payload.get("total_base", len(rows)))
         self.filtros.set_contador(len(rows), total_base)
-        self._render(rows)
-        if selected_id is not None:
-            self._select_by_id(selected_id)
-        self._update_buttons()
-        if not rows:
-            self._estado_pantalla.set_empty(
-                "ux_states.pacientes.empty",
-                cta_text_key="ux_states.pacientes.cta_refresh",
-                on_cta=self._refresh,
-            )
-            self._toast_success("toast.refresh_ok_pacientes")
-            return
-        self._estado_pantalla.set_content(self.table.parentWidget())
-        self._toast_success("toast.refresh_ok_pacientes")
+        self._vm.seleccionar(selected_id)
+        self._vm.resolver_carga_ok(rows=rows, emitir_toast=True)
 
     def _on_carga_error(self, error_type: str, token: int) -> None:
         if token != self._token_carga:
@@ -282,12 +276,45 @@ class PagePacientes(QWidget):
             "pacientes_carga_error",
             extra={"action": "pacientes_carga_error", "error": error_type},
         )
-        self._estado_pantalla.set_error(
-            "ux_states.pacientes.error",
-            detalle_tecnico=error_type,
-            on_retry=self._refresh,
-        )
-        self._toast_error("toast.refresh_fail")
+        self._vm.resolver_carga_error(error_key="ux_states.pacientes.error", emitir_toast=True)
+
+    def _on_estado_vm(self, estado: EstadoListado[PacienteRow]) -> None:
+        if estado.estado_pantalla is EstadoPantalla.LOADING:
+            self._estado_pantalla.set_loading("ux_states.pacientes.loading")
+            return
+        if estado.estado_pantalla is EstadoPantalla.ERROR:
+            self._estado_pantalla.set_error(estado.error_key or "ux_states.pacientes.error", on_retry=self._refresh)
+            return
+        self._render(estado.items)
+        if estado.seleccion_id is not None:
+            self._select_by_id(estado.seleccion_id)
+        self._update_buttons()
+        if estado.estado_pantalla is EstadoPantalla.EMPTY:
+            self._estado_pantalla.set_empty(
+                "ux_states.pacientes.empty",
+                cta_text_key="ux_states.pacientes.cta_refresh",
+                on_cta=self._refresh,
+            )
+            return
+        self._estado_pantalla.set_content(self.table.parentWidget())
+
+    def _on_evento_vm(self, evento: EventoUI) -> None:
+        if evento.tipo != "toast":
+            return
+        key = evento.payload.get("key")
+        if not isinstance(key, str):
+            return
+        if key == "toast.refresh_fail":
+            self._toast_error(key)
+            return
+        self._toast_success(key)
+
+    def _listar_pacientes_sync(self, activo: bool, texto: str) -> list[PacienteRow]:
+        queries = PacientesQueries(self._container.connection)
+        base_rows = queries.list_all(activo=activo)
+        if not texto:
+            return base_rows
+        return queries.search(texto=texto, activo=activo)
 
     def _render(self, rows: list[PacienteRow]) -> None:
         self.table.setRowCount(0)
