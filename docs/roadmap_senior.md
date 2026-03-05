@@ -49,3 +49,10 @@
 - Problema detectado: en entornos restringidos `gitleaks` puede no estar en `PATH` y el `gate_pr` fallaba por dependencia externa no disponible.
 - Solución aplicada: `secrets_scan_check` mantiene `gitleaks` cuando existe y activa un fallback Python conservador cuando no existe, manteniendo el check bloqueante.
 - Garantía de seguridad: reportes/logs solo incluyen metadatos y snippets redactados (`[REDACTED]` + hash corto), sin exponer secretos en claro.
+
+
+## Refactor atómico `PageAuditoria` (baseline/evidencia)
+
+- Baseline medido: `wc -l clinicdesk/app/pages/auditoria/page.py` => **340 LOC**.
+- Resultado tras split por responsabilidades + ViewModel: `clinicdesk/app/pages/auditoria/page.py` => **261 LOC**.
+- Se añadió `AuditoriaViewModel` puro y testeable + módulos extraídos (`contratos_ui`, `ui_builder`, `render_auditoria`, `acciones_auditoria`, `preferencias_auditoria`, `workers_auditoria`).
