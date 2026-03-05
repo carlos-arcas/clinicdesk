@@ -1,23 +1,17 @@
 from __future__ import annotations
 
 import argparse
-import json
 import os
-import re
 import subprocess
 import sys
 from pathlib import Path
 from typing import Sequence
 
+from scripts.diagnostico_helpers import escribir_json, escribir_texto, primeras_lineas_redactadas
 from scripts.quality_gate_components import config
 
 _ENV_DIAGNOSTICO = "CLINICDESK_DIAGNOSTICO_PYTEST_255"
 _MAX_LINEAS_RESUMEN = 120
-_PATRONES_PII: tuple[re.Pattern[str], ...] = (
-    re.compile(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}"),
-    re.compile(r"\b\d{8}[A-Za-z]\b"),
-    re.compile(r"\b(?:\+?\d{1,3})?[ -]?(?:\d[ -]?){8,}\d\b"),
-)
 
 
 def diagnostico_habilitado(entorno: dict[str, str] | None = None) -> bool:
@@ -37,17 +31,13 @@ def ejecutar_diagnostico_pytest_255(
 
     stdout = resultado.stdout or ""
     stderr = resultado.stderr or ""
-    _escribir_log(directorio_logs / "pytest_stdout.log", stdout)
-    _escribir_log(directorio_logs / "pytest_stderr.log", stderr)
+    escribir_texto(directorio_logs / "pytest_stdout.log", stdout)
+    escribir_texto(directorio_logs / "pytest_stderr.log", stderr)
 
     resumen = _construir_resumen(comando=comando, resultado=resultado, max_lineas=max_lineas)
     destino_resumen = directorio_logs / "pytest_failure_summary.json"
-    destino_resumen.write_text(json.dumps(resumen, ensure_ascii=False, indent=2), encoding="utf-8")
+    escribir_json(destino_resumen, resumen)
     return resumen
-
-
-def _escribir_log(destino: Path, contenido: str) -> None:
-    destino.write_text(contenido, encoding="utf-8")
 
 
 def _construir_resumen(
@@ -59,23 +49,9 @@ def _construir_resumen(
     return {
         "returncode": resultado.returncode,
         "comando": list(comando),
-        "stdout_lineas": _normalizar_lineas(resultado.stdout or "", max_lineas=max_lineas),
-        "stderr_lineas": _normalizar_lineas(resultado.stderr or "", max_lineas=max_lineas),
+        "stdout_lineas": primeras_lineas_redactadas(resultado.stdout or "", max_lineas=max_lineas),
+        "stderr_lineas": primeras_lineas_redactadas(resultado.stderr or "", max_lineas=max_lineas),
     }
-
-
-def _normalizar_lineas(texto: str, *, max_lineas: int) -> list[str]:
-    lineas = texto.splitlines()
-    if len(lineas) > max_lineas:
-        lineas = lineas[-max_lineas:]
-    return [_redactar_linea(linea) for linea in lineas]
-
-
-def _redactar_linea(linea: str) -> str:
-    salida = linea
-    for patron in _PATRONES_PII:
-        salida = patron.sub("[REDACTED]", salida)
-    return salida
 
 
 def main(argv: list[str] | None = None) -> int:
