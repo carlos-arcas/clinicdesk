@@ -70,17 +70,36 @@ def _log_about_to_quit(app: QApplication) -> None:
     )
 
 
-def main() -> int:
+def _inicializar_app() -> tuple[QApplication, str]:
     instalar_hooks_crash(Path("./logs"))
     configure_logging("clinicdesk-ui", Path("./logs"), level="INFO", json=True)
     run_id = uuid.uuid4().hex[:8]
     set_run_context(run_id)
     install_global_exception_hook(LOGGER)
     _install_ui_log_buffer()
-
     app = QApplication(sys.argv)
     app.aboutToQuit.connect(lambda: _log_about_to_quit(app))
     app.setStyleSheet(load_qss())
+    return app, run_id
+
+
+def _crear_controlador_sesion(app: QApplication, container, i18n: I18nManager) -> ControladorSesionAutenticada:
+    main_window_factory = _MainWindowFactory(container, i18n)
+
+    def _mostrar_error_transicion(mensaje: str) -> None:
+        QMessageBox.warning(None, i18n.t("login.title"), mensaje)
+
+    return ControladorSesionAutenticada(
+        app=app,
+        i18n=i18n,
+        logger=LOGGER,
+        factories=main_window_factory,
+        mostrar_error=_mostrar_error_transicion,
+    )
+
+
+def main() -> int:
+    app, run_id = _inicializar_app()
 
     con = bootstrap_database(apply_schema=True)
     container = build_container(con)
@@ -89,19 +108,7 @@ def main() -> int:
 
     db_path = resolve_db_path(emit_log=False)
     demo_allowed = is_demo_mode_allowed(db_path)
-
-    main_window_factory = _MainWindowFactory(container, i18n)
-
-    def _mostrar_error_transicion(mensaje: str) -> None:
-        QMessageBox.warning(None, i18n.t("login.title"), mensaje)
-
-    controlador = ControladorSesionAutenticada(
-        app=app,
-        i18n=i18n,
-        logger=LOGGER,
-        factories=main_window_factory,
-        mostrar_error=_mostrar_error_transicion,
-    )
+    controlador = _crear_controlador_sesion(app=app, container=container, i18n=i18n)
 
     def open_authenticated_session() -> bool:
         while True:

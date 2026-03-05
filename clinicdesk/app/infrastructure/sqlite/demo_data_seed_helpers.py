@@ -24,6 +24,52 @@ def seed_inventory(connection: sqlite3.Connection, n_meds: int, n_materials: int
     return meds, materials
 
 
+def _insertar_linea_y_dispensacion(
+    connection: sqlite3.Connection,
+    *,
+    receta_id: int,
+    medicamento_id: int,
+    indice_linea: int,
+    rng: random.Random,
+    staff_ids: list[int],
+) -> tuple[int, int]:
+    cantidad = rng.randint(1, 4)
+    pendiente = rng.randint(0, cantidad)
+    linea_cur = connection.execute(
+        """INSERT INTO receta_lineas (receta_id, medicamento_id, dosis, duracion_dias, instrucciones,
+        cantidad, pendiente, estado, activo)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)""",
+        (
+            receta_id,
+            medicamento_id,
+            "1 cada 8h",
+            7 + indice_linea,
+            "Tras comida",
+            cantidad,
+            pendiente,
+            "PENDIENTE" if pendiente else "DISPENSADA",
+        ),
+    )
+    if not staff_ids:
+        return 1, 0
+    disp_fecha = datetime.now().replace(microsecond=0) - timedelta(days=rng.randint(0, 20))
+    connection.execute(
+        """INSERT INTO dispensaciones (receta_id, receta_linea_id, medicamento_id, personal_id, fecha_hora,
+        cantidad, observaciones, activo)
+        VALUES (?, ?, ?, ?, ?, ?, ?, 1)""",
+        (
+            receta_id,
+            int(linea_cur.lastrowid),
+            medicamento_id,
+            staff_ids[indice_linea % len(staff_ids)],
+            disp_fecha.isoformat(sep=" ", timespec="seconds"),
+            max(1, cantidad - pendiente),
+            "Dispensación demo",
+        ),
+    )
+    return 1, 1
+
+
 def seed_recetas_dispensaciones(
     connection: sqlite3.Connection,
     patient_ids: list[int],
@@ -41,8 +87,9 @@ def seed_recetas_dispensaciones(
     recipes = max(1, n_recetas)
     total_lineas = 0
     total_disp = 0
+    rango_dias = max((to_date - from_date).days, 1)
     for idx in range(recipes):
-        d = from_date + timedelta(days=rng.randint(0, max((to_date - from_date).days, 1)))
+        d = from_date + timedelta(days=rng.randint(0, rango_dias))
         receta_cur = connection.execute(
             """INSERT INTO recetas (paciente_id, medico_id, fecha, observaciones, estado, activo)
             VALUES (?, ?, ?, ?, 'ACTIVA', 1)""",
@@ -55,41 +102,17 @@ def seed_recetas_dispensaciones(
         )
         receta_id = int(receta_cur.lastrowid)
         for line_idx in range(rng.randint(1, 5)):
-            cantidad = rng.randint(1, 4)
-            pendiente = rng.randint(0, cantidad)
-            linea_cur = connection.execute(
-                """INSERT INTO receta_lineas (receta_id, medicamento_id, dosis, duracion_dias, instrucciones,
-                cantidad, pendiente, estado, activo)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)""",
-                (
-                    receta_id,
-                    med_ids[(idx + line_idx) % len(med_ids)],
-                    "1 cada 8h",
-                    7 + line_idx,
-                    "Tras comida",
-                    cantidad,
-                    pendiente,
-                    "PENDIENTE" if pendiente else "DISPENSADA",
-                ),
+            med_id = med_ids[(idx + line_idx) % len(med_ids)]
+            lineas, dispensaciones = _insertar_linea_y_dispensacion(
+                connection,
+                receta_id=receta_id,
+                medicamento_id=med_id,
+                indice_linea=idx + line_idx,
+                rng=rng,
+                staff_ids=staff_ids,
             )
-            total_lineas += 1
-            if staff_ids:
-                disp_fecha = datetime.now().replace(microsecond=0) - timedelta(days=rng.randint(0, 20))
-                connection.execute(
-                    """INSERT INTO dispensaciones (receta_id, receta_linea_id, medicamento_id, personal_id, fecha_hora,
-                    cantidad, observaciones, activo)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, 1)""",
-                    (
-                        receta_id,
-                        int(linea_cur.lastrowid),
-                        med_ids[(idx + line_idx) % len(med_ids)],
-                        staff_ids[(idx + line_idx) % len(staff_ids)],
-                        disp_fecha.isoformat(sep=" ", timespec="seconds"),
-                        max(1, cantidad - pendiente),
-                        "Dispensación demo",
-                    ),
-                )
-                total_disp += 1
+            total_lineas += lineas
+            total_disp += dispensaciones
     connection.commit()
     return recipes, total_lineas, total_disp
 

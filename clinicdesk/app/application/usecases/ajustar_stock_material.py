@@ -81,6 +81,39 @@ class AjustarStockMaterialResult:
     incidencia_id: Optional[int]
 
 
+def _max_severidad(warnings: List[WarningItem]) -> str:
+    order = {"BAJA": 1, "MEDIA": 2, "ALTA": 3}
+    return max((w.severidad for w in warnings), key=lambda s: order.get(s, 0))
+
+
+def _build_incidencia_descripcion(
+    req: AjustarStockMaterialRequest,
+    warnings: List[WarningItem],
+    fecha_hora: str,
+    stock_anterior: int,
+    stock_nuevo: int,
+    movimiento_id: int,
+) -> str:
+    warn_lines = "\n".join([f"- [{w.severidad}] {w.codigo}: {w.mensaje}" for w in warnings])
+    return (
+        "Ajuste de stock de material registrado con override.\n"
+        f"Movimiento ID: {movimiento_id}\n"
+        f"Material ID: {req.material_id}\n"
+        f"Tipo: {req.tipo}\n"
+        f"Cantidad: {req.cantidad}\n"
+        f"Stock anterior: {stock_anterior}\n"
+        f"Stock nuevo: {stock_nuevo}\n"
+        f"Personal ID: {req.personal_id}\n"
+        f"FechaHora: {fecha_hora}\n"
+        "Warnings:\n"
+        f"{warn_lines}"
+    )
+
+
+def _now_iso() -> str:
+    return datetime.now().replace(microsecond=0).isoformat(sep=" ")
+
+
 # ---------------------------------------------------------------------
 # Use case
 # ---------------------------------------------------------------------
@@ -122,7 +155,7 @@ class AjustarStockMaterialUseCase:
             raise ValidationError("tipo debe ser ENTRADA, SALIDA o AJUSTE.")
 
     def _load_state(self, req: AjustarStockMaterialRequest) -> Tuple[str, int]:
-        fecha_hora = req.fecha_hora or self._now_iso()
+        fecha_hora = req.fecha_hora or _now_iso()
         material = self._c.materiales_repo.get_by_id(req.material_id)
         if not material or not material.activo:
             raise ValidationError("El material no existe o está inactivo.")
@@ -258,11 +291,16 @@ class AjustarStockMaterialUseCase:
 
         inc = Incidencia(
             tipo="STOCK",
-            severidad=self._max_severidad(warnings),
+            severidad=_max_severidad(warnings),
             estado="ABIERTA",
             fecha_hora=fecha_hora,
-            descripcion=self._build_incidencia_descripcion(
-                req, warnings, fecha_hora, stock_anterior, stock_nuevo, movimiento_id
+            descripcion=_build_incidencia_descripcion(
+                req=req,
+                warnings=warnings,
+                fecha_hora=fecha_hora,
+                stock_anterior=stock_anterior,
+                stock_nuevo=stock_nuevo,
+                movimiento_id=movimiento_id,
             ),
             medico_id=None,
             personal_id=req.personal_id,
@@ -273,38 +311,3 @@ class AjustarStockMaterialUseCase:
             nota_override=req.nota_override.strip(),
         )
         return self._c.incidencias_repo.create(inc)
-
-    # -----------------------------------------------------------------
-    # Internos
-    # -----------------------------------------------------------------
-
-    def _max_severidad(self, warnings: List[WarningItem]) -> str:
-        order = {"BAJA": 1, "MEDIA": 2, "ALTA": 3}
-        return max((w.severidad for w in warnings), key=lambda s: order.get(s, 0))
-
-    def _build_incidencia_descripcion(
-        self,
-        req: AjustarStockMaterialRequest,
-        warnings: List[WarningItem],
-        fecha_hora: str,
-        stock_anterior: int,
-        stock_nuevo: int,
-        movimiento_id: int,
-    ) -> str:
-        warn_lines = "\n".join([f"- [{w.severidad}] {w.codigo}: {w.mensaje}" for w in warnings])
-        return (
-            "Ajuste de stock de material registrado con override.\n"
-            f"Movimiento ID: {movimiento_id}\n"
-            f"Material ID: {req.material_id}\n"
-            f"Tipo: {req.tipo}\n"
-            f"Cantidad: {req.cantidad}\n"
-            f"Stock anterior: {stock_anterior}\n"
-            f"Stock nuevo: {stock_nuevo}\n"
-            f"Personal ID: {req.personal_id}\n"
-            f"FechaHora: {fecha_hora}\n"
-            "Warnings:\n"
-            f"{warn_lines}"
-        )
-
-    def _now_iso(self) -> str:
-        return datetime.now().replace(microsecond=0).isoformat(sep=" ")

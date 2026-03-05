@@ -81,6 +81,39 @@ class AjustarStockMedicamentoResult:
     incidencia_id: Optional[int]
 
 
+def _max_severidad(warnings: List[WarningItem]) -> str:
+    order = {"BAJA": 1, "MEDIA": 2, "ALTA": 3}
+    return max((w.severidad for w in warnings), key=lambda s: order.get(s, 0))
+
+
+def _build_incidencia_descripcion(
+    req: AjustarStockMedicamentoRequest,
+    warnings: List[WarningItem],
+    fecha_hora: str,
+    stock_anterior: int,
+    stock_nuevo: int,
+    movimiento_id: int,
+) -> str:
+    warn_lines = "\n".join([f"- [{w.severidad}] {w.codigo}: {w.mensaje}" for w in warnings])
+    return (
+        "Ajuste de stock registrado con override.\n"
+        f"Movimiento ID: {movimiento_id}\n"
+        f"Medicamento ID: {req.medicamento_id}\n"
+        f"Tipo: {req.tipo}\n"
+        f"Cantidad: {req.cantidad}\n"
+        f"Stock anterior: {stock_anterior}\n"
+        f"Stock nuevo: {stock_nuevo}\n"
+        f"Personal ID: {req.personal_id}\n"
+        f"FechaHora: {fecha_hora}\n"
+        "Warnings:\n"
+        f"{warn_lines}"
+    )
+
+
+def _now_iso() -> str:
+    return datetime.now().replace(microsecond=0).isoformat(sep=" ")
+
+
 # ---------------------------------------------------------------------
 # Use case
 # ---------------------------------------------------------------------
@@ -122,7 +155,7 @@ class AjustarStockMedicamentoUseCase:
             raise ValidationError("tipo debe ser ENTRADA, SALIDA o AJUSTE.")
 
     def _load_state(self, req: AjustarStockMedicamentoRequest) -> Tuple[str, int]:
-        fecha_hora = req.fecha_hora or self._now_iso()
+        fecha_hora = req.fecha_hora or _now_iso()
         medicamento = self._c.medicamentos_repo.get_by_id(req.medicamento_id)
         if not medicamento or not medicamento.activo:
             raise ValidationError("El medicamento no existe o está inactivo.")
@@ -258,11 +291,16 @@ class AjustarStockMedicamentoUseCase:
 
         inc = Incidencia(
             tipo="STOCK",
-            severidad=self._max_severidad(warnings),
+            severidad=_max_severidad(warnings),
             estado="ABIERTA",
             fecha_hora=fecha_hora,
-            descripcion=self._build_incidencia_descripcion(
-                req, warnings, fecha_hora, stock_anterior, stock_nuevo, movimiento_id
+            descripcion=_build_incidencia_descripcion(
+                req=req,
+                warnings=warnings,
+                fecha_hora=fecha_hora,
+                stock_anterior=stock_anterior,
+                stock_nuevo=stock_nuevo,
+                movimiento_id=movimiento_id,
             ),
             medico_id=None,
             personal_id=req.personal_id,
@@ -273,38 +311,3 @@ class AjustarStockMedicamentoUseCase:
             nota_override=req.nota_override.strip() if req.nota_override else "",
         )
         return self._c.incidencias_repo.create(inc)
-
-    # -----------------------------------------------------------------
-    # Internos
-    # -----------------------------------------------------------------
-
-    def _max_severidad(self, warnings: List[WarningItem]) -> str:
-        order = {"BAJA": 1, "MEDIA": 2, "ALTA": 3}
-        return max((w.severidad for w in warnings), key=lambda s: order.get(s, 0))
-
-    def _build_incidencia_descripcion(
-        self,
-        req: AjustarStockMedicamentoRequest,
-        warnings: List[WarningItem],
-        fecha_hora: str,
-        stock_anterior: int,
-        stock_nuevo: int,
-        movimiento_id: int,
-    ) -> str:
-        warn_lines = "\n".join([f"- [{w.severidad}] {w.codigo}: {w.mensaje}" for w in warnings])
-        return (
-            "Ajuste de stock registrado con override.\n"
-            f"Movimiento ID: {movimiento_id}\n"
-            f"Medicamento ID: {req.medicamento_id}\n"
-            f"Tipo: {req.tipo}\n"
-            f"Cantidad: {req.cantidad}\n"
-            f"Stock anterior: {stock_anterior}\n"
-            f"Stock nuevo: {stock_nuevo}\n"
-            f"Personal ID: {req.personal_id}\n"
-            f"FechaHora: {fecha_hora}\n"
-            "Warnings:\n"
-            f"{warn_lines}"
-        )
-
-    def _now_iso(self) -> str:
-        return datetime.now().replace(microsecond=0).isoformat(sep=" ")
