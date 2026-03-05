@@ -23,6 +23,7 @@ Guion recomendado para entrevista:
    - Normal: `./scripts/setup.sh` (Linux/macOS) o `scripts\setup.bat` (Windows) o `python scripts/setup.py`.
    - Sandbox: `python scripts/setup_sandbox.py`.
 2. **Arranque demo en 1 comando**: `python scripts/run_demo.py` (siembra datos demo + abre la app usando una DB demo en `./data/demo/`).
+   - Si falla la demo, revisa `logs/demo_failure_summary.json` y `logs/demo_*_stderr.log`.
 3. **Run demo**: dentro de la app, ejecutar pipeline completo (`seed -> build-features -> train -> score -> drift -> export`) y mostrar versiones generadas.
 4. **Export/report**: abrir `exports/` y enseñar los CSV contractuales para BI (`features`, `metrics`, `scoring`, `drift`).
 
