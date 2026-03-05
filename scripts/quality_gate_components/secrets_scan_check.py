@@ -5,6 +5,7 @@ import logging
 import shutil
 import subprocess
 from pathlib import Path
+from typing import Callable
 
 from . import config
 from .secrets_scan_fallback import render_report, scan_repo
@@ -32,40 +33,39 @@ def _normalize_json_report(report_path: Path, completed: subprocess.CompletedPro
         report_path.write_text("[]\n", encoding="utf-8")
 
 
-def run_secrets_scan(
-    report_path: Path | None = None,
-    repo_root: Path | None = None,
-    command_finder=None,
-) -> int:
-    report = report_path or config.SECRETS_SCAN_REPORT_PATH
-    root = repo_root or config.REPO_ROOT
-    report.parent.mkdir(parents=True, exist_ok=True)
-    report.write_text("[]\n", encoding="utf-8")
+def _resolver_repo_root(repo_root: Path | None) -> Path:
+    return repo_root or config.REPO_ROOT
 
+
+def _resolver_report_path(report_path: Path | None) -> Path:
+    return report_path or config.SECRETS_SCAN_REPORT_PATH
+
+
+def _gitleaks_disponible(command_finder: Callable[[tuple[str, ...]], str | None] | None = None) -> bool:
     finder = command_finder or find_command_path
-    scanner = finder(("gitleaks",))
-    # gitleaks puede no existir en entornos restringidos locales.
-    # En ese caso mantenemos el guardrail con un escaneo fallback en Python.
-    if scanner is None:
-        hallazgos = scan_repo(root)
-        report.write_text(render_report(hallazgos), encoding="utf-8")
-        _LOGGER.info(
-            "[quality-gate] secrets_scan metodo=fallback hallazgos=%s",
-            len(hallazgos),
-        )
-        if hallazgos:
-            _LOGGER.error("[quality-gate] ❌ Escaneo fallback detectó posibles secretos.")
-            return 7
-        return 0
+    return finder(("gitleaks",)) is not None
 
-    report_argument = str(report)
+
+def _resolver_argumento_reporte(repo_root: Path, report_path: Path) -> str:
     try:
-        report_argument = str(report.relative_to(root))
+        return str(report_path.relative_to(repo_root))
     except ValueError:
-        report_argument = str(report)
+        return str(report_path)
 
-    command = [
-        scanner,
+
+def _contar_hallazgos_desde_reporte(report_path: Path) -> int:
+    if not report_path.exists():
+        return -1
+    try:
+        parsed = json.loads(report_path.read_text(encoding="utf-8") or "[]")
+    except json.JSONDecodeError:
+        return -1
+    return len(parsed) if isinstance(parsed, list) else -1
+
+
+def _ejecutar_gitleaks(repo_root: Path, report_path: Path) -> tuple[int, int]:
+    comando = [
+        "gitleaks",
         "detect",
         "--source",
         ".",
@@ -74,20 +74,51 @@ def run_secrets_scan(
         "--report-format",
         "json",
         "--report-path",
-        report_argument,
+        _resolver_argumento_reporte(repo_root, report_path),
     ]
-    _LOGGER.info("[quality-gate] secrets_scan metodo=gitleaks")
-    completed = subprocess.run(command, cwd=root, capture_output=True, text=True, check=False)
-    _normalize_json_report(report, completed)
-    findings = -1
-    if report.exists():
-        try:
-            parsed = json.loads(report.read_text(encoding="utf-8") or "[]")
-            findings = len(parsed) if isinstance(parsed, list) else -1
-        except json.JSONDecodeError:
-            findings = -1
-    _LOGGER.info("[quality-gate] secrets_scan metodo=gitleaks hallazgos=%s", findings)
-    if completed.returncode == 0:
+    resultado = subprocess.run(comando, cwd=repo_root, capture_output=True, text=True, check=False)
+    _normalize_json_report(report_path, resultado)
+    hallazgos = _contar_hallazgos_desde_reporte(report_path)
+    return resultado.returncode, hallazgos
+
+
+def _ejecutar_fallback(repo_root: Path, report_path: Path) -> tuple[int, int]:
+    hallazgos = scan_repo(repo_root)
+    report_path.write_text(render_report(hallazgos), encoding="utf-8")
+    return (7 if hallazgos else 0), len(hallazgos)
+
+
+def _asegurar_reporte_existe(report_path: Path) -> None:
+    report_path.parent.mkdir(parents=True, exist_ok=True)
+    if not report_path.exists():
+        report_path.write_text("[]\n", encoding="utf-8")
+
+
+def _log_resultado(metodo: str, hallazgos: int) -> None:
+    _LOGGER.info("[quality-gate] secrets_scan metodo=%s hallazgos=%s", metodo, hallazgos)
+
+
+def run_secrets_scan(
+    report_path: Path | None = None,
+    repo_root: Path | None = None,
+    command_finder=None,
+) -> int:
+    root = _resolver_repo_root(repo_root)
+    report = _resolver_report_path(report_path)
+    _asegurar_reporte_existe(report)
+    report.write_text("[]\n", encoding="utf-8")
+
+    if _gitleaks_disponible(command_finder):
+        codigo, hallazgos = _ejecutar_gitleaks(root, report)
+        _log_resultado("gitleaks", hallazgos)
+        if codigo == 0:
+            return 0
+        _LOGGER.error("[quality-gate] ❌ gitleaks detectó secretos o falló la ejecución.")
+        return 7
+
+    codigo, hallazgos = _ejecutar_fallback(root, report)
+    _log_resultado("fallback", hallazgos)
+    if codigo == 0:
         return 0
-    _LOGGER.error("[quality-gate] ❌ gitleaks detectó secretos o falló la ejecución.")
+    _LOGGER.error("[quality-gate] ❌ Escaneo fallback detectó posibles secretos.")
     return 7
