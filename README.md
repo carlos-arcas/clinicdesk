@@ -87,11 +87,14 @@ En runtimes aislados, las dependencias deben instalarse en la fase de setup.
 python scripts/setup_sandbox.py
 ```
 
-2. Cuando finalice correctamente, ejecuta el gate completo:
+2. Ejecuta el gate en modo sandbox (opt-in) cuando no puedas instalar deps dev en el runtime:
 
 ```bash
-python -m scripts.gate_pr
+CLINICDESK_SANDBOX_MODE=1 python -m scripts.gate_pr
 ```
+
+`CLINICDESK_SANDBOX_MODE=1` solo omite checks que requieren dependencias no disponibles (por ejemplo, `coverage`).
+**CI/PR usa gate estricto** (`python -m scripts.gate_pr` sin esa variable) y no cambia su contrato.
 
 ### Deploy con Docker
 

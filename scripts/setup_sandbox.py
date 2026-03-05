@@ -85,11 +85,13 @@ def main() -> int:
 
     archivos = ("requirements.txt", "requirements-dev.txt")
     resultados = [_instalar_archivo_requirements(nombre) for nombre in archivos]
+    comando_sandbox = "CLINICDESK_SANDBOX_MODE=1 python -m scripts.gate_pr"
     if all(resultados):
-        _log("[setup_sandbox] Entorno preparado. Ejecuta: python -m scripts.gate_pr")
+        _log(f"[setup_sandbox] Entorno preparado. Ejecuta: {comando_sandbox}")
         return 0
 
     _log("[setup_sandbox] Setup incompleto. Revisa los mensajes y corrige antes del gate.")
+    _log(f"[setup_sandbox][ayuda] Si estás en runtime aislado, prueba: {comando_sandbox}")
     return 1
 
 
