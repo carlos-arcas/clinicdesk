@@ -119,14 +119,15 @@ def test_run_secrets_scan_uses_gitleaks_config_file(tmp_path: Path, monkeypatch)
     assert observed_command[config_index + 1] == ".gitleaks.toml"
 
 
-def test_run_secrets_scan_fails_when_tool_missing(tmp_path: Path, monkeypatch) -> None:
+def test_run_secrets_scan_uses_fallback_when_tool_missing(tmp_path: Path, monkeypatch) -> None:
     report_path = tmp_path / "secrets_scan_report.txt"
+    (tmp_path / "README.md").write_text("sin secretos\n", encoding="utf-8")
 
     monkeypatch.setattr(secrets_scan_check.config, "SECRETS_SCAN_REPORT_PATH", report_path)
     monkeypatch.setattr(secrets_scan_check, "find_command_path", lambda _: None)
 
-    assert secrets_scan_check.run_secrets_scan() == 7
-    assert "No se encontró gitleaks" in report_path.read_text(encoding="utf-8")
+    assert secrets_scan_check.run_secrets_scan(repo_root=tmp_path) == 0
+    assert report_path.read_text(encoding="utf-8").strip() == "[]"
 
 
 def test_pii_logging_guardrail_detects_sensitive_message(tmp_path: Path, monkeypatch) -> None:
