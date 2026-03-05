@@ -7,7 +7,8 @@
 - Mensaje clave: no es solo ML, es producto mantenible (arquitectura + calidad + seguridad).
 
 ### 0:30 - 1:10 · Setup y arranque
-- Normal: `python scripts/setup.py` y luego `python scripts/run_app.py`.
+- Paso 1 (recomendado): `python scripts/run_demo.py` (siembra demo + arranca app con DB demo).
+- Alternativa manual: `python scripts/setup.py` y luego `python scripts/run_app.py`.
 - Sandbox: `python scripts/setup_sandbox.py` y `python -m scripts.gate_sandbox`.
 - (añadir captura aquí: pantalla inicial de la app)
 
