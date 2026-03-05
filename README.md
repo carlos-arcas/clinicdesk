@@ -96,6 +96,20 @@ CLINICDESK_SANDBOX_MODE=1 python -m scripts.gate_pr
 `CLINICDESK_SANDBOX_MODE=1` solo omite checks que requieren dependencias no disponibles (por ejemplo, `coverage`).
 **CI/PR usa gate estricto** (`python -m scripts.gate_pr` sin esa variable) y no cambia su contrato.
 
+### Instalación offline (wheelhouse)
+
+Para entornos sin internet/proxy restringido puedes preparar dependencias dev en una carpeta local:
+
+```bash
+python scripts/dev/build_wheelhouse.py
+python scripts/setup_sandbox.py
+```
+
+`setup_sandbox.py` detecta automáticamente `wheelhouse/` y usa instalación offline con `--no-index`.
+Si `wheelhouse/` no existe, mantiene la instalación estándar.
+
+`wheelhouse/` no se versiona por defecto.
+
 ### Deploy con Docker
 
 1) Copia variables de entorno:

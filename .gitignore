@@ -16,3 +16,4 @@ build/
 
 # Evitar artefacto empaquetado no auditado
 /clinicdesk.zip
+wheelhouse/
