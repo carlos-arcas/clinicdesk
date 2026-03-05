@@ -39,6 +39,8 @@ Guion extendido para recruiters: [docs/recruiter_kit.md](docs/recruiter_kit.md).
 ## Calidad
 En CI también se ejecuta `gate_sandbox` como verificación no bloqueante.
 
+Branch protections recomendadas: ver [docs/branch_protection_recommended.md](docs/branch_protection_recommended.md).
+
 - Gate estricto (PR/CI):
 
 ```bash
