@@ -10,7 +10,9 @@ _FATAL_KEY = "is_fatal_crash"
 
 
 def install_global_exception_hook(logger: logging.LoggerAdapter) -> None:
-    def _handle_exception(exc_type: type[BaseException], exc_value: BaseException, exc_traceback: TracebackType | None) -> None:
+    def _handle_exception(
+        exc_type: type[BaseException], exc_value: BaseException, exc_traceback: TracebackType | None
+    ) -> None:
         if issubclass(exc_type, KeyboardInterrupt):
             if sys.__excepthook__:
                 sys.__excepthook__(exc_type, exc_value, exc_traceback)
@@ -24,13 +26,16 @@ def install_global_exception_hook(logger: logging.LoggerAdapter) -> None:
     sys.excepthook = _handle_exception
 
     if hasattr(threading, "excepthook"):
+
         def _thread_hook(args: threading.ExceptHookArgs) -> None:
             _handle_exception(args.exc_type, args.exc_value, args.exc_traceback)
 
         threading.excepthook = _thread_hook  # type: ignore[assignment]
 
 
-def fatal_exception_handler(logger: logging.LoggerAdapter) -> Callable[[type[BaseException], BaseException, TracebackType | None], None]:
+def fatal_exception_handler(
+    logger: logging.LoggerAdapter,
+) -> Callable[[type[BaseException], BaseException, TracebackType | None], None]:
     def _handler(exc_type: type[BaseException], exc_value: BaseException, exc_traceback: TracebackType | None) -> None:
         logger.critical(
             "unhandled_exception",

@@ -65,11 +65,14 @@ class GestorLoteConfirmaciones:
         self._arrancar_worker(AccionLoteDTO(tipo=tipo, cita_ids=cita_ids, canal=canal))
 
     def _confirmar_enviado(self, total: int) -> bool:
-        return QMessageBox.question(
-            self._parent,
-            self._i18n.t("confirmaciones.lote.confirmar_enviado_titulo"),
-            self._i18n.t("confirmaciones.lote.confirmar_enviado_texto").format(total=total),
-        ) == QMessageBox.Yes
+        return (
+            QMessageBox.question(
+                self._parent,
+                self._i18n.t("confirmaciones.lote.confirmar_enviado_titulo"),
+                self._i18n.t("confirmaciones.lote.confirmar_enviado_texto").format(total=total),
+            )
+            == QMessageBox.Yes
+        )
 
     def _arrancar_worker(self, accion: AccionLoteDTO) -> None:
         self._thread = QThread(self._parent)

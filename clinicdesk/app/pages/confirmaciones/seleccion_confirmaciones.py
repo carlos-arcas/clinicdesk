@@ -19,7 +19,9 @@ def toggle_todo_visible(tabla, state: int, actualizar_cita_seleccionada, actuali
     actualizar_estado_seleccion()
 
 
-def on_item_changed(item: QTableWidgetItem, actualizar_cita_seleccionada, seleccionar_en_vm, actualizar_estado_seleccion) -> None:
+def on_item_changed(
+    item: QTableWidgetItem, actualizar_cita_seleccionada, seleccionar_en_vm, actualizar_estado_seleccion
+) -> None:
     if item.column() != _COL_CHECK:
         return
     actualizar_cita_seleccionada(item)

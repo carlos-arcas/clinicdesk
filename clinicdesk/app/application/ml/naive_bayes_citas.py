@@ -70,8 +70,7 @@ def model_from_dict(payload: dict[str, Any]) -> TrainedModel:
             for feature, per_class in dict(payload["feature_counts"]).items()
         },
         feature_value_cardinality={
-            feature: int(cardinality)
-            for feature, cardinality in dict(payload["feature_value_cardinality"]).items()
+            feature: int(cardinality) for feature, cardinality in dict(payload["feature_value_cardinality"]).items()
         },
         alpha=float(payload.get("alpha", _ALPHA)),
     )

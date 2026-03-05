@@ -28,5 +28,4 @@ class RecordatoriosCitasFacade:
 
 
 class _ProveedorConexionConCierre(Protocol):
-    def cerrar_conexion_del_hilo_actual(self) -> None:
-        ...
+    def cerrar_conexion_del_hilo_actual(self) -> None: ...

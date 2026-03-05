@@ -86,4 +86,3 @@ def _build_expected_confirmation_token(target: Path) -> str:
 def _path_hint(target: Path) -> str:
     digest = hashlib.sha256(target.as_posix().encode("utf-8")).hexdigest()[:8]
     return f"{target.name}#{digest}"
-

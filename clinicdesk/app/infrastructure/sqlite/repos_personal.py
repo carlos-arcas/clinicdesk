@@ -98,13 +98,18 @@ class PersonalRepository:
         return Personal(
             id=row["id"],
             tipo_documento=TipoDocumento(row["tipo_documento"]),
-            documento=_decode(self._field_protection, "documento", row["documento"], _row_value(row, "documento_enc")) or "",
+            documento=_decode(self._field_protection, "documento", row["documento"], _row_value(row, "documento_enc"))
+            or "",
             nombre=row["nombre"],
             apellidos=row["apellidos"],
-            telefono=_decode(self._field_protection, "telefono", self._decrypt(row["telefono"]), _row_value(row, "telefono_enc")),
+            telefono=_decode(
+                self._field_protection, "telefono", self._decrypt(row["telefono"]), _row_value(row, "telefono_enc")
+            ),
             email=_decode(self._field_protection, "email", self._decrypt(row["email"]), _row_value(row, "email_enc")),
             fecha_nacimiento=parse_iso_date(row["fecha_nacimiento"]),
-            direccion=_decode(self._field_protection, "direccion", self._decrypt(row["direccion"]), _row_value(row, "direccion_enc")),
+            direccion=_decode(
+                self._field_protection, "direccion", self._decrypt(row["direccion"]), _row_value(row, "direccion_enc")
+            ),
             activo=bool(row["activo"]),
             puesto=row["puesto"],
             turno=row["turno"],
@@ -238,7 +243,9 @@ def _search_filters(
 def _append_text_filter(clauses: list[str], params: list[object], texto: str, protected: bool) -> None:
     like = like_value(texto)
     if protected:
-        clauses.append("(nombre LIKE ? COLLATE NOCASE OR apellidos LIKE ? COLLATE NOCASE OR puesto LIKE ? COLLATE NOCASE)")
+        clauses.append(
+            "(nombre LIKE ? COLLATE NOCASE OR apellidos LIKE ? COLLATE NOCASE OR puesto LIKE ? COLLATE NOCASE)"
+        )
         params.extend([like, like, like])
         return
     clauses.append(

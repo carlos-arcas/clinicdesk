@@ -46,8 +46,6 @@ class _ExcludeCrashFilter(logging.Filter):
         return not bool(getattr(record, _SOFT_KEY, False) or getattr(record, _FATAL_KEY, False))
 
 
-
-
 class _PIIRedactionFilter(logging.Filter):
     _TOKENS_SENSIBLES = ("dni", "nif", "email", "telefono", "teléfono", "direccion")
     _EMAIL_RE = re.compile(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}")
@@ -104,6 +102,7 @@ class _PIIRedactionFilter(logging.Filter):
     def _es_clave_sensible(self, key: str) -> bool:
         lowered = key.lower()
         return any(token in lowered for token in self._TOKENS_SENSIBLES)
+
 
 class _StructuredFormatter(logging.Formatter):
     def __init__(self, *, json_mode: bool) -> None:

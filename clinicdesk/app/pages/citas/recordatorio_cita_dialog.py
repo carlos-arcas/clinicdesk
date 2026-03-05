@@ -84,7 +84,11 @@ class RecordatorioCitaDialog(QDialog):
     def _load_preview(self) -> None:
         self.lbl_resumen.setText(self._i18n.t("recordatorio.estado.cargando"))
         try:
-            datos = self._container.recordatorios_citas_facade.preparar_uc.recordatorios.obtener_datos_recordatorio_cita(self._cita_id)
+            datos = (
+                self._container.recordatorios_citas_facade.preparar_uc.recordatorios.obtener_datos_recordatorio_cita(
+                    self._cita_id
+                )
+            )
             preview = self._container.recordatorios_citas_facade.preparar_uc.ejecutar(
                 self._cita_id, self._canal_actual, self._i18n.t
             )
@@ -95,9 +99,17 @@ class RecordatorioCitaDialog(QDialog):
         if datos is None:
             self._render_error(self._i18n.t("recordatorio.error.no_encontrada"))
             return
-        self.lbl_resumen.setText(self._i18n.t("recordatorio.resumen.cita").format(fecha=datos.inicio[:10], hora=datos.inicio[11:16], paciente=datos.paciente_nombre))
+        self.lbl_resumen.setText(
+            self._i18n.t("recordatorio.resumen.cita").format(
+                fecha=datos.inicio[:10], hora=datos.inicio[11:16], paciente=datos.paciente_nombre
+            )
+        )
         contacto = datos.telefono if self._canal_actual in {"WHATSAPP", "LLAMADA"} else datos.email
-        self.lbl_contacto.setText(self._i18n.t("recordatorio.contacto.disponible").format(valor=contacto or self._i18n.t("recordatorio.contacto.no_disponible")))
+        self.lbl_contacto.setText(
+            self._i18n.t("recordatorio.contacto.disponible").format(
+                valor=contacto or self._i18n.t("recordatorio.contacto.no_disponible")
+            )
+        )
         self.lbl_aviso.setText("\n".join(preview.advertencias))
         self.txt_mensaje.setPlainText(preview.mensaje)
         self.btn_copiar.setEnabled(preview.puede_copiar)

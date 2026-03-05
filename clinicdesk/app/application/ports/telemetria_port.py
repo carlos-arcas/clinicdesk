@@ -6,5 +6,4 @@ from clinicdesk.app.application.telemetria import EventoTelemetriaDTO
 
 
 class RepositorioTelemetria(Protocol):
-    def registrar(self, evento: EventoTelemetriaDTO) -> None:
-        ...
+    def registrar(self, evento: EventoTelemetriaDTO) -> None: ...

@@ -144,5 +144,7 @@ class SqliteDemoMLReadGateway:
         if not text:
             return "", []
         like = like_value(text)
-        where = "WHERE (nombre LIKE ? COLLATE NOCASE OR apellidos LIKE ? COLLATE NOCASE OR documento LIKE ? COLLATE NOCASE)"
+        where = (
+            "WHERE (nombre LIKE ? COLLATE NOCASE OR apellidos LIKE ? COLLATE NOCASE OR documento LIKE ? COLLATE NOCASE)"
+        )
         return where, [like, like, like]

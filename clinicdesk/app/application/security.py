@@ -40,8 +40,7 @@ class AutorizadorAcciones:
         if self.puede(user_context, action):
             return
         raise AuthorizationError(
-            f"No tienes permisos para ejecutar '{action.value}'. "
-            f"Tu perfil es {user_context.role.value}."
+            f"No tienes permisos para ejecutar '{action.value}'. Tu perfil es {user_context.role.value}."
         )
 
 

@@ -3,7 +3,10 @@ from __future__ import annotations
 from dataclasses import replace
 from datetime import datetime
 
-from clinicdesk.app.application.historial_paciente.filtros import FiltrosHistorialPacienteDTO, normalizar_filtros_historial_paciente
+from clinicdesk.app.application.historial_paciente.filtros import (
+    FiltrosHistorialPacienteDTO,
+    normalizar_filtros_historial_paciente,
+)
 from clinicdesk.app.application.historial_paciente.validaciones import validar_filtros_historial_paciente
 
 
@@ -52,7 +55,9 @@ def test_valida_paginacion_invalida() -> None:
 
 
 def test_integracion_normalizar_y_validar() -> None:
-    bruto = FiltrosHistorialPacienteDTO(paciente_id=7, rango_preset="30_dias", texto="  dolor  ", estados=("programada",), limite=50, offset=0)
+    bruto = FiltrosHistorialPacienteDTO(
+        paciente_id=7, rango_preset="30_dias", texto="  dolor  ", estados=("programada",), limite=50, offset=0
+    )
     normalizados = normalizar_filtros_historial_paciente(bruto, datetime(2026, 2, 10, 10, 0))
     resultado = validar_filtros_historial_paciente(normalizados, "citas")
     assert normalizados.texto == "dolor"

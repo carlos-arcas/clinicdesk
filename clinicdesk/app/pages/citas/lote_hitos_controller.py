@@ -88,15 +88,20 @@ class GestorLoteHitosCitas:
         self.combo_modo.blockSignals(True)
         self.combo_modo.clear()
         self.combo_modo.addItem(self._i18n.t("citas.hitos.lote.usar_ahora"), ModoTimestampHito.AHORA.value)
-        self.combo_modo.addItem(self._i18n.t("citas.hitos.lote.usar_hora_programada"), ModoTimestampHito.PROGRAMADA.value)
+        self.combo_modo.addItem(
+            self._i18n.t("citas.hitos.lote.usar_hora_programada"), ModoTimestampHito.PROGRAMADA.value
+        )
         self.combo_modo.blockSignals(False)
 
     def _confirmar(self, total: int) -> bool:
-        return QMessageBox.question(
-            self._parent,
-            self._i18n.t("citas.hitos.lote.confirmar_titulo"),
-            self._i18n.t("citas.hitos.lote.confirmar_texto").format(total=total),
-        ) == QMessageBox.Yes
+        return (
+            QMessageBox.question(
+                self._parent,
+                self._i18n.t("citas.hitos.lote.confirmar_titulo"),
+                self._i18n.t("citas.hitos.lote.confirmar_texto").format(total=total),
+            )
+            == QMessageBox.Yes
+        )
 
     def _resolver_modo(self) -> ModoTimestampHito:
         return ModoTimestampHito(self.combo_modo.currentData())

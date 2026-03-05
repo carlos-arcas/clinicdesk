@@ -46,9 +46,9 @@ class AusenciaMedico:
     medico_id: int = 0
 
     inicio: str = ""  # ISO date o datetime
-    fin: str = ""     # ISO date o datetime
+    fin: str = ""  # ISO date o datetime
 
-    tipo: str = ""    # VACACIONES/BAJA/PERMISO/...
+    tipo: str = ""  # VACACIONES/BAJA/PERMISO/...
     motivo: Optional[str] = None
 
     aprobado_por_personal_id: Optional[int] = None

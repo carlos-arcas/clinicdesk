@@ -30,6 +30,5 @@ class EventoAuditoriaAcceso:
     id: int | None = None
 
 
-
 def now_utc_iso() -> str:
     return datetime.now(UTC).isoformat()

@@ -87,10 +87,14 @@ class MedicosQueries:
             return "", params
         return " WHERE " + " AND ".join(clauses), params
 
-    def list_all(self, *, activo: Optional[bool] = True, limit: Optional[int] = None, offset: int = 0) -> List[MedicoRow]:
+    def list_all(
+        self, *, activo: Optional[bool] = True, limit: Optional[int] = None, offset: int = 0
+    ) -> List[MedicoRow]:
         where_sql, params = self._build_where(self._build_activo_clause(activo))
         sql = self._base_select_sql() + where_sql
-        sql += " GROUP BY id, documento, documento_enc, documento_hash, nombre, apellidos, telefono, telefono_enc, activo"
+        sql += (
+            " GROUP BY id, documento, documento_enc, documento_hash, nombre, apellidos, telefono, telefono_enc, activo"
+        )
         sql += " ORDER BY apellidos, nombre, id"
         if limit is not None:
             sql += " LIMIT ?"
@@ -127,7 +131,9 @@ class MedicosQueries:
             self._build_activo_clause(activo),
         )
         sql = self._base_select_sql() + where_sql
-        sql += " GROUP BY id, documento, documento_enc, documento_hash, nombre, apellidos, telefono, telefono_enc, activo"
+        sql += (
+            " GROUP BY id, documento, documento_enc, documento_hash, nombre, apellidos, telefono, telefono_enc, activo"
+        )
         sql += " ORDER BY apellidos, nombre, id"
         if limit is not None:
             sql += " LIMIT ?"

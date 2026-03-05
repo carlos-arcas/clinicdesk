@@ -1,6 +1,16 @@
 from __future__ import annotations
 
-from PySide6.QtWidgets import QComboBox, QGridLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton, QTableWidget, QVBoxLayout, QWidget
+from PySide6.QtWidgets import (
+    QComboBox,
+    QGridLayout,
+    QHBoxLayout,
+    QLabel,
+    QLineEdit,
+    QPushButton,
+    QTableWidget,
+    QVBoxLayout,
+    QWidget,
+)
 
 from clinicdesk.app.pages.auditoria.contratos_ui import AuditoriaUIRefs
 from clinicdesk.app.pages.auditoria.filtros_ui import columnas_tabla, opciones_accion, opciones_entidad, opciones_rango

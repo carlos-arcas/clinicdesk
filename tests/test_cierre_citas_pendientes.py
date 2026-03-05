@@ -42,13 +42,62 @@ def _insert_cita(con, *, paciente_id: int, medico_id: int, sala_id: int, inicio:
 def test_listar_citas_pendientes_cierre_filtra_pasadas_no_finales_y_pagina(db_connection) -> None:
     paciente_1, paciente_2, medico_id, sala_id = _seed_base_tablas(db_connection)
     ahora = datetime.now()
-    _insert_cita(db_connection, paciente_id=paciente_1, medico_id=medico_id, sala_id=sala_id, inicio=ahora - timedelta(days=8), estado="PROGRAMADA")
-    _insert_cita(db_connection, paciente_id=paciente_1, medico_id=medico_id, sala_id=sala_id, inicio=ahora - timedelta(days=6), estado="CONFIRMADA")
-    _insert_cita(db_connection, paciente_id=paciente_2, medico_id=medico_id, sala_id=sala_id, inicio=ahora - timedelta(days=5), estado="EN_CURSO")
-    _insert_cita(db_connection, paciente_id=paciente_2, medico_id=medico_id, sala_id=sala_id, inicio=ahora - timedelta(days=4), estado="REALIZADA")
-    _insert_cita(db_connection, paciente_id=paciente_2, medico_id=medico_id, sala_id=sala_id, inicio=ahora - timedelta(days=3), estado="NO_PRESENTADO")
-    _insert_cita(db_connection, paciente_id=paciente_2, medico_id=medico_id, sala_id=sala_id, inicio=ahora - timedelta(days=2), estado="CANCELADA")
-    _insert_cita(db_connection, paciente_id=paciente_1, medico_id=medico_id, sala_id=sala_id, inicio=ahora + timedelta(days=2), estado="PROGRAMADA")
+    _insert_cita(
+        db_connection,
+        paciente_id=paciente_1,
+        medico_id=medico_id,
+        sala_id=sala_id,
+        inicio=ahora - timedelta(days=8),
+        estado="PROGRAMADA",
+    )
+    _insert_cita(
+        db_connection,
+        paciente_id=paciente_1,
+        medico_id=medico_id,
+        sala_id=sala_id,
+        inicio=ahora - timedelta(days=6),
+        estado="CONFIRMADA",
+    )
+    _insert_cita(
+        db_connection,
+        paciente_id=paciente_2,
+        medico_id=medico_id,
+        sala_id=sala_id,
+        inicio=ahora - timedelta(days=5),
+        estado="EN_CURSO",
+    )
+    _insert_cita(
+        db_connection,
+        paciente_id=paciente_2,
+        medico_id=medico_id,
+        sala_id=sala_id,
+        inicio=ahora - timedelta(days=4),
+        estado="REALIZADA",
+    )
+    _insert_cita(
+        db_connection,
+        paciente_id=paciente_2,
+        medico_id=medico_id,
+        sala_id=sala_id,
+        inicio=ahora - timedelta(days=3),
+        estado="NO_PRESENTADO",
+    )
+    _insert_cita(
+        db_connection,
+        paciente_id=paciente_2,
+        medico_id=medico_id,
+        sala_id=sala_id,
+        inicio=ahora - timedelta(days=2),
+        estado="CANCELADA",
+    )
+    _insert_cita(
+        db_connection,
+        paciente_id=paciente_1,
+        medico_id=medico_id,
+        sala_id=sala_id,
+        inicio=ahora + timedelta(days=2),
+        estado="PROGRAMADA",
+    )
     db_connection.commit()
 
     queries = PrediccionAusenciasQueries(db_connection)
@@ -67,9 +116,30 @@ def test_listar_citas_pendientes_cierre_filtra_pasadas_no_finales_y_pagina(db_co
 def test_cerrar_citas_en_lote_actualiza_e_ignora_dejar_igual(db_connection) -> None:
     paciente_1, _, medico_id, sala_id = _seed_base_tablas(db_connection)
     ahora = datetime.now()
-    cita_1 = _insert_cita(db_connection, paciente_id=paciente_1, medico_id=medico_id, sala_id=sala_id, inicio=ahora - timedelta(days=10), estado="PROGRAMADA")
-    cita_2 = _insert_cita(db_connection, paciente_id=paciente_1, medico_id=medico_id, sala_id=sala_id, inicio=ahora - timedelta(days=9), estado="CONFIRMADA")
-    cita_3 = _insert_cita(db_connection, paciente_id=paciente_1, medico_id=medico_id, sala_id=sala_id, inicio=ahora - timedelta(days=8), estado="EN_CURSO")
+    cita_1 = _insert_cita(
+        db_connection,
+        paciente_id=paciente_1,
+        medico_id=medico_id,
+        sala_id=sala_id,
+        inicio=ahora - timedelta(days=10),
+        estado="PROGRAMADA",
+    )
+    cita_2 = _insert_cita(
+        db_connection,
+        paciente_id=paciente_1,
+        medico_id=medico_id,
+        sala_id=sala_id,
+        inicio=ahora - timedelta(days=9),
+        estado="CONFIRMADA",
+    )
+    cita_3 = _insert_cita(
+        db_connection,
+        paciente_id=paciente_1,
+        medico_id=medico_id,
+        sala_id=sala_id,
+        inicio=ahora - timedelta(days=8),
+        estado="EN_CURSO",
+    )
     db_connection.commit()
 
     queries = PrediccionAusenciasQueries(db_connection)
@@ -85,7 +155,9 @@ def test_cerrar_citas_en_lote_actualiza_e_ignora_dejar_igual(db_connection) -> N
     resultado = uc.ejecutar(request)
     estados = {
         row["id"]: row["estado"]
-        for row in db_connection.execute("SELECT id, estado FROM citas WHERE id IN (?, ?, ?)", (cita_1, cita_2, cita_3)).fetchall()
+        for row in db_connection.execute(
+            "SELECT id, estado FROM citas WHERE id IN (?, ?, ?)", (cita_1, cita_2, cita_3)
+        ).fetchall()
     }
 
     assert resultado.actualizadas == 2
@@ -98,8 +170,22 @@ def test_cerrar_citas_en_lote_actualiza_e_ignora_dejar_igual(db_connection) -> N
 def test_cerrar_citas_aumenta_citas_validas_recientes_en_ventana(db_connection) -> None:
     paciente_1, _, medico_id, sala_id = _seed_base_tablas(db_connection)
     ahora = datetime.now()
-    cita_1 = _insert_cita(db_connection, paciente_id=paciente_1, medico_id=medico_id, sala_id=sala_id, inicio=ahora - timedelta(days=3), estado="PROGRAMADA")
-    cita_2 = _insert_cita(db_connection, paciente_id=paciente_1, medico_id=medico_id, sala_id=sala_id, inicio=ahora - timedelta(days=2), estado="CONFIRMADA")
+    cita_1 = _insert_cita(
+        db_connection,
+        paciente_id=paciente_1,
+        medico_id=medico_id,
+        sala_id=sala_id,
+        inicio=ahora - timedelta(days=3),
+        estado="PROGRAMADA",
+    )
+    cita_2 = _insert_cita(
+        db_connection,
+        paciente_id=paciente_1,
+        medico_id=medico_id,
+        sala_id=sala_id,
+        inicio=ahora - timedelta(days=2),
+        estado="CONFIRMADA",
+    )
     db_connection.commit()
 
     queries = PrediccionAusenciasQueries(db_connection)

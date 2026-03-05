@@ -265,10 +265,14 @@ class PageConfirmaciones(QWidget):
         self._actualizar_estado_seleccion()
 
     def _toggle_todo_visible(self, state: int) -> None:
-        toggle_todo_visible(self._ui.table, state, self._actualizar_cita_seleccionada, self._actualizar_estado_seleccion)
+        toggle_todo_visible(
+            self._ui.table, state, self._actualizar_cita_seleccionada, self._actualizar_estado_seleccion
+        )
 
     def _on_item_changed(self, item: QTableWidgetItem) -> None:
-        on_item_changed(item, self._actualizar_cita_seleccionada, self._vm.seleccionar, self._actualizar_estado_seleccion)
+        on_item_changed(
+            item, self._actualizar_cita_seleccionada, self._vm.seleccionar, self._actualizar_estado_seleccion
+        )
 
     def _actualizar_cita_seleccionada(self, item: QTableWidgetItem) -> None:
         actualizar_cita_seleccionada(item, self._citas_seleccionadas)

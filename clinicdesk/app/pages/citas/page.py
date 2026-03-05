@@ -34,7 +34,11 @@ from clinicdesk.app.application.citas import (
     redactar_texto_busqueda,
     sanear_columnas_citas,
 )
-from clinicdesk.app.application.citas.navigation_intent import CitasNavigationIntentDTO, debe_abrir_detalle, es_intent_calidad
+from clinicdesk.app.application.citas.navigation_intent import (
+    CitasNavigationIntentDTO,
+    debe_abrir_detalle,
+    es_intent_calidad,
+)
 from clinicdesk.app.application.prediccion_ausencias.riesgo_agenda import RIESGO_NO_DISPONIBLE
 from clinicdesk.app.application.usecases.registrar_telemetria import RegistrarTelemetria
 from clinicdesk.app.application.prediccion_ausencias.aviso_salud_prediccion import CacheSaludPrediccionPorRefresh
@@ -313,7 +317,10 @@ class PageCitas(QWidget):
         self.panel_filtros.set_filtros(self._filtros_aplicados)
         self.tabs.setCurrentIndex(1)
         self._mostrar_banner_calidad()
-        LOGGER.info("citas_filtro_calidad_aplicado", extra={"action": "citas_filtro_calidad_aplicado", "filtro_calidad": intent.filtro_calidad})
+        LOGGER.info(
+            "citas_filtro_calidad_aplicado",
+            extra={"action": "citas_filtro_calidad_aplicado", "filtro_calidad": intent.filtro_calidad},
+        )
         self._refrescar_vistas_principales()
 
     def _mostrar_banner_calidad(self) -> None:
@@ -375,19 +382,25 @@ class PageCitas(QWidget):
             return
         resultado = normalizar_y_validar_filtros_citas(filtros, datetime.now(), self._contexto_activo())
         if not resultado.validacion.ok:
-            self._mostrar_error_validacion(resultado.validacion.errores[0], self._contexto_activo(), resultado.validacion.errores)
+            self._mostrar_error_validacion(
+                resultado.validacion.errores[0], self._contexto_activo(), resultado.validacion.errores
+            )
             return
         self._ocultar_banner_validacion()
         self._filtros_aplicados = resultado.filtros_normalizados
         self._desactivar_filtro_calidad_temporal()
-        LOGGER.info("citas_filtros_aplicados", extra=_payload_log_filtros(self._filtros_aplicados, self._contexto_activo()))
+        LOGGER.info(
+            "citas_filtros_aplicados", extra=_payload_log_filtros(self._filtros_aplicados, self._contexto_activo())
+        )
         self._guardar_filtros()
         self._refrescar_vistas_principales()
 
     def _guardar_filtros(self) -> None:
         data = serializar_filtros_citas(self._filtros_aplicados)
         for clave, key in claves_filtros_citas().items():
-            self._settings.setValue(key, getattr(data, f"{clave}_iso", None) if clave in {"desde", "hasta"} else getattr(data, clave))
+            self._settings.setValue(
+                key, getattr(data, f"{clave}_iso", None) if clave in {"desde", "hasta"} else getattr(data, clave)
+            )
 
     def _programar_refresco_lista(self) -> None:
         self._set_estado_lista("citas.ux.cargando", loading=True)
@@ -400,23 +413,38 @@ class PageCitas(QWidget):
             self.table.setRowCount(0)
             return
         filtros = resultado.filtros_normalizados
-        self.lbl_date.setText(self._i18n.t("citas.calendario.fecha").format(fecha=self.calendar.selectedDate().toString("yyyy-MM-dd")))
+        self.lbl_date.setText(
+            self._i18n.t("citas.calendario.fecha").format(fecha=self.calendar.selectedDate().toString("yyyy-MM-dd"))
+        )
         try:
             items = self._buscar_calendario_uc.ejecutar(filtros, CLAVES_TOOLTIP_POR_DEFECTO)
         except Exception as exc:  # noqa: BLE001
-            LOGGER.warning("citas_calendario_error", extra={"action": "citas_calendario_error", "error": exc.__class__.__name__, "contexto": "CALENDARIO"})
+            LOGGER.warning(
+                "citas_calendario_error",
+                extra={"action": "citas_calendario_error", "error": exc.__class__.__name__, "contexto": "CALENDARIO"},
+            )
             self.table.setRowCount(0)
             return
-        riesgos = self._obtener_riesgo_citas_calendario([self._mapear_row_calendario(x) for x in items]) if self._riesgo_enabled else {}
+        riesgos = (
+            self._obtener_riesgo_citas_calendario([self._mapear_row_calendario(x) for x in items])
+            if self._riesgo_enabled
+            else {}
+        )
         estimaciones = self._obtener_estimaciones_agenda()
         self.table.setRowCount(0)
         self._citas_calendario_ids = []
         for item in items:
             item = dict(item)
             cita_id = int(item["cita_id"])
-            item["riesgo_ausencia"] = resolver_texto_riesgo(riesgos.get(cita_id, RIESGO_NO_DISPONIBLE), self._i18n).texto
-            item["duracion_estimada"] = self._texto_estimacion(estimaciones[0].get(cita_id, "NO_DISPONIBLE"), "duracion", True)
-            item["espera_estimada"] = self._texto_estimacion(estimaciones[1].get(cita_id, "NO_DISPONIBLE"), "espera", True)
+            item["riesgo_ausencia"] = resolver_texto_riesgo(
+                riesgos.get(cita_id, RIESGO_NO_DISPONIBLE), self._i18n
+            ).texto
+            item["duracion_estimada"] = self._texto_estimacion(
+                estimaciones[0].get(cita_id, "NO_DISPONIBLE"), "duracion", True
+            )
+            item["espera_estimada"] = self._texto_estimacion(
+                estimaciones[1].get(cita_id, "NO_DISPONIBLE"), "espera", True
+            )
             self._agregar_fila_calendario(item)
             self._citas_calendario_ids.append(cita_id)
         self._actualizar_aviso_salud_prediccion("calendario")
@@ -432,9 +460,14 @@ class PageCitas(QWidget):
             self._set_estado_lista(None)
             return
         try:
-            resultado = self._buscar_lista_uc.ejecutar(validacion.filtros_normalizados, self._columnas_lista, PaginacionCitasDTO(limit=500, offset=0))
+            resultado = self._buscar_lista_uc.ejecutar(
+                validacion.filtros_normalizados, self._columnas_lista, PaginacionCitasDTO(limit=500, offset=0)
+            )
         except Exception as exc:  # noqa: BLE001
-            LOGGER.warning("citas_lista_error", extra={"action": "citas_lista_error", "error": exc.__class__.__name__, "contexto": "LISTA"})
+            LOGGER.warning(
+                "citas_lista_error",
+                extra={"action": "citas_lista_error", "error": exc.__class__.__name__, "contexto": "LISTA"},
+            )
             self._set_estado_lista("citas.ux.error", error=True)
             return
         self._ocultar_banner_validacion()
@@ -636,7 +669,9 @@ class PageCitas(QWidget):
     def _contexto_activo(self) -> str:
         return "LISTA" if self.tabs.currentIndex() == 1 else "CALENDARIO"
 
-    def _mostrar_error_validacion(self, primer_error: ErrorValidacionDTO, contexto: str, errores: tuple[ErrorValidacionDTO, ...]) -> None:
+    def _mostrar_error_validacion(
+        self, primer_error: ErrorValidacionDTO, contexto: str, errores: tuple[ErrorValidacionDTO, ...]
+    ) -> None:
         self.lbl_banner_validacion.setText(
             self._i18n.t("citas.validacion.banner.titulo").format(error=self._i18n.t(primer_error.i18n_key))
         )
@@ -683,8 +718,9 @@ class PageCitas(QWidget):
         )
 
     def _obtener_riesgo_citas_calendario(self, rows: list[CitaRow]) -> dict[int, str]:
-        return self._container.prediccion_ausencias_facade.obtener_riesgo_agenda_uc.ejecutar(construir_dtos_desde_calendario(rows, datetime.now()))
-
+        return self._container.prediccion_ausencias_facade.obtener_riesgo_agenda_uc.ejecutar(
+            construir_dtos_desde_calendario(rows, datetime.now())
+        )
 
     def _obtener_estimaciones_agenda(self) -> tuple[dict[int, str], dict[int, str]]:
         if not self._estimaciones_enabled:
@@ -699,7 +735,9 @@ class PageCitas(QWidget):
     def _texto_estimacion(self, nivel: str, tipo: str, mostrar_cta: bool = False) -> str:
         if nivel in {"BAJO", "MEDIO", "ALTO"}:
             return self._i18n.t(f"citas.prediccion_operativa.valor.{nivel.lower()}")
-        base = self._i18n.t(mensaje_no_disponible_estimacion(tipo)).format(tipo=self._i18n.t(f"estimaciones.tipo.{tipo}"))
+        base = self._i18n.t(mensaje_no_disponible_estimacion(tipo)).format(
+            tipo=self._i18n.t(f"estimaciones.tipo.{tipo}")
+        )
         if not mostrar_cta:
             return base
         return f"{base} ({self._i18n.t('estimaciones.ir_a_estimaciones')})"
@@ -712,7 +750,9 @@ class PageCitas(QWidget):
         for row in rows:
             cita_id = int(row.get("cita_id", 0))
             item = dict(row)
-            item["duracion_estimada"] = self._texto_estimacion(duraciones.get(cita_id, "NO_DISPONIBLE"), "duracion", True)
+            item["duracion_estimada"] = self._texto_estimacion(
+                duraciones.get(cita_id, "NO_DISPONIBLE"), "duracion", True
+            )
             item["espera_estimada"] = self._texto_estimacion(esperas.get(cita_id, "NO_DISPONIBLE"), "espera", True)
             enriched.append(item)
         return enriched
@@ -841,7 +881,11 @@ class PageCitas(QWidget):
         menu.addAction(accion)
 
     def _mostrar_explicacion_estimacion(self, cita_id: int, tipo: str) -> None:
-        nivel = self._estimaciones_duracion.get(cita_id, "NO_DISPONIBLE") if tipo == "duracion" else self._estimaciones_espera.get(cita_id, "NO_DISPONIBLE")
+        nivel = (
+            self._estimaciones_duracion.get(cita_id, "NO_DISPONIBLE")
+            if tipo == "duracion"
+            else self._estimaciones_espera.get(cita_id, "NO_DISPONIBLE")
+        )
         if nivel == "NO_DISPONIBLE":
             return
         LOGGER.info(
@@ -890,10 +934,9 @@ class PageCitas(QWidget):
     def _actualizar_aviso_salud_prediccion(self, page: str) -> None:
         salud_duracion = self._cache_salud_duracion.obtener(self._token_refresh_salud).estado
         salud_espera = self._cache_salud_espera.obtener(self._token_refresh_salud).estado
-        mostrar = (
-            debe_mostrar_aviso_salud_estimacion(self._estimaciones_enabled, salud_duracion)
-            or debe_mostrar_aviso_salud_estimacion(self._estimaciones_enabled, salud_espera)
-        )
+        mostrar = debe_mostrar_aviso_salud_estimacion(
+            self._estimaciones_enabled, salud_duracion
+        ) or debe_mostrar_aviso_salud_estimacion(self._estimaciones_enabled, salud_espera)
         texto = self._i18n.t("estimaciones.aviso_salud") if mostrar else ""
         self.lbl_aviso_salud_calendario.setText(texto)
         self.lbl_aviso_salud_lista.setText(texto)
@@ -904,7 +947,12 @@ class PageCitas(QWidget):
         if mostrar and self._token_aviso_logueado != self._token_refresh_salud:
             LOGGER.info(
                 "estimaciones_aviso_salud_mostrar",
-                extra={"action": "estimaciones_aviso_salud_mostrar", "page": page, "duracion": salud_duracion, "espera": salud_espera},
+                extra={
+                    "action": "estimaciones_aviso_salud_mostrar",
+                    "page": page,
+                    "duracion": salud_duracion,
+                    "espera": salud_espera,
+                },
             )
             self._token_aviso_logueado = self._token_refresh_salud
 

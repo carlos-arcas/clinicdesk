@@ -65,7 +65,21 @@ class FakeScoreUC:
 
 class FakeFeatureStoreService:
     def load_citas_features(self, version: str):
-        return [{"cita_id": "1", "duracion_min": 30, "duracion_bucket": "30-45", "hora_inicio": 9, "dia_semana": 1, "is_weekend": False, "notas_len": 10, "notas_len_bucket": "short", "has_incidencias": False, "estado_norm": "programada", "is_suspicious": False}]
+        return [
+            {
+                "cita_id": "1",
+                "duracion_min": 30,
+                "duracion_bucket": "30-45",
+                "hora_inicio": 9,
+                "dia_semana": 1,
+                "is_weekend": False,
+                "notas_len": 10,
+                "notas_len_bucket": "short",
+                "has_incidencias": False,
+                "estado_norm": "programada",
+                "is_suspicious": False,
+            }
+        ]
 
 
 class FakeBuildDataset:

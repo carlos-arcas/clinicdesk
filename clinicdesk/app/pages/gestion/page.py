@@ -119,7 +119,13 @@ class PageGestionDashboard(QWidget):
         self.lbl_duracion = QLabel("-")
         self.lbl_retraso = QLabel("-")
         self._kpi_titles = [QLabel(), QLabel(), QLabel(), QLabel()]
-        for idx, (titulo, valor) in enumerate(zip(self._kpi_titles, [self.lbl_total_citas, self.lbl_espera, self.lbl_duracion, self.lbl_retraso], strict=True)):
+        for idx, (titulo, valor) in enumerate(
+            zip(
+                self._kpi_titles,
+                [self.lbl_total_citas, self.lbl_espera, self.lbl_duracion, self.lbl_retraso],
+                strict=True,
+            )
+        ):
             box = QGroupBox()
             form = QFormLayout(box)
             form.addRow(titulo, valor)
@@ -334,9 +340,10 @@ class PageGestionDashboard(QWidget):
             accion="ABRIR_DETALLE",
             resaltar=True,
         )
-        self._registrar_telemetria("gestion_abrir_cita", contexto="page=gestion", entidad_tipo="cita", entidad_id=cita_id)
+        self._registrar_telemetria(
+            "gestion_abrir_cita", contexto="page=gestion", entidad_tipo="cita", entidad_id=cita_id
+        )
         self._navegar_a("citas", intent=intent)
-
 
     def _render_uso_semana(self) -> None:
         resumen = self._uc_resumen_telemetria.ejecutar()

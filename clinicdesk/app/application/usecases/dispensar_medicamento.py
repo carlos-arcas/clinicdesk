@@ -101,8 +101,6 @@ class _DispenseState:
 # ---------------------------------------------------------------------
 
 
-
-
 def _max_severidad(warnings: List[WarningItem]) -> str:
     order = {"BAJA": 1, "MEDIA": 2, "ALTA": 3}
     return max((w.severidad for w in warnings), key=lambda sev: order.get(sev, 0))
@@ -254,9 +252,7 @@ class DispensarMedicamentoUseCase:
     def _compute_stock_nuevo(self, stock_actual: int, cantidad: int) -> int:
         stock_nuevo = stock_actual - cantidad
         if stock_nuevo < 0:
-            raise ValidationError(
-                f"Stock insuficiente. Stock actual={stock_actual}, solicitado={cantidad}."
-            )
+            raise ValidationError(f"Stock insuficiente. Stock actual={stock_actual}, solicitado={cantidad}.")
         return stock_nuevo
 
     def _collect_warnings(self, req: DispensarMedicamentoRequest, state: _DispenseState) -> List[WarningItem]:

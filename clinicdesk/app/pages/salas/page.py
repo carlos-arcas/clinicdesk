@@ -63,9 +63,7 @@ class PageSalas(QWidget):
         actions.addStretch(1)
 
         self.table = QTableWidget(0, 5)
-        self.table.setHorizontalHeaderLabels(
-            ["ID", "Nombre", "Tipo", "Ubicación", "Activa"]
-        )
+        self.table.setHorizontalHeaderLabels(["ID", "Nombre", "Tipo", "Ubicación", "Activa"])
         self.table.setColumnHidden(0, True)
         self.table.horizontalHeader().setStretchLastSection(True)
         self.table.setContextMenuPolicy(Qt.CustomContextMenu)
@@ -218,7 +216,5 @@ class PageSalas(QWidget):
 
 
 if __name__ == "__main__":
-    logging.getLogger(__name__).info(
-        "Este módulo no se ejecuta directamente. Usa: python -m clinicdesk"
-    )
+    logging.getLogger(__name__).info("Este módulo no se ejecuta directamente. Usa: python -m clinicdesk")
     raise SystemExit(2)

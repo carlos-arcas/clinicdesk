@@ -68,7 +68,6 @@ CITAS_UI_TRANSLATIONS = {
         "citas.lista.tooltip.recordatorio": "Estado del recordatorio",
         "citas.lista.tooltip.notas_len": "Notas",
         "citas.lista.tooltip.incidencias": "Incidencias",
-
         "citas.hitos.marcar_llegada": "Marcar llegada",
         "citas.hitos.llamar_consulta": "Llamar a consulta",
         "citas.hitos.iniciar_consulta": "Iniciar consulta",
@@ -185,7 +184,6 @@ CITAS_UI_TRANSLATIONS = {
         "citas.lista.tooltip.recordatorio": "Reminder status",
         "citas.lista.tooltip.notas_len": "Notes",
         "citas.lista.tooltip.incidencias": "Incidents",
-
         "citas.hitos.marcar_llegada": "Mark arrival",
         "citas.hitos.llamar_consulta": "Call to consultation",
         "citas.hitos.iniciar_consulta": "Start consultation",

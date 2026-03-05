@@ -7,7 +7,9 @@ from typing import Protocol
 _PATRON_EMAIL = re.compile(r"^[^\s@]+@[^\s@]+\.[^\s@]+$")
 _PATRON_DNI = re.compile(r"^(?:\d{8}[A-Za-z]|[XYZ]\d{7}[A-Za-z])$")
 _PATRON_TELEFONO = re.compile(r"^\+?\d[\d\s().-]{7,}\d$")
-_PATRON_DIRECCION = re.compile(r"\b(?:calle|avda\.?|avenida|plaza|paseo|c/|numero|nº|portal|piso|puerta)\b", re.IGNORECASE)
+_PATRON_DIRECCION = re.compile(
+    r"\b(?:calle|avda\.?|avenida|plaza|paseo|c/|numero|nº|portal|piso|puerta)\b", re.IGNORECASE
+)
 _LONGITUD_MAXIMA_BUSQUEDA = 120
 
 ValorFiltro = str | int | bool | None

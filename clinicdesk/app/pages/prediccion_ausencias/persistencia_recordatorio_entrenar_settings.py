@@ -21,13 +21,11 @@ class ProtocoloSettings(Protocol):
     def setValue(self, key: str, value: Any) -> None: ...  # noqa: N803
 
 
-
 def claves_recordatorio_entrenar() -> dict[str, str]:
     return {
         "fecha_recordatorio_utc": CLAVE_RECORDATORIO_FECHA_UTC,
         "dias_snooze": CLAVE_RECORDATORIO_DIAS_SNOOZE,
     }
-
 
 
 def leer_preferencia_recordatorio_entrenar(settings: ProtocoloSettings) -> PreferenciaRecordatorioEntrenarDTO:
@@ -40,15 +38,15 @@ def leer_preferencia_recordatorio_entrenar(settings: ProtocoloSettings) -> Prefe
     )
 
 
-
 def guardar_preferencia_recordatorio_entrenar(
     settings: ProtocoloSettings,
     preferencia: PreferenciaRecordatorioEntrenarDTO,
 ) -> None:
     claves = claves_recordatorio_entrenar()
-    settings.setValue(claves["fecha_recordatorio_utc"], serializar_fecha_recordatorio_iso(preferencia.fecha_recordatorio_utc))
+    settings.setValue(
+        claves["fecha_recordatorio_utc"], serializar_fecha_recordatorio_iso(preferencia.fecha_recordatorio_utc)
+    )
     settings.setValue(claves["dias_snooze"], str(normalizar_dias_snooze(preferencia.dias_snooze)))
-
 
 
 def posponer_recordatorio_entrenar(
@@ -62,7 +60,6 @@ def posponer_recordatorio_entrenar(
     )
     guardar_preferencia_recordatorio_entrenar(settings, preferencia)
     return preferencia
-
 
 
 def limpiar_recordatorio_entrenar(settings: ProtocoloSettings, dias_snooze: int = DIAS_SNOOZE_POR_DEFECTO) -> None:

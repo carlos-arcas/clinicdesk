@@ -34,7 +34,9 @@ def _build_personal() -> Personal:
     )
 
 
-def test_sqlite_personal_stores_ciphertext_when_feature_flag_enabled(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_sqlite_personal_stores_ciphertext_when_feature_flag_enabled(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     monkeypatch.setenv("CLINICDESK_PII_ENCRYPTION_ENABLED", "0")
     monkeypatch.delenv("CLINICDESK_PII_ENCRYPTION_KEY", raising=False)
     monkeypatch.setenv("CLINICDESK_FIELD_CRYPTO", "1")

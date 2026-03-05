@@ -179,9 +179,7 @@ class MedicamentosRepository:
         params = []
 
         if texto:
-            clauses.append(
-                "(nombre_comercial LIKE ? COLLATE NOCASE OR nombre_compuesto LIKE ? COLLATE NOCASE)"
-            )
+            clauses.append("(nombre_comercial LIKE ? COLLATE NOCASE OR nombre_compuesto LIKE ? COLLATE NOCASE)")
             like = like_value(texto)
             params.extend([like, like])
 

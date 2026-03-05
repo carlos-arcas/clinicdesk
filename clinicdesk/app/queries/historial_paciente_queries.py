@@ -55,7 +55,9 @@ class HistorialPacienteQueries:
         try:
             rows = self._connection.execute(self._sql(), (paciente_id, int(limite))).fetchall()
         except sqlite3.Error as exc:
-            logger.error("historial_paciente_listar_citas_failed", extra={"paciente_id": paciente_id, "error": str(exc)})
+            logger.error(
+                "historial_paciente_listar_citas_failed", extra={"paciente_id": paciente_id, "error": str(exc)}
+            )
             return []
         return [self._map_row(row) for row in rows]
 

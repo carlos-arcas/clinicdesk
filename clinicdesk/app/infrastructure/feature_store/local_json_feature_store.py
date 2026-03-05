@@ -52,9 +52,7 @@ class LocalJsonFeatureStore(FeatureStorePort):
         if not file_path.parent.exists():
             raise FeatureStoreDatasetNotFoundError(f"Dataset no existe: '{dataset_name}'.")
         if not file_path.exists():
-            raise FeatureStoreVersionNotFoundError(
-                f"Versión '{version}' no existe para dataset '{dataset_name}'."
-            )
+            raise FeatureStoreVersionNotFoundError(f"Versión '{version}' no existe para dataset '{dataset_name}'.")
         with file_path.open("r", encoding="utf-8") as handle:
             data = json.load(handle)
         return self._validate_loaded_payload(data, dataset_name, version)
@@ -156,9 +154,7 @@ class LocalJsonFeatureStore(FeatureStorePort):
 
     def _validate_loaded_payload(self, data: Any, dataset_name: str, version: str) -> list[Any]:
         if not isinstance(data, list):
-            raise ValueError(
-                f"Contenido inválido para dataset '{dataset_name}' versión '{version}': se esperaba list."
-            )
+            raise ValueError(f"Contenido inválido para dataset '{dataset_name}' versión '{version}': se esperaba list.")
         return data
 
     def _write_json_file(self, path: Path, payload: Any) -> None:

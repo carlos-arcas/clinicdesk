@@ -90,9 +90,7 @@ class Dispensacion:
         data = asdict(self)
         data["fecha_hora"] = self.fecha_hora.isoformat(sep=" ", timespec="seconds")
         if self.override_fecha_hora is not None:
-            data["override_fecha_hora"] = self.override_fecha_hora.isoformat(
-                sep=" ", timespec="seconds"
-            )
+            data["override_fecha_hora"] = self.override_fecha_hora.isoformat(sep=" ", timespec="seconds")
         return data
 
 

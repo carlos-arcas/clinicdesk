@@ -5,7 +5,7 @@ from datetime import datetime
 from typing import List
 
 from clinicdesk.app.domain.modelos import Paciente, Cita
-from clinicdesk.app.domain.repositorios import RepositorioPacientes, RepositorioCitas,RepositorioMedicos
+from clinicdesk.app.domain.repositorios import RepositorioPacientes, RepositorioCitas, RepositorioMedicos
 # Importamos contratos del dominio: esta capa IMPLEMENTA esos contratos usando SQLite.
 
 
@@ -21,9 +21,7 @@ class RepositorioPacientesSQLite(RepositorioPacientes):
         self.conexion = conexion
 
     def listar_todos(self) -> List[Paciente]:
-        filas = self.conexion.execute(
-            "SELECT id, nombre, telefono FROM pacientes ORDER BY id DESC"
-        ).fetchall()
+        filas = self.conexion.execute("SELECT id, nombre, telefono FROM pacientes ORDER BY id DESC").fetchall()
 
         # Gracias a haber usado row_factory en la creacion de la conexion se permite el uso de fila["id"] etc en lugar de fila[0],fila[1]...
         return [
@@ -56,9 +54,7 @@ class RepositorioMedicosSQLite(RepositorioMedicos):
         self.conexion = conexion
 
     def listar_todos(self) -> List[Paciente]:
-        filas = self.conexion.execute(
-            "SELECT id, nombre, telefono FROM pacientes ORDER BY id DESC"
-        ).fetchall()
+        filas = self.conexion.execute("SELECT id, nombre, telefono FROM pacientes ORDER BY id DESC").fetchall()
 
         # Gracias a haber usado row_factory en la creacion de la conexion se permite el uso de fila["id"] etc en lugar de fila[0],fila[1]...
         return [
@@ -77,7 +73,6 @@ class RepositorioMedicosSQLite(RepositorioMedicos):
         )
         self.conexion.commit()
         return int(cur.lastrowid)
-
 
 
 class RepositorioCitasSQLite(RepositorioCitas):

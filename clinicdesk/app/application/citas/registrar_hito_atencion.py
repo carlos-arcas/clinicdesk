@@ -42,7 +42,9 @@ class RegistrarHitoAtencionCita:
     repositorio: CitasHitosRepositorioPuerto
     reloj: RelojPuerto
 
-    def ejecutar(self, cita_id: int, hito: HitoAtencion, marca_tiempo: datetime | None = None) -> ResultadoRegistrarHitoDTO:
+    def ejecutar(
+        self, cita_id: int, hito: HitoAtencion, marca_tiempo: datetime | None = None
+    ) -> ResultadoRegistrarHitoDTO:
         cita = self.repositorio.obtener_cita_por_id(cita_id)
         if cita is None:
             return self._resultado(cita_id, hito, False, False, "cita_no_encontrada")

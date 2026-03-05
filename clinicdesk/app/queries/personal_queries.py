@@ -85,7 +85,9 @@ class PersonalQueries:
             return "", params
         return " WHERE " + " AND ".join(clauses), params
 
-    def list_all(self, *, activo: Optional[bool] = True, limit: Optional[int] = None, offset: int = 0) -> List[PersonalRow]:
+    def list_all(
+        self, *, activo: Optional[bool] = True, limit: Optional[int] = None, offset: int = 0
+    ) -> List[PersonalRow]:
         where_sql, params = self._build_where(self._build_activo_clause(activo))
         sql = self._base_select_sql() + where_sql + " ORDER BY apellidos, nombre, id"
         sql, params = _append_pagination(sql, params, limit=limit, offset=offset)
@@ -140,7 +142,9 @@ def _table_columns(connection: sqlite3.Connection) -> set[str]:
     return {row["name"] for row in rows}
 
 
-def _append_pagination(sql: str, params: List[object], *, limit: Optional[int], offset: int) -> tuple[str, List[object]]:
+def _append_pagination(
+    sql: str, params: List[object], *, limit: Optional[int], offset: int
+) -> tuple[str, List[object]]:
     if limit is not None:
         sql += " LIMIT ?"
         params.append(int(limit))

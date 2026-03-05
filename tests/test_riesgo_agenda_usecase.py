@@ -36,9 +36,15 @@ class _FakeAlmacenamiento:
 
 def _citas() -> list[CitaParaPrediccionDTO]:
     return [
-        CitaParaPrediccionDTO(id=1, fecha="2025-01-01", hora="09:00:00", paciente_id=10, medico_id=100, antelacion_dias=5),
-        CitaParaPrediccionDTO(id=2, fecha="2025-01-01", hora="10:00:00", paciente_id=11, medico_id=100, antelacion_dias=5),
-        CitaParaPrediccionDTO(id=3, fecha="2025-01-01", hora="11:00:00", paciente_id=12, medico_id=101, antelacion_dias=5),
+        CitaParaPrediccionDTO(
+            id=1, fecha="2025-01-01", hora="09:00:00", paciente_id=10, medico_id=100, antelacion_dias=5
+        ),
+        CitaParaPrediccionDTO(
+            id=2, fecha="2025-01-01", hora="10:00:00", paciente_id=11, medico_id=100, antelacion_dias=5
+        ),
+        CitaParaPrediccionDTO(
+            id=3, fecha="2025-01-01", hora="11:00:00", paciente_id=12, medico_id=101, antelacion_dias=5
+        ),
     ]
 
 

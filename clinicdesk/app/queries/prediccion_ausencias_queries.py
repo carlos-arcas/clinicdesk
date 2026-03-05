@@ -59,36 +59,50 @@ class PrediccionAusenciasQueries:
         self._proveedor_conexion = proveedor_conexion
 
     def _con(self) -> sqlite3.Connection:
-        return self._proveedor_conexion if isinstance(self._proveedor_conexion, sqlite3.Connection) else self._proveedor_conexion.obtener()
+        return (
+            self._proveedor_conexion
+            if isinstance(self._proveedor_conexion, sqlite3.Connection)
+            else self._proveedor_conexion.obtener()
+        )
 
     def contar_citas_validas(self) -> int:
-        row = self._con().execute(
-            """
+        row = (
+            self._con()
+            .execute(
+                """
             SELECT COUNT(1) AS total
             FROM citas c
             WHERE c.activo = 1
               AND c.estado IN (?, ?)
             """,
-            _ESTADOS_VALIDOS,
-        ).fetchone()
+                _ESTADOS_VALIDOS,
+            )
+            .fetchone()
+        )
         return int(row["total"]) if row else 0
 
     def contar_citas_validas_recientes(self, dias: int = 90) -> int:
-        row = self._con().execute(
-            """
+        row = (
+            self._con()
+            .execute(
+                """
             SELECT COUNT(1) AS total
             FROM citas c
             WHERE c.activo = 1
               AND c.estado IN (?, ?)
               AND datetime(c.inicio) >= datetime('now', ?)
             """,
-            (*_ESTADOS_VALIDOS, f"-{dias} days"),
-        ).fetchone()
+                (*_ESTADOS_VALIDOS, f"-{dias} days"),
+            )
+            .fetchone()
+        )
         return int(row["total"]) if row else 0
 
     def obtener_dataset_entrenamiento(self) -> list[FilaEntrenamientoPrediccion]:
-        rows = self._con().execute(
-            """
+        rows = (
+            self._con()
+            .execute(
+                """
             SELECT
                 c.id AS cita_id,
                 c.paciente_id,
@@ -103,8 +117,10 @@ class PrediccionAusenciasQueries:
               AND c.estado IN (?, ?)
             ORDER BY c.inicio
             """,
-            _ESTADOS_VALIDOS,
-        ).fetchall()
+                _ESTADOS_VALIDOS,
+            )
+            .fetchall()
+        )
         return [
             FilaEntrenamientoPrediccion(
                 cita_id=int(r["cita_id"]),
@@ -116,8 +132,10 @@ class PrediccionAusenciasQueries:
         ]
 
     def listar_proximas_citas(self, limite: int = 30) -> list[FilaCitaProximaPrediccion]:
-        rows = self._con().execute(
-            """
+        rows = (
+            self._con()
+            .execute(
+                """
             SELECT
                 c.id AS cita_id,
                 date(c.inicio) AS fecha,
@@ -139,8 +157,10 @@ class PrediccionAusenciasQueries:
             ORDER BY c.inicio
             LIMIT ?
             """,
-            (limite,),
-        ).fetchall()
+                (limite,),
+            )
+            .fetchall()
+        )
         return [
             FilaCitaProximaPrediccion(
                 cita_id=int(r["cita_id"]),
@@ -155,8 +175,10 @@ class PrediccionAusenciasQueries:
         ]
 
     def obtener_cita_para_explicacion(self, cita_id: int) -> FilaCitaRiesgoAgenda | None:
-        row = self._con().execute(
-            """
+        row = (
+            self._con()
+            .execute(
+                """
             SELECT
                 c.id AS cita_id,
                 c.paciente_id,
@@ -169,8 +191,10 @@ class PrediccionAusenciasQueries:
             WHERE c.id = ?
               AND c.activo = 1
             """,
-            (cita_id,),
-        ).fetchone()
+                (cita_id,),
+            )
+            .fetchone()
+        )
         if row is None:
             return None
         return FilaCitaRiesgoAgenda(
@@ -180,8 +204,10 @@ class PrediccionAusenciasQueries:
         )
 
     def obtener_resumen_historial_paciente(self, paciente_id: int) -> ResumenHistorialPaciente:
-        row = self._con().execute(
-            """
+        row = (
+            self._con()
+            .execute(
+                """
             SELECT
                 c.paciente_id,
                 SUM(CASE WHEN c.estado = 'REALIZADA' THEN 1 ELSE 0 END) AS citas_realizadas,
@@ -192,8 +218,10 @@ class PrediccionAusenciasQueries:
               AND c.estado IN ('REALIZADA', 'NO_PRESENTADO')
             GROUP BY c.paciente_id
             """,
-            (paciente_id,),
-        ).fetchone()
+                (paciente_id,),
+            )
+            .fetchone()
+        )
         if row is None:
             return ResumenHistorialPaciente(paciente_id=paciente_id, citas_realizadas=0, citas_no_presentadas=0)
         return ResumenHistorialPaciente(
@@ -203,18 +231,24 @@ class PrediccionAusenciasQueries:
         )
 
     def listar_citas_pendientes_cierre(self, limite: int, offset: int) -> tuple[list[FilaCitaPendienteCierre], int]:
-        total_row = self._con().execute(
-            """
+        total_row = (
+            self._con()
+            .execute(
+                """
             SELECT COUNT(1) AS total
             FROM citas c
             WHERE c.activo = 1
               AND datetime(c.inicio) < datetime('now', '-24 hours')
               AND c.estado NOT IN (?, ?, ?)
             """,
-            _ESTADOS_FINALES_CIERRE,
-        ).fetchone()
-        rows = self._con().execute(
-            """
+                _ESTADOS_FINALES_CIERRE,
+            )
+            .fetchone()
+        )
+        rows = (
+            self._con()
+            .execute(
+                """
             SELECT
                 c.id AS cita_id,
                 datetime(c.inicio) AS inicio_local,
@@ -230,8 +264,10 @@ class PrediccionAusenciasQueries:
             ORDER BY datetime(c.inicio) ASC
             LIMIT ? OFFSET ?
             """,
-            (*_ESTADOS_FINALES_CIERRE, limite, offset),
-        ).fetchall()
+                (*_ESTADOS_FINALES_CIERRE, limite, offset),
+            )
+            .fetchall()
+        )
         items = [
             FilaCitaPendienteCierre(
                 cita_id=int(r["cita_id"]),

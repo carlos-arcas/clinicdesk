@@ -70,7 +70,7 @@ class CsvController:
             QMessageBox.warning(self._parent, "CSV", f"Entidad no soportada: {entity}")
             return
 
-        default_name = f"{entity.lower().replace('é','e').replace('í','i')}.csv"
+        default_name = f"{entity.lower().replace('é', 'e').replace('í', 'i')}.csv"
         path, _ = QFileDialog.getSaveFileName(
             self._parent,
             "Exportar CSV",
@@ -112,10 +112,7 @@ class CsvController:
                 f"Creado: {res.created} | Actualizado: {res.updated} | Errores: {len(res.errors)}"
             )
             if res.errors:
-                details = "\n".join(
-                    f"Fila {err.row_number}: {err.message} | {err.raw}"
-                    for err in res.errors
-                )
+                details = "\n".join(f"Fila {err.row_number}: {err.message} | {err.raw}" for err in res.errors)
                 msg_box = QMessageBox(self._parent)
                 msg_box.setWindowTitle("CSV - Importación con errores")
                 msg_box.setIcon(QMessageBox.Warning)

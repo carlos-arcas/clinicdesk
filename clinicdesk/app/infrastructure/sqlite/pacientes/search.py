@@ -59,7 +59,6 @@ def _append_text_filter(clauses: list[str], params: list[object], texto: str, pr
         params.extend([like, like])
         return
     clauses.append(
-        "(nombre LIKE ? COLLATE NOCASE OR apellidos LIKE ? COLLATE NOCASE "
-        "OR documento LIKE ? COLLATE NOCASE)"
+        "(nombre LIKE ? COLLATE NOCASE OR apellidos LIKE ? COLLATE NOCASE OR documento LIKE ? COLLATE NOCASE)"
     )
     params.extend([like, like, like])

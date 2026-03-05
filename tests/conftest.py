@@ -118,9 +118,7 @@ def assert_expected_actual():
                 lineterm="",
             )
         )
-        assert expected == actual, (
-            f"{message}\nExpected:\n{expected_str}\nActual:\n{actual_str}\nDiff:\n{diff}"
-        )
+        assert expected == actual, f"{message}\nExpected:\n{expected_str}\nActual:\n{actual_str}\nDiff:\n{diff}"
 
     return _assert
 

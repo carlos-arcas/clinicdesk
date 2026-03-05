@@ -56,14 +56,13 @@ class ResultadoRecientesPrediccionDTO:
 
 
 class RepositorioResultadosRecientesPrediccion(Protocol):
-    def registrar_predicciones_ausencias(self, modelo_fecha_utc: str, items: list[ItemRegistroPrediccionAusencia]) -> int:
-        ...
+    def registrar_predicciones_ausencias(
+        self, modelo_fecha_utc: str, items: list[ItemRegistroPrediccionAusencia]
+    ) -> int: ...
 
-    def obtener_resultados_recientes_prediccion(self, ventana_dias: int = 60) -> ResultadoRecientePrediccion:
-        ...
+    def obtener_resultados_recientes_prediccion(self, ventana_dias: int = 60) -> ResultadoRecientePrediccion: ...
 
-    def obtener_diagnostico_resultados_recientes(self, ventana_dias: int) -> DiagnosticoResultadosRecientesRaw:
-        ...
+    def obtener_diagnostico_resultados_recientes(self, ventana_dias: int) -> DiagnosticoResultadosRecientesRaw: ...
 
 
 @dataclass(slots=True)
@@ -102,7 +101,9 @@ class ObtenerResultadosRecientesPrediccionAusencias:
     repositorio: RepositorioResultadosRecientesPrediccion
     umbral_minimo: int = 20
 
-    def ejecutar(self, ventana_semanas: int | None = None, ventana_dias: int | None = None) -> ResultadoRecientesPrediccionDTO:
+    def ejecutar(
+        self, ventana_semanas: int | None = None, ventana_dias: int | None = None
+    ) -> ResultadoRecientesPrediccionDTO:
         semanas = self._resolver_ventana_semanas(ventana_semanas, ventana_dias)
         dias = ventana_semanas_a_dias(semanas)
         diagnostico_raw = self.repositorio.obtener_diagnostico_resultados_recientes(ventana_dias=dias)

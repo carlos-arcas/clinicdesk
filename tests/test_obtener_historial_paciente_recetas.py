@@ -51,7 +51,9 @@ def _seed_historial(container) -> tuple[int, int, int]:
             activo=True,
         )
     )
-    sala_id = container.salas_repo.create(Sala(nombre="Consulta 4", tipo=TipoSala.CONSULTA, ubicacion=None, activa=True))
+    sala_id = container.salas_repo.create(
+        Sala(nombre="Consulta 4", tipo=TipoSala.CONSULTA, ubicacion=None, activa=True)
+    )
     CitasRepository(container.connection).create(
         Cita(
             paciente_id=paciente_id,

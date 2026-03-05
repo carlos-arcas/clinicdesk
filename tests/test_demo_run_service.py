@@ -34,14 +34,22 @@ class FakeDemoMLFacade:
         self.calls.append("train")
         return SimpleNamespace(model_version=model_version or "m_demo_ui_x", calibrated_threshold=0.61)
 
-    def score(self, dataset_version: str, predictor_kind: str = "baseline", model_version: str | None = None, limit: int | None = None):
+    def score(
+        self,
+        dataset_version: str,
+        predictor_kind: str = "baseline",
+        model_version: str | None = None,
+        limit: int | None = None,
+    ):
         self.calls.append("score")
         item = _FakeScoreItem(cita_id="c_1", score=0.9, label="risk", reasons=["r1"])
         return SimpleNamespace(version=dataset_version, total=limit or 1, items=[item])
 
     def drift(self, from_version: str, to_version: str):
         self.calls.append("drift")
-        return SimpleNamespace(from_version=from_version, to_version=to_version, overall_flag="ok", psi_by_feature={"x": 0.1})
+        return SimpleNamespace(
+            from_version=from_version, to_version=to_version, overall_flag="ok", psi_by_feature={"x": 0.1}
+        )
 
     def export_features(self, dataset_version: str, output_path: str) -> str:
         self.calls.append("export_features")
@@ -51,7 +59,9 @@ class FakeDemoMLFacade:
         self.calls.append("export_metrics")
         return f"{output_path}/metrics.csv"
 
-    def export_scoring(self, score_response, predictor_kind: str, model_version: str, threshold_used: float, output_path: str) -> str:
+    def export_scoring(
+        self, score_response, predictor_kind: str, model_version: str, threshold_used: float, output_path: str
+    ) -> str:
         self.calls.append("export_scoring")
         return f"{output_path}/scoring.csv"
 

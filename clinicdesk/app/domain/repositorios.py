@@ -51,6 +51,8 @@ class RepositorioMedicos(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def crear(self, id_medico: int,tipo_documento:str,n_documento:str, nombre: str, especialidad: str,telefono:str) -> int:
+    def crear(
+        self, id_medico: int, tipo_documento: str, n_documento: str, nombre: str, especialidad: str, telefono: str
+    ) -> int:
         """Crea un medico y devuelve su ID."""
         raise NotImplementedError

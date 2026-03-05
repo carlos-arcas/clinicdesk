@@ -33,7 +33,9 @@ class AlmacenamientoModeloOperativo:
         self._metadata_path().write_text(json.dumps(asdict(metadata), ensure_ascii=False, indent=2), encoding="utf-8")
         return metadata
 
-    def guardar_con_ventana(self, predictor_entrenado: Any, *, n_ejemplos: int, desde: str, hasta: str, version: str) -> MetadataModeloOperativo:
+    def guardar_con_ventana(
+        self, predictor_entrenado: Any, *, n_ejemplos: int, desde: str, hasta: str, version: str
+    ) -> MetadataModeloOperativo:
         return self.guardar(
             predictor_entrenado,
             MetadataModeloOperativo(

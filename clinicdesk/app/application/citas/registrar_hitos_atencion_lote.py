@@ -47,7 +47,9 @@ class RegistrarHitosAtencionEnLote:
     registrar_hito_uc: RegistrarHitoAtencionCita
     repositorio: CitasHitosRepositorioPuerto
 
-    def ejecutar(self, cita_ids: tuple[int, ...], hito: HitoAtencion, modo_timestamp: ModoTimestampHito) -> ResultadoLoteHitosDTO:
+    def ejecutar(
+        self, cita_ids: tuple[int, ...], hito: HitoAtencion, modo_timestamp: ModoTimestampHito
+    ) -> ResultadoLoteHitosDTO:
         if modo_timestamp is ModoTimestampHito.PROGRAMADA and hito not in _HITOS_CON_PROGRAMADA:
             raise RegistrarHitosLoteError("modo_programada_no_permitido")
 
@@ -62,7 +64,9 @@ class RegistrarHitosAtencionEnLote:
         self._log_resumen(hito, modo_timestamp, dto)
         return dto
 
-    def _cargar_marcas_programadas(self, cita_ids: tuple[int, ...], modo_timestamp: ModoTimestampHito) -> dict[int, datetime]:
+    def _cargar_marcas_programadas(
+        self, cita_ids: tuple[int, ...], modo_timestamp: ModoTimestampHito
+    ) -> dict[int, datetime]:
         if modo_timestamp is not ModoTimestampHito.PROGRAMADA or not cita_ids:
             return {}
         return self.repositorio.obtener_inicios_programados_por_cita_ids(cita_ids)

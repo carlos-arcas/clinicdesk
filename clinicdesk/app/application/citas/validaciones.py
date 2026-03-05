@@ -50,20 +50,18 @@ def _validar_fechas(
     if desde is None or hasta is None:
         return ()
     if desde > hasta:
-        return (
-            ErrorValidacionDTO("citas.fechas_invertidas", "citas.validacion.fechas_invertidas", "desde"),
-        )
+        return (ErrorValidacionDTO("citas.fechas_invertidas", "citas.validacion.fechas_invertidas", "desde"),)
     return _validar_rango_maximo(desde, hasta, contexto)
 
 
-def _validar_rango_maximo(desde: datetime, hasta: datetime, contexto: ContextoValidacionCitas) -> tuple[ErrorValidacionDTO, ...]:
+def _validar_rango_maximo(
+    desde: datetime, hasta: datetime, contexto: ContextoValidacionCitas
+) -> tuple[ErrorValidacionDTO, ...]:
     maximo = _MAX_RANGO_DIAS[contexto]
     rango_dias = (hasta - desde).days
     if rango_dias <= maximo:
         return ()
-    return (
-        ErrorValidacionDTO("citas.rango_demasiado_grande", "citas.validacion.rango_demasiado_grande", "hasta"),
-    )
+    return (ErrorValidacionDTO("citas.rango_demasiado_grande", "citas.validacion.rango_demasiado_grande", "hasta"),)
 
 
 def _validar_texto_busqueda(texto: str | None) -> tuple[ErrorValidacionDTO, ...]:
@@ -92,17 +90,17 @@ def _validar_ids(filtros_norm: FiltrosCitasDTO) -> tuple[ErrorValidacionDTO, ...
     return ()
 
 
-
 def _validar_filtro_calidad(filtro_calidad: str | None) -> tuple[ErrorValidacionDTO, ...]:
     if filtro_calidad is None or filtro_calidad in _FILTROS_CALIDAD_VALIDOS:
         return ()
     return (
-        ErrorValidacionDTO("citas.filtro_calidad_invalido", "citas.validacion.filtro_calidad_invalido", "filtro_calidad"),
+        ErrorValidacionDTO(
+            "citas.filtro_calidad_invalido", "citas.validacion.filtro_calidad_invalido", "filtro_calidad"
+        ),
     )
+
 
 def _validar_paginacion(limit: int, offset: int) -> tuple[ErrorValidacionDTO, ...]:
     if limit <= 200 and offset >= 0:
         return ()
-    return (
-        ErrorValidacionDTO("citas.paginacion_invalida", "citas.validacion.paginacion_invalida", None),
-    )
+    return (ErrorValidacionDTO("citas.paginacion_invalida", "citas.validacion.paginacion_invalida", None),)

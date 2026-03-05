@@ -21,7 +21,9 @@ CLAVES_TOOLTIP_POR_DEFECTO: tuple[str, ...] = (
 )
 
 
-def construir_tooltip_cita(i18n: I18nManager, fila: dict[str, object], claves: tuple[str, ...] = CLAVES_TOOLTIP_POR_DEFECTO) -> str:
+def construir_tooltip_cita(
+    i18n: I18nManager, fila: dict[str, object], claves: tuple[str, ...] = CLAVES_TOOLTIP_POR_DEFECTO
+) -> str:
     etiquetas = {item.clave: item.i18n_key_tooltip for item in ATRIBUTOS_CITA}
     lineas: list[str] = []
     for clave in claves:

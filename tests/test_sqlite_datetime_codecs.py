@@ -57,8 +57,6 @@ def test_persist_citas_no_emite_deprecation_warning_datetime(db_connection, seed
         )
 
     sqlite_warnings = [
-        warning
-        for warning in captured
-        if "default datetime adapter is deprecated" in str(warning.message)
+        warning for warning in captured if "default datetime adapter is deprecated" in str(warning.message)
     ]
     assert sqlite_warnings == []

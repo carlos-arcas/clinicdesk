@@ -30,8 +30,10 @@ class TelemetriaEventosQueries:
         limit: int = 5,
     ) -> list[TopEventoTelemetriaQuery]:
         try:
-            rows = self._con().execute(
-                """
+            rows = (
+                self._con()
+                .execute(
+                    """
                 SELECT evento, COUNT(*) AS total
                 FROM telemetria_eventos
                 WHERE datetime(timestamp_utc) >= datetime(?)
@@ -40,8 +42,10 @@ class TelemetriaEventosQueries:
                 ORDER BY total DESC, evento ASC
                 LIMIT ?
                 """,
-                (_to_iso(desde_utc), _to_iso(hasta_utc), limit),
-            ).fetchall()
+                    (_to_iso(desde_utc), _to_iso(hasta_utc), limit),
+                )
+                .fetchall()
+            )
         except sqlite3.DatabaseError:
             LOGGER.exception("telemetria_top_eventos_query_error")
             return []

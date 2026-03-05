@@ -66,9 +66,7 @@ class Dispensacion:
         if not self.fecha_hora:
             raise ValidationError("fecha_hora obligatoria.")
         if self.incidencia and not self.notas_incidencia:
-            raise ValidationError(
-                "Una dispensación con incidencia requiere notas explicativas."
-            )
+            raise ValidationError("Una dispensación con incidencia requiere notas explicativas.")
 
 
 # ---------------------------------------------------------------------

@@ -22,7 +22,9 @@ from clinicdesk.app.infrastructure.sqlite.demo_data_seed_helpers import (
 class SeederProtocol(Protocol):
     _connection: object
 
-    def _normalize_persist_params(self, batch_size: int, from_date: date | None, to_date: date | None) -> tuple[int, date, date]: ...
+    def _normalize_persist_params(
+        self, batch_size: int, from_date: date | None, to_date: date | None
+    ) -> tuple[int, date, date]: ...
 
     def _persist_people(
         self,
@@ -96,8 +98,6 @@ def _seed_clinical_assets(
     )
 
 
-
-
 def _persist_people_and_agenda(
     seeder: SeederProtocol,
     doctors: list[DoctorCreateDTO],
@@ -126,8 +126,6 @@ def _persist_people_and_agenda(
     return doctor_ids, patient_ids, staff_ids, appointment_id_map, incidences_count
 
 
-
-
 def _build_persist_result(
     seeder: SeederProtocol,
     doctor_ids: list[int],
@@ -137,7 +135,9 @@ def _build_persist_result(
     incidences_count: int,
     seed_counts: tuple[int, int, int, int, int, int, int, int, int],
 ):
-    meds_count, mat_count, recipes_count, line_count, disp_count, mov_med, mov_mat, turnos_count, ausencias_count = seed_counts
+    meds_count, mat_count, recipes_count, line_count, disp_count, mov_med, mov_mat, turnos_count, ausencias_count = (
+        seed_counts
+    )
     return seeder._build_result(
         doctor_ids=doctor_ids,
         patient_ids=patient_ids,
@@ -154,6 +154,7 @@ def _build_persist_result(
         turnos_count=turnos_count,
         ausencias_count=ausencias_count,
     )
+
 
 def persist_demo_data(
     *,

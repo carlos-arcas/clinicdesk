@@ -1,6 +1,15 @@
 from __future__ import annotations
 
-from PySide6.QtWidgets import QCheckBox, QDialog, QDialogButtonBox, QHBoxLayout, QLabel, QPushButton, QVBoxLayout, QWidget
+from PySide6.QtWidgets import (
+    QCheckBox,
+    QDialog,
+    QDialogButtonBox,
+    QHBoxLayout,
+    QLabel,
+    QPushButton,
+    QVBoxLayout,
+    QWidget,
+)
 
 from clinicdesk.app.application.citas import ATRIBUTOS_CITA, sanear_columnas_citas
 from clinicdesk.app.i18n import I18nManager

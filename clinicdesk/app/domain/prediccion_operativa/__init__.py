@@ -1,4 +1,11 @@
-from .predictor import CitaOperativa, ModeloOperativo, NivelRiesgo, PrediccionOperativa, PredictorOperativo, RegistroOperativo
+from .predictor import (
+    CitaOperativa,
+    ModeloOperativo,
+    NivelRiesgo,
+    PrediccionOperativa,
+    PredictorOperativo,
+    RegistroOperativo,
+)
 
 __all__ = [
     "CitaOperativa",

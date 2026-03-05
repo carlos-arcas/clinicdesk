@@ -10,7 +10,10 @@ from typing import Any, Mapping, Protocol
 
 from clinicdesk.app.application.auditoria.audit_service import AuditService
 from clinicdesk.app.application.security import Action, AutorizadorAcciones, Role, UserContext
-from clinicdesk.app.application.usecases.filtros_auditoria import aplicar_preset_rango_auditoria, redactar_texto_filtro_auditoria
+from clinicdesk.app.application.usecases.filtros_auditoria import (
+    aplicar_preset_rango_auditoria,
+    redactar_texto_filtro_auditoria,
+)
 from clinicdesk.app.bootstrap_logging import get_logger
 from clinicdesk.app.queries.auditoria_accesos_queries import AuditoriaAccesoItemQuery, FiltrosAuditoriaAccesos
 
@@ -53,15 +56,13 @@ class ExportarAuditoriaCSVGateway(Protocol):
         filtros: FiltrosAuditoriaAccesos,
         limit: int,
         offset: int,
-    ) -> tuple[list[AuditoriaAccesoItemQuery], int]:
-        ...
+    ) -> tuple[list[AuditoriaAccesoItemQuery], int]: ...
 
     def exportar_auditoria_accesos(
         self,
         filtros: FiltrosAuditoriaAccesos,
         max_filas: int | None = None,
-    ) -> list[AuditoriaAccesoItemQuery]:
-        ...
+    ) -> list[AuditoriaAccesoItemQuery]: ...
 
 
 class ExportarAuditoriaCSV:

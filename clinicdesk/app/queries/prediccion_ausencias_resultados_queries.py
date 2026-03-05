@@ -81,8 +81,10 @@ class PrediccionAusenciasResultadosQueries:
 
     def obtener_resultados_recientes_prediccion(self, ventana_dias: int = 60) -> ResultadoRecientePrediccion:
         version = self._obtener_version_objetivo()
-        rows = self._con().execute(
-            """
+        rows = (
+            self._con()
+            .execute(
+                """
             WITH citas_cerradas_ventana AS (
                 SELECT id, estado
                 FROM citas
@@ -100,8 +102,10 @@ class PrediccionAusenciasResultadosQueries:
             WHERE pl.riesgo IN ('BAJO', 'MEDIO', 'ALTO')
             GROUP BY pl.riesgo
             """,
-            (*_ESTADOS_CERRADOS, f"-{ventana_dias} days"),
-        ).fetchall()
+                (*_ESTADOS_CERRADOS, f"-{ventana_dias} days"),
+            )
+            .fetchall()
+        )
         return ResultadoRecientePrediccion(
             version_modelo_fecha_utc=version,
             filas=tuple(
@@ -116,8 +120,10 @@ class PrediccionAusenciasResultadosQueries:
         )
 
     def obtener_diagnostico_resultados_recientes(self, ventana_dias: int) -> DiagnosticoResultadosRecientesRaw:
-        row = self._con().execute(
-            """
+        row = (
+            self._con()
+            .execute(
+                """
             WITH citas_ventana AS (
                 SELECT id, estado
                 FROM citas
@@ -138,8 +144,10 @@ class PrediccionAusenciasResultadosQueries:
             FROM citas_ventana cv
             LEFT JOIN predicciones_ventana pv ON pv.cita_id = cv.id
             """,
-            (f"-{ventana_dias} days", *_ESTADOS_CERRADOS, *_ESTADOS_CERRADOS),
-        ).fetchone()
+                (f"-{ventana_dias} days", *_ESTADOS_CERRADOS, *_ESTADOS_CERRADOS),
+            )
+            .fetchone()
+        )
         if row is None:
             return DiagnosticoResultadosRecientesRaw(
                 total_citas_cerradas_en_ventana=0,

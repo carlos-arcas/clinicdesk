@@ -41,7 +41,9 @@ class GatewayFake:
 
 def test_buscar_auditoria_accesos_usecase_mapea_resultado() -> None:
     usecase = BuscarAuditoriaAccesos(GatewayFake())
-    resultado = usecase.execute(FiltrosAuditoriaAccesos(usuario_contiene="audit"), limit=10, offset=20, preset_rango="personalizado")
+    resultado = usecase.execute(
+        FiltrosAuditoriaAccesos(usuario_contiene="audit"), limit=10, offset=20, preset_rango="personalizado"
+    )
 
     assert resultado.total == 55
     assert len(resultado.items) == 1
@@ -55,7 +57,9 @@ def test_buscar_auditoria_accesos_usecase_mapea_resultado() -> None:
 
 def test_buscar_auditoria_aplica_preset_hoy() -> None:
     gateway = GatewayFake()
-    BuscarAuditoriaAccesos(gateway).execute(FiltrosAuditoriaAccesos(usuario_contiene="audit"), limit=10, offset=20, preset_rango="hoy")
+    BuscarAuditoriaAccesos(gateway).execute(
+        FiltrosAuditoriaAccesos(usuario_contiene="audit"), limit=10, offset=20, preset_rango="hoy"
+    )
 
     assert gateway.recibido is not None
     assert isinstance(gateway.recibido.desde_utc, datetime)

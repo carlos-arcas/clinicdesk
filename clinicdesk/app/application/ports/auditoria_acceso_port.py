@@ -6,5 +6,4 @@ from clinicdesk.app.application.auditoria_acceso import EventoAuditoriaAcceso
 
 
 class RepositorioAuditoriaAcceso(Protocol):
-    def registrar(self, evento: EventoAuditoriaAcceso) -> None:
-        ...
+    def registrar(self, evento: EventoAuditoriaAcceso) -> None: ...

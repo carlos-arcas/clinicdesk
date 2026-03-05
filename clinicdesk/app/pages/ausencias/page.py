@@ -77,9 +77,7 @@ class PageAusencias(QWidget):
         actions.addStretch(1)
 
         self.table = QTableWidget(0, 7)
-        self.table.setHorizontalHeaderLabels(
-            ["ID", "Inicio", "Fin", "Tipo", "Motivo", "Aprobado por", "Creado en"]
-        )
+        self.table.setHorizontalHeaderLabels(["ID", "Inicio", "Fin", "Tipo", "Motivo", "Aprobado por", "Creado en"])
         self.table.setColumnHidden(0, True)
         self.table.horizontalHeader().setStretchLastSection(True)
         self.table.setContextMenuPolicy(Qt.CustomContextMenu)
@@ -225,7 +223,5 @@ class PageAusencias(QWidget):
 
 
 if __name__ == "__main__":
-    logging.getLogger(__name__).info(
-        "Este módulo no se ejecuta directamente. Usa: python -m clinicdesk"
-    )
+    logging.getLogger(__name__).info("Este módulo no se ejecuta directamente. Usa: python -m clinicdesk")
     raise SystemExit(2)

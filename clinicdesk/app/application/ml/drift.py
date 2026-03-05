@@ -21,7 +21,9 @@ class DriftReport:
     overall_flag: bool
 
 
-def compute_categorical_distribution(rows: list[CitasFeatureRow], key_fn: Callable[[CitasFeatureRow], str]) -> dict[str, float]:
+def compute_categorical_distribution(
+    rows: list[CitasFeatureRow], key_fn: Callable[[CitasFeatureRow], str]
+) -> dict[str, float]:
     if not rows:
         return {}
     counts: dict[str, int] = {}

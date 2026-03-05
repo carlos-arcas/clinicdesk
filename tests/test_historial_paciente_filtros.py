@@ -63,8 +63,11 @@ def test_normaliza_todo_sin_rango() -> None:
     assert normalizados.desde is None
     assert normalizados.hasta is None
 
+
 def test_conserva_paciente_id_invalido_para_validacion_tipada() -> None:
-    normalizados = normalizar_filtros_historial_paciente(FiltrosHistorialPacienteDTO(paciente_id=0), datetime(2026, 1, 1, 10, 0))
+    normalizados = normalizar_filtros_historial_paciente(
+        FiltrosHistorialPacienteDTO(paciente_id=0), datetime(2026, 1, 1, 10, 0)
+    )
     assert normalizados.paciente_id == 0
 
 

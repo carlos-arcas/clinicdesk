@@ -78,9 +78,7 @@ class PageTurnos(QWidget):
         actions.addStretch(1)
 
         self.table = QTableWidget(0, 7)
-        self.table.setHorizontalHeaderLabels(
-            ["ID", "Fecha", "Turno", "Inicio", "Fin", "Observaciones", "Activo"]
-        )
+        self.table.setHorizontalHeaderLabels(["ID", "Fecha", "Turno", "Inicio", "Fin", "Observaciones", "Activo"])
         self.table.setColumnHidden(0, True)
         self.table.horizontalHeader().setStretchLastSection(True)
         self.table.setContextMenuPolicy(Qt.CustomContextMenu)
@@ -238,7 +236,5 @@ class PageTurnos(QWidget):
 
 
 if __name__ == "__main__":
-    logging.getLogger(__name__).info(
-        "Este módulo no se ejecuta directamente. Usa: python -m clinicdesk"
-    )
+    logging.getLogger(__name__).info("Este módulo no se ejecuta directamente. Usa: python -m clinicdesk")
     raise SystemExit(2)

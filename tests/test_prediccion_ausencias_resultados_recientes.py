@@ -36,7 +36,9 @@ def _insert_cita(con, *, cita_id: int, paciente_id: int, medico_id: int, sala_id
     )
 
 
-def _registrar_predicciones(queries: PrediccionAusenciasResultadosQueries, version: str, cita_ids: range, riesgo: str = "ALTO") -> None:
+def _registrar_predicciones(
+    queries: PrediccionAusenciasResultadosQueries, version: str, cita_ids: range, riesgo: str = "ALTO"
+) -> None:
     timestamp = datetime.now(timezone.utc).isoformat()
     queries.registrar_predicciones_ausencias(
         version,
@@ -49,7 +51,15 @@ def _registrar_predicciones(queries: PrediccionAusenciasResultadosQueries, versi
 
 def test_registro_predicciones_es_idempotente(db_connection) -> None:
     paciente_id, medico_id, sala_id = _seed_base_tablas(db_connection)
-    _insert_cita(db_connection, cita_id=1, paciente_id=paciente_id, medico_id=medico_id, sala_id=sala_id, dias=2, estado="REALIZADA")
+    _insert_cita(
+        db_connection,
+        cita_id=1,
+        paciente_id=paciente_id,
+        medico_id=medico_id,
+        sala_id=sala_id,
+        dias=2,
+        estado="REALIZADA",
+    )
     db_connection.commit()
 
     queries = PrediccionAusenciasResultadosQueries(db_connection)
@@ -109,7 +119,9 @@ def test_uc_resultados_recientes_diagnostica_sin_citas_cerradas(db_connection) -
         )
     db_connection.commit()
 
-    uc = ObtenerResultadosRecientesPrediccionAusencias(PrediccionAusenciasResultadosQueries(db_connection), umbral_minimo=20)
+    uc = ObtenerResultadosRecientesPrediccionAusencias(
+        PrediccionAusenciasResultadosQueries(db_connection), umbral_minimo=20
+    )
     resultado = uc.ejecutar(ventana_dias=60)
 
     assert resultado.diagnostico is DiagnosticoResultadosRecientes.SIN_CITAS_CERRADAS
@@ -129,7 +141,9 @@ def test_uc_resultados_recientes_diagnostica_sin_predicciones_registradas(db_con
         )
     db_connection.commit()
 
-    uc = ObtenerResultadosRecientesPrediccionAusencias(PrediccionAusenciasResultadosQueries(db_connection), umbral_minimo=20)
+    uc = ObtenerResultadosRecientesPrediccionAusencias(
+        PrediccionAusenciasResultadosQueries(db_connection), umbral_minimo=20
+    )
     resultado = uc.ejecutar(ventana_dias=60)
 
     assert resultado.diagnostico is DiagnosticoResultadosRecientes.SIN_PREDICCIONES_REGISTRADAS

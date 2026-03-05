@@ -85,9 +85,7 @@ class MedicamentosQueries:
 
         if texto:
             like = like_value(texto)
-            clauses.append(
-                "(nombre_comercial LIKE ? COLLATE NOCASE OR nombre_compuesto LIKE ? COLLATE NOCASE)"
-            )
+            clauses.append("(nombre_comercial LIKE ? COLLATE NOCASE OR nombre_compuesto LIKE ? COLLATE NOCASE)")
             params.extend([like, like])
 
         if activo is not None:

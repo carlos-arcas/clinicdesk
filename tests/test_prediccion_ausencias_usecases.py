@@ -127,7 +127,9 @@ def test_entrenar_io_error_lanza_reason_code_save_failed(db_connection, tmp_path
 
     queries = PrediccionAusenciasQueries(db_connection)
     comprobar_uc = ComprobarDatosPrediccionAusencias(queries, minimo_requerido=50)
-    entrenar_uc = EntrenarPrediccionAusencias(comprobar_uc, queries, PredictorAusenciasBaseline(), _AlmacenamientoQueFalla())
+    entrenar_uc = EntrenarPrediccionAusencias(
+        comprobar_uc, queries, PredictorAusenciasBaseline(), _AlmacenamientoQueFalla()
+    )
 
     with pytest.raises(EntrenamientoPrediccionError) as exc_info:
         entrenar_uc.ejecutar()

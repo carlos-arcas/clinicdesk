@@ -65,7 +65,9 @@ class OverrideDialog(QDialog):
         self._render_warnings()
 
         self.txt_nota = QTextEdit()
-        self.txt_nota.setPlaceholderText("Nota obligatoria… (Ej: 'He cambiado el turno con Clara', 'No está subido el cuadrante aún', etc.)")
+        self.txt_nota.setPlaceholderText(
+            "Nota obligatoria… (Ej: 'He cambiado el turno con Clara', 'No está subido el cuadrante aún', etc.)"
+        )
 
         self.txt_confirmador = QLineEdit()
         self.txt_confirmador.setReadOnly(True)

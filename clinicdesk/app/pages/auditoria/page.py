@@ -173,7 +173,9 @@ class PageAuditoria(QWidget):
         )
 
     def _error_fecha(self, campo: str) -> None:
-        QMessageBox.warning(self, self._tr("auditoria.titulo"), self._tr("auditoria.error.fecha_invalida").format(campo=campo))
+        QMessageBox.warning(
+            self, self._tr("auditoria.titulo"), self._tr("auditoria.error.fecha_invalida").format(campo=campo)
+        )
         return None
 
     def _render_resumen_para(self, filtros: FiltrosAuditoriaAccesos) -> None:

@@ -15,4 +15,3 @@ CLAVES_COLUMNAS_CONFIRMACIONES: tuple[str, ...] = (
 
 def claves_columnas_confirmaciones() -> tuple[str, ...]:
     return CLAVES_COLUMNAS_CONFIRMACIONES
-

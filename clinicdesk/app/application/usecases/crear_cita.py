@@ -52,6 +52,7 @@ class PendingWarningsError(ValidationError):
     """
     Se lanza cuando existen warnings y no se ha indicado override.
     """
+
     def __init__(self, warnings: List[WarningItem]) -> None:
         super().__init__("La operación requiere confirmación (override) por incidencias/warnings.")
         self.warnings = warnings
@@ -63,7 +64,7 @@ class CrearCitaRequest:
     medico_id: int
     sala_id: int
     inicio: str  # ISO "YYYY-MM-DD HH:MM:SS"
-    fin: str     # ISO "YYYY-MM-DD HH:MM:SS"
+    fin: str  # ISO "YYYY-MM-DD HH:MM:SS"
     motivo: Optional[str] = None
     observaciones: Optional[str] = None
     estado: str = "PROGRAMADA"
@@ -250,9 +251,7 @@ def _apply_rules(container: AppContainer, req: CrearCitaRequest) -> List[Warning
     warnings: List[WarningItem] = []
     fecha = req.inicio[:10]
 
-    hay_calendario = container.calendario_medico_repo.exists_for_medico_fecha(
-        req.medico_id, fecha, solo_activos=True
-    )
+    hay_calendario = container.calendario_medico_repo.exists_for_medico_fecha(req.medico_id, fecha, solo_activos=True)
     if not hay_calendario:
         warnings.append(
             WarningItem(

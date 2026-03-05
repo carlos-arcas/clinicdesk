@@ -24,8 +24,7 @@ class ObtenerResumenTelemetriaSemanaGateway(Protocol):
         desde_utc: str | datetime,
         hasta_utc: str | datetime,
         limit: int = 5,
-    ) -> list[TopEventoTelemetriaQuery]:
-        ...
+    ) -> list[TopEventoTelemetriaQuery]: ...
 
 
 class ObtenerResumenTelemetriaSemana:

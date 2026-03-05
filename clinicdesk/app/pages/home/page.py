@@ -26,7 +26,5 @@ class PageHome(QWidget):
 
 
 if __name__ == "__main__":
-    logging.getLogger(__name__).info(
-        "Este módulo no se ejecuta directamente. Usa: python -m clinicdesk"
-    )
+    logging.getLogger(__name__).info("Este módulo no se ejecuta directamente. Usa: python -m clinicdesk")
     raise SystemExit(2)

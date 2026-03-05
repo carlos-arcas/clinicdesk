@@ -72,8 +72,7 @@ class DashboardGestionDTO:
 
 
 class ObtenerMetricasOperativasPort(Protocol):
-    def execute(self, desde: date, hasta: date) -> ResultadoMetricasOperativasDTO:
-        ...
+    def execute(self, desde: date, hasta: date) -> ResultadoMetricasOperativasDTO: ...
 
 
 class ObtenerDashboardGestion:
@@ -143,7 +142,9 @@ def _derivar_kpis_resumen(metricas: ResultadoMetricasOperativasDTO) -> KpisResum
     return KpisResumenDashboardDTO(
         total_citas=total_citas,
         espera_media_min=_promedio_ponderado(metricas.por_dia, "espera_media_min", "total_validas_espera"),
-        duracion_media_consulta_min=_promedio_ponderado(metricas.por_dia, "consulta_media_min", "total_validas_consulta"),
+        duracion_media_consulta_min=_promedio_ponderado(
+            metricas.por_dia, "consulta_media_min", "total_validas_consulta"
+        ),
         retraso_media_min=_promedio_ponderado(metricas.por_dia, "retraso_media_min", "total_validas_retraso"),
         total_validas_espera=total_validas_espera,
     )

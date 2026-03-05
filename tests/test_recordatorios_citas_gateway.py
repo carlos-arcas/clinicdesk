@@ -125,4 +125,3 @@ def test_gateway_con_proveedor_no_comparte_conexion_entre_hilos(tmp_path) -> Non
 
     assert len(conexiones) == 2
     assert conexiones[0] != conexiones[1]
-

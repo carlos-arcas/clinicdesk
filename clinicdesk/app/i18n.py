@@ -28,6 +28,7 @@ for idioma, traducciones in HISTORIAL_TRANSLATIONS.items():
 for idioma, traducciones in AUDITORIA_TRANSLATIONS.items():
     _TRANSLATIONS.setdefault(idioma, {}).update(traducciones)
 
+
 class I18nManager:
     def __init__(self, language: str = "es") -> None:
         self._language = language if language in _TRANSLATIONS else "es"

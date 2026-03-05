@@ -156,6 +156,4 @@ class DispensacionesQueries:
     def _medicamento_clauses(self, params: _DispensacionesParams) -> List[str]:
         if not params.medicamento_texto:
             return []
-        return [
-            "(m.nombre_comercial LIKE ? COLLATE NOCASE OR m.nombre_compuesto LIKE ? COLLATE NOCASE)"
-        ]
+        return ["(m.nombre_comercial LIKE ? COLLATE NOCASE OR m.nombre_compuesto LIKE ? COLLATE NOCASE)"]

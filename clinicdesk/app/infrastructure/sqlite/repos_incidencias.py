@@ -42,11 +42,11 @@ class Incidencia:
 
     id: Optional[int] = None
 
-    tipo: str = ""         # ej: "CALENDARIO", "CITA", "DISPENSACION", "STOCK"
-    severidad: str = ""    # ej: "BAJA", "MEDIA", "ALTA"
-    estado: str = ""       # ej: "ABIERTA", "EN_REVISION", "CERRADA"
+    tipo: str = ""  # ej: "CALENDARIO", "CITA", "DISPENSACION", "STOCK"
+    severidad: str = ""  # ej: "BAJA", "MEDIA", "ALTA"
+    estado: str = ""  # ej: "ABIERTA", "EN_REVISION", "CERRADA"
 
-    fecha_hora: str = ""   # ISO datetime "YYYY-MM-DD HH:MM:SS"
+    fecha_hora: str = ""  # ISO datetime "YYYY-MM-DD HH:MM:SS"
     descripcion: str = ""
 
     medico_id: Optional[int] = None

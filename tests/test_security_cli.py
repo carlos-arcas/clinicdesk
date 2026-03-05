@@ -54,14 +54,16 @@ def test_rotate_dry_run_no_imprime_pii_ni_claves(
     monkeypatch.setenv("CLINICDESK_CRYPTO_KEY", clave_nueva)
     monkeypatch.setenv("CLINICDESK_CRYPTO_KEY_PREVIOUS", clave_vieja)
 
-    exit_code = security_cli.main([
-        "rotate-key",
-        "--dry-run",
-        "--db-path",
-        db_path.as_posix(),
-        "--schema-path",
-        _schema_path().as_posix(),
-    ])
+    exit_code = security_cli.main(
+        [
+            "rotate-key",
+            "--dry-run",
+            "--db-path",
+            db_path.as_posix(),
+            "--schema-path",
+            _schema_path().as_posix(),
+        ]
+    )
 
     captured = capsys.readouterr()
     salida = f"{captured.out}\n{captured.err}"
@@ -91,20 +93,24 @@ def test_rotate_apply_recifra_y_permite_lectura(
     monkeypatch.setenv("CLINICDESK_CRYPTO_KEY", "N" * 32 + "new-material")
     monkeypatch.setenv("CLINICDESK_CRYPTO_KEY_PREVIOUS", "O" * 32 + "old-material")
 
-    exit_code = security_cli.main([
-        "rotate-key",
-        "--apply",
-        "--db-path",
-        db_path.as_posix(),
-        "--schema-path",
-        _schema_path().as_posix(),
-        "--batch-size",
-        "10",
-    ])
+    exit_code = security_cli.main(
+        [
+            "rotate-key",
+            "--apply",
+            "--db-path",
+            db_path.as_posix(),
+            "--schema-path",
+            _schema_path().as_posix(),
+            "--batch-size",
+            "10",
+        ]
+    )
     assert exit_code == 0
 
     con_check = bootstrap(db_path, _schema_path(), apply=True)
-    after = con_check.execute("SELECT documento_enc FROM pacientes WHERE id = ?", (paciente_id,)).fetchone()["documento_enc"]
+    after = con_check.execute("SELECT documento_enc FROM pacientes WHERE id = ?", (paciente_id,)).fetchone()[
+        "documento_enc"
+    ]
     assert after is not None
     assert after != before
 

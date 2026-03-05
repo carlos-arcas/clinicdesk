@@ -14,7 +14,14 @@ class Contexto(StrEnum):
 
 
 _PREFIJOS_POR_CONTEXTO: tuple[tuple[Contexto, tuple[str, ...]], ...] = (
-    (Contexto.CITAS, ("clinicdesk/app/application/citas/", "clinicdesk/app/application/confirmaciones/", "clinicdesk/app/application/recordatorios/")),
+    (
+        Contexto.CITAS,
+        (
+            "clinicdesk/app/application/citas/",
+            "clinicdesk/app/application/confirmaciones/",
+            "clinicdesk/app/application/recordatorios/",
+        ),
+    ),
     (Contexto.CITAS, ("clinicdesk/app/application/features/citas_features",)),
     (Contexto.PACIENTES, ("clinicdesk/app/application/pacientes", "clinicdesk/app/application/historial_paciente/")),
     (

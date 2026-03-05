@@ -56,7 +56,9 @@ class FiltroListadoWidget(QWidget):
         self.cbo_estado.blockSignals(False)
 
     def set_contador(self, mostrados: int, totales: int) -> None:
-        self.lbl_contador.setText(self.tr("Mostrando {mostrados} de {totales}").format(mostrados=mostrados, totales=totales))
+        self.lbl_contador.setText(
+            self.tr("Mostrando {mostrados} de {totales}").format(mostrados=mostrados, totales=totales)
+        )
 
     def limpiar(self) -> None:
         self.txt_busqueda.clear()

@@ -9,8 +9,7 @@ try:
     import cryptography  # noqa: F401
 except ImportError as exc:  # pragma: no cover - depende del entorno
     raise RuntimeError(
-        "La dependencia obligatoria 'cryptography' no está instalada. "
-        "Instálala con: pip install cryptography"
+        "La dependencia obligatoria 'cryptography' no está instalada. Instálala con: pip install cryptography"
     ) from exc
 
 from clinicdesk.app.domain.enums import TipoDocumento

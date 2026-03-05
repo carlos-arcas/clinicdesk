@@ -62,9 +62,7 @@ class PageMedicos(QWidget):
         actions.addStretch(1)
 
         self.table = QTableWidget(0, 6)
-        self.table.setHorizontalHeaderLabels(
-            ["ID", "Documento", "Nombre", "Teléfono", "Especialidad", "Activo"]
-        )
+        self.table.setHorizontalHeaderLabels(["ID", "Documento", "Nombre", "Teléfono", "Especialidad", "Activo"])
         self.table.setColumnHidden(0, True)
         self.table.horizontalHeader().setStretchLastSection(True)
         self.table.setContextMenuPolicy(Qt.CustomContextMenu)
@@ -142,10 +140,7 @@ class PageMedicos(QWidget):
         try:
             self._container.medicos_repo.create(data.medico)
         except Exception as exc:
-            context = (
-                f"Tipo documento: {data.medico.tipo_documento.value}\n"
-                f"Documento: {data.medico.documento}"
-            )
+            context = f"Tipo documento: {data.medico.tipo_documento.value}\nDocumento: {data.medico.documento}"
             present_error(self, exc, context=context)
             return
         self._reset_filters()
@@ -168,10 +163,7 @@ class PageMedicos(QWidget):
         try:
             self._container.medicos_repo.update(data.medico)
         except Exception as exc:
-            context = (
-                f"Tipo documento: {data.medico.tipo_documento.value}\n"
-                f"Documento: {data.medico.documento}"
-            )
+            context = f"Tipo documento: {data.medico.tipo_documento.value}\nDocumento: {data.medico.documento}"
             present_error(self, exc, context=context)
             return
         self._refresh()
@@ -210,8 +202,7 @@ class PageMedicos(QWidget):
         QMessageBox.information(
             self,
             "CSV",
-            "Esta acción está disponible en la ventana principal. "
-            "Ejecuta la aplicación con: python -m clinicdesk",
+            "Esta acción está disponible en la ventana principal. Ejecuta la aplicación con: python -m clinicdesk",
         )
 
     def _reset_filters(self) -> None:
@@ -239,7 +230,5 @@ class PageMedicos(QWidget):
 
 
 if __name__ == "__main__":
-    logging.getLogger(__name__).info(
-        "Este módulo no se ejecuta directamente. Usa: python -m clinicdesk"
-    )
+    logging.getLogger(__name__).info("Este módulo no se ejecuta directamente. Usa: python -m clinicdesk")
     raise SystemExit(2)

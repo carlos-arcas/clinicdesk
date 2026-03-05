@@ -36,9 +36,7 @@ class CitasFeatureValidationError(ValueError):
     """Error explícito de validación de features de citas."""
 
 
-def build_citas_features(
-    rows: list[CitasDatasetRow], *, now: datetime | None = None
-) -> list[CitasFeatureRow]:
+def build_citas_features(rows: list[CitasDatasetRow], *, now: datetime | None = None) -> list[CitasFeatureRow]:
     _ = now
     features = [
         CitasFeatureRow(
@@ -68,9 +66,7 @@ def validate_citas_features(rows: list[CitasFeatureRow]) -> None:
                 f"Feature inválida para cita '{row.cita_id}': hora_inicio fuera de rango."
             )
         if row.dia_semana < 0 or row.dia_semana > 6:
-            raise CitasFeatureValidationError(
-                f"Feature inválida para cita '{row.cita_id}': dia_semana fuera de rango."
-            )
+            raise CitasFeatureValidationError(f"Feature inválida para cita '{row.cita_id}': dia_semana fuera de rango.")
         if row.notas_len_bucket != _notas_len_bucket(row.notas_len):
             raise CitasFeatureValidationError(
                 f"Feature inválida para cita '{row.cita_id}': notas_len_bucket inconsistente."

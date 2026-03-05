@@ -181,7 +181,11 @@ class ObtenerExplicacionRiesgoAusenciaCita:
             return self._resultado_no_disponible(fecha_entrenamiento=None)
 
         prediccion = predictor.predecir(
-            [CitaParaPrediccion(cita_id=cita.cita_id, paciente_id=cita.paciente_id, dias_antelacion=cita.dias_antelacion)]
+            [
+                CitaParaPrediccion(
+                    cita_id=cita.cita_id, paciente_id=cita.paciente_id, dias_antelacion=cita.dias_antelacion
+                )
+            ]
         )
         if not prediccion:
             return self._resultado_no_disponible(fecha_entrenamiento=metadata.fecha_entrenamiento)
