@@ -77,6 +77,22 @@ python scripts/run_app.py
 python -m scripts.gate_pr
 ```
 
+### Ejecutar en Codex / entornos sin internet
+
+En runtimes aislados, las dependencias deben instalarse en la fase de setup.
+
+1. Ejecuta el setup reproducible para sandbox:
+
+```bash
+python scripts/setup_sandbox.py
+```
+
+2. Cuando finalice correctamente, ejecuta el gate completo:
+
+```bash
+python -m scripts.gate_pr
+```
+
 ### Deploy con Docker
 
 1) Copia variables de entorno:
