@@ -4,40 +4,43 @@ import logging
 from datetime import date, timedelta
 
 from PySide6.QtCore import QThread, Qt
-from PySide6.QtWidgets import (
-    QCheckBox,
-    QComboBox,
-    QDateEdit,
-    QHBoxLayout,
-    QLabel,
-    QLineEdit,
-    QMessageBox,
-    QPushButton,
-    QTableWidget,
-    QTableWidgetItem,
-    QVBoxLayout,
-    QWidget,
-)
+from PySide6.QtWidgets import QMessageBox, QTableWidgetItem, QWidget
 
 from clinicdesk.app.application.confirmaciones import (
     FiltrosConfirmacionesDTO,
+    ObtenerConfirmacionesCitas,
     PaginacionConfirmacionesDTO,
 )
 from clinicdesk.app.application.citas.filtros import redactar_texto_busqueda
-from clinicdesk.app.application.preferencias.preferencias_usuario import sanitize_search_text
 from clinicdesk.app.application.prediccion_ausencias.aviso_salud_prediccion import (
     debe_mostrar_aviso_salud_prediccion,
 )
-from clinicdesk.app.container import AppContainer
 from clinicdesk.app.application.usecases.registrar_telemetria import RegistrarTelemetria
+from clinicdesk.app.container import AppContainer
 from clinicdesk.app.i18n import I18nManager
 from clinicdesk.app.pages.citas.riesgo_ausencia_dialog import RiesgoAusenciaDialog
+from clinicdesk.app.pages.confirmaciones.acciones_confirmaciones import (
+    navegar_prediccion,
+    set_busy,
+    toast_error,
+    toast_info,
+    toast_success,
+)
 from clinicdesk.app.pages.confirmaciones.columnas import claves_columnas_confirmaciones
+from clinicdesk.app.pages.confirmaciones.contratos_ui import ConfirmacionesUIRefs
 from clinicdesk.app.pages.confirmaciones.lote_controller import GestorLoteConfirmaciones
 from clinicdesk.app.pages.confirmaciones.lote_worker import AccionLoteDTO, WorkerRecordatoriosLote
-from clinicdesk.app.pages.confirmaciones.acciones_whatsapp_rapido import estado_accion_whatsapp_rapida
-from clinicdesk.app.pages.confirmaciones.tabla_actions import crear_actions_confirmacion
-from clinicdesk.app.ui.widgets.estado_pantalla_widget import EstadoPantallaWidget
+from clinicdesk.app.pages.confirmaciones.preferencias_confirmaciones import guardar_preferencias, restaurar_preferencias
+from clinicdesk.app.pages.confirmaciones.render_confirmaciones import (
+    apply_selection,
+    render_estado,
+    render_tabla,
+)
+from clinicdesk.app.pages.confirmaciones.ui_builder import build_confirmaciones_ui
+from clinicdesk.app.pages.confirmaciones.workers_confirmaciones import arrancar_busqueda_rapida, arrancar_carga
+from clinicdesk.app.queries.confirmaciones_queries import ConfirmacionesQueries
+from clinicdesk.app.ui.viewmodels.contratos import EstadoListado, EventoUI
+from clinicdesk.app.ui.viewmodels.confirmaciones_vm import ConfirmacionesViewModel
 from clinicdesk.app.ui.workers.listado_async_workers import CargaConfirmacionesWorker
 from clinicdesk.app.infrastructure.sqlite.db_path import resolver_db_path_desde_conexion
 
@@ -65,89 +68,9 @@ class PageConfirmaciones(QWidget):
         self._cita_focus_pendiente: int | None = None
         self._db_path = resolver_db_path_desde_conexion(container.connection)
         self._preferencias_restauradas = False
-        self._build_ui()
-        self._i18n.subscribe(self._retranslate)
-        self._retranslate()
-
-    def _set_busy(self, activo: bool, mensaje_key: str) -> None:
-        set_busy = getattr(self.window(), "set_busy", None)
-        if callable(set_busy):
-            set_busy(activo, mensaje_key)
-
-    def _toast_success(self, key: str) -> None:
-        toast = getattr(self.window(), "toast_success", None)
-        if callable(toast):
-            toast(key)
-
-    def _toast_info(self, key: str) -> None:
-        toast = getattr(self.window(), "toast_info", None)
-        if callable(toast):
-            toast(key)
-
-    def _toast_error(self, key: str) -> None:
-        toast = getattr(self.window(), "toast_error", None)
-        if callable(toast):
-            toast(key)
-
-    def on_show(self) -> None:
-        if not self._preferencias_restauradas:
-            self._restaurar_preferencias()
-            self._preferencias_restauradas = True
-        self._load_data(reset=True)
-
-    def _build_ui(self) -> None:
-        root = QVBoxLayout(self)
-        self.lbl_title = QLabel()
-        root.addWidget(self.lbl_title)
-        self.banner = QLabel()
-        self.btn_ir_prediccion = QPushButton()
-        self.btn_ir_prediccion.clicked.connect(self._ir_a_prediccion)
-        banner_row = QHBoxLayout()
-        banner_row.addWidget(self.banner, 1)
-        banner_row.addWidget(self.btn_ir_prediccion)
-        root.addLayout(banner_row)
-
-        filters = QHBoxLayout()
-        self.cmb_rango = QComboBox()
-        self.desde = QDateEdit()
-        self.hasta = QDateEdit()
-        self.cmb_riesgo = QComboBox()
-        self.cmb_recordatorio = QComboBox()
-        self.txt_buscar = QLineEdit()
-        self.btn_actualizar = QPushButton()
-        self.btn_actualizar.clicked.connect(lambda: self._load_data(reset=True))
-        self.cmb_rango.currentIndexChanged.connect(self._on_rango_changed)
-        self.cmb_riesgo.currentIndexChanged.connect(self._guardar_preferencias)
-        self.cmb_recordatorio.currentIndexChanged.connect(self._guardar_preferencias)
-        self.txt_buscar.editingFinished.connect(self._guardar_preferencias)
-        self.desde.dateChanged.connect(self._guardar_preferencias)
-        self.hasta.dateChanged.connect(self._guardar_preferencias)
-        widgets_filtro = (
-            self.cmb_rango,
-            self.desde,
-            self.hasta,
-            self.cmb_riesgo,
-            self.cmb_recordatorio,
-            self.txt_buscar,
-            self.btn_actualizar,
-        )
-        for widget in widgets_filtro:
-            filters.addWidget(widget)
-        root.addLayout(filters)
-
-        seleccion_row = QHBoxLayout()
-        self.chk_todo_visible = QCheckBox()
-        self.chk_todo_visible.stateChanged.connect(self._toggle_todo_visible)
-        self.lbl_seleccionadas = QLabel()
-        seleccion_row.addWidget(self.chk_todo_visible)
-        seleccion_row.addWidget(self.lbl_seleccionadas)
-        seleccion_row.addStretch(1)
-        root.addLayout(seleccion_row)
-
-        self.table = QTableWidget(0, 9)
-        self.table.setEditTriggers(QTableWidget.NoEditTriggers)
-        self.table.itemChanged.connect(self._on_item_changed)
-
+        self._vm = ConfirmacionesViewModel(listar_confirmaciones=self._listar_confirmaciones_sync)
+        self._ui: ConfirmacionesUIRefs = build_confirmaciones_ui(self, i18n)
+        self._wire_ui_aliases()
         self._lote = GestorLoteConfirmaciones(
             self,
             self._i18n,
@@ -155,26 +78,50 @@ class PageConfirmaciones(QWidget):
             selected_ids=lambda: tuple(sorted(self._citas_seleccionadas)),
             on_done=lambda: self._load_data(reset=False),
         )
-        footer = QHBoxLayout()
-        self.lbl_totales = QLabel()
-        self.btn_prev = QPushButton()
-        self.btn_next = QPushButton()
+        self._ui.contenido_tabla.layout().insertWidget(1, self._lote.barra)
+        self._connect_signals()
+        self._vm.subscribe(self._on_estado_vm)
+        self._vm.subscribe_eventos(self._on_evento_vm)
+        self._i18n.subscribe(self._retranslate)
+        self._retranslate()
+
+    def _wire_ui_aliases(self) -> None:
+        self.lbl_title = self._ui.lbl_title
+        self.banner = self._ui.banner
+        self.btn_ir_prediccion = self._ui.btn_ir_prediccion
+        self.cmb_rango = self._ui.cmb_rango
+        self.desde = self._ui.desde
+        self.hasta = self._ui.hasta
+        self.cmb_riesgo = self._ui.cmb_riesgo
+        self.cmb_recordatorio = self._ui.cmb_recordatorio
+        self.txt_buscar = self._ui.txt_buscar
+        self.btn_actualizar = self._ui.btn_actualizar
+        self.chk_todo_visible = self._ui.chk_todo_visible
+        self.lbl_seleccionadas = self._ui.lbl_seleccionadas
+        self.table = self._ui.table
+        self.lbl_totales = self._ui.lbl_totales
+        self.btn_prev = self._ui.btn_prev
+        self.btn_next = self._ui.btn_next
+
+    def _connect_signals(self) -> None:
+        self.btn_ir_prediccion.clicked.connect(self._ir_a_prediccion)
+        self.btn_actualizar.clicked.connect(lambda: self._load_data(reset=True))
+        self.cmb_rango.currentIndexChanged.connect(self._on_rango_changed)
+        self.cmb_riesgo.currentIndexChanged.connect(self._guardar_preferencias)
+        self.cmb_recordatorio.currentIndexChanged.connect(self._guardar_preferencias)
+        self.txt_buscar.editingFinished.connect(self._guardar_preferencias)
+        self.desde.dateChanged.connect(self._guardar_preferencias)
+        self.hasta.dateChanged.connect(self._guardar_preferencias)
+        self.chk_todo_visible.stateChanged.connect(self._toggle_todo_visible)
+        self.table.itemChanged.connect(self._on_item_changed)
         self.btn_prev.clicked.connect(self._prev)
         self.btn_next.clicked.connect(self._next)
-        footer.addWidget(self.lbl_totales)
-        footer.addStretch(1)
-        footer.addWidget(self.btn_prev)
-        footer.addWidget(self.btn_next)
-        contenido = QWidget(self)
-        contenido_layout = QVBoxLayout(contenido)
-        contenido_layout.setContentsMargins(0, 0, 0, 0)
-        contenido_layout.addWidget(self.table)
-        contenido_layout.addWidget(self._lote.barra)
-        contenido_layout.addLayout(footer)
 
-        self._estado_pantalla = EstadoPantallaWidget(self._i18n, self)
-        self._estado_pantalla.set_content(contenido)
-        root.addWidget(self._estado_pantalla)
+    def on_show(self) -> None:
+        if not self._preferencias_restauradas:
+            self._restaurar_preferencias()
+            self._preferencias_restauradas = True
+        self._load_data(reset=True)
 
     def _retranslate(self) -> None:
         t = self._i18n.t
@@ -224,51 +171,25 @@ class PageConfirmaciones(QWidget):
     def _on_rango_changed(self) -> None:
         mode = self.cmb_rango.currentData()
         today = date.today()
-        end = today + timedelta(days=7)
-        if mode == "HOY":
-            end = today
-        elif mode == "30D":
-            end = today + timedelta(days=30)
-        self.desde.setDate(today if mode != "CUSTOM" else self.desde.date())
-        self.hasta.setDate(end if mode != "CUSTOM" else self.hasta.date())
+        end = today if mode == "HOY" else today + timedelta(days=30 if mode == "30D" else 7)
+        if mode != "CUSTOM":
+            self.desde.setDate(today)
+            self.hasta.setDate(end)
         self.desde.setEnabled(mode == "CUSTOM")
         self.hasta.setEnabled(mode == "CUSTOM")
 
     def _restaurar_preferencias(self) -> None:
-        preferencias = self._container.preferencias_service.get()
-        filtros = preferencias.filtros_confirmaciones
-        self._set_current_data(self.cmb_rango, str(filtros.get("rango", "7D")))
-        self._set_current_data(self.cmb_riesgo, str(filtros.get("riesgo", "TODOS")))
-        self._set_current_data(self.cmb_recordatorio, str(filtros.get("recordatorio", "TODOS")))
+        restaurar_preferencias(preferencias_service=self._container.preferencias_service, ui=self._ui)
         self._on_rango_changed()
-        self.txt_buscar.setText(str(filtros.get("texto", "")))
 
     def _guardar_preferencias(self, *_args) -> None:
-        preferencias = self._container.preferencias_service.get()
-        texto_seguro = sanitize_search_text(self.txt_buscar.text())
-        preferencias.filtros_confirmaciones = {
-            "rango": str(self.cmb_rango.currentData()),
-            "riesgo": str(self.cmb_riesgo.currentData()),
-            "recordatorio": str(self.cmb_recordatorio.currentData()),
-            "texto": texto_seguro or "",
-        }
-        if texto_seguro is None:
-            preferencias.last_search_by_context.pop("confirmaciones", None)
-        else:
-            preferencias.last_search_by_context["confirmaciones"] = texto_seguro
-        self._container.preferencias_service.set(preferencias)
+        guardar_preferencias(preferencias_service=self._container.preferencias_service, ui=self._ui)
 
-    @staticmethod
-    def _set_current_data(combo: QComboBox, value: str) -> None:
-        idx = combo.findData(value)
-        if idx >= 0:
-            combo.setCurrentIndex(idx)
-
-    def _build_filtros(self) -> FiltrosConfirmacionesDTO:
+    def _build_filtros(self, texto: str | None = None) -> FiltrosConfirmacionesDTO:
         return FiltrosConfirmacionesDTO(
             desde=self.desde.date().toString("yyyy-MM-dd"),
             hasta=self.hasta.date().toString("yyyy-MM-dd"),
-            texto_paciente=self.txt_buscar.text(),
+            texto_paciente=texto if texto is not None else self.txt_buscar.text(),
             recordatorio_filtro=str(self.cmb_recordatorio.currentData()),
             riesgo_filtro=str(self.cmb_riesgo.currentData()),
         )
@@ -281,8 +202,13 @@ class PageConfirmaciones(QWidget):
             self._offset = 0
         self._log_carga(reset)
         self._limpiar_seleccion()
-        self._estado_pantalla.set_loading("ux_states.confirmaciones.loading")
-        self._set_busy(True, "busy.loading_confirmaciones")
+        self._vm.actualizar_contexto(
+            rango=str(self.cmb_rango.currentData()),
+            estado=str(self.cmb_recordatorio.currentData()),
+            texto=self.txt_buscar.text(),
+        )
+        self._vm.set_loading()
+        set_busy(self, True, "busy.loading_confirmaciones")
         self._arrancar_worker_carga(token=token)
 
     def refrescar_desde_atajo(self) -> None:
@@ -291,64 +217,43 @@ class PageConfirmaciones(QWidget):
     def buscar_rapido_async(self, texto: str, on_done) -> None:
         if self._thread_busqueda_rapida is not None and self._thread_busqueda_rapida.isRunning():
             return
-        self._thread_busqueda_rapida = QThread(self)
-        filtros = self._build_filtros()
-        filtros = FiltrosConfirmacionesDTO(
-            desde=filtros.desde,
-            hasta=filtros.hasta,
-            texto_paciente=texto,
-            recordatorio_filtro=filtros.recordatorio_filtro,
-            riesgo_filtro=filtros.riesgo_filtro,
-        )
-        worker = CargaConfirmacionesWorker(
+        self._thread_busqueda_rapida = arrancar_busqueda_rapida(
+            owner=self,
             db_path=self._db_path,
-            filtros=filtros,
-            paginacion=PaginacionConfirmacionesDTO(limit=_PAGE_SIZE, offset=0),
+            filtros=self._build_filtros(texto),
+            page_size=_PAGE_SIZE,
             riesgo_uc=self._container.prediccion_ausencias_facade.obtener_riesgo_agenda_uc,
             salud_uc=self._container.prediccion_ausencias_facade.obtener_salud_uc,
+            on_payload=lambda result: on_done(result.items),
+            on_thread_finished=self._reset_thread_busqueda_rapida,
         )
-        worker.moveToThread(self._thread_busqueda_rapida)
-        self._thread_busqueda_rapida.started.connect(worker.run)
-        worker.finished_ok.connect(lambda result: on_done(result.items))
-        worker.finished.connect(self._thread_busqueda_rapida.quit)
-        worker.finished.connect(worker.deleteLater)
-        self._thread_busqueda_rapida.finished.connect(self._thread_busqueda_rapida.deleteLater)
-        self._thread_busqueda_rapida.finished.connect(self._reset_thread_busqueda_rapida)
-        self._thread_busqueda_rapida.start()
 
     def _reset_thread_busqueda_rapida(self) -> None:
         self._thread_busqueda_rapida = None
 
     def seleccionar_cita_desde_busqueda(self, cita_id: int) -> None:
-        for row in range(self.table.rowCount()):
-            item = self.table.item(row, _COL_CHECK)
-            if item is not None and item.data(Qt.UserRole) == cita_id:
-                self.table.setCurrentCell(row, _COL_CHECK)
-                self.table.setFocus()
-                return
+        if apply_selection(self._ui, cita_id):
+            self.table.setFocus()
+            self._vm.seleccionar(cita_id)
+            return
         self._cita_focus_pendiente = cita_id
         self._load_data(reset=True)
 
     def _arrancar_worker_carga(self, *, token: int) -> None:
         if self._thread_carga is not None and self._thread_carga.isRunning():
             return
-        self._thread_carga = QThread(self)
-        self._worker_carga = CargaConfirmacionesWorker(
+        self._thread_carga, self._worker_carga = arrancar_carga(
+            owner=self,
             db_path=self._db_path,
             filtros=self._build_filtros(),
-            paginacion=PaginacionConfirmacionesDTO(limit=_PAGE_SIZE, offset=self._offset),
+            page_size=_PAGE_SIZE,
+            offset=self._offset,
             riesgo_uc=self._container.prediccion_ausencias_facade.obtener_riesgo_agenda_uc,
             salud_uc=self._container.prediccion_ausencias_facade.obtener_salud_uc,
+            on_ok=lambda result: self._on_carga_ok(result, token),
+            on_error=lambda error: self._on_carga_error(error, token),
+            on_thread_finished=self._reset_worker_carga,
         )
-        self._worker_carga.moveToThread(self._thread_carga)
-        self._thread_carga.started.connect(self._worker_carga.run)
-        self._worker_carga.finished_ok.connect(lambda result: self._on_carga_ok(result, token))
-        self._worker_carga.finished_error.connect(lambda error: self._on_carga_error(error, token))
-        self._worker_carga.finished.connect(self._thread_carga.quit)
-        self._worker_carga.finished.connect(self._worker_carga.deleteLater)
-        self._thread_carga.finished.connect(self._thread_carga.deleteLater)
-        self._thread_carga.finished.connect(self._reset_worker_carga)
-        self._thread_carga.start()
 
     def _reset_worker_carga(self) -> None:
         self._thread_carga = None
@@ -357,96 +262,60 @@ class PageConfirmaciones(QWidget):
     def _on_carga_ok(self, result, token: int) -> None:
         if token != self._token_carga:
             return
-        self._set_busy(False, "busy.loading_confirmaciones")
+        set_busy(self, False, "busy.loading_confirmaciones")
         self._total = result.total
         self._render_banner(result.salud_prediccion.estado if result.salud_prediccion else "ROJO")
-        self._render_rows(result.items)
-        if self._cita_focus_pendiente is not None:
-            self.seleccionar_cita_desde_busqueda(self._cita_focus_pendiente)
-            self._cita_focus_pendiente = None
         self.lbl_totales.setText(
             self._i18n.t("confirmaciones.paginacion.mostrando").format(mostrados=result.mostrados, total=result.total)
         )
-        if not result.items:
-            self._estado_pantalla.set_empty(
-                "ux_states.confirmaciones.empty",
-                cta_text_key="ux_states.confirmaciones.cta_refresh",
-                on_cta=lambda: self._load_data(reset=True),
-            )
-            self._toast_info("toast.refresh_empty_confirmaciones")
-            self._toast_success("toast.refresh_ok_confirmaciones")
-            return
-        self._estado_pantalla.set_content(self.table.parentWidget())
-        self._toast_success("toast.refresh_ok_confirmaciones")
+        if self._cita_focus_pendiente is not None:
+            self._vm.seleccionar(self._cita_focus_pendiente)
+            self._cita_focus_pendiente = None
+        self._vm.resolver_carga_ok(rows=result.items, emitir_toast=True)
 
     def _on_carga_error(self, error_type: str, token: int) -> None:
         if token != self._token_carga:
             return
-        self._set_busy(False, "busy.loading_confirmaciones")
+        set_busy(self, False, "busy.loading_confirmaciones")
         LOGGER.warning(
-            "confirmaciones_carga_error",
-            extra={"action": "confirmaciones_carga_error", "error": error_type},
+            "confirmaciones_carga_error", extra={"action": "confirmaciones_carga_error", "error": error_type}
         )
-        self._estado_pantalla.set_error(
-            "ux_states.confirmaciones.error",
-            detalle_tecnico=error_type,
-            on_retry=lambda: self._load_data(reset=False),
-        )
-        self._toast_error("toast.refresh_fail")
+        self._vm.resolver_carga_error(error_key="ux_states.confirmaciones.error", emitir_toast=True)
 
-    def _log_carga(self, reset: bool) -> None:
-        LOGGER.info(
-            "confirmaciones_carga",
-            extra={
-                "action": "confirmaciones_carga",
-                "reset": reset,
-                "offset": self._offset,
-                "texto_redactado": redactar_texto_busqueda(self.txt_buscar.text()),
-                "riesgo_filtro": str(self.cmb_riesgo.currentData()),
-                "recordatorio_filtro": str(self.cmb_recordatorio.currentData()),
-            },
-        )
+    def _on_estado_vm(self, estado: EstadoListado[object]) -> None:
+        render_estado(self._ui, estado, on_retry=lambda: self._load_data(reset=True), render_rows=self._render_rows)
 
-    def _render_rows(self, rows) -> None:
-        self.table.blockSignals(True)
-        self.table.setRowCount(len(rows))
-        for row, item in enumerate(rows):
-            self._render_row(row, item)
-        self.table.blockSignals(False)
+    def _on_evento_vm(self, evento: EventoUI) -> None:
+        if evento.tipo == "nav":
+            cita_id = evento.payload.get("cita_id")
+            if isinstance(cita_id, int):
+                self.seleccionar_cita_desde_busqueda(cita_id)
+            return
+        if evento.tipo != "toast":
+            return
+        key = evento.payload.get("key")
+        if not isinstance(key, str):
+            return
+        if key == "toast.refresh_fail":
+            toast_error(self, key)
+        elif key == "toast.refresh_empty_confirmaciones":
+            toast_info(self, key)
+        else:
+            toast_success(self, key)
+
+    def _render_rows(self, rows: list[object]) -> None:
+        render_tabla(
+            ui=self._ui,
+            rows=rows,
+            seleccionadas=self._citas_seleccionadas,
+            cita_en_preparacion=self._cita_en_preparacion,
+            traducir=self._i18n.t,
+            on_abrir_riesgo=self._abrir_riesgo,
+            on_preparar_whatsapp=self._preparar_whatsapp_rapido,
+        )
+        if self._vm.estado.seleccion_id is not None:
+            apply_selection(self._ui, self._vm.estado.seleccion_id)
         self._actualizar_estado_seleccion()
-
-    def _render_row(self, row: int, item) -> None:
-        selector = QTableWidgetItem()
-        selector.setFlags(Qt.ItemIsEnabled | Qt.ItemIsUserCheckable)
-        selector.setCheckState(Qt.Checked if item.cita_id in self._citas_seleccionadas else Qt.Unchecked)
-        selector.setData(Qt.UserRole, item.cita_id)
-        self.table.setItem(row, 0, selector)
-        inicio = item.inicio
-        self.table.setItem(row, 1, QTableWidgetItem(inicio[:10]))
-        self.table.setItem(row, 2, QTableWidgetItem(inicio[11:16]))
-        self.table.setItem(row, 3, QTableWidgetItem(item.paciente))
-        self.table.setItem(row, 4, QTableWidgetItem(item.medico))
-        self.table.setItem(row, 5, QTableWidgetItem(item.estado_cita))
-        self.table.setItem(row, 6, QTableWidgetItem(self._i18n.t(f"confirmaciones.riesgo.{item.riesgo.lower()}")))
-        self.table.setItem(
-            row, 7, QTableWidgetItem(self._i18n.t(f"confirmaciones.recordatorio.{item.recordatorio_estado.lower()}"))
-        )
-        self.table.setCellWidget(row, 8, self._crear_actions(item))
-
-    def _crear_actions(self, item) -> QWidget:
-        estado = estado_accion_whatsapp_rapida(item.riesgo, item.recordatorio_estado, item.tiene_telefono)
-        tooltip = self._i18n.t(estado.tooltip_key) if estado.tooltip_key else ""
-        return crear_actions_confirmacion(
-            self.table,
-            self._i18n.t("confirmaciones.accion.ver_riesgo"),
-            self._i18n.t("confirmaciones.accion.preparar_whatsapp_rapido"),
-            self._i18n.t("confirmaciones.accion.preparando_fila"),
-            estado,
-            self._cita_en_preparacion == item.cita_id,
-            tooltip,
-            lambda: self._abrir_riesgo(item.cita_id),
-            lambda: self._preparar_whatsapp_rapido(item),
-        )
 
     def _toggle_todo_visible(self, state: int) -> None:
         check_state = Qt.Checked if state == Qt.Checked else Qt.Unchecked
@@ -463,6 +332,9 @@ class PageConfirmaciones(QWidget):
         if item.column() != _COL_CHECK:
             return
         self._actualizar_cita_seleccionada(item)
+        cita_id = item.data(Qt.UserRole)
+        if isinstance(cita_id, int) and item.checkState() == Qt.Checked:
+            self._vm.seleccionar(cita_id)
         self._actualizar_estado_seleccion()
 
     def _actualizar_cita_seleccionada(self, item: QTableWidgetItem) -> None:
@@ -485,25 +357,15 @@ class PageConfirmaciones(QWidget):
         self._actualizar_estado_seleccion()
 
     def _render_banner(self, estado: str) -> None:
-        mostrar = debe_mostrar_aviso_salud_prediccion(self._riesgo_activado(), estado)
+        mostrar = debe_mostrar_aviso_salud_prediccion(True, estado)
         self.banner.setText(self._i18n.t("prediccion_ausencias.aviso_salud_prediccion") if mostrar else "")
         self.banner.setVisible(mostrar)
         self.btn_ir_prediccion.setVisible(mostrar)
-        if mostrar:
-            LOGGER.info(
-                "aviso_salud_prediccion_mostrar",
-                extra={"action": "aviso_salud_prediccion_mostrar", "page": "confirmaciones", "estado": estado},
-            )
-
-    @staticmethod
-    def _riesgo_activado() -> bool:
-        return True
 
     def _abrir_riesgo(self, cita_id: int) -> None:
         explicacion = self._container.prediccion_ausencias_facade.obtener_explicacion_riesgo_uc.ejecutar(cita_id)
         salud = self._container.prediccion_ausencias_facade.obtener_salud_uc.ejecutar()
-        dialog = RiesgoAusenciaDialog(self._i18n, explicacion, salud, self)
-        dialog.exec()
+        RiesgoAusenciaDialog(self._i18n, explicacion, salud, self).exec()
         self._registrar_telemetria("explicacion_ver_por_que", "ok", cita_id)
 
     def _preparar_whatsapp_rapido(self, item) -> None:
@@ -511,13 +373,9 @@ class PageConfirmaciones(QWidget):
             return
         self._cita_en_preparacion = item.cita_id
         self._load_data(reset=False)
-        self._log_whatsapp_rapido_click(item)
         self._registrar_telemetria("confirmaciones_whatsapp_rapido", "click", item.cita_id)
-        self._arrancar_worker_rapido(item.cita_id)
-
-    def _arrancar_worker_rapido(self, cita_id: int) -> None:
         self._thread_rapido = QThread(self)
-        accion = AccionLoteDTO(tipo="PREPARAR", cita_ids=(cita_id,), canal="WHATSAPP")
+        accion = AccionLoteDTO(tipo="PREPARAR", cita_ids=(item.cita_id,), canal="WHATSAPP")
         self._worker_rapido = WorkerRecordatoriosLote(self._container.recordatorios_citas_facade, accion)
         self._worker_rapido.moveToThread(self._thread_rapido)
         self._thread_rapido.started.connect(self._worker_rapido.run)
@@ -529,10 +387,6 @@ class PageConfirmaciones(QWidget):
         self._thread_rapido.start()
 
     def _on_whatsapp_rapido_ok(self, _dto) -> None:
-        LOGGER.info(
-            "confirmaciones_whatsapp_rapido_ok",
-            extra={"action": "confirmaciones_whatsapp_rapido_ok", "reason_code": "ok"},
-        )
         self._registrar_telemetria("confirmaciones_whatsapp_rapido", "ok", self._cita_en_preparacion)
         self._cita_en_preparacion = None
         self._load_data(reset=False)
@@ -549,17 +403,21 @@ class PageConfirmaciones(QWidget):
         self._cita_en_preparacion = None
         self._load_data(reset=False)
         QMessageBox.warning(
-            self, self._i18n.t("confirmaciones.titulo"), self._i18n.t("confirmaciones.accion.error_guardar")
+            self,
+            self._i18n.t("confirmaciones.titulo"),
+            self._i18n.t("confirmaciones.accion.error_guardar"),
         )
 
-    def _log_whatsapp_rapido_click(self, item) -> None:
+    def _log_carga(self, reset: bool) -> None:
         LOGGER.info(
-            "confirmaciones_whatsapp_rapido_click",
+            "confirmaciones_carga",
             extra={
-                "action": "confirmaciones_whatsapp_rapido_click",
-                "cita_id": item.cita_id,
-                "riesgo": item.riesgo,
-                "estado_recordatorio": item.recordatorio_estado,
+                "action": "confirmaciones_carga",
+                "reset": reset,
+                "offset": self._offset,
+                "texto_redactado": redactar_texto_busqueda(self.txt_buscar.text()),
+                "riesgo_filtro": str(self.cmb_riesgo.currentData()),
+                "recordatorio_filtro": str(self.cmb_recordatorio.currentData()),
             },
         )
 
@@ -575,6 +433,16 @@ class PageConfirmaciones(QWidget):
         except Exception:
             return
 
+    def _listar_confirmaciones_sync(self, **kwargs) -> list[object]:
+        use_case = ObtenerConfirmacionesCitas(
+            queries=ConfirmacionesQueries(self._container.connection),
+            obtener_riesgo_uc=self._container.prediccion_ausencias_facade.obtener_riesgo_agenda_uc,
+            obtener_salud_uc=self._container.prediccion_ausencias_facade.obtener_salud_uc,
+        )
+        filtros = self._build_filtros(kwargs.get("filtro_texto"))
+        result = use_case.ejecutar(filtros, PaginacionConfirmacionesDTO(limit=_PAGE_SIZE, offset=0))
+        return list(result.items)
+
     def _prev(self) -> None:
         self._offset = max(0, self._offset - _PAGE_SIZE)
         self._load_data(reset=False)
@@ -587,9 +455,6 @@ class PageConfirmaciones(QWidget):
 
     def _ir_a_prediccion(self) -> None:
         LOGGER.info(
-            "aviso_salud_prediccion_cta",
-            extra={"action": "aviso_salud_prediccion_cta", "page": "confirmaciones", "destino": "prediccion"},
+            "aviso_salud_prediccion_cta", extra={"action": "aviso_salud_prediccion_cta", "page": "confirmaciones"}
         )
-        window = self.window()
-        if hasattr(window, "navigate"):
-            window.navigate("prediccion_ausencias")
+        navegar_prediccion(self)
