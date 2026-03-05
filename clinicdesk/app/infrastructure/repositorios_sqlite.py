@@ -4,7 +4,7 @@ import sqlite3
 from datetime import datetime
 from typing import List
 
-from clinicdesk.app.domain.modelos import Paciente, Cita, Medico
+from clinicdesk.app.domain.modelos import Paciente, Cita
 from clinicdesk.app.domain.repositorios import RepositorioPacientes, RepositorioCitas,RepositorioMedicos
 # Importamos contratos del dominio: esta capa IMPLEMENTA esos contratos usando SQLite.
 

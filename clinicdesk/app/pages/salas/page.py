@@ -6,15 +6,14 @@ import logging
 
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
+    QComboBox,
+    QDialog,
     QHBoxLayout,
-    QMessageBox,
+    QMenu,
     QPushButton,
     QTableWidget,
-    QTableWidgetItem,
     QVBoxLayout,
     QWidget,
-    QDialog,
-    QMenu,
 )
 
 from clinicdesk.app.container import AppContainer
