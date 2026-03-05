@@ -42,7 +42,7 @@
 
 - Qué fallaba: en entornos sin `coverage`, `python -m scripts.gate_pr` terminaba con `ModuleNotFoundError` y salida poco accionable.
 - Decisión técnica: validación fail-fast de dependencia (`importlib.util.find_spec("coverage")`) y pin explícito de `coverage` en dependencias dev.
-- Ejecución actual: el core sigue exigiendo cobertura (no se omite el check) y, si falta `coverage`, el gate falla controlado con `rc=2` y mensaje de instalación.
+- Ejecución actual: el core sigue exigiendo cobertura (no se omite el check) y, si falta `coverage`, el gate falla controlado con `rc=2`, mensaje de instalación y sin stacktrace ruidoso.
 
 ## Secrets scan fallback (gate PR estable)
 
