@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -8,24 +8,28 @@ import pytest
 from scripts.quality_gate_components import ruff_checks
 
 
-def test_resolve_python_targets_excluye_yaml(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_run_required_ruff_checks_falla_si_falta_configuracion(tmp_path: Path) -> None:
+    resultado = ruff_checks.run_required_ruff_checks(tmp_path)
+    assert resultado == 1
+
+
+def test_run_required_ruff_checks_invoca_ruff_con_targets(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    (tmp_path / "pyproject.toml").write_text("[tool.ruff]\n", encoding="utf-8")
+    comandos: list[list[str]] = []
+
+    monkeypatch.setattr(ruff_checks, "obtener_targets_python", lambda _: ["scripts/a.py", "tests/b.py"])
+
+    class Resultado:
+        returncode = 0
+
     def fake_run(command, **kwargs):
-        salida = "scripts/gate_pr.py\n.github/workflows/ci.yml\ndocs/config.yaml\ntests/test_algo.py\n"
-        return subprocess.CompletedProcess(command, 0, stdout=salida)
+        comandos.append(command)
+        return Resultado()
 
     monkeypatch.setattr(ruff_checks.subprocess, "run", fake_run)
 
-    targets = ruff_checks._resolve_python_targets(Path("/repo"))
-
-    assert targets == ["scripts/gate_pr.py", "tests/test_algo.py"]
-
-
-def test_resolve_python_targets_fallback_si_git_falla(monkeypatch: pytest.MonkeyPatch) -> None:
-    def fake_run(command, **kwargs):
-        return subprocess.CompletedProcess(command, 1, stdout="", stderr="error")
-
-    monkeypatch.setattr(ruff_checks.subprocess, "run", fake_run)
-
-    targets = ruff_checks._resolve_python_targets(Path("/repo"))
-
-    assert targets == ["."]
+    assert ruff_checks.run_required_ruff_checks(tmp_path) == 0
+    assert comandos == [
+        [sys.executable, "-m", "ruff", "check", "scripts/a.py", "tests/b.py"],
+        [sys.executable, "-m", "ruff", "format", "--check", "scripts/a.py", "tests/b.py"],
+    ]
