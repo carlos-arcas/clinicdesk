@@ -99,6 +99,7 @@ jobs:
           path: |
             docs/quality_report.md
             docs/coverage.xml
+            docs/coverage.json
             docs/pip_audit_report.txt
             docs/mypy_report.txt
             docs/secrets_scan_report.txt
@@ -220,7 +221,8 @@ jobs:
             libxcb-randr0 \
             libxcb-render-util0 \
             libxcb-xinerama0 \
-            libxcb-xfixes0
+            libxcb-xfixes0 \
+            libxcb-xkb1
 
       - name: Install dependencies
         run: |

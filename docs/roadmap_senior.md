@@ -34,6 +34,6 @@
 
 ## CI fixes (pytest/UI)
 
-- El core gate fallaba porque `pytest-qt` entraba por autoload de plugins (entrypoints), aunque el selector fuera `-m "not ui"`, y terminaba importando Qt en runners sin `libEGL`.
-- Decisión técnica: desactivar autoload (`PYTEST_DISABLE_PLUGIN_AUTOLOAD=1`, `PYTEST_ADDOPTS=""`) y ejecutar core con `python -m coverage run -m pytest` + `coverage xml` explícito, sin depender de plugins autoload.
-- Ejecución actual: core usa `pytest -m "not ui"` sin autoload; UI usa `QT_QPA_PLATFORM=offscreen` + `xvfb-run` en jobs `ui_smoke`/`uiqt` con dependencias gráficas instaladas.
+- El core gate se rompía porque `pytest-qt` se cargaba por **autoload de entrypoints** (no por `pytest.ini`), incluso usando `-m "not ui"`, y en CI sin stack gráfico terminaba en error de `libEGL`.
+- Decisión técnica aplicada: ejecutar core con autoload apagado (`PYTEST_DISABLE_PLUGIN_AUTOLOAD=1`, `PYTEST_ADDOPTS=""`) y cobertura explícita vía `python -m coverage run -m pytest`, más generación de `docs/coverage.xml` y `docs/coverage.json`.
+- Ejecución actual separada: core corre `pytest -m "not ui"` aislado de plugins externos; UI corre headless (`QT_QPA_PLATFORM=offscreen` + `xvfb-run`) en jobs `ui_smoke`/`uiqt` con `libegl1` y librerías XCB mínimas.

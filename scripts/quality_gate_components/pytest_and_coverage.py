@@ -24,22 +24,35 @@ def _build_pytest_env() -> dict[str, str]:
     return entorno
 
 
-def run_pytest_with_coverage(pytest_args: list[str]) -> int:
+def _run_cmd(comando: list[str], *, env: dict[str, str]) -> int:
+    return subprocess.run(comando, check=False, env=env).returncode
+
+
+def run_pytest_with_coverage(pytest_args: list[str], env: dict[str, str] | None = None) -> int:
     # Root cause CI: pytest-qt entraba por autoload de entrypoints aunque el selector fuera "not ui".
-    entorno = _build_pytest_env()
-    subprocess.run([sys.executable, "-m", "coverage", "erase"], check=False, env=entorno)
+    entorno = env or _build_pytest_env()
+    _run_cmd([sys.executable, "-m", "coverage", "erase"], env=entorno)
     comando = [sys.executable, "-m", "coverage", "run", "-m", "pytest", *pytest_args]
-    return subprocess.run(comando, check=False, env=entorno).returncode
+    return _run_cmd(comando, env=entorno)
 
 
-def compute_core_coverage(core_paths: list[Path] | None = None) -> float:
-    reporte_json = config.REPO_ROOT / "docs" / "coverage_core.json"
-    cmd = [sys.executable, "-m", "coverage", "json", "-o", str(reporte_json)]
-    rc = subprocess.run(cmd, check=False).returncode
-    if rc != 0 or not reporte_json.exists():
+def run_pytest_core_con_coverage(pytest_args: list[str]) -> float | None:
+    entorno = _build_pytest_env()
+    if run_pytest_with_coverage(pytest_args, env=entorno) != 0:
+        return None
+    if run_coverage_report(env=entorno) != 0:
+        return None
+    if run_coverage_json(env=entorno) != 0:
+        return None
+    return compute_core_coverage()
+
+
+def compute_core_coverage(core_paths: list[Path] | None = None, reporte_json: Path | None = None) -> float:
+    json_path = reporte_json or config.REPO_ROOT / "docs" / "coverage.json"
+    if not json_path.exists():
         return 0.0
 
-    contenido = json.loads(reporte_json.read_text(encoding="utf-8"))
+    contenido = json.loads(json_path.read_text(encoding="utf-8"))
     archivos = contenido.get("files", {})
     ejecutables = 0
     ejecutadas = 0
@@ -65,11 +78,21 @@ def _buscar_resumen_archivo(archivos: dict[str, dict], core_path: Path) -> dict 
     return None
 
 
-def run_coverage_report(coverage_xml_path: Path | None = None) -> int:
+def run_coverage_report(coverage_xml_path: Path | None = None, env: dict[str, str] | None = None) -> int:
     xml_path = coverage_xml_path or config.COVERAGE_XML_PATH
     xml_path.parent.mkdir(parents=True, exist_ok=True)
     comando = [sys.executable, "-m", "coverage", "xml", "-o", str(xml_path)]
-    rc = subprocess.run(comando, check=False).returncode
+    rc = subprocess.run(comando, check=False, env=env).returncode
     if rc == 0:
         _LOGGER.info("[quality-gate] coverage.xml generado en %s", xml_path.relative_to(config.REPO_ROOT))
+    return rc
+
+
+def run_coverage_json(coverage_json_path: Path | None = None, env: dict[str, str] | None = None) -> int:
+    json_path = coverage_json_path or config.REPO_ROOT / "docs" / "coverage.json"
+    json_path.parent.mkdir(parents=True, exist_ok=True)
+    comando = [sys.executable, "-m", "coverage", "json", "-o", str(json_path)]
+    rc = subprocess.run(comando, check=False, env=env).returncode
+    if rc == 0:
+        _LOGGER.info("[quality-gate] coverage.json generado en %s", json_path.relative_to(config.REPO_ROOT))
     return rc

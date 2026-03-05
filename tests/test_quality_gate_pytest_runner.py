@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 
 from scripts.quality_gate_components import entrypoint, pytest_and_coverage
@@ -18,6 +19,7 @@ def test_run_pytest_with_coverage_desactiva_autoload(monkeypatch):
         llamadas.append((list(cmd), dict(env)))
         return _ProcessResult()
 
+    previo = os.environ.get("PYTEST_ADDOPTS")
     monkeypatch.setenv("PYTEST_ADDOPTS", "-p pytestqt")
     monkeypatch.setattr(pytest_and_coverage.subprocess, "run", fake_run)
 
@@ -38,18 +40,39 @@ def test_run_pytest_with_coverage_desactiva_autoload(monkeypatch):
     ]
     assert llamadas[1][1]["PYTEST_DISABLE_PLUGIN_AUTOLOAD"] == "1"
     assert llamadas[1][1]["PYTEST_ADDOPTS"] == ""
+    assert os.environ.get("PYTEST_ADDOPTS") == "-p pytestqt"
+    if previo is None:
+        assert "PYTEST_DISABLE_PLUGIN_AUTOLOAD" not in os.environ
+
+
+def test_run_pytest_core_con_coverage_ejecuta_flujo(monkeypatch):
+    llamadas: list[tuple[list[str], dict[str, str]]] = []
+
+    def fake_run(cmd, check, env):
+        llamadas.append((list(cmd), dict(env)))
+        return _ProcessResult()
+
+    monkeypatch.setattr(pytest_and_coverage.subprocess, "run", fake_run)
+    monkeypatch.setattr(pytest_and_coverage, "compute_core_coverage", lambda core_paths=None: 91.25)
+
+    coverage = pytest_and_coverage.run_pytest_core_con_coverage(["-q", "-m", "not ui"])
+
+    assert coverage == 91.25
+    assert llamadas[1][0][-3:] == ["-q", "-m", "not ui"]
+    assert "uiqt" not in " ".join(llamadas[1][0])
+    assert llamadas[1][1]["PYTEST_DISABLE_PLUGIN_AUTOLOAD"] == "1"
+    assert llamadas[2][0][:4] == [pytest_and_coverage.sys.executable, "-m", "coverage", "xml"]
+    assert llamadas[3][0][:4] == [pytest_and_coverage.sys.executable, "-m", "coverage", "json"]
 
 
 def test_run_test_and_coverage_usa_selector_core(monkeypatch):
     observado_args: list[list[str]] = []
 
-    def fake_run_pytest(pytest_args):
+    def fake_run_core(pytest_args):
         observado_args.append(list(pytest_args))
-        return 0
+        return 90.0
 
-    monkeypatch.setattr(entrypoint, "run_pytest_with_coverage", fake_run_pytest)
-    monkeypatch.setattr(entrypoint, "compute_core_coverage", lambda: 90.0)
-    monkeypatch.setattr(entrypoint, "run_coverage_report", lambda: 0)
+    monkeypatch.setattr(entrypoint, "run_pytest_core_con_coverage", fake_run_core)
 
     assert entrypoint._run_test_and_coverage() == 0
     assert observado_args == [entrypoint.CORE_PYTEST_ARGS]
@@ -57,7 +80,7 @@ def test_run_test_and_coverage_usa_selector_core(monkeypatch):
 
 
 def test_compute_core_coverage_lee_resumen_json(monkeypatch, tmp_path: Path):
-    reporte = tmp_path / "docs" / "coverage_core.json"
+    reporte = tmp_path / "docs" / "coverage.json"
     reporte.parent.mkdir(parents=True, exist_ok=True)
     reporte.write_text(
         json.dumps(
@@ -78,7 +101,6 @@ def test_compute_core_coverage_lee_resumen_json(monkeypatch, tmp_path: Path):
         "iter_core_files",
         lambda core_paths=None: [tmp_path / "clinicdesk" / "app" / "domain" / "enums.py"],
     )
-    monkeypatch.setattr(pytest_and_coverage.subprocess, "run", lambda cmd, check: _ProcessResult())
 
     coverage = pytest_and_coverage.compute_core_coverage()
 
