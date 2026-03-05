@@ -15,7 +15,7 @@ from .mypy_checks import run_mypy_blocking_scope, run_mypy_report
 from .pii_guardrail import check_pii_logging_guardrail
 from .requirements_pin_check import check_requirements_pinneados
 from .pip_audit_check import run_pip_audit
-from .pytest_and_coverage import compute_core_coverage, run_coverage_report, run_pytest_with_trace
+from .pytest_and_coverage import compute_core_coverage, run_coverage_report, run_pytest_with_coverage
 from .ruff_checks import run_required_ruff_checks
 from .secrets_scan_check import run_secrets_scan
 
@@ -71,19 +71,19 @@ def _run_docs_checks() -> int:
 
 def _run_test_and_coverage() -> int:
     pytest_args = list(CORE_PYTEST_ARGS)
-    _LOGGER.info("[quality-gate] Ejecutando pytest: python -m pytest %s", " ".join(pytest_args))
-    test_rc, tracer = run_pytest_with_trace(pytest_args)
+    _LOGGER.info("[quality-gate] Ejecutando pytest core con coverage: -m pytest %s", " ".join(pytest_args))
+    test_rc = run_pytest_with_coverage(pytest_args)
     if test_rc != 0:
         _LOGGER.error("[quality-gate] ❌ pytest falló con código %s.", test_rc)
         return test_rc
 
-    coverage = compute_core_coverage(tracer)
+    coverage = compute_core_coverage()
     _LOGGER.info("[quality-gate] Core coverage: %.2f%% (mínimo %.2f%%)", coverage, config.MIN_COVERAGE)
     if coverage < config.MIN_COVERAGE:
         _LOGGER.error("[quality-gate] ❌ Cobertura de core por debajo del umbral.")
         return 2
 
-    report_rc = run_coverage_report(tracer=tracer, coverage=coverage)
+    report_rc = run_coverage_report()
     if report_rc != 0:
         _LOGGER.error("[quality-gate] ❌ Falló la generación de coverage.xml en docs/.")
     return report_rc

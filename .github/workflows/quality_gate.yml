@@ -188,8 +188,8 @@ jobs:
           print("UI smoke skip validation passed.")
           PY
 
-  ui_extended:
-    name: ui_extended (non-blocking)
+  uiqt:
+    name: uiqt (non-blocking)
     runs-on: ubuntu-latest
     continue-on-error: true
 
@@ -205,6 +205,7 @@ jobs:
 
       - name: Install Linux UI libs
         run: |
+          # Dependencias XCB mínimas adicionales para runners donde Qt falla al inicializar plugin xcb.
           sudo apt-get update
           sudo apt-get install -y \
             xvfb \
@@ -248,7 +249,7 @@ jobs:
             fi
             exit "$rc"
           else
-            echo "No UI Qt tests/markers detected; skipping ui_extended job."
+            echo "No UI Qt tests/markers detected; skipping uiqt job."
           fi
 
       - name: Validate UI Qt run is not all-skipped
