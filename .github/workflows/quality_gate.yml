@@ -10,6 +10,10 @@ on:
       - "v*"
   workflow_dispatch:
 
+permissions:
+  contents: read
+  pull-requests: write
+
 jobs:
   core:
     name: core (py${{ matrix.python-version }})
@@ -58,6 +62,7 @@ jobs:
           gitleaks version
 
       - name: Run canonical PR gate (blocking)
+        id: gate
         env:
           PYTHONPATH: .
         run: python -m scripts.gate_pr
@@ -106,6 +111,33 @@ jobs:
             logs/*.log
             .coverage
             htmlcov/**
+
+      - name: Generar comentario PR Quality Gate
+        if: always() && github.event_name == 'pull_request'
+        env:
+          GATE_OUTCOME: ${{ steps.gate.outcome }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: python -m scripts.ci.generar_comentario_pr_quality_gate
+
+      - name: Buscar comentario existente
+        if: always() && github.event_name == 'pull_request'
+        id: fc
+        continue-on-error: true
+        uses: peter-evans/find-comment@v4
+        with:
+          issue-number: ${{ github.event.pull_request.number }}
+          comment-author: 'github-actions[bot]'
+          body-includes: '<!-- clinicdesk-quality-gate -->'
+
+      - name: Crear o actualizar comentario PR
+        if: always() && github.event_name == 'pull_request'
+        continue-on-error: true
+        uses: peter-evans/create-or-update-comment@v5
+        with:
+          comment-id: ${{ steps.fc.outputs.comment-id }}
+          issue-number: ${{ github.event.pull_request.number }}
+          body-path: docs/pr_quality_gate_comment.md
+          edit-mode: replace
 
   ui_smoke:
     name: ui_smoke (non-blocking)
