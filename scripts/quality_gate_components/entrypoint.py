@@ -69,7 +69,7 @@ def _run_docs_checks() -> int:
 
 
 def _run_test_and_coverage() -> int:
-    pytest_args = ["-q", "-m", "not ui"]
+    pytest_args = ["-q", "-m", "not ui", "-p", "no:pytestqt"]
     _LOGGER.info("[quality-gate] Ejecutando pytest: python -m pytest %s", " ".join(pytest_args))
     test_rc, tracer = run_pytest_with_trace(pytest_args)
     if test_rc != 0:

@@ -131,6 +131,15 @@ jobs:
             pip install -r requirements-dev.txt
           fi
 
+      - name: Install Linux UI libs
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            xvfb \
+            libegl1 \
+            libgl1 \
+            libxkbcommon-x11-0
+
       - name: Run UI smoke tests when present
         env:
           PYTHONPATH: .
@@ -138,7 +147,7 @@ jobs:
         run: |
           if [ -d tests/ui ] || rg -n "@pytest\.mark\.ui|pytestmark\s*=.*ui" tests >/dev/null 2>&1; then
             set +e
-            python -m pytest -q -m "ui and smoke"
+            xvfb-run -a python -m pytest -q -m "ui and smoke"
             rc=$?
             set -e
             if [ "$rc" -eq 5 ]; then

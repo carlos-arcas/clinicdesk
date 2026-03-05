@@ -31,3 +31,8 @@
 - Helpers compartidos de feedback de ventana:
   - `clinicdesk/app/ui/ux/window_feedback.py` (nuevo módulo común)
   - `clinicdesk/app/pages/pacientes/window_feedback.py` queda como re-export para compatibilidad.
+
+## CI fixes (pytest/UI)
+
+- CI fix: pytest-qt aislado en core, libEGL instalado en `ui_smoke`.
+- Motivo: `pytest-qt` se auto-carga como plugin, importa `QtGui` y puede romper `pytest -m "not ui"` en entornos sin librerías gráficas del sistema.
