@@ -6,6 +6,8 @@
 
 Arquitectura ML reproducible para predicción de riesgo en citas clínicas, con gobernanza de artefactos y exportación contractual para Power BI.
 
+📌 **Portfolio one-pager:** [PORTFOLIO.md](PORTFOLIO.md)
+
 ## Qué es (en 3 bullets)
 - App clínica de escritorio (PySide6) con flujo operativo + analítica de riesgo de citas.
 - Pipeline ML reproducible (`seed → features → train → score → drift → export`) orientado a operación real.
