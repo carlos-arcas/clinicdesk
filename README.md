@@ -77,6 +77,29 @@ python scripts/run_app.py
 python -m scripts.gate_pr
 ```
 
+### Deploy con Docker
+
+1) Copia variables de entorno:
+
+```bash
+cp .env.example .env
+```
+
+2) Levanta base de datos + servicio web:
+
+```bash
+docker compose up --build
+```
+
+3) Verifica healthcheck:
+
+```bash
+curl http://localhost:8000/healthz
+```
+
+El contenedor `web` usa `scripts/entrypoint.sh`: valida variables críticas (`APP_SECRET_KEY`, `APP_ALLOWED_HOSTS`), ejecuta `migrate` + `collectstatic` cuando detecta `manage.py`, y arranca `manage.py runserver` para proyectos Django (o un servidor WSGI mínimo con `/healthz` cuando no existe `manage.py`).
+
+
 ### Dependencias deterministas (lock con pip-tools)
 
 - Las dependencias directas se editan en `requirements.in` (runtime) y `requirements-dev.in` (dev).

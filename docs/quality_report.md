@@ -1,7 +1,7 @@
 # Structural Quality Report
 
 ## 1) Resumen
-- total_files_scanned: **277**
+- total_files_scanned: **332**
 - violations_count: **0**
 - blocking_violations_count: **0**
 - top_hotspots: **0**
