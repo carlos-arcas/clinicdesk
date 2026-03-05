@@ -37,6 +37,8 @@ Guion extendido para recruiters: [docs/recruiter_kit.md](docs/recruiter_kit.md).
   - Gate sandbox (entrypoint): `python -m scripts.gate_sandbox`
 
 ## Calidad
+En CI también se ejecuta `gate_sandbox` como verificación no bloqueante.
+
 - Gate estricto (PR/CI):
 
 ```bash

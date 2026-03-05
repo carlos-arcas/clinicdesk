@@ -139,6 +139,43 @@ jobs:
           body-path: docs/pr_quality_gate_comment.md
           edit-mode: replace
 
+  sandbox_gate:
+    name: sandbox_gate (non-blocking)
+    runs-on: ubuntu-latest
+    continue-on-error: true
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          set -euxo pipefail
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+          python -m pip install -r requirements-dev.txt
+
+      - name: Run sandbox gate (non-blocking)
+        env:
+          PYTHONPATH: .
+        run: python -m scripts.gate_sandbox
+
+      - name: Upload sandbox artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sandbox-artifacts
+          if-no-files-found: ignore
+          path: |
+            docs/*
+            logs/*
+
   ui_smoke:
     name: ui_smoke (non-blocking)
     runs-on: ubuntu-latest
