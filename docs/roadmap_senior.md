@@ -34,5 +34,6 @@
 
 ## CI fixes (pytest/UI)
 
-- CI fix: pytest-qt aislado en core, libEGL instalado en `ui_smoke`.
-- Motivo: `pytest-qt` se auto-carga como plugin, importa `QtGui` y puede romper `pytest -m "not ui"` en entornos sin librerías gráficas del sistema.
+- El core gate fallaba porque `pytest-qt` entraba por autoload de plugins (entrypoints), aunque el selector fuera `-m "not ui"`, y terminaba importando Qt en runners sin `libEGL`.
+- Decisión técnica: ejecutar el runner de core con `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1` y `PYTEST_ADDOPTS=""` dentro del gate para aislar tests no-UI de plugins externos.
+- Ejecución actual: core usa `pytest -m "not ui"` sin autoload; UI usa `QT_QPA_PLATFORM=offscreen` + `xvfb-run` en jobs `ui_smoke`/`uiqt` con dependencias gráficas instaladas.
