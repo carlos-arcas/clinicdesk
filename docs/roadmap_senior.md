@@ -38,6 +38,12 @@
 - Decisión técnica aplicada: ejecutar core con autoload apagado (`PYTEST_DISABLE_PLUGIN_AUTOLOAD=1`, `PYTEST_ADDOPTS=""`) y cobertura explícita vía `python -m coverage run -m pytest`, más generación de `docs/coverage.xml` y `docs/coverage.json`.
 - Ejecución actual separada: core corre `pytest -m "not ui"` aislado de plugins externos; UI corre headless (`QT_QPA_PLATFORM=offscreen` + `xvfb-run`) en jobs `ui_smoke`/`uiqt` con `libegl1` y librerías XCB mínimas.
 
+## Coverage fail-fast en quality gate
+
+- Qué fallaba: en entornos sin `coverage`, `python -m scripts.gate_pr` terminaba con `ModuleNotFoundError` y salida poco accionable.
+- Decisión técnica: validación fail-fast de dependencia (`importlib.util.find_spec("coverage")`) y pin explícito de `coverage` en dependencias dev.
+- Ejecución actual: el core sigue exigiendo cobertura (no se omite el check) y, si falta `coverage`, el gate falla controlado con `rc=2` y mensaje de instalación.
+
 ## Secrets scan fallback (gate PR estable)
 
 - Problema detectado: en entornos restringidos `gitleaks` puede no estar en `PATH` y el `gate_pr` fallaba por dependencia externa no disponible.

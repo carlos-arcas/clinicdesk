@@ -21,6 +21,7 @@ def test_run_pytest_with_coverage_desactiva_autoload(monkeypatch):
 
     previo = os.environ.get("PYTEST_ADDOPTS")
     monkeypatch.setenv("PYTEST_ADDOPTS", "-p pytestqt")
+    monkeypatch.setattr(pytest_and_coverage.importlib.util, "find_spec", lambda _: object())
     monkeypatch.setattr(pytest_and_coverage.subprocess, "run", fake_run)
 
     exit_code = pytest_and_coverage.run_pytest_with_coverage(["-q", "-m", "not ui"])
@@ -52,6 +53,7 @@ def test_run_pytest_core_con_coverage_ejecuta_flujo(monkeypatch):
         llamadas.append((list(cmd), dict(env)))
         return _ProcessResult()
 
+    monkeypatch.setattr(pytest_and_coverage.importlib.util, "find_spec", lambda _: object())
     monkeypatch.setattr(pytest_and_coverage.subprocess, "run", fake_run)
     monkeypatch.setattr(pytest_and_coverage, "compute_core_coverage", lambda core_paths=None: 91.25)
 
@@ -105,3 +107,21 @@ def test_compute_core_coverage_lee_resumen_json(monkeypatch, tmp_path: Path):
     coverage = pytest_and_coverage.compute_core_coverage()
 
     assert coverage == 75.0
+
+
+def test_run_pytest_with_coverage_falla_controlado_si_falta_modulo(monkeypatch, caplog):
+    llamadas: list[list[str]] = []
+
+    def fake_run(cmd, check, env):
+        llamadas.append(list(cmd))
+        return _ProcessResult()
+
+    monkeypatch.setattr(pytest_and_coverage.importlib.util, "find_spec", lambda _: None)
+    monkeypatch.setattr(pytest_and_coverage.subprocess, "run", fake_run)
+
+    with caplog.at_level("ERROR"):
+        rc = pytest_and_coverage.run_pytest_with_coverage(["-q", "-m", "not ui"])
+
+    assert rc == pytest_and_coverage.RC_DEPENDENCIA_FALTANTE
+    assert "Falta dependencia 'coverage'" in caplog.text
+    assert llamadas == []
