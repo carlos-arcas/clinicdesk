@@ -93,7 +93,14 @@ python scripts/setup_sandbox.py
 CLINICDESK_SANDBOX_MODE=1 python -m scripts.gate_pr
 ```
 
+Alternativa simple (entrypoint oficial para sandbox):
+
+```bash
+python -m scripts.gate_sandbox
+```
+
 `CLINICDESK_SANDBOX_MODE=1` solo omite checks que requieren dependencias no disponibles (por ejemplo, `coverage`).
+`gate_sandbox` activa SANDBOX_MODE y omite checks que requieren deps no instalables (coverage).
 **CI/PR usa gate estricto** (`python -m scripts.gate_pr` sin esa variable) y no cambia su contrato.
 
 ### Instalación offline (wheelhouse)
