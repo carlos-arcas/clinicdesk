@@ -43,13 +43,19 @@ Guion extendido para recruiters: [docs/recruiter_kit.md](docs/recruiter_kit.md).
 python -m scripts.gate_pr
 ```
 
+- Gate rápido (report-only, sandbox por defecto si no hay coverage):
+
+```bash
+python -m scripts.gate_rapido
+```
+
 - Gate sandbox (entornos restringidos):
 
 ```bash
 python -m scripts.gate_sandbox
 ```
 
-`gate_pr` es el contrato estricto y canónico (el que usa CI).  
+`gate_pr` es el contrato estricto y canónico para CI/PR (el que usa CI).  
 `gate_sandbox` mantiene señal de calidad en entornos sin todas las dependencias disponibles.
 
 ## Seguridad / Privacidad

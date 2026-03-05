@@ -6,13 +6,35 @@ y delega la ejecución al gate actual en modo rápido/report-only.
 
 from __future__ import annotations
 
+import logging
+import os
 import subprocess
 import sys
+from pathlib import Path
+
+REPO_ROOT = Path(__file__).resolve().parent.parent
+LOGGER = logging.getLogger(__name__)
+
+
+def _build_env() -> dict[str, str]:
+    env = os.environ.copy()
+    env.setdefault("CLINICDESK_SANDBOX_MODE", "1")
+    return env
 
 
 def main() -> int:
-    comando = [sys.executable, "scripts/quality_gate.py", "--report-only"]
-    return subprocess.run(comando, check=False).returncode
+    os.chdir(REPO_ROOT)
+    comando = [
+        sys.executable,
+        "-m",
+        "scripts.quality_gate_components.entrypoint",
+        "--report-only",
+    ]
+    try:
+        return subprocess.run(comando, check=False, env=_build_env()).returncode
+    except OSError as exc:
+        LOGGER.error("No se pudo ejecutar gate_rapido: %s", exc)
+        return 1
 
 
 if __name__ == "__main__":
