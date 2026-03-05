@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import os
 import trace
 from pathlib import Path
 from typing import Iterable
@@ -17,8 +18,19 @@ def iter_core_files(core_paths: list[Path] | None = None) -> Iterable[Path]:
 
 
 def run_pytest_with_trace(pytest_args: list[str]) -> tuple[int, trace.Trace]:
+    # Root cause CI: pytest-qt entraba por autoload de entrypoints aunque el selector fuera "not ui".
+    original_addopts = os.environ.get("PYTEST_ADDOPTS")
+    os.environ["PYTEST_DISABLE_PLUGIN_AUTOLOAD"] = "1"
+    os.environ["PYTEST_ADDOPTS"] = ""
     tracer = trace.Trace(count=True, trace=False)
-    exit_code = tracer.runfunc(pytest.main, pytest_args)
+    try:
+        exit_code = tracer.runfunc(pytest.main, pytest_args)
+    finally:
+        if original_addopts is None:
+            os.environ.pop("PYTEST_ADDOPTS", None)
+        else:
+            os.environ["PYTEST_ADDOPTS"] = original_addopts
+        os.environ.pop("PYTEST_DISABLE_PLUGIN_AUTOLOAD", None)
     return int(exit_code), tracer
 
 

@@ -20,6 +20,7 @@ from .ruff_checks import run_required_ruff_checks
 from .secrets_scan_check import run_secrets_scan
 
 _LOGGER = logging.getLogger(__name__)
+CORE_PYTEST_ARGS = ["-q", "-m", "not ui"]
 
 
 def parse_args() -> argparse.Namespace:
@@ -69,7 +70,7 @@ def _run_docs_checks() -> int:
 
 
 def _run_test_and_coverage() -> int:
-    pytest_args = ["-q", "-m", "not ui", "-p", "no:pytestqt"]
+    pytest_args = list(CORE_PYTEST_ARGS)
     _LOGGER.info("[quality-gate] Ejecutando pytest: python -m pytest %s", " ".join(pytest_args))
     test_rc, tracer = run_pytest_with_trace(pytest_args)
     if test_rc != 0:

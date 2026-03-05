@@ -144,10 +144,11 @@ jobs:
         env:
           PYTHONPATH: .
           QT_QPA_PLATFORM: offscreen
+          QT_LOGGING_RULES: qt.qpa.*=false
         run: |
           if [ -d tests/ui ] || rg -n "@pytest\.mark\.ui|pytestmark\s*=.*ui" tests >/dev/null 2>&1; then
             set +e
-            xvfb-run -a python -m pytest -q -m "ui and smoke"
+            xvfb-run -a python -m pytest -q -m "ui and smoke" -rs tests/ui | tee ui_smoke.log
             rc=$?
             set -e
             if [ "$rc" -eq 5 ]; then
@@ -158,6 +159,34 @@ jobs:
           else
             echo "No UI tests/markers detected; skipping ui_smoke job."
           fi
+
+      - name: Validate UI smoke run is not all-skipped
+        if: always()
+        run: |
+          if [ ! -f ui_smoke.log ]; then
+            echo "ui_smoke.log not found; skipping UI smoke skip validation."
+            exit 0
+          fi
+          python - <<'PY'
+          import re
+          import sys
+          from pathlib import Path
+
+          log = Path("ui_smoke.log").read_text(encoding="utf-8", errors="ignore")
+          no_ejecutados = bool(re.search(r"=+\s*0\s+passed\b", log)) or bool(
+              re.search(r"collected\s+0\s+items", log)
+          )
+          con_skipped = "skipped" in log.lower()
+
+          if no_ejecutados and con_skipped:
+              print(
+                  "UI smoke job failed: pytest reported skips with zero executed tests. "
+                  "Review Qt runtime dependencies and headless setup."
+              )
+              sys.exit(1)
+
+          print("UI smoke skip validation passed.")
+          PY
 
   ui_extended:
     name: ui_extended (non-blocking)
