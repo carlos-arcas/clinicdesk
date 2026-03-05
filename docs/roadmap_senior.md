@@ -23,3 +23,11 @@
   - `clinicdesk/app/pages/pacientes/preferencias_pacientes.py` (**33 LOC**)
   - `clinicdesk/app/pages/pacientes/window_feedback.py` (**21 LOC**)
   - `clinicdesk/app/pages/pacientes/workers_pacientes.py` (**54 LOC**)
+
+## Refactor atómico `PageConfirmaciones` (baseline/evidencia)
+
+- Baseline medido: `wc -l clinicdesk/app/pages/confirmaciones/page.py` => **460 LOC**.
+- Resultado tras extraer filtros/selección/navegación/acciones rápidas/telemetría: `clinicdesk/app/pages/confirmaciones/page.py` => **328 LOC**.
+- Helpers compartidos de feedback de ventana:
+  - `clinicdesk/app/ui/ux/window_feedback.py` (nuevo módulo común)
+  - `clinicdesk/app/pages/pacientes/window_feedback.py` queda como re-export para compatibilidad.
