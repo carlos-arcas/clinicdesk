@@ -98,27 +98,40 @@ def _log_resultado(metodo: str, hallazgos: int) -> None:
     _LOGGER.info("[quality-gate] secrets_scan metodo=%s hallazgos=%s", metodo, hallazgos)
 
 
+def _ejecutar_segun_metodo(
+    root: Path,
+    report: Path,
+    command_finder: Callable[[tuple[str, ...]], str | None] | None,
+) -> tuple[str, int, int]:
+    if _gitleaks_disponible(command_finder):
+        codigo, hallazgos = _ejecutar_gitleaks(root, report)
+        return "gitleaks", codigo, hallazgos
+    codigo, hallazgos = _ejecutar_fallback(root, report)
+    return "fallback", codigo, hallazgos
+
+
+def _log_error_scan(metodo: str) -> None:
+    mensajes = {
+        "gitleaks": "[quality-gate] ❌ gitleaks detectó secretos o falló la ejecución.",
+        "fallback": "[quality-gate] ❌ Escaneo fallback detectó posibles secretos.",
+    }
+    _LOGGER.error(mensajes[metodo])
+
+
 def run_secrets_scan(
     report_path: Path | None = None,
     repo_root: Path | None = None,
     command_finder=None,
 ) -> int:
+    # CC alto previo por orquestación con múltiples ramas (gitleaks/fallback + rutas + logging + reporte).
     root = _resolver_repo_root(repo_root)
     report = _resolver_report_path(report_path)
     _asegurar_reporte_existe(report)
     report.write_text("[]\n", encoding="utf-8")
 
-    if _gitleaks_disponible(command_finder):
-        codigo, hallazgos = _ejecutar_gitleaks(root, report)
-        _log_resultado("gitleaks", hallazgos)
-        if codigo == 0:
-            return 0
-        _LOGGER.error("[quality-gate] ❌ gitleaks detectó secretos o falló la ejecución.")
-        return 7
-
-    codigo, hallazgos = _ejecutar_fallback(root, report)
-    _log_resultado("fallback", hallazgos)
+    metodo, codigo, hallazgos = _ejecutar_segun_metodo(root, report, command_finder)
+    _log_resultado(metodo, hallazgos)
     if codigo == 0:
         return 0
-    _LOGGER.error("[quality-gate] ❌ Escaneo fallback detectó posibles secretos.")
+    _log_error_scan(metodo)
     return 7

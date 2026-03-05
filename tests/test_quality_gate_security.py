@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import subprocess
 from pathlib import Path
 
@@ -183,3 +184,18 @@ def test_run_secrets_scan_resets_report_and_keeps_valid_json(tmp_path: Path, mon
     assert secrets_scan_check.run_secrets_scan() == 0
     assert report_seen_during_run == ["[]\n"]
     assert json.loads(report_path.read_text(encoding="utf-8")) == []
+
+
+def test_run_secrets_scan_logs_only_method_and_count_without_secret(tmp_path: Path, monkeypatch, caplog) -> None:
+    report_path = tmp_path / "docs" / "secrets_scan_report.txt"
+    secret_value = "sk" + "-" + "ABCDEFGHIJKLMNOPQRSTUV"
+    (tmp_path / "token.env").write_text(f"TOKEN={secret_value}\n", encoding="utf-8")
+
+    monkeypatch.setattr(secrets_scan_check, "find_command_path", lambda _: None)
+
+    with caplog.at_level(logging.INFO):
+        assert secrets_scan_check.run_secrets_scan(report_path=report_path, repo_root=tmp_path) == 7
+
+    assert secret_value not in caplog.text
+    assert "metodo=fallback" in caplog.text
+    assert "hallazgos=" in caplog.text
