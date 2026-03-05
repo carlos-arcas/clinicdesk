@@ -57,7 +57,9 @@ def _limitar_texto(value: str, max_len: int = _MAX_ERROR_MESSAGE_LEN) -> str:
     return texto[:max_len]
 
 
-def construir_payload_incidente(*, run_id: str, request_id: str, reason_code: str, error_type: str, error_message: str) -> dict[str, Any]:
+def construir_payload_incidente(
+    *, run_id: str, request_id: str, reason_code: str, error_type: str, error_message: str
+) -> dict[str, Any]:
     return {
         "run_id": run_id,
         "request_id": request_id,

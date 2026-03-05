@@ -170,9 +170,7 @@ class SalasRepository:
             params.append(int(activa))
 
         if texto:
-            clauses.append(
-                "(nombre LIKE ? COLLATE NOCASE OR ubicacion LIKE ? COLLATE NOCASE)"
-            )
+            clauses.append("(nombre LIKE ? COLLATE NOCASE OR ubicacion LIKE ? COLLATE NOCASE)")
             like = like_value(texto)
             params.extend([like, like])
 

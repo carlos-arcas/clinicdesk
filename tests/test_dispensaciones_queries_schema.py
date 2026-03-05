@@ -19,7 +19,9 @@ def test_dispensaciones_queries_list_works_without_legacy_incidencia_column() ->
 
 
 def _apply_schema(connection: sqlite3.Connection) -> None:
-    schema_path = Path(__file__).resolve().parents[1] / "clinicdesk" / "app" / "infrastructure" / "sqlite" / "schema.sql"
+    schema_path = (
+        Path(__file__).resolve().parents[1] / "clinicdesk" / "app" / "infrastructure" / "sqlite" / "schema.sql"
+    )
     connection.executescript(schema_path.read_text(encoding="utf-8"))
     connection.commit()
 

@@ -84,7 +84,9 @@ class DemoRunService:
         self._notify(progress_cb, 100, "Paso 6/6: export completado")
         return self._result(True, steps, state, state["export_paths"])
 
-    def _plan(self, cfg: DemoRunConfig, state: dict[str, Any]) -> list[tuple[int, str, Callable[[], DemoRunStepResult]]]:
+    def _plan(
+        self, cfg: DemoRunConfig, state: dict[str, Any]
+    ) -> list[tuple[int, str, Callable[[], DemoRunStepResult]]]:
         return [
             (12, "seed_demo", lambda: self._step_seed(cfg)),
             (30, "build_features", lambda: self._step_build_features(cfg, state)),
@@ -126,7 +128,9 @@ class DemoRunService:
         response = self._facade.train(state["dataset_version"], model_version=state["model_version"])
         state["model_version"] = response.model_version
         state["train_response"] = response
-        return DemoRunStepResult("train", True, f"Modelo version={response.model_version}", {"model_version": response.model_version})
+        return DemoRunStepResult(
+            "train", True, f"Modelo version={response.model_version}", {"model_version": response.model_version}
+        )
 
     def _step_score(self, cfg: DemoRunConfig, state: dict[str, Any]) -> DemoRunStepResult:
         response = self._facade.score(

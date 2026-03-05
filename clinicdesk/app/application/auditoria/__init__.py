@@ -6,4 +6,3 @@ from clinicdesk.app.application.auditoria.audit_service import (
 )
 
 __all__ = ["AuditEvent", "AuditMetadataError", "AuditRepository", "AuditService"]
-

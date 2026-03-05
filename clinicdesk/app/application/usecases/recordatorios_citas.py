@@ -35,7 +35,9 @@ class PrepararRecordatorioCita:
         advertencias = _advertencias_contacto(traductor, canal_normalizado, datos)
         puede_copiar = len(advertencias) == 0
         mensaje = _mensaje_por_canal(traductor, canal_normalizado, datos) if puede_copiar else ""
-        return RecordatorioPreviewDTO(canal=canal_normalizado, mensaje=mensaje, advertencias=advertencias, puede_copiar=puede_copiar)
+        return RecordatorioPreviewDTO(
+            canal=canal_normalizado, mensaje=mensaje, advertencias=advertencias, puede_copiar=puede_copiar
+        )
 
 
 @dataclass(slots=True)
@@ -49,7 +51,12 @@ class RegistrarRecordatorioCita:
         self.recordatorios.upsert_recordatorio_cita(cita_id, canal_normalizado, estado_normalizado, now_utc)
         LOGGER.info(
             "recordatorio_actualizado",
-            extra={"action": "recordatorio", "cita_id": cita_id, "canal": canal_normalizado, "estado": estado_normalizado},
+            extra={
+                "action": "recordatorio",
+                "cita_id": cita_id,
+                "canal": canal_normalizado,
+                "estado": estado_normalizado,
+            },
         )
 
 
@@ -186,7 +193,9 @@ def _log_lote(action: str, canal: str, total_seleccionadas: int, resultado: Resu
     )
 
 
-def _advertencias_contacto(traductor: Callable[[str], str], canal: str, datos: DatosRecordatorioCitaDTO) -> tuple[str, ...]:
+def _advertencias_contacto(
+    traductor: Callable[[str], str], canal: str, datos: DatosRecordatorioCitaDTO
+) -> tuple[str, ...]:
     if canal in {"WHATSAPP", "LLAMADA"} and not datos.telefono:
         return (traductor("recordatorio.advertencia.falta_telefono"),)
     if canal == "EMAIL" and not datos.email:

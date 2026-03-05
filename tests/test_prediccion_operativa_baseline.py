@@ -32,7 +32,9 @@ def test_persistencia_modelo_y_metadata(tmp_path):
     predictor = PredictorOperativoBaseline()
     modelo = predictor.entrenar(_dataset(50, 1, "CONTROL", 12))
     store = AlmacenamientoModeloOperativo("prediccion_duracion", base_dir=tmp_path)
-    metadata = store.guardar_con_ventana(modelo, n_ejemplos=50, desde="2026-01-01 00:00:00", hasta="2026-02-01 00:00:00", version="v1")
+    metadata = store.guardar_con_ventana(
+        modelo, n_ejemplos=50, desde="2026-01-01 00:00:00", hasta="2026-02-01 00:00:00", version="v1"
+    )
     loaded, loaded_meta = store.cargar()
     assert loaded_meta.n_ejemplos == 50
     assert loaded_meta.version_esquema == "v1"

@@ -9,18 +9,15 @@ from clinicdesk.app.queries.recetas_queries import RecetaPacienteFlatRow
 
 
 class PacienteDetalleGateway(Protocol):
-    def get_by_id(self, paciente_id: int) -> Paciente | None:
-        ...
+    def get_by_id(self, paciente_id: int) -> Paciente | None: ...
 
 
 class HistorialCitasGateway(Protocol):
-    def listar_citas_por_paciente(self, paciente_id: int, *, limite: int = 200) -> list[CitaHistorialRow]:
-        ...
+    def listar_citas_por_paciente(self, paciente_id: int, *, limite: int = 200) -> list[CitaHistorialRow]: ...
 
 
 class HistorialRecetasGateway(Protocol):
-    def list_flat_por_paciente(self, paciente_id: int) -> list[RecetaPacienteFlatRow]:
-        ...
+    def list_flat_por_paciente(self, paciente_id: int) -> list[RecetaPacienteFlatRow]: ...
 
 
 @dataclass(frozen=True, slots=True)
@@ -104,7 +101,9 @@ class ObtenerHistorialPaciente:
                 activa=False,
             )
 
-        recetas = [self._actualizar_resumen(recetas_map[receta_id], lineas_map.get(receta_id, [])) for receta_id in recetas_map]
+        recetas = [
+            self._actualizar_resumen(recetas_map[receta_id], lineas_map.get(receta_id, [])) for receta_id in recetas_map
+        ]
         detalle = {receta_id: tuple(lineas) for receta_id, lineas in lineas_map.items()}
         return recetas, detalle
 

@@ -68,7 +68,9 @@ def test_obtener_historial_paciente_devuelve_detalle_full_y_citas_filtradas(cont
             especialidad="General",
         )
     )
-    sala_id = container.salas_repo.create(Sala(nombre="Consulta 1", tipo=TipoSala.CONSULTA, ubicacion=None, activa=True))
+    sala_id = container.salas_repo.create(
+        Sala(nombre="Consulta 1", tipo=TipoSala.CONSULTA, ubicacion=None, activa=True)
+    )
     citas_repo = CitasRepository(container.connection)
     citas_repo.create(
         Cita(

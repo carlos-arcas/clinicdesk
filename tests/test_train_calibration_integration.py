@@ -79,7 +79,9 @@ def test_score_citas_trained_uses_calibrated_threshold_from_metadata(tmp_path, m
     monkeypatch.setattr(
         score_module,
         "predict_batch_trained",
-        lambda model, rows: [PredictionResult(score=0.6, label="high", reasons=["predictor=naive_bayes"]) for _ in rows],
+        lambda model, rows: [
+            PredictionResult(score=0.6, label="high", reasons=["predictor=naive_bayes"]) for _ in rows
+        ],
     )
 
     usecase = ScoreCitas(feature_service, BaselineCitasPredictor(), model_store=model_store)

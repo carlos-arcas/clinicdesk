@@ -54,7 +54,9 @@ def test_migracion_asegura_columnas_citas_extendido_idempotente() -> None:
 def test_usecase_hitos_idempotencia_y_orden(container, seed_data) -> None:
     repo = CitasRepository(container.connection)
     cita_id = _crear_cita(repo, seed_data, datetime(2026, 1, 1, 10, 0, 0))
-    uc = RegistrarHitoAtencionCita(CitasHitosRepository(container.connection), _RelojFijo(datetime(2026, 1, 1, 10, 1, 0)))
+    uc = RegistrarHitoAtencionCita(
+        CitasHitosRepository(container.connection), _RelojFijo(datetime(2026, 1, 1, 10, 1, 0))
+    )
 
     primero = uc.ejecutar(cita_id, HitoAtencion.CHECK_IN)
     segundo = uc.ejecutar(cita_id, HitoAtencion.CHECK_IN)
@@ -78,7 +80,9 @@ def test_persistencia_hitos_flujo_feliz(container, seed_data) -> None:
         (HitoAtencion.CHECK_OUT, datetime(2026, 1, 2, 9, 30, 0)),
     ]
     for hito, marca in pasos:
-        resultado = RegistrarHitoAtencionCita(CitasHitosRepository(container.connection), _RelojFijo(marca)).ejecutar(cita_id, hito)
+        resultado = RegistrarHitoAtencionCita(CitasHitosRepository(container.connection), _RelojFijo(marca)).ejecutar(
+            cita_id, hito
+        )
         assert resultado.aplicado is True
 
     fila = CitasHitosRepository(container.connection).obtener_cita_por_id(cita_id)

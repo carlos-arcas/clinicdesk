@@ -19,7 +19,11 @@ from PySide6.QtWidgets import (
 
 from clinicdesk.app.application.auditoria_acceso import AccionAuditoriaAcceso, EntidadAuditoriaAcceso
 from clinicdesk.app.application.security import UserContext
-from clinicdesk.app.application.usecases.obtener_detalle_cita import DetalleCitaDTO, DetalleCitaNoEncontradaError, ObtenerDetalleCita
+from clinicdesk.app.application.usecases.obtener_detalle_cita import (
+    DetalleCitaDTO,
+    DetalleCitaNoEncontradaError,
+    ObtenerDetalleCita,
+)
 from clinicdesk.app.application.usecases.registrar_auditoria_acceso import RegistrarAuditoriaAcceso
 from clinicdesk.app.i18n import I18nManager
 

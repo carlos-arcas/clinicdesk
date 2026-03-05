@@ -133,7 +133,11 @@ def main() -> int:
                 return True
             LOGGER.error(
                 "post_login_transition_fail",
-                extra={"action": "post_login_transition_fail", "reason_code": "dependency_wiring_failed", "exc_type": "none"},
+                extra={
+                    "action": "post_login_transition_fail",
+                    "reason_code": "dependency_wiring_failed",
+                    "exc_type": "none",
+                },
             )
 
     if not open_authenticated_session():

@@ -14,6 +14,7 @@ logger = logging.getLogger(__name__)
 # DTOs para la UI
 # =========================
 
+
 @dataclass(frozen=True)
 class RecetaRow:
     id: int
@@ -35,6 +36,7 @@ class RecetaLineaRow:
 # =========================
 # Queries
 # =========================
+
 
 class FarmaciaQueries:
     """

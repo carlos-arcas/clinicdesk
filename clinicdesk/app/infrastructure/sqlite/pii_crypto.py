@@ -50,7 +50,7 @@ class PiiCipher:
     def decrypt(self, value: str) -> str:
         if not value.startswith(_PREFIX):
             return value
-        payload = value[len(_PREFIX):]
+        payload = value[len(_PREFIX) :]
         raw = base64.urlsafe_b64decode(payload.encode("ascii"))
         if len(raw) < 32:
             raise ValueError("Encrypted payload is malformed.")

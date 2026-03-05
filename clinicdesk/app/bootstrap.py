@@ -35,6 +35,7 @@ from clinicdesk.app.infrastructure.sqlite.pii_crypto import (
 
 LOGGER = get_logger(__name__)
 
+
 def _is_special_sqlite_path(raw_path: str) -> bool:
     return raw_path == ":memory:" or raw_path.startswith("file:")
 
@@ -57,12 +58,18 @@ def data_dir() -> Path:
 def resolve_db_path(sqlite_path_arg: str | None = None, *, emit_log: bool = True) -> Path:
     """Resuelve la ruta SQLite desde arg/env/default con trazabilidad en logs."""
     if sqlite_path_arg:
-        resolved = Path(sqlite_path_arg) if _is_special_sqlite_path(sqlite_path_arg) else Path(sqlite_path_arg).expanduser().resolve()
+        resolved = (
+            Path(sqlite_path_arg)
+            if _is_special_sqlite_path(sqlite_path_arg)
+            else Path(sqlite_path_arg).expanduser().resolve()
+        )
         source = "arg"
     else:
         configured = getenv("CLINICDESK_DB_PATH")
         if configured:
-            resolved = Path(configured) if _is_special_sqlite_path(configured) else Path(configured).expanduser().resolve()
+            resolved = (
+                Path(configured) if _is_special_sqlite_path(configured) else Path(configured).expanduser().resolve()
+            )
             source = "env"
         else:
             resolved = (data_dir() / "clinicdesk.db").expanduser().resolve()
@@ -125,20 +132,14 @@ def _migrate_stock_columns(con: sqlite3.Connection) -> None:
 
 
 def _ensure_stock_column(con: sqlite3.Connection, *, table: str) -> None:
-    columns = {
-        row["name"] for row in con.execute(f"PRAGMA table_info({table})").fetchall()
-    }
+    columns = {row["name"] for row in con.execute(f"PRAGMA table_info({table})").fetchall()}
     if "cantidad_en_almacen" in columns:
         return
     if "cantidad_almacen" not in columns:
         return
 
-    con.execute(
-        f"ALTER TABLE {table} ADD COLUMN cantidad_en_almacen INTEGER NOT NULL DEFAULT 0"
-    )
-    con.execute(
-        f"UPDATE {table} SET cantidad_en_almacen = cantidad_almacen"
-    )
+    con.execute(f"ALTER TABLE {table} ADD COLUMN cantidad_en_almacen INTEGER NOT NULL DEFAULT 0")
+    con.execute(f"UPDATE {table} SET cantidad_en_almacen = cantidad_almacen")
 
 
 # ---------------------------------------------------------------------

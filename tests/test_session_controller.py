@@ -75,11 +75,10 @@ def test_crear_sesion_autenticada_devuelve_ventana_no_nula() -> None:
     assert fabrica.contexto == contexto
 
 
-
-
 def test_debe_mantener_referencia_ventana_principal() -> None:
     assert debe_mantener_referencia_ventana_principal(object()) is True
     assert debe_mantener_referencia_ventana_principal(None) is False
+
 
 def test_controlador_guarda_referencia_en_app_y_controlador() -> None:
     fabrica = FabricaFalsa()

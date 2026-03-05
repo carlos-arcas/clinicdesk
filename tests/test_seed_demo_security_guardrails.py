@@ -7,7 +7,11 @@ import pytest
 from clinicdesk.app.application.auditoria.audit_service import AuditEvent, AuditService
 from clinicdesk.app.application.seguridad.politica_rutas_seguras import es_ruta_db_segura_para_reset
 from clinicdesk.app.application.security import AutorizadorAcciones, Role, UserContext
-from clinicdesk.app.application.usecases.seed_demo_data import SeedDemoData, SeedDemoDataRequest, SeedDemoDataSeguridadError
+from clinicdesk.app.application.usecases.seed_demo_data import (
+    SeedDemoData,
+    SeedDemoDataRequest,
+    SeedDemoDataSeguridadError,
+)
 
 
 class _RepoAuditoriaFake:

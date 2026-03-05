@@ -53,6 +53,7 @@ class TipoMovimientoStock(str, Enum):
 # Incidencias (auditoría)
 # -------------------------
 
+
 class SeveridadIncidencia(str, Enum):
     INFO = "INFO"
     WARNING = "WARNING"

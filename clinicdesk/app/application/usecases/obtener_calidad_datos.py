@@ -30,14 +30,11 @@ class CalidadDatosDTO:
 
 
 class CalidadDatosPort(Protocol):
-    def contar_citas_cerradas(self, desde: date, hasta: date) -> int:
-        ...
+    def contar_citas_cerradas(self, desde: date, hasta: date) -> int: ...
 
-    def contar_completas(self, desde: date, hasta: date) -> int:
-        ...
+    def contar_completas(self, desde: date, hasta: date) -> int: ...
 
-    def contar_faltantes(self, desde: date, hasta: date) -> FaltantesCalidadDatos:
-        ...
+    def contar_faltantes(self, desde: date, hasta: date) -> FaltantesCalidadDatos: ...
 
 
 class ObtenerCalidadDatos:
@@ -79,4 +76,6 @@ def _derivar_alertas(pct_completas: float, faltantes: FaltantesCalidadDatos) -> 
 
 
 def _faltan_checks_altos(faltantes: FaltantesCalidadDatos) -> bool:
-    return (faltantes.faltan_check_in > UMBRAL_FALTANTES_CHECKS) or (faltantes.faltan_check_out > UMBRAL_FALTANTES_CHECKS)
+    return (faltantes.faltan_check_in > UMBRAL_FALTANTES_CHECKS) or (
+        faltantes.faltan_check_out > UMBRAL_FALTANTES_CHECKS
+    )

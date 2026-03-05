@@ -31,11 +31,7 @@ class CitasHitosRepository:
             f"SELECT id, inicio FROM citas WHERE id IN ({placeholders})",
             cita_ids,
         ).fetchall()
-        return {
-            int(row["id"]): datetime.fromisoformat(str(row["inicio"]))
-            for row in rows
-            if row["inicio"] is not None
-        }
+        return {int(row["id"]): datetime.fromisoformat(str(row["inicio"])) for row in rows if row["inicio"] is not None}
 
     def actualizar_hito_atencion(self, cita_id: int, campo_timestamp: str, valor_datetime: datetime) -> bool:
         campos_permitidos = {
@@ -54,7 +50,9 @@ class CitasHitosRepository:
         self._con.commit()
         return int(cur.rowcount) > 0
 
-    def actualizar_contexto_cita(self, cita_id: int, tipo_cita: TipoCita | None, canal_reserva: CanalReserva | None) -> bool:
+    def actualizar_contexto_cita(
+        self, cita_id: int, tipo_cita: TipoCita | None, canal_reserva: CanalReserva | None
+    ) -> bool:
         cur = self._con.execute(
             "UPDATE citas SET tipo_cita = ?, canal_reserva = ? WHERE id = ?",
             (tipo_cita.value if tipo_cita else None, canal_reserva.value if canal_reserva else None, cita_id),

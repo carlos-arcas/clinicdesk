@@ -3,7 +3,13 @@ from __future__ import annotations
 from dataclasses import dataclass
 from statistics import quantiles
 
-from clinicdesk.app.domain.prediccion_operativa import CitaOperativa, NivelRiesgo, PrediccionOperativa, PredictorOperativo, RegistroOperativo
+from clinicdesk.app.domain.prediccion_operativa import (
+    CitaOperativa,
+    NivelRiesgo,
+    PrediccionOperativa,
+    PredictorOperativo,
+    RegistroOperativo,
+)
 
 _MIN_EJEMPLOS_CLAVE = 30
 
@@ -54,7 +60,9 @@ class PredictorOperativoBaseline(PredictorOperativo):
         return ModeloOperativoBaseline(por_clave=por_clave, globales=globales, ultimos_motivos={})
 
 
-def _clave(medico_id: int, tipo_cita: str | None, franja_hora: str | None, dia_semana: int | None) -> tuple[int, str | None, str | None, int | None]:
+def _clave(
+    medico_id: int, tipo_cita: str | None, franja_hora: str | None, dia_semana: int | None
+) -> tuple[int, str | None, str | None, int | None]:
     return medico_id, tipo_cita, franja_hora, dia_semana
 
 

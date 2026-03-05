@@ -12,13 +12,11 @@ class BasePage(QWidget, ABC):
 
     @property
     @abstractmethod
-    def page_id(self) -> str:
-        ...
+    def page_id(self) -> str: ...
 
     @property
     @abstractmethod
-    def title(self) -> str:
-        ...
+    def title(self) -> str: ...
 
     def on_show(self) -> None:
         """

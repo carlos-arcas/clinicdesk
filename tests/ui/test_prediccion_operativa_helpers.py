@@ -34,6 +34,8 @@ def test_toggle_off_no_carga_preview() -> None:
 
 
 def test_construir_bullets_fallback_no_disponible() -> None:
-    dto = ExplicacionOperativaDTO(nivel="NO_DISPONIBLE", motivos_i18n_keys=(), acciones_i18n_keys=(), necesita_entrenar=True)
+    dto = ExplicacionOperativaDTO(
+        nivel="NO_DISPONIBLE", motivos_i18n_keys=(), acciones_i18n_keys=(), necesita_entrenar=True
+    )
     texto = construir_bullets_explicacion(dto, I18nManager("es"))
     assert "• No disponible." in texto

@@ -7,8 +7,7 @@ from clinicdesk.app.queries.historial_paciente_queries import DetalleCitaRow, In
 
 
 class DetalleCitaGateway(Protocol):
-    def obtener_detalle_cita(self, cita_id: int, *, limite_incidencias: int = 3) -> DetalleCitaRow | None:
-        ...
+    def obtener_detalle_cita(self, cita_id: int, *, limite_incidencias: int = 3) -> DetalleCitaRow | None: ...
 
 
 class DetalleCitaNoEncontradaError(ValueError):

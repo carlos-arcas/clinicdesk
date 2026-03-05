@@ -65,7 +65,6 @@ DASHBOARD_GESTION_TRANSLATIONS = {
         "gestion.abrir_detalle_no_posible": "No pude abrir el detalle. La cita está seleccionada.",
         "citas.resaltado_aplicado": "Cita resaltada.",
         "citas.intent_aplicado": "Intent de navegación aplicado.",
-
         "dashboard_gestion.uso_semana.titulo": "Uso esta semana",
         "dashboard_gestion.uso_semana.vacio": "Aún no hay datos",
         "dashboard_gestion.telemetria.evento.gestion_abrir_cita": "Abrir cita desde Gestión",
@@ -141,7 +140,6 @@ DASHBOARD_GESTION_TRANSLATIONS = {
         "gestion.abrir_detalle_no_posible": "I could not open the details. The appointment is selected.",
         "citas.resaltado_aplicado": "Appointment highlighted.",
         "citas.intent_aplicado": "Navigation intent applied.",
-
         "dashboard_gestion.uso_semana.titulo": "Usage this week",
         "dashboard_gestion.uso_semana.vacio": "No data yet",
         "dashboard_gestion.telemetria.evento.gestion_abrir_cita": "Open appointment from Management",

@@ -28,8 +28,10 @@ class DashboardGestionQueries:
         return self._proveedor if isinstance(self._proveedor, sqlite3.Connection) else self._proveedor.obtener()
 
     def listar_citas_hoy_gestion(self, limite: int) -> tuple[CitaGestionHoyDTO, ...]:
-        rows = self._con().execute(
-            """
+        rows = (
+            self._con()
+            .execute(
+                """
             SELECT
                 c.id AS cita_id,
                 time(c.inicio) AS hora,
@@ -48,8 +50,10 @@ class DashboardGestionQueries:
             ORDER BY datetime(c.inicio) ASC
             LIMIT ?
             """,
-            (*_ESTADOS_PROXIMOS, limite),
-        ).fetchall()
+                (*_ESTADOS_PROXIMOS, limite),
+            )
+            .fetchall()
+        )
         return tuple(
             CitaGestionHoyDTO(
                 cita_id=int(row["cita_id"]),

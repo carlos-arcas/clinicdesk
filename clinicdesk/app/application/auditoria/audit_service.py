@@ -24,8 +24,7 @@ class AuditEvent:
 
 
 class AuditRepository(Protocol):
-    def append(self, event: AuditEvent) -> None:
-        ...
+    def append(self, event: AuditEvent) -> None: ...
 
 
 class AuditService:
@@ -127,4 +126,3 @@ class AuditService:
             redacted = self._RE_PHONE.sub("[REDACTED_PHONE]", redacted)
             return redacted
         return value
-

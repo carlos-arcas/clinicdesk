@@ -1,6 +1,10 @@
 from datetime import datetime
 
-from clinicdesk.app.application.citas.navigation_intent import CitasNavigationIntentDTO, debe_abrir_detalle, es_intent_calidad
+from clinicdesk.app.application.citas.navigation_intent import (
+    CitasNavigationIntentDTO,
+    debe_abrir_detalle,
+    es_intent_calidad,
+)
 
 
 def test_debe_abrir_detalle_true_cuando_accion_abrir_y_encontrada() -> None:

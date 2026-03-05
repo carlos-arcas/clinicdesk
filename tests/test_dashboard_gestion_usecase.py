@@ -13,7 +13,11 @@ from clinicdesk.app.application.usecases.dashboard_gestion import (
     normalizar_filtros_dashboard,
 )
 from clinicdesk.app.application.usecases.dashboard_gestion_prediccion import CitaGestionHoyDTO
-from clinicdesk.app.application.usecases.obtener_metricas_operativas import KpiDiaDTO, KpiMedicoDTO, ResultadoMetricasOperativasDTO
+from clinicdesk.app.application.usecases.obtener_metricas_operativas import (
+    KpiDiaDTO,
+    KpiMedicoDTO,
+    ResultadoMetricasOperativasDTO,
+)
 from clinicdesk.app.domain.exceptions import ValidationError
 
 
@@ -199,7 +203,9 @@ def _resultado_metricas(espera: float, retraso: float, total_validas_espera: int
         KpiMedicoDTO(5, "Medico E", 2, 6.5, 16.0, 0.5),
         KpiMedicoDTO(6, "Medico F", 2, 7.5, 19.0, 1.5),
     )
-    return ResultadoMetricasOperativasDTO(desde="2025-01-10", hasta="2025-01-10", por_dia=por_dia, por_medico=por_medico)
+    return ResultadoMetricasOperativasDTO(
+        desde="2025-01-10", hasta="2025-01-10", por_dia=por_dia, por_medico=por_medico
+    )
 
 
 def _cita(cita_id: int, hora: str) -> CitaGestionHoyDTO:

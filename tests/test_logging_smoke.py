@@ -54,9 +54,7 @@ def test_logging_redacts_pii_in_message(tmp_path: Path) -> None:
     set_run_context("run-redact")
     logger = get_logger("tests.logging")
 
-    logger.info(
-        "Paciente Juan Pérez campo_a juan.perez@example.com campo_b 12345678 teléfono +54 11 5555 6666"
-    )
+    logger.info("Paciente Juan Pérez campo_a juan.perez@example.com campo_b 12345678 teléfono +54 11 5555 6666")
 
     content = (tmp_path / "app.log").read_text(encoding="utf-8")
     assert "juan.perez@example.com" not in content

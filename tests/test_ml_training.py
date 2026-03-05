@@ -53,7 +53,9 @@ def test_train_usecase_trains_evaluates_and_registers_model(tmp_path) -> None:
     model_store = LocalJsonModelStore(tmp_path / "registry")
 
     all_rows = _rows(30)
-    version = feature_service.save_citas_features_with_artifacts(all_rows, _quality(len(all_rows)), version="dataset-v1")
+    version = feature_service.save_citas_features_with_artifacts(
+        all_rows, _quality(len(all_rows)), version="dataset-v1"
+    )
     response = TrainCitasModel(feature_service, model_store).execute(
         TrainCitasModelRequest(dataset_version=version, model_version="model-v1")
     )

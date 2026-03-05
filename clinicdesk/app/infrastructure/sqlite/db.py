@@ -45,6 +45,7 @@ class SqliteConfig:
     - db_path: ruta al archivo .sqlite/.db
     - schema_path: ruta al schema.sql
     """
+
     db_path: Path
     schema_path: Path
 
@@ -120,34 +121,22 @@ def _migrate_active_columns(con: sqlite3.Connection) -> None:
 
 
 def _ensure_stock_column(con: sqlite3.Connection, *, table: str) -> None:
-    columns = {
-        row["name"] for row in con.execute(f"PRAGMA table_info({table})").fetchall()
-    }
+    columns = {row["name"] for row in con.execute(f"PRAGMA table_info({table})").fetchall()}
     if "cantidad_en_almacen" in columns:
         return
     if "cantidad_almacen" not in columns:
         return
 
-    con.execute(
-        f"ALTER TABLE {table} ADD COLUMN cantidad_en_almacen INTEGER NOT NULL DEFAULT 0"
-    )
-    con.execute(
-        f"UPDATE {table} SET cantidad_en_almacen = cantidad_almacen"
-    )
+    con.execute(f"ALTER TABLE {table} ADD COLUMN cantidad_en_almacen INTEGER NOT NULL DEFAULT 0")
+    con.execute(f"UPDATE {table} SET cantidad_en_almacen = cantidad_almacen")
 
 
 def _ensure_flag_column(con: sqlite3.Connection, *, table: str, column: str) -> None:
-    columns = {
-        row["name"] for row in con.execute(f"PRAGMA table_info({table})").fetchall()
-    }
+    columns = {row["name"] for row in con.execute(f"PRAGMA table_info({table})").fetchall()}
     if column in columns:
         return
-    con.execute(
-        f"ALTER TABLE {table} ADD COLUMN {column} INTEGER NOT NULL DEFAULT 1"
-    )
-    con.execute(
-        f"UPDATE {table} SET {column} = 1"
-    )
+    con.execute(f"ALTER TABLE {table} ADD COLUMN {column} INTEGER NOT NULL DEFAULT 1")
+    con.execute(f"UPDATE {table} SET {column} = 1")
 
 
 def _migrate_demo_columns(con: sqlite3.Connection) -> None:

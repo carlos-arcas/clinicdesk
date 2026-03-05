@@ -35,11 +35,11 @@ class BloqueCalendarioMedico:
 
     id: Optional[int] = None
     medico_id: int = 0
-    fecha: str = ""                 # YYYY-MM-DD
+    fecha: str = ""  # YYYY-MM-DD
     turno_id: int = 0
 
     hora_inicio_override: Optional[str] = None  # HH:MM
-    hora_fin_override: Optional[str] = None     # HH:MM
+    hora_fin_override: Optional[str] = None  # HH:MM
     observaciones: Optional[str] = None
     activo: bool = True
 
@@ -207,11 +207,7 @@ class CalendarioMedicoRepository:
         if solo_activos:
             clauses.append("activo = 1")
 
-        sql = (
-            "SELECT 1 FROM calendario_medico WHERE "
-            + " AND ".join(clauses)
-            + " LIMIT 1"
-        )
+        sql = "SELECT 1 FROM calendario_medico WHERE " + " AND ".join(clauses) + " LIMIT 1"
 
         row = self._con.execute(sql, params).fetchone()
         return row is not None

@@ -71,17 +71,13 @@ class PageMateriales(QWidget):
         actions.addStretch(1)
 
         self.table = QTableWidget(0, 5)
-        self.table.setHorizontalHeaderLabels(
-            ["ID", "Nombre", "Stock", "Fungible", "Activo"]
-        )
+        self.table.setHorizontalHeaderLabels(["ID", "Nombre", "Stock", "Fungible", "Activo"])
         self.table.setColumnHidden(0, True)
         self.table.horizontalHeader().setStretchLastSection(True)
         self.table.setContextMenuPolicy(Qt.CustomContextMenu)
 
         self.table_movs = QTableWidget(0, 5)
-        self.table_movs.setHorizontalHeaderLabels(
-            ["Fecha", "Tipo", "Cantidad", "Personal", "Motivo"]
-        )
+        self.table_movs.setHorizontalHeaderLabels(["Fecha", "Tipo", "Cantidad", "Personal", "Motivo"])
         self.table_movs.horizontalHeader().setStretchLastSection(True)
         self.lbl_empty = QLabel("No hay datos cargados. Pulsa ‘Generar datos demo’.")
         self.btn_seed_demo = QPushButton("Generar datos demo")
@@ -302,7 +298,5 @@ class PageMateriales(QWidget):
 
 
 if __name__ == "__main__":
-    logging.getLogger(__name__).info(
-        "Este módulo no se ejecuta directamente. Usa: python -m clinicdesk"
-    )
+    logging.getLogger(__name__).info("Este módulo no se ejecuta directamente. Usa: python -m clinicdesk")
     raise SystemExit(2)

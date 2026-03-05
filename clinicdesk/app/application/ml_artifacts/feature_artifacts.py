@@ -31,9 +31,7 @@ class FeatureArtifactMetadata:
 
 
 def canonical_json_bytes(payload: Any) -> bytes:
-    return json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode(
-        "utf-8"
-    )
+    return json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")
 
 
 def compute_content_hash(rows_json_bytes: bytes) -> str:
@@ -61,9 +59,7 @@ def feature_schema_to_dict(schema: FeatureSchema) -> dict[str, Any]:
 def feature_schema_from_dict(payload: dict[str, Any]) -> FeatureSchema:
     version = str(payload.get("version", ""))
     raw_fields = payload.get("fields", [])
-    parsed_fields = [
-        FeatureSchemaField(name=str(item["name"]), type=str(item["type"])) for item in raw_fields
-    ]
+    parsed_fields = [FeatureSchemaField(name=str(item["name"]), type=str(item["type"])) for item in raw_fields]
     return FeatureSchema(version=version, fields=parsed_fields)
 
 

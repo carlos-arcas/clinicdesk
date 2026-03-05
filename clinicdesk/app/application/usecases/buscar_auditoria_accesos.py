@@ -4,7 +4,10 @@ from dataclasses import dataclass
 from typing import Protocol
 
 from clinicdesk.app.bootstrap_logging import get_logger
-from clinicdesk.app.application.usecases.filtros_auditoria import aplicar_preset_rango_auditoria, redactar_texto_filtro_auditoria
+from clinicdesk.app.application.usecases.filtros_auditoria import (
+    aplicar_preset_rango_auditoria,
+    redactar_texto_filtro_auditoria,
+)
 from clinicdesk.app.queries.auditoria_accesos_queries import (
     AuditoriaAccesoItemQuery,
     FiltrosAuditoriaAccesos,
@@ -38,8 +41,7 @@ class BuscarAuditoriaAccesosGateway(Protocol):
         offset: int,
         *,
         calcular_total: bool = True,
-    ) -> tuple[list[AuditoriaAccesoItemQuery], int | None]:
-        ...
+    ) -> tuple[list[AuditoriaAccesoItemQuery], int | None]: ...
 
 
 class BuscarAuditoriaAccesos:
@@ -62,7 +64,10 @@ class BuscarAuditoriaAccesos:
             offset,
             calcular_total=debe_calcular_total,
         )
-        LOGGER.info("auditoria_filtros_aplicados", extra=_payload_log_filtros_auditoria(filtros_finales, "auditoria_filtros_aplicados"))
+        LOGGER.info(
+            "auditoria_filtros_aplicados",
+            extra=_payload_log_filtros_auditoria(filtros_finales, "auditoria_filtros_aplicados"),
+        )
         filas = tuple(self._map_item(item) for item in items)
         total_final = total if total is not None else (total_conocido or 0)
         return ResultadoAuditoriaAccesosDTO(total=total_final, items=filas)

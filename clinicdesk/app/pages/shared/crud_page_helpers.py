@@ -9,10 +9,7 @@ def set_buttons_enabled(*, has_selection: bool, buttons: list[QPushButton]) -> N
 
 
 def confirm_deactivation(parent: QWidget, *, module_title: str, entity_label: str) -> bool:
-    message = (
-        f"¿Desactivar {entity_label}?\n"
-        "El registro permanecerá en el sistema como inactivo."
-    )
+    message = f"¿Desactivar {entity_label}?\nEl registro permanecerá en el sistema como inactivo."
     return (
         QMessageBox.question(
             parent,

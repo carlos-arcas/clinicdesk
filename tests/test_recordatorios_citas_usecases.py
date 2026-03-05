@@ -155,4 +155,3 @@ def test_preparar_recordatorios_en_lote_preparado_es_idempotente() -> None:
     assert resultado.preparadas == 1
     assert resultado.omitidas_sin_contacto == 0
     assert resultado.omitidas_ya_enviado == 0
-

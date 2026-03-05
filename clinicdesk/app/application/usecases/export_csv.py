@@ -10,6 +10,7 @@ from clinicdesk.app.application.ml.drift import DriftReport
 from clinicdesk.app.application.usecases.score_citas import ScoreCitasResponse
 from clinicdesk.app.application.usecases.train_citas_model import TrainCitasModelResponse
 
+
 class ExportFeaturesCSV:
     FILE_NAME = "features_export.csv"
     COLUMNS = (

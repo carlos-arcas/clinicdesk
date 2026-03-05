@@ -108,9 +108,31 @@ class PagePrediccionOperativa(QWidget):
         btn_comprobar.clicked.connect(lambda: self._comprobar_datos(tipo))
         btn_preparar.clicked.connect(lambda: self._entrenar(tipo))
         btn_reintentar.clicked.connect(lambda: self._entrenar(tipo))
-        for widget in (lbl_estado, lbl_actualizacion, btn_comprobar, lbl_datos, btn_preparar, lbl_feedback, progress, btn_reintentar, tabla):
+        for widget in (
+            lbl_estado,
+            lbl_actualizacion,
+            btn_comprobar,
+            lbl_datos,
+            btn_preparar,
+            lbl_feedback,
+            progress,
+            btn_reintentar,
+            tabla,
+        ):
             layout.addWidget(widget)
-        return _RefsBloque(tipo, box, lbl_estado, lbl_actualizacion, lbl_datos, lbl_feedback, btn_comprobar, btn_preparar, btn_reintentar, progress, tabla)
+        return _RefsBloque(
+            tipo,
+            box,
+            lbl_estado,
+            lbl_actualizacion,
+            lbl_datos,
+            lbl_feedback,
+            btn_comprobar,
+            btn_preparar,
+            btn_reintentar,
+            progress,
+            tabla,
+        )
 
     def _refresh_todo(self) -> None:
         self.chk_mostrar_agenda.setChecked(leer_mostrar_estimaciones_agenda())
@@ -125,10 +147,14 @@ class PagePrediccionOperativa(QWidget):
         salud_uc = self._facade.salud_duracion_uc if tipo == "duracion" else self._facade.salud_espera_uc
         datos = uc.ejecutar()
         salud = salud_uc.ejecutar()
-        bloque.lbl_datos.setText(self._i18n.t("prediccion_operativa.paso_1.encontradas").format(total=datos.ejemplos_validos))
+        bloque.lbl_datos.setText(
+            self._i18n.t("prediccion_operativa.paso_1.encontradas").format(total=datos.ejemplos_validos)
+        )
         bloque.lbl_estado.setText(self._i18n.t(resolver_clave_estado_salud(salud.estado)))
         fecha = salud.fecha_ultima_actualizacion or self._i18n.t("prediccion_operativa.estado.no_disponible")
-        bloque.lbl_actualizacion.setText(self._i18n.t("prediccion_operativa.estado.ultima_actualizacion").format(fecha=fecha))
+        bloque.lbl_actualizacion.setText(
+            self._i18n.t("prediccion_operativa.estado.ultima_actualizacion").format(fecha=fecha)
+        )
         if not datos.apto_para_entrenar:
             bloque.lbl_feedback.setText(self._i18n.t("prediccion_operativa.msg.faltan_datos"))
 
@@ -182,7 +208,9 @@ class PagePrediccionOperativa(QWidget):
         if not debe_cargar_previsualizacion(self.chk_mostrar_agenda.isChecked()):
             self._vaciar_tablas()
             return
-        self._predicciones_duracion = {k: v.nivel for k, v in self._facade.previsualizar_duracion_uc.ejecutar(30).items()}
+        self._predicciones_duracion = {
+            k: v.nivel for k, v in self._facade.previsualizar_duracion_uc.ejecutar(30).items()
+        }
         self._predicciones_espera = {k: v.nivel for k, v in self._facade.previsualizar_espera_uc.ejecutar(30).items()}
         self._render_tabla(self._bloque_duracion, self._predicciones_duracion)
         self._render_tabla(self._bloque_espera, self._predicciones_espera)
@@ -206,9 +234,10 @@ class PagePrediccionOperativa(QWidget):
     def _mostrar_por_que(self, tipo: str, cita_id: int, nivel: str) -> None:
         uc = self._facade.explicar_duracion_uc if tipo == "duracion" else self._facade.explicar_espera_uc
         exp = uc.ejecutar(cita_id, nivel)
-        QMessageBox.information(self, self._i18n.t("prediccion_operativa.btn.ver_por_que"), construir_bullets_explicacion(exp, self._i18n))
+        QMessageBox.information(
+            self, self._i18n.t("prediccion_operativa.btn.ver_por_que"), construir_bullets_explicacion(exp, self._i18n)
+        )
         self._registrar_telemetria("explicacion_ver_por_que", f"ok_{tipo}", cita_id=cita_id)
-
 
     def _registrar_telemetria(self, evento: str, resultado: str, cita_id: int | None = None) -> None:
         try:

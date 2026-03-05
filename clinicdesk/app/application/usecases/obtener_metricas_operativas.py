@@ -45,11 +45,9 @@ class ResultadoMetricasOperativasDTO:
 
 
 class MetricasOperativasGateway(Protocol):
-    def kpis_por_dia(self, desde: date, hasta: date) -> list[KpiDiaRow]:
-        ...
+    def kpis_por_dia(self, desde: date, hasta: date) -> list[KpiDiaRow]: ...
 
-    def kpis_por_medico(self, desde: date, hasta: date) -> list[KpiMedicoRow]:
-        ...
+    def kpis_por_medico(self, desde: date, hasta: date) -> list[KpiMedicoRow]: ...
 
 
 class ObtenerMetricasOperativas:

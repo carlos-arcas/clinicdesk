@@ -40,10 +40,10 @@ class MovimientoMaterial:
     id: Optional[int] = None
 
     material_id: int = 0
-    tipo: str = ""              # ENTRADA / SALIDA / AJUSTE
+    tipo: str = ""  # ENTRADA / SALIDA / AJUSTE
     cantidad: int = 0
 
-    fecha_hora: str = ""        # ISO datetime
+    fecha_hora: str = ""  # ISO datetime
     personal_id: Optional[int] = None
 
     motivo: Optional[str] = None

@@ -63,7 +63,9 @@ class TrainCitasModel:
     def execute(self, request: TrainCitasModelRequest) -> TrainCitasModelResponse:
         if not request.dataset_version.strip():
             raise ModelTrainingValidationError("dataset_version es requerido para entrenar.")
-        rows = [_to_feature_row(item) for item in self._feature_store_service.load_citas_features(request.dataset_version)]
+        rows = [
+            _to_feature_row(item) for item in self._feature_store_service.load_citas_features(request.dataset_version)
+        ]
         metadata = self._feature_store_service.load_citas_features_metadata(request.dataset_version)
         expected_schema_hash = compute_schema_hash(
             build_schema_from_dataclass(CitasFeatureRow, version=FeatureStoreService.CITAS_SCHEMA_VERSION)

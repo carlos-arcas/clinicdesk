@@ -48,7 +48,9 @@ class FakeDemoMLFacade:
 
     def drift(self, from_version: str, to_version: str):
         self.calls.append("drift")
-        return SimpleNamespace(from_version=from_version, to_version=to_version, overall_flag=True, psi_by_feature={"x": 0.3})
+        return SimpleNamespace(
+            from_version=from_version, to_version=to_version, overall_flag=True, psi_by_feature={"x": 0.3}
+        )
 
     def export_features(self, dataset_version: str, output_path: str) -> str:
         self.calls.append("export_features")
@@ -58,7 +60,9 @@ class FakeDemoMLFacade:
         self.calls.append("export_metrics")
         return f"{output_path}/metrics.csv"
 
-    def export_scoring(self, score_response, predictor_kind: str, model_version: str, threshold_used: float, output_path: str) -> str:
+    def export_scoring(
+        self, score_response, predictor_kind: str, model_version: str, threshold_used: float, output_path: str
+    ) -> str:
         self.calls.append("export_scoring")
         return f"{output_path}/scoring.csv"
 
@@ -66,7 +70,16 @@ class FakeDemoMLFacade:
         self.calls.append("export_drift")
         return f"{output_path}/drift.csv"
 
-    def export_kpis(self, dataset_version: str, predictor_kind: str, train_response, score_response, drift_report, output_path: str, run_ts: str | None = None) -> dict[str, str]:
+    def export_kpis(
+        self,
+        dataset_version: str,
+        predictor_kind: str,
+        train_response,
+        score_response,
+        drift_report,
+        output_path: str,
+        run_ts: str | None = None,
+    ) -> dict[str, str]:
         self.calls.append("export_kpis")
         return {
             "kpi_overview": f"{output_path}/kpi_overview.csv",

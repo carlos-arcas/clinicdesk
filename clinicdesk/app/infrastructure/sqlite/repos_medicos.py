@@ -84,13 +84,18 @@ class MedicosRepository:
         return Medico(
             id=row["id"],
             tipo_documento=TipoDocumento(row["tipo_documento"]),
-            documento=_decode(self._field_protection, "documento", row["documento"], _row_value(row, "documento_enc")) or "",
+            documento=_decode(self._field_protection, "documento", row["documento"], _row_value(row, "documento_enc"))
+            or "",
             nombre=row["nombre"],
             apellidos=row["apellidos"],
-            telefono=_decode(self._field_protection, "telefono", self._decrypt(row["telefono"]), _row_value(row, "telefono_enc")),
+            telefono=_decode(
+                self._field_protection, "telefono", self._decrypt(row["telefono"]), _row_value(row, "telefono_enc")
+            ),
             email=_decode(self._field_protection, "email", self._decrypt(row["email"]), _row_value(row, "email_enc")),
             fecha_nacimiento=parse_iso_date(row["fecha_nacimiento"]),
-            direccion=_decode(self._field_protection, "direccion", self._decrypt(row["direccion"]), _row_value(row, "direccion_enc")),
+            direccion=_decode(
+                self._field_protection, "direccion", self._decrypt(row["direccion"]), _row_value(row, "direccion_enc")
+            ),
             activo=bool(row["activo"]),
             num_colegiado=row["num_colegiado"],
             especialidad=row["especialidad"],
@@ -132,24 +137,48 @@ def _update_sql(protected: bool) -> str:
 def _payload_for_write(medico: Medico, protection: MedicosFieldProtection, encryptor) -> tuple[object, ...]:
     if not protection.enabled:
         return (
-            medico.tipo_documento.value, medico.documento, medico.nombre, medico.apellidos,
-            encryptor(medico.telefono), encryptor(medico.email), format_iso_date(medico.fecha_nacimiento),
-            encryptor(medico.direccion), int(medico.activo), medico.num_colegiado, medico.especialidad,
+            medico.tipo_documento.value,
+            medico.documento,
+            medico.nombre,
+            medico.apellidos,
+            encryptor(medico.telefono),
+            encryptor(medico.email),
+            format_iso_date(medico.fecha_nacimiento),
+            encryptor(medico.direccion),
+            int(medico.activo),
+            medico.num_colegiado,
+            medico.especialidad,
         )
     documento = protection.encode("documento", medico.documento)
     telefono = protection.encode("telefono", medico.telefono)
     email = protection.encode("email", medico.email)
     direccion = protection.encode("direccion", medico.direccion)
     return (
-        medico.tipo_documento.value, documento.legacy, documento.encrypted, documento.lookup_hash,
-        medico.nombre, medico.apellidos, encryptor(telefono.legacy), telefono.encrypted, telefono.lookup_hash,
-        encryptor(email.legacy), email.encrypted, email.lookup_hash, format_iso_date(medico.fecha_nacimiento),
-        encryptor(direccion.legacy), direccion.encrypted, direccion.lookup_hash,
-        int(medico.activo), medico.num_colegiado, medico.especialidad,
+        medico.tipo_documento.value,
+        documento.legacy,
+        documento.encrypted,
+        documento.lookup_hash,
+        medico.nombre,
+        medico.apellidos,
+        encryptor(telefono.legacy),
+        telefono.encrypted,
+        telefono.lookup_hash,
+        encryptor(email.legacy),
+        email.encrypted,
+        email.lookup_hash,
+        format_iso_date(medico.fecha_nacimiento),
+        encryptor(direccion.legacy),
+        direccion.encrypted,
+        direccion.lookup_hash,
+        int(medico.activo),
+        medico.num_colegiado,
+        medico.especialidad,
     )
 
 
-def _fetch_by_documento(con: sqlite3.Connection, protection: MedicosFieldProtection, *, tipo: str, documento: str) -> sqlite3.Row | None:
+def _fetch_by_documento(
+    con: sqlite3.Connection, protection: MedicosFieldProtection, *, tipo: str, documento: str
+) -> sqlite3.Row | None:
     if protection.enabled:
         return con.execute(
             "SELECT id FROM medicos WHERE tipo_documento = ? AND documento_hash = ?",
@@ -161,7 +190,15 @@ def _fetch_by_documento(con: sqlite3.Connection, protection: MedicosFieldProtect
     ).fetchone()
 
 
-def _search_filters(*, field_protection: MedicosFieldProtection, texto: str | None, especialidad: str | None, tipo_documento: str | None, documento: str | None, activo: bool | None) -> tuple[list[str], list[object]]:
+def _search_filters(
+    *,
+    field_protection: MedicosFieldProtection,
+    texto: str | None,
+    especialidad: str | None,
+    tipo_documento: str | None,
+    documento: str | None,
+    activo: bool | None,
+) -> tuple[list[str], list[object]]:
     clauses: list[str] = []
     params: list[object] = []
     if texto:
@@ -188,7 +225,9 @@ def _search_filters(*, field_protection: MedicosFieldProtection, texto: str | No
 def _append_text_filter(clauses: list[str], params: list[object], texto: str, protected: bool) -> None:
     like = like_value(texto)
     if protected:
-        clauses.append("(nombre LIKE ? COLLATE NOCASE OR apellidos LIKE ? COLLATE NOCASE OR num_colegiado LIKE ? COLLATE NOCASE)")
+        clauses.append(
+            "(nombre LIKE ? COLLATE NOCASE OR apellidos LIKE ? COLLATE NOCASE OR num_colegiado LIKE ? COLLATE NOCASE)"
+        )
         params.extend([like, like, like])
         return
     clauses.append(

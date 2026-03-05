@@ -5,7 +5,12 @@ from datetime import datetime
 from typing import Optional
 
 from clinicdesk.app.application.auditoria_acceso import AccionAuditoriaAcceso, EntidadAuditoriaAcceso
-from clinicdesk.app.application.usecases.filtros_auditoria import PRESET_30_DIAS, PRESET_7_DIAS, PRESET_HOY, PRESET_PERSONALIZADO
+from clinicdesk.app.application.usecases.filtros_auditoria import (
+    PRESET_30_DIAS,
+    PRESET_7_DIAS,
+    PRESET_HOY,
+    PRESET_PERSONALIZADO,
+)
 
 
 @dataclass(frozen=True, slots=True)

@@ -21,9 +21,7 @@ def test_main_window_has_preventive_validation_wrappers():
     source = Path("clinicdesk/app/ui/main_window.py").read_text(encoding="utf-8")
     tree = ast.parse(source)
 
-    class_node = next(
-        node for node in tree.body if isinstance(node, ast.ClassDef) and node.name == "MainWindow"
-    )
+    class_node = next(node for node in tree.body if isinstance(node, ast.ClassDef) and node.name == "MainWindow")
     method_names = {node.name for node in class_node.body if isinstance(node, ast.FunctionDef)}
 
     missing = EXPECTED_METHODS - method_names

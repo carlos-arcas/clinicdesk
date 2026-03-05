@@ -31,20 +31,14 @@ class LocalJsonModelStore(ModelStorePort):
         payload_file = self._payload_file(model_name, version)
         metadata_file = self._metadata_file(model_name, version)
         if not payload_file.exists() or not metadata_file.exists():
-            raise ModelStoreNotFoundError(
-                f"Modelo '{model_name}' versión '{version}' no existe en model store."
-            )
+            raise ModelStoreNotFoundError(f"Modelo '{model_name}' versión '{version}' no existe en model store.")
         return self._read_json(payload_file), self._read_json(metadata_file)
 
     def list_model_versions(self, model_name: str) -> list[str]:
         model_dir = self._model_dir(model_name)
         if not model_dir.exists():
             return []
-        versions = [
-            path.name[: -len(".model.json")]
-            for path in model_dir.glob("*.model.json")
-            if path.is_file()
-        ]
+        versions = [path.name[: -len(".model.json")] for path in model_dir.glob("*.model.json") if path.is_file()]
         return sorted(versions)
 
     def _model_dir(self, model_name: str) -> Path:

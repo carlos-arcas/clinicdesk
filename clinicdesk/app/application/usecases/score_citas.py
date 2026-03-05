@@ -100,9 +100,7 @@ class ScoreCitas:
             return None, "metadata no disponible para esta versión"
         return metadata, None
 
-    def _validate_rows_against_metadata(
-        self, dataset_version: str, rows: list[Any], metadata: Any | None
-    ) -> None:
+    def _validate_rows_against_metadata(self, dataset_version: str, rows: list[Any], metadata: Any | None) -> None:
         if metadata is None:
             return
         if metadata.row_count != len(rows):

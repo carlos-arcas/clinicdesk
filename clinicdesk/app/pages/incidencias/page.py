@@ -80,9 +80,7 @@ class PageIncidencias(QWidget):
         filters.addWidget(self.btn_filtrar)
 
         self.table = QTableWidget(0, 6)
-        self.table.setHorizontalHeaderLabels(
-            ["ID", "Fecha", "Tipo", "Severidad", "Estado", "Descripción"]
-        )
+        self.table.setHorizontalHeaderLabels(["ID", "Fecha", "Tipo", "Severidad", "Estado", "Descripción"])
         self.table.setColumnHidden(0, True)
         self.table.horizontalHeader().setStretchLastSection(True)
 
@@ -207,7 +205,5 @@ class PageIncidencias(QWidget):
 
 
 if __name__ == "__main__":
-    logging.getLogger(__name__).info(
-        "Este módulo no se ejecuta directamente. Usa: python -m clinicdesk"
-    )
+    logging.getLogger(__name__).info("Este módulo no se ejecuta directamente. Usa: python -m clinicdesk")
     raise SystemExit(2)

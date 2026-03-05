@@ -95,7 +95,9 @@ class SeedDemoData:
             self._log_generation_duration(started_at)
 
             persist_started = datetime.now(UTC)
-            result = self._persist_entities(request, start_date, end_date, doctors, patients, staff, appointments, incidences)
+            result = self._persist_entities(
+                request, start_date, end_date, doctors, patients, staff, appointments, incidences
+            )
             persist_seconds = (datetime.now(UTC) - persist_started).total_seconds()
             total_seconds = (datetime.now(UTC) - started_at).total_seconds()
             LOGGER.info("Persisting done in %.2fs", persist_seconds)
@@ -106,7 +108,6 @@ class SeedDemoData:
         except Exception as exc:
             self._registrar_auditoria_fail(request, exc)
             raise
-
 
     def _exigir_permisos(self) -> None:
         if self._user_context is None or self._autorizador_acciones is None:

@@ -188,7 +188,7 @@ def select_paciente(parent: QWidget, connection, *, activo: bool = True) -> Opti
 
     def fetch_rows(texto: Optional[str], offset: int, limit: int) -> Iterable[tuple[int, str, str, str]]:
         rows = queries.search(texto=texto, activo=activo, limit=offset + limit)
-        for row in rows[offset: offset + limit]:
+        for row in rows[offset : offset + limit]:
             yield (row.id, row.documento, row.nombre_completo, row.telefono)
 
     dialog = EntitySelectorDialog(
@@ -248,7 +248,7 @@ def select_sala(parent: QWidget, connection, *, activa: bool = True) -> Optional
 
     def fetch_rows(texto: Optional[str], offset: int, limit: int) -> Iterable[tuple[int, str, str, str]]:
         rows = queries.search(texto=texto, activa=activa, limit=offset + limit)
-        for row in rows[offset: offset + limit]:
+        for row in rows[offset : offset + limit]:
             ubicacion = row.ubicacion or ""
             yield (row.id, row.nombre, row.tipo, ubicacion)
 
@@ -269,7 +269,7 @@ def select_medicamento(parent: QWidget, connection, *, activo: bool = True) -> O
 
     def fetch_rows(texto: Optional[str], offset: int, limit: int) -> Iterable[tuple[int, str, str, str]]:
         rows = queries.search(texto=texto, activo=activo, limit=offset + limit)
-        for row in rows[offset: offset + limit]:
+        for row in rows[offset : offset + limit]:
             yield (row.id, row.nombre_comercial, row.nombre_compuesto, str(row.stock))
 
     dialog = EntitySelectorDialog(

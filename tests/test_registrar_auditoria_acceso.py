@@ -2,7 +2,11 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from clinicdesk.app.application.auditoria_acceso import AccionAuditoriaAcceso, EntidadAuditoriaAcceso, EventoAuditoriaAcceso
+from clinicdesk.app.application.auditoria_acceso import (
+    AccionAuditoriaAcceso,
+    EntidadAuditoriaAcceso,
+    EventoAuditoriaAcceso,
+)
 from clinicdesk.app.application.security import Role, UserContext
 from clinicdesk.app.application.usecases.registrar_auditoria_acceso import RegistrarAuditoriaAcceso
 

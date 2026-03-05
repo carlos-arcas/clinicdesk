@@ -16,6 +16,7 @@ from clinicdesk.app.application.preferencias.preferencias_usuario import (
     PreferenciasUsuario,
 )
 from clinicdesk.app.i18n import I18nManager
+
 try:
     from clinicdesk.app.ui.quick_search_debounce import DespachadorDebounce
     from clinicdesk.app.ui.widgets.quick_search_dialog import ContextoBusquedaRapida, QuickSearchDialog

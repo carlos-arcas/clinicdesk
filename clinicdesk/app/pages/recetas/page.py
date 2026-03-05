@@ -54,9 +54,7 @@ class PageRecetas(QWidget):
         self.table_recetas.horizontalHeader().setStretchLastSection(True)
 
         self.table_lineas = QTableWidget(0, 6)
-        self.table_lineas.setHorizontalHeaderLabels(
-            ["ID", "Medicamento", "Dosis", "Cantidad", "Pendiente", "Estado"]
-        )
+        self.table_lineas.setHorizontalHeaderLabels(["ID", "Medicamento", "Dosis", "Cantidad", "Pendiente", "Estado"])
         self.table_lineas.setColumnHidden(0, True)
         self.table_lineas.horizontalHeader().setStretchLastSection(True)
 
@@ -156,10 +154,6 @@ class PageRecetas(QWidget):
         self._buscar_pacientes()
 
 
-
-
 if __name__ == "__main__":
-    logging.getLogger(__name__).info(
-        "Este módulo no se ejecuta directamente. Usa: python -m clinicdesk"
-    )
+    logging.getLogger(__name__).info("Este módulo no se ejecuta directamente. Usa: python -m clinicdesk")
     raise SystemExit(2)

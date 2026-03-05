@@ -18,9 +18,15 @@ def estado_accion_whatsapp_rapida(
     if riesgo != "ALTO":
         return EstadoAccionRapidaWhatsAppDTO(visible=False, enabled=False)
     if recordatorio_estado == "ENVIADO":
-        return EstadoAccionRapidaWhatsAppDTO(visible=True, enabled=False, tooltip_key="confirmaciones.accion.ya_enviado")
+        return EstadoAccionRapidaWhatsAppDTO(
+            visible=True, enabled=False, tooltip_key="confirmaciones.accion.ya_enviado"
+        )
     if recordatorio_estado == "PREPARADO":
-        return EstadoAccionRapidaWhatsAppDTO(visible=True, enabled=False, tooltip_key="confirmaciones.accion.ya_preparado")
+        return EstadoAccionRapidaWhatsAppDTO(
+            visible=True, enabled=False, tooltip_key="confirmaciones.accion.ya_preparado"
+        )
     if not tiene_telefono:
-        return EstadoAccionRapidaWhatsAppDTO(visible=True, enabled=False, tooltip_key="confirmaciones.accion.falta_telefono")
+        return EstadoAccionRapidaWhatsAppDTO(
+            visible=True, enabled=False, tooltip_key="confirmaciones.accion.falta_telefono"
+        )
     return EstadoAccionRapidaWhatsAppDTO(visible=True, enabled=True)

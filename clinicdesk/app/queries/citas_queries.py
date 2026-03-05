@@ -154,8 +154,6 @@ class CitasQueries:
         return " AND ".join(clauses), tuple(params)
 
 
-
-
 def _sql_filtro_calidad(filtro_calidad: str) -> str:
     filtros = {
         "SIN_CHECKIN": "c.check_in_at IS NULL",
@@ -163,8 +161,6 @@ def _sql_filtro_calidad(filtro_calidad: str) -> str:
         "SIN_SALIDA": "c.check_out_at IS NULL",
     }
     return filtros.get(filtro_calidad, "1=1")
-
-
 
 
 def _agregar_filtros_ids(clauses: list[str], params: list[object], filtros: FiltrosCitasDTO) -> None:

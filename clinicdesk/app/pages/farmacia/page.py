@@ -71,15 +71,11 @@ class PageFarmacia(QWidget):
 
         # Tablas
         self.table_recetas = QTableWidget(0, 4)
-        self.table_recetas.setHorizontalHeaderLabels(
-            ["ID", "Fecha", "Médico", "Estado"]
-        )
+        self.table_recetas.setHorizontalHeaderLabels(["ID", "Fecha", "Médico", "Estado"])
         self.table_recetas.setColumnHidden(0, True)
 
         self.table_lineas = QTableWidget(0, 6)
-        self.table_lineas.setHorizontalHeaderLabels(
-            ["ID", "Medicamento", "Dosis", "Cantidad", "Pendiente", "Estado"]
-        )
+        self.table_lineas.setHorizontalHeaderLabels(["ID", "Medicamento", "Dosis", "Cantidad", "Pendiente", "Estado"])
         self.table_lineas.setColumnHidden(0, True)
 
         self.btn_dispensar = QPushButton("Dispensar")
@@ -128,9 +124,7 @@ class PageFarmacia(QWidget):
         self._render_lineas(lineas)
 
     def _on_linea_selected(self) -> None:
-        self.btn_dispensar.setEnabled(
-            self._can_write and self._selected_id(self.table_lineas) is not None
-        )
+        self.btn_dispensar.setEnabled(self._can_write and self._selected_id(self.table_lineas) is not None)
 
     def _on_dispensar(self) -> None:
         if not self._can_write:
@@ -228,7 +222,5 @@ class PageFarmacia(QWidget):
 
 
 if __name__ == "__main__":
-    logging.getLogger(__name__).info(
-        "Este módulo no se ejecuta directamente. Usa: python -m clinicdesk"
-    )
+    logging.getLogger(__name__).info("Este módulo no se ejecuta directamente. Usa: python -m clinicdesk")
     raise SystemExit(2)

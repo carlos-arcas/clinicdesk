@@ -21,8 +21,7 @@ def test_allowlist_entries_require_reason() -> None:
             missing_reason_paths.append(str(entry.get("path", "<missing-path>")))
 
     assert not missing_reason_paths, (
-        "Cada entry de allowlist debe declarar un reason no vacío. "
-        f"Entradas inválidas: {missing_reason_paths}"
+        f"Cada entry de allowlist debe declarar un reason no vacío. Entradas inválidas: {missing_reason_paths}"
     )
 
 

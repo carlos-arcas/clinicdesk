@@ -99,8 +99,6 @@ def _validate_args(args: argparse.Namespace) -> Path:
     return sqlite_path
 
 
-
-
 def _fetch_counts(sqlite_path: Path) -> dict[str, int]:
     with bootstrap_database(apply_schema=False, sqlite_path=sqlite_path.as_posix()) as conn:
         return {
@@ -126,9 +124,17 @@ def _print_summary(counts: dict[str, int], sqlite_path: Path, from_date: str, to
     )
     _LOGGER.info("Base de datos: %s", sqlite_path)
     _LOGGER.info("Siguientes pasos sugeridos:")
-    _LOGGER.info("  PYTHONPATH=. python scripts/ml_cli.py build-features --from %s --to %s --store-path ./data/feature_store", from_date, to_date)
-    _LOGGER.info("  PYTHONPATH=. python scripts/ml_cli.py train --dataset-version <version> --model-version m_demo --feature-store-path ./data/feature_store --model-store-path ./data/model_store")
-    _LOGGER.info("  PYTHONPATH=. python scripts/ml_cli.py export features --dataset-version <version> --output ./exports --feature-store-path ./data/feature_store")
+    _LOGGER.info(
+        "  PYTHONPATH=. python scripts/ml_cli.py build-features --from %s --to %s --store-path ./data/feature_store",
+        from_date,
+        to_date,
+    )
+    _LOGGER.info(
+        "  PYTHONPATH=. python scripts/ml_cli.py train --dataset-version <version> --model-version m_demo --feature-store-path ./data/feature_store --model-store-path ./data/model_store"
+    )
+    _LOGGER.info(
+        "  PYTHONPATH=. python scripts/ml_cli.py export features --dataset-version <version> --output ./exports --feature-store-path ./data/feature_store"
+    )
 
 
 if __name__ == "__main__":

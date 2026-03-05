@@ -13,9 +13,7 @@ def _seed_base(db_connection):
     db_connection.execute(
         "INSERT INTO medicos (id, tipo_documento, documento, nombre, apellidos, num_colegiado, especialidad, activo) VALUES (1,'DNI','10','Marta','Med','COL1','General',1)"
     )
-    db_connection.execute(
-        "INSERT INTO salas (id, nombre, tipo, activa) VALUES (1,'S1','CONSULTA',1)"
-    )
+    db_connection.execute("INSERT INTO salas (id, nombre, tipo, activa) VALUES (1,'S1','CONSULTA',1)")
 
 
 def test_buscar_confirmaciones_filtra_rango_estado_y_paginacion(db_connection):

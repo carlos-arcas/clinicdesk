@@ -37,7 +37,11 @@ class ExportKpisCSV:
         high_count = labels.get("risk", 0)
         high_pct = high_count / total
         drift_severity, _, psi_max = _resolve_drift(request.drift_report)
-        _write_csv(output_dir / self.OVERVIEW_FILE, _overview_header(), [_overview_row(request, run_ts, high_count, high_pct, drift_severity, psi_max)])
+        _write_csv(
+            output_dir / self.OVERVIEW_FILE,
+            _overview_header(),
+            [_overview_row(request, run_ts, high_count, high_pct, drift_severity, psi_max)],
+        )
         _write_csv(output_dir / self.BUCKET_FILE, _bucket_header(), _bucket_rows(request, labels))
         _write_csv(output_dir / self.DRIFT_FILE, _drift_header(), _drift_rows(request.drift_report))
         _write_csv(output_dir / self.TRAINING_FILE, _training_header(), _training_rows(request.train_response))
@@ -51,8 +55,18 @@ class ExportKpisCSV:
 
 def _overview_header() -> tuple[str, ...]:
     return (
-        "run_ts", "dataset_version", "model_name", "model_version", "predictor_kind", "citas_count", "risk_high_count",
-        "risk_high_pct", "threshold_used", "drift_severity", "drift_psi_max", "exports_dir",
+        "run_ts",
+        "dataset_version",
+        "model_name",
+        "model_version",
+        "predictor_kind",
+        "citas_count",
+        "risk_high_count",
+        "risk_high_pct",
+        "threshold_used",
+        "drift_severity",
+        "drift_psi_max",
+        "exports_dir",
     )
 
 
@@ -89,7 +103,16 @@ def _bucket_rows(request: ExportKpisRequest, labels: Counter[str]) -> list[tuple
     rows: list[tuple[str, ...]] = []
     for label in sorted(labels):
         count = labels[label]
-        rows.append((request.dataset_version, request.train_response.model_version, request.predictor_kind, label, str(count), _fmt(count / total)))
+        rows.append(
+            (
+                request.dataset_version,
+                request.train_response.model_version,
+                request.predictor_kind,
+                label,
+                str(count),
+                _fmt(count / total),
+            )
+        )
     return rows
 
 
@@ -102,7 +125,9 @@ def _drift_rows(report: DriftReport | None) -> list[tuple[str, ...]]:
         return []
     rows: list[tuple[str, ...]] = []
     for feature_name, psi in sorted(report.psi_by_feature.items()):
-        rows.append((report.from_version, report.to_version, feature_name, _fmt(psi), severity_from_psi(float(psi)).value))
+        rows.append(
+            (report.from_version, report.to_version, feature_name, _fmt(psi), severity_from_psi(float(psi)).value)
+        )
     return rows
 
 

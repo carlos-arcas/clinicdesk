@@ -45,10 +45,7 @@ class PredictorAusenciasBaseline(PredictorAusencias):
         for row in dataset:
             por_paciente.setdefault(row.paciente_id, []).append(row.no_vino)
 
-        tasas = {
-            paciente_id: (sum(values) + 1) / (len(values) + 2)
-            for paciente_id, values in por_paciente.items()
-        }
+        tasas = {paciente_id: (sum(values) + 1) / (len(values) + 2) for paciente_id, values in por_paciente.items()}
         return PredictorAusenciasEntrenadoBaseline(tasa_global=tasa_global, tasa_por_paciente=tasas)
 
 

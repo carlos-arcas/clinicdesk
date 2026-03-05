@@ -48,7 +48,9 @@ def test_sanear_columnas_hace_fallback_si_hay_corrupcion() -> None:
 
 
 def test_sanear_columnas_elimina_duplicados_y_desconocidas() -> None:
-    saneadas, restauradas = sanear_columnas_solicitadas(("estado", "foo", "estado", "medico"), ATRIBUTOS_HISTORIAL_CITAS)
+    saneadas, restauradas = sanear_columnas_solicitadas(
+        ("estado", "foo", "estado", "medico"), ATRIBUTOS_HISTORIAL_CITAS
+    )
     assert saneadas == ("estado", "medico")
     assert restauradas is True
 
@@ -57,7 +59,9 @@ def test_atributos_sensibles_no_exponen_texto_completo() -> None:
     fila_cita = {"resumen": "texto largo sensible"}
     fila_receta = {"observaciones": "texto largo sensible"}
     sensibles_citas = [item for item in ATRIBUTOS_HISTORIAL_CITAS if item.sensibilidad is SensibilidadAtributo.SENSIBLE]
-    sensibles_recetas = [item for item in ATRIBUTOS_HISTORIAL_RECETAS if item.sensibilidad is SensibilidadAtributo.SENSIBLE]
+    sensibles_recetas = [
+        item for item in ATRIBUTOS_HISTORIAL_RECETAS if item.sensibilidad is SensibilidadAtributo.SENSIBLE
+    ]
 
     valores_citas = [item.formateador(fila_cita) for item in sensibles_citas]
     valores_recetas = [item.formateador(fila_receta) for item in sensibles_recetas]

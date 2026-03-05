@@ -67,7 +67,9 @@ def _validar_paginacion(filtros: FiltrosHistorialPacienteDTO) -> ErrorValidacion
     if limite <= 0 or limite > _MAX_LIMITE or offset < 0:
         return _error("historial.paginacion_invalida", "historial.validacion.error.paginacion_invalida", "paginacion")
     if filtros.rango_preset == "TODO" and limite > _MAX_LIMITE_PRESET_TODO:
-        return _error("historial.paginacion_invalida", "historial.validacion.error.paginacion_preset_todo", "paginacion")
+        return _error(
+            "historial.paginacion_invalida", "historial.validacion.error.paginacion_preset_todo", "paginacion"
+        )
     return None
 
 

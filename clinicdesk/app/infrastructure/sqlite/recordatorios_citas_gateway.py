@@ -10,15 +10,19 @@ from clinicdesk.app.application.recordatorios.puertos import (
 
 
 class RecordatoriosCitasSqliteGateway:
-    def __init__(self, connection: sqlite3.Connection | None = None, proveedor_conexion: _ProveedorConexion | None = None) -> None:
+    def __init__(
+        self, connection: sqlite3.Connection | None = None, proveedor_conexion: _ProveedorConexion | None = None
+    ) -> None:
         if connection is None and proveedor_conexion is None:
             raise ValueError("Se requiere connection o proveedor_conexion")
         self._con = connection
         self._proveedor = proveedor_conexion
 
     def obtener_datos_recordatorio_cita(self, cita_id: int) -> DatosRecordatorioCitaDTO | None:
-        row = self._obtener_conexion().execute(
-            """
+        row = (
+            self._obtener_conexion()
+            .execute(
+                """
             SELECT
                 c.id AS cita_id,
                 c.inicio AS inicio,
@@ -31,8 +35,10 @@ class RecordatoriosCitasSqliteGateway:
             JOIN medicos m ON m.id = c.medico_id
             WHERE c.id = ? AND c.activo = 1
             """,
-            (cita_id,),
-        ).fetchone()
+                (cita_id,),
+            )
+            .fetchone()
+        )
         if row is None:
             return None
         return DatosRecordatorioCitaDTO(
@@ -51,15 +57,19 @@ class RecordatoriosCitasSqliteGateway:
         )
 
     def obtener_estado_recordatorio(self, cita_id: int) -> tuple[EstadoRecordatorioDTO, ...]:
-        rows = self._obtener_conexion().execute(
-            """
+        rows = (
+            self._obtener_conexion()
+            .execute(
+                """
             SELECT canal, estado, updated_at_utc
             FROM recordatorios_citas
             WHERE cita_id = ?
             ORDER BY updated_at_utc DESC
             """,
-            (cita_id,),
-        ).fetchall()
+                (cita_id,),
+            )
+            .fetchall()
+        )
         latest: dict[str, EstadoRecordatorioDTO] = {}
         for row in rows:
             canal = str(row["canal"])
@@ -75,28 +85,36 @@ class RecordatoriosCitasSqliteGateway:
     def obtener_contacto_citas(self, cita_ids: tuple[int, ...]) -> dict[int, tuple[str | None, str | None]]:
         if not cita_ids:
             return {}
-        rows = self._obtener_conexion().execute(
-            f"""
+        rows = (
+            self._obtener_conexion()
+            .execute(
+                f"""
             SELECT c.id AS cita_id, p.telefono AS telefono, p.email AS email
             FROM citas c
             JOIN pacientes p ON p.id = c.paciente_id
             WHERE c.id IN ({_placeholders(cita_ids)}) AND c.activo = 1
             """,
-            cita_ids,
-        ).fetchall()
+                cita_ids,
+            )
+            .fetchall()
+        )
         return {int(row["cita_id"]): (row["telefono"], row["email"]) for row in rows}
 
     def obtener_estado_recordatorio_lote(self, cita_ids: tuple[int, ...]) -> dict[tuple[int, str], str]:
         if not cita_ids:
             return {}
-        rows = self._obtener_conexion().execute(
-            f"""
+        rows = (
+            self._obtener_conexion()
+            .execute(
+                f"""
             SELECT cita_id, canal, estado
             FROM recordatorios_citas
             WHERE cita_id IN ({_placeholders(cita_ids)})
             """,
-            cita_ids,
-        ).fetchall()
+                cita_ids,
+            )
+            .fetchall()
+        )
         return {(int(row["cita_id"]), str(row["canal"])): str(row["estado"]) for row in rows}
 
     def upsert_recordatorios_lote(self, items: list[tuple[int, str, str, str]]) -> int:
@@ -115,8 +133,7 @@ class RecordatoriosCitasSqliteGateway:
 
 
 class _ProveedorConexion(Protocol):
-    def obtener(self) -> sqlite3.Connection:
-        ...
+    def obtener(self) -> sqlite3.Connection: ...
 
 
 _SQL_UPSERT_RECORDATORIO = """

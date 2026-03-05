@@ -34,7 +34,6 @@ def test_composicion_no_tiene_imports_tardios_fuera_allowlist() -> None:
         if lineas:
             violaciones.append(f"{relativo}: imports tardíos en líneas {lineas}")
 
-    assert not violaciones, (
-        "Se detectaron imports tardíos en composiciones fuera de la allowlist:\n"
-        + "\n".join(violaciones)
+    assert not violaciones, "Se detectaron imports tardíos en composiciones fuera de la allowlist:\n" + "\n".join(
+        violaciones
     )

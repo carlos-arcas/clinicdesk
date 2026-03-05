@@ -4,7 +4,10 @@ from dataclasses import dataclass
 
 from clinicdesk.app.application.prediccion_ausencias.usecases import ObtenerExplicacionRiesgoAusenciaCita
 from clinicdesk.app.domain.prediccion_ausencias import NivelRiesgo, PrediccionAusencia
-from clinicdesk.app.infrastructure.prediccion_ausencias import MetadataModeloPrediccion, ModeloPrediccionNoDisponibleError
+from clinicdesk.app.infrastructure.prediccion_ausencias import (
+    MetadataModeloPrediccion,
+    ModeloPrediccionNoDisponibleError,
+)
 from clinicdesk.app.queries.prediccion_ausencias_queries import PrediccionAusenciasQueries
 
 

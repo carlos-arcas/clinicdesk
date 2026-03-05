@@ -25,16 +25,14 @@ class ObtenerResumenAuditoriaGateway(Protocol):
         self,
         desde_utc: str | datetime | None,
         hasta_utc: str | datetime | None,
-    ) -> int:
-        ...
+    ) -> int: ...
 
     def top_acciones_por_rango(
         self,
         desde_utc: str | datetime | None,
         hasta_utc: str | datetime | None,
         limit: int = 3,
-    ) -> list[TopAccionAuditoriaQuery]:
-        ...
+    ) -> list[TopAccionAuditoriaQuery]: ...
 
 
 class ObtenerResumenAuditoria:

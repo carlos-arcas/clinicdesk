@@ -59,8 +59,8 @@ class PendingWarningsError(ValidationError):
 @dataclass(slots=True)
 class AjustarStockMaterialRequest:
     material_id: int
-    tipo: str                 # "ENTRADA" | "SALIDA" | "AJUSTE"
-    cantidad: int             # magnitud (>0)
+    tipo: str  # "ENTRADA" | "SALIDA" | "AJUSTE"
+    cantidad: int  # magnitud (>0)
     personal_id: int
 
     motivo: Optional[str] = None
@@ -128,7 +128,9 @@ class AjustarStockMaterialUseCase:
             raise ValidationError("El material no existe o está inactivo.")
         return fecha_hora, int(material.cantidad_en_almacen)
 
-    def _compute_changes(self, req: AjustarStockMaterialRequest, stock_anterior: int) -> Tuple[int, List[WarningItem], str, int]:
+    def _compute_changes(
+        self, req: AjustarStockMaterialRequest, stock_anterior: int
+    ) -> Tuple[int, List[WarningItem], str, int]:
         stock_nuevo = self._next_stock(req.tipo, stock_anterior, req.cantidad)
         warnings = self._build_warnings(req, stock_anterior, stock_nuevo)
         self._validate_override(req, warnings)
@@ -230,7 +232,9 @@ class AjustarStockMaterialUseCase:
         if not req.confirmado_por_personal_id or req.confirmado_por_personal_id <= 0:
             raise ValidationError("confirmado_por_personal_id obligatorio.")
 
-    def _resolve_movement(self, req: AjustarStockMaterialRequest, stock_anterior: int, stock_nuevo: int) -> Tuple[str, int]:
+    def _resolve_movement(
+        self, req: AjustarStockMaterialRequest, stock_anterior: int, stock_nuevo: int
+    ) -> Tuple[str, int]:
         if req.tipo != "AJUSTE":
             return req.tipo, req.cantidad
         delta = stock_nuevo - stock_anterior

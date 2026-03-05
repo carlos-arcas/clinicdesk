@@ -42,4 +42,3 @@ class ProveedorConexionSqlitePorHilo:
             conexion.close()
         finally:
             del self._local.conexion
-

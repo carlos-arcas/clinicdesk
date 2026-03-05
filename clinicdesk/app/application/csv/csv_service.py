@@ -26,35 +26,67 @@ class CsvService(CsvResolverMixin, CsvMappingMixin, CsvParsingMixin, CsvErrorMix
 
     def export_pacientes(self, path: str) -> None:
         headers = [
-            "id", "tipo_documento", "documento", "nombre", "apellidos",
-            "telefono", "email", "fecha_nacimiento", "direccion", "activo",
-            "num_historia", "alergias", "observaciones",
+            "id",
+            "tipo_documento",
+            "documento",
+            "nombre",
+            "apellidos",
+            "telefono",
+            "email",
+            "fecha_nacimiento",
+            "direccion",
+            "activo",
+            "num_historia",
+            "alergias",
+            "observaciones",
         ]
         self._export_entities(path, headers, self._c.pacientes_repo.list_all(solo_activos=False), self._paciente_to_row)
 
     def export_medicos(self, path: str) -> None:
         headers = [
-            "id", "tipo_documento", "documento", "nombre", "apellidos",
-            "telefono", "email", "fecha_nacimiento", "direccion", "activo",
-            "num_colegiado", "especialidad",
+            "id",
+            "tipo_documento",
+            "documento",
+            "nombre",
+            "apellidos",
+            "telefono",
+            "email",
+            "fecha_nacimiento",
+            "direccion",
+            "activo",
+            "num_colegiado",
+            "especialidad",
         ]
         self._export_entities(path, headers, self._c.medicos_repo.list_all(solo_activos=False), self._medico_to_row)
 
     def export_personal(self, path: str) -> None:
         headers = [
-            "id", "tipo_documento", "documento", "nombre", "apellidos",
-            "telefono", "email", "fecha_nacimiento", "direccion", "activo",
-            "puesto", "turno",
+            "id",
+            "tipo_documento",
+            "documento",
+            "nombre",
+            "apellidos",
+            "telefono",
+            "email",
+            "fecha_nacimiento",
+            "direccion",
+            "activo",
+            "puesto",
+            "turno",
         ]
         self._export_entities(path, headers, self._c.personal_repo.list_all(solo_activos=False), self._personal_to_row)
 
     def export_medicamentos(self, path: str) -> None:
         headers = ["id", "nombre_compuesto", "nombre_comercial", "cantidad_en_almacen", "activo"]
-        self._export_entities(path, headers, self._c.medicamentos_repo.list_all(solo_activos=False), self._medicamento_to_row)
+        self._export_entities(
+            path, headers, self._c.medicamentos_repo.list_all(solo_activos=False), self._medicamento_to_row
+        )
 
     def export_materiales(self, path: str) -> None:
         headers = ["id", "nombre", "fungible", "cantidad_en_almacen", "activo"]
-        self._export_entities(path, headers, self._c.materiales_repo.list_all(solo_activos=False), self._material_to_row)
+        self._export_entities(
+            path, headers, self._c.materiales_repo.list_all(solo_activos=False), self._material_to_row
+        )
 
     def export_salas(self, path: str) -> None:
         headers = ["id", "nombre", "tipo", "ubicacion", "activa"]
@@ -120,7 +152,9 @@ class CsvService(CsvResolverMixin, CsvMappingMixin, CsvParsingMixin, CsvErrorMix
             creator=self._c.salas_repo.create,
         )
 
-    def _export_entities(self, path: str, headers: list[str], entities, serializer: Callable[[object], Dict[str, object]]) -> None:
+    def _export_entities(
+        self, path: str, headers: list[str], entities, serializer: Callable[[object], Dict[str, object]]
+    ) -> None:
         write_csv(path, headers=headers, rows=[serializer(entity) for entity in entities])
 
     def _import_entities(

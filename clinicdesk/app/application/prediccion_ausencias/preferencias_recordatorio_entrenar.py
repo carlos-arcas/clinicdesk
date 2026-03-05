@@ -46,4 +46,3 @@ def deserializar_fecha_recordatorio_iso(valor: Any) -> date | None:
         return date.fromisoformat(str(valor))
     except ValueError:
         return None
-

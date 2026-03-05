@@ -66,7 +66,9 @@ def _fmt_len_texto(clave: str) -> FormateadorAtributo:
 
 
 ATRIBUTOS_HISTORIAL_CITAS: tuple[AtributoHistorial, ...] = (
-    AtributoHistorial("cita_id", "historial.citas.col.id", None, _fmt_texto("cita_id"), False, SensibilidadAtributo.PUBLICO),
+    AtributoHistorial(
+        "cita_id", "historial.citas.col.id", None, _fmt_texto("cita_id"), False, SensibilidadAtributo.PUBLICO
+    ),
     AtributoHistorial(
         "fecha",
         "historial.citas.col.fecha",
@@ -83,8 +85,22 @@ ATRIBUTOS_HISTORIAL_CITAS: tuple[AtributoHistorial, ...] = (
         True,
         SensibilidadAtributo.PUBLICO,
     ),
-    AtributoHistorial("estado", "historial.citas.col.estado", "historial.citas.tip.estado", _fmt_texto("estado"), True, SensibilidadAtributo.PUBLICO),
-    AtributoHistorial("medico", "historial.citas.col.medico", "historial.citas.tip.medico", _fmt_texto("medico"), True, SensibilidadAtributo.PERSONAL),
+    AtributoHistorial(
+        "estado",
+        "historial.citas.col.estado",
+        "historial.citas.tip.estado",
+        _fmt_texto("estado"),
+        True,
+        SensibilidadAtributo.PUBLICO,
+    ),
+    AtributoHistorial(
+        "medico",
+        "historial.citas.col.medico",
+        "historial.citas.tip.medico",
+        _fmt_texto("medico"),
+        True,
+        SensibilidadAtributo.PERSONAL,
+    ),
     AtributoHistorial(
         "tiene_incidencias",
         "historial.citas.col.incidencias",
@@ -104,7 +120,9 @@ ATRIBUTOS_HISTORIAL_CITAS: tuple[AtributoHistorial, ...] = (
 )
 
 ATRIBUTOS_HISTORIAL_RECETAS: tuple[AtributoHistorial, ...] = (
-    AtributoHistorial("receta_id", "historial.recetas.col.id", None, _fmt_texto("receta_id"), False, SensibilidadAtributo.PUBLICO),
+    AtributoHistorial(
+        "receta_id", "historial.recetas.col.id", None, _fmt_texto("receta_id"), False, SensibilidadAtributo.PUBLICO
+    ),
     AtributoHistorial(
         "fecha",
         "historial.recetas.col.fecha",
@@ -113,8 +131,22 @@ ATRIBUTOS_HISTORIAL_RECETAS: tuple[AtributoHistorial, ...] = (
         True,
         SensibilidadAtributo.PUBLICO,
     ),
-    AtributoHistorial("estado", "historial.recetas.col.estado", "historial.recetas.tip.estado", _fmt_texto("receta_estado"), True, SensibilidadAtributo.PUBLICO),
-    AtributoHistorial("medico", "historial.recetas.col.medico", "historial.recetas.tip.medico", _fmt_texto("medico_nombre"), True, SensibilidadAtributo.PERSONAL),
+    AtributoHistorial(
+        "estado",
+        "historial.recetas.col.estado",
+        "historial.recetas.tip.estado",
+        _fmt_texto("receta_estado"),
+        True,
+        SensibilidadAtributo.PUBLICO,
+    ),
+    AtributoHistorial(
+        "medico",
+        "historial.recetas.col.medico",
+        "historial.recetas.tip.medico",
+        _fmt_texto("medico_nombre"),
+        True,
+        SensibilidadAtributo.PERSONAL,
+    ),
     AtributoHistorial(
         "num_lineas",
         "historial.recetas.col.num_lineas",
