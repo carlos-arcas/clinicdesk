@@ -1,5 +1,6 @@
 # Archivo de lock dev.
 # Regenerar con: python -m scripts.lock_deps
+coverage==7.6.10
 -r requirements.txt
 mypy==1.13.0
 pip-audit==2.7.3

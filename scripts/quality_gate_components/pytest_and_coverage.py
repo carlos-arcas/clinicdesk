@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import importlib.util
 import logging
 import os
 import subprocess
@@ -11,6 +12,10 @@ from typing import Iterable
 from . import config
 
 _LOGGER = logging.getLogger(__name__)
+RC_DEPENDENCIA_FALTANTE = 2
+_MENSAJE_COVERAGE_FALTANTE = (
+    "[quality-gate] Falta dependencia 'coverage'. Ejecuta: pip install -r requirements-dev.txt (o scripts/setup.*)."
+)
 
 
 def iter_core_files(core_paths: list[Path] | None = None) -> Iterable[Path]:
@@ -28,8 +33,16 @@ def _run_cmd(comando: list[str], *, env: dict[str, str]) -> int:
     return subprocess.run(comando, check=False, env=env).returncode
 
 
+def _coverage_disponible() -> bool:
+    return importlib.util.find_spec("coverage") is not None
+
+
 def run_pytest_with_coverage(pytest_args: list[str], env: dict[str, str] | None = None) -> int:
     # Root cause CI: pytest-qt entraba por autoload de entrypoints aunque el selector fuera "not ui".
+    if not _coverage_disponible():
+        _LOGGER.error(_MENSAJE_COVERAGE_FALTANTE)
+        return RC_DEPENDENCIA_FALTANTE
+
     entorno = env or _build_pytest_env()
     _run_cmd([sys.executable, "-m", "coverage", "erase"], env=entorno)
     comando = [sys.executable, "-m", "coverage", "run", "-m", "pytest", *pytest_args]
