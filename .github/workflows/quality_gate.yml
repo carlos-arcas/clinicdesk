@@ -108,6 +108,7 @@ jobs:
             docs/pip_audit_report.txt
             docs/mypy_report.txt
             docs/secrets_scan_report.txt
+            docs/ruff_format_diff.txt
             logs/*.log
             .coverage
             htmlcov/**
