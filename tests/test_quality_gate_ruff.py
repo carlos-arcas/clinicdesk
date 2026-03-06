@@ -21,6 +21,8 @@ def test_run_required_ruff_checks_invoca_ruff_con_targets(monkeypatch: pytest.Mo
 
     class Resultado:
         returncode = 0
+        stdout = "ruff 0.12.0"
+        stderr = ""
 
     def fake_run(command, **kwargs):
         comandos.append(command)
@@ -30,6 +32,7 @@ def test_run_required_ruff_checks_invoca_ruff_con_targets(monkeypatch: pytest.Mo
 
     assert ruff_checks.run_required_ruff_checks(tmp_path) == 0
     assert comandos == [
+        [sys.executable, "-m", "ruff", "--version"],
         [sys.executable, "-m", "ruff", "check", "scripts/a.py", "tests/b.py"],
         [sys.executable, "-m", "ruff", "format", "--check", "scripts/a.py", "tests/b.py"],
     ]
