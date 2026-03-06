@@ -185,3 +185,29 @@ docker compose up --build
 ```bash
 curl http://localhost:8000/healthz
 ```
+
+
+## API demo (opcional)
+
+Esta API REST es **read-only** y pensada para portfolio. No expone PII en claro: documento/teléfono/email y nombre de paciente se devuelven redaccionados.
+
+- Arranque API: `python -m clinicdesk.web.api.serve`
+- Arranque health mínimo legacy (solo `/healthz`): `python -m clinicdesk.web.serve_health`
+
+Configura autenticación con `X-API-Key`:
+
+```bash
+export CLINICDESK_API_KEY=mi_clave_demo
+python -m clinicdesk.web.api.serve
+```
+
+Ejemplos `curl`:
+
+```bash
+curl http://localhost:8000/healthz
+curl -H "X-API-Key: mi_clave_demo" "http://localhost:8000/api/v1/citas?desde=2026-01-01&hasta=2026-01-31&estado=PENDIENTE&texto=control"
+curl -H "X-API-Key: mi_clave_demo" "http://localhost:8000/api/v1/pacientes?texto=ana"
+```
+
+Si `CLINICDESK_API_KEY` no está definida, la API arranca pero `/api/*` responderá `503` con mensaje de configuración.
+
