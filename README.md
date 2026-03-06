@@ -61,6 +61,18 @@ python -m scripts.gate_rapido
 python -m scripts.gate_sandbox
 ```
 
+- Lint canónico de repositorio (Python + structural gate):
+
+```bash
+python -m scripts.lint_all
+```
+
+- Formato canónico de repositorio:
+
+```bash
+python -m scripts.format_all
+```
+
 - Lint canónico de Python (Ruff check + format --check):
 
 ```bash
@@ -73,7 +85,7 @@ python -m scripts.lint_py
 python -m scripts.format_py
 ```
 
-Estos comandos actúan solo sobre Python; Markdown/YAML no se formatean con Ruff.
+Nota: `lint_all`/`format_all` no formatean Markdown/YAML; Python sí.
 
 `gate_pr` es el contrato estricto y canónico para CI/PR (el que usa CI).  
 `gate_sandbox` mantiene señal de calidad en entornos sin todas las dependencias disponibles.
