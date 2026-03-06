@@ -13,6 +13,7 @@ RUTA_COBERTURA_JSON = Path("docs/coverage.json")
 RUTA_COBERTURA_XML = Path("docs/coverage.xml")
 RUTA_PIP_AUDIT = Path("docs/pip_audit_report.txt")
 RUTA_SECRETS = Path("docs/secrets_scan_report.txt")
+RUTA_RUFF_FORMAT_DIFF = Path("docs/ruff_format_diff.txt")
 RUTA_SALIDA = Path("docs/pr_quality_gate_comment.md")
 
 MARCADOR_COMENTARIO = "<!-- clinicdesk-quality-gate -->"
@@ -113,6 +114,7 @@ def generar_markdown(gate_outcome: str, run_url: str) -> str:
     pip_tail = leer_lineas_tail(RUTA_PIP_AUDIT)
     secrets_tail = leer_lineas_tail(RUTA_SECRETS)
     cobertura = obtener_cobertura()
+    ruff_diff = "disponible" if RUTA_RUFF_FORMAT_DIFF.exists() else "no generado"
 
     return "\n".join(
         [
@@ -122,6 +124,7 @@ def generar_markdown(gate_outcome: str, run_url: str) -> str:
             f"- **Outcome:** `{gate_outcome or 'unknown'}`",
             f"- **Run:** {run_url or '(no disponible)'}",
             f"- **Coverage:** `{cobertura}`",
+            f"- **Ruff format diff artifact:** `{ruff_diff}`",
             "",
             "### quality_report.md (top 40 líneas)",
             "```text",
