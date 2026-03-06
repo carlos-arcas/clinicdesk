@@ -1,16 +1,19 @@
 from __future__ import annotations
 
 from datetime import date, datetime
+from pathlib import Path
 
 from PySide6.QtCore import QDate
 from PySide6.QtWidgets import (
     QComboBox,
     QDateEdit,
     QFormLayout,
+    QFileDialog,
     QGridLayout,
     QGroupBox,
     QHBoxLayout,
     QLabel,
+    QMessageBox,
     QPushButton,
     QTableWidget,
     QTableWidgetItem,
@@ -28,6 +31,11 @@ from clinicdesk.app.application.usecases.dashboard_gestion import (
 )
 from clinicdesk.app.application.usecases.obtener_calidad_datos import ObtenerCalidadDatos
 from clinicdesk.app.application.usecases.dashboard_gestion_prediccion import CitaVigilarDTO
+from clinicdesk.app.application.usecases.centro_salud_operativa import (
+    FiltrosCentroSaludDTO,
+    ObtenerCentroSaludOperativa,
+)
+from clinicdesk.app.application.usecases.exportar_centro_salud_operativa_csv import exportar_centro_salud_operativa_csv
 from clinicdesk.app.application.citas.navigation_intent import CitasNavigationIntentDTO
 from clinicdesk.app.application.usecases.obtener_metricas_operativas import ObtenerMetricasOperativas
 from clinicdesk.app.application.usecases.obtener_resumen_telemetria_semana import ObtenerResumenTelemetriaSemana
@@ -57,6 +65,7 @@ class PageGestionDashboard(QWidget):
         self._uc_calidad_datos = ObtenerCalidadDatos(CalidadDatosQueries(container.connection))
         self._uc_telemetria = RegistrarTelemetria(container.telemetria_eventos_repo)
         self._uc_resumen_telemetria = ObtenerResumenTelemetriaSemana(TelemetriaEventosQueries(container.connection))
+        self._uc_centro_salud = ObtenerCentroSaludOperativa(DashboardGestionQueries(container.connection))
         self._build_ui()
         self._i18n.subscribe(self._retranslate)
         self._retranslate()
@@ -67,6 +76,7 @@ class PageGestionDashboard(QWidget):
     def _build_ui(self) -> None:
         root = QVBoxLayout(self)
         root.addLayout(self._build_filtros())
+        root.addWidget(self._build_centro_salud_operativa())
         root.addWidget(self._build_prediccion())
         root.addLayout(self._build_kpis())
         root.addWidget(self._build_alertas())
@@ -86,11 +96,31 @@ class PageGestionDashboard(QWidget):
             edit.dateChanged.connect(lambda _: self._forzar_personalizado())
         self.btn_actualizar = QPushButton()
         self.btn_actualizar.clicked.connect(self._cargar_dashboard)
+        self.cmb_medico = QComboBox()
+        self.cmb_sala = QComboBox()
+        self.cmb_estado = QComboBox()
+        self.btn_exportar_operativa = QPushButton()
+        self.btn_exportar_operativa.clicked.connect(self._exportar_operativa_csv)
         layout.addWidget(self.cmb_preset)
         layout.addWidget(self.date_desde)
         layout.addWidget(self.date_hasta)
+        layout.addWidget(self.cmb_medico)
+        layout.addWidget(self.cmb_sala)
+        layout.addWidget(self.cmb_estado)
         layout.addWidget(self.btn_actualizar)
+        layout.addWidget(self.btn_exportar_operativa)
         return layout
+
+    def _build_centro_salud_operativa(self) -> QGroupBox:
+        box = QGroupBox()
+        layout = QVBoxLayout(box)
+        self.lbl_operativa_kpis = QLabel("-")
+        self.lbl_operativa_kpis.setWordWrap(True)
+        self.lbl_operativa_alertas = QLabel("-")
+        self.lbl_operativa_alertas.setWordWrap(True)
+        layout.addWidget(self.lbl_operativa_kpis)
+        layout.addWidget(self.lbl_operativa_alertas)
+        return box
 
     def _build_prediccion(self) -> QGroupBox:
         box = QGroupBox()
@@ -216,6 +246,7 @@ class PageGestionDashboard(QWidget):
             self._mostrar_error(self._i18n.t("dashboard_gestion.estado.error"))
             return
         self._render_resultado(resultado)
+        self._render_centro_salud(resultado.desde, resultado.hasta)
         self._render_calidad_datos(resultado.desde, resultado.hasta)
         self._render_uso_semana()
 
@@ -305,6 +336,66 @@ class PageGestionDashboard(QWidget):
             self.lbl_calidad_alertas.setText(self._i18n.t("dashboard_gestion.calidad.todo_en_orden"))
             return
         self.lbl_calidad_alertas.setText("\n".join(f"• {self._i18n.t(item.i18n_key)}" for item in calidad.alertas))
+
+    def _render_centro_salud(self, desde_iso: str, hasta_iso: str) -> None:
+        filtros = FiltrosCentroSaludDTO(
+            desde=date.fromisoformat(desde_iso),
+            hasta=date.fromisoformat(hasta_iso),
+            medico_id=self._valor_combo(self.cmb_medico),
+            sala_id=self._valor_combo(self.cmb_sala),
+            estado=self._valor_texto(self.cmb_estado),
+        )
+        resultado = self._uc_centro_salud.execute(filtros)
+        self._ultimo_centro_salud = resultado
+        kpis = resultado.kpis
+        riesgo_medio = "-" if kpis.riesgo_medio_pct is None else f"{kpis.riesgo_medio_pct:.2f}%"
+        self.lbl_operativa_kpis.setText(
+            self._i18n.t(
+                "dashboard_gestion.operativa.kpis.resumen",
+                total=kpis.total_citas,
+                completadas=kpis.completadas,
+                pendientes=kpis.pendientes,
+                canceladas=kpis.canceladas_no_show,
+                tasa=f"{kpis.tasa_no_asistencia_pct:.2f}",
+                riesgo=riesgo_medio,
+            )
+        )
+        lineas = [
+            self._i18n.t(
+                "dashboard_gestion.operativa.alerta.linea",
+                severidad=self._i18n.t(f"dashboard_gestion.operativa.severidad.{a.severidad.lower()}"),
+                descripcion=self._i18n.t(a.i18n_key, total=a.total),
+            )
+            for a in resultado.alertas
+        ]
+        self.lbl_operativa_alertas.setText("\n".join(f"• {linea}" for linea in lineas))
+
+    def _exportar_operativa_csv(self) -> None:
+        resultado = getattr(self, "_ultimo_centro_salud", None)
+        if resultado is None:
+            return
+        ruta, _ = QFileDialog.getSaveFileName(
+            self,
+            self._i18n.t("dashboard_gestion.operativa.exportar.titulo"),
+            "centro_salud_operativa.csv",
+            "CSV (*.csv)",
+        )
+        if not ruta:
+            return
+        Path(ruta).write_text(exportar_centro_salud_operativa_csv(resultado), encoding="utf-8")
+        QMessageBox.information(
+            self, self._i18n.t("dashboard_gestion.titulo"), self._i18n.t("dashboard_gestion.operativa.exportar.ok")
+        )
+
+    @staticmethod
+    def _valor_combo(combo: QComboBox) -> int | None:
+        valor = combo.currentData()
+        return int(valor) if valor is not None else None
+
+    @staticmethod
+    def _valor_texto(combo: QComboBox) -> str | None:
+        valor = combo.currentData()
+        return str(valor) if valor else None
 
     def _abrir_citas_hoy(self) -> None:
         self._navegar_a("citas")
@@ -400,6 +491,7 @@ class PageGestionDashboard(QWidget):
         self.btn_ir_ausencias.setText(self._i18n.t("dashboard_gestion.btn.ir_prediccion_ausencias"))
         self.btn_ir_estimaciones_duracion.setText(self._i18n.t("dashboard_gestion.btn.ir_estimaciones"))
         self.btn_ir_estimaciones_espera.setText(self._i18n.t("dashboard_gestion.btn.ir_estimaciones"))
+        self.btn_exportar_operativa.setText(self._i18n.t("dashboard_gestion.operativa.btn.exportar_csv"))
         self._kpi_titles[0].setText(self._i18n.t("dashboard_gestion.kpi.volumen_diario"))
         self._kpi_titles[1].setText(self._i18n.t("dashboard_gestion.kpi.espera_media"))
         self._kpi_titles[2].setText(self._i18n.t("dashboard_gestion.kpi.duracion_media"))
@@ -430,6 +522,7 @@ class PageGestionDashboard(QWidget):
                 self._i18n.t("dashboard_gestion.citas_vigilar.accion"),
             ]
         )
+        self._llenar_filtros_operativos()
 
     def _llenar_presets(self) -> None:
         actual = self.cmb_preset.currentData() or PRESET_7_DIAS
@@ -443,3 +536,24 @@ class PageGestionDashboard(QWidget):
         self.cmb_preset.setCurrentIndex(idx)
         self.cmb_preset.blockSignals(False)
         self._on_cambio_preset()
+
+    def _llenar_filtros_operativos(self) -> None:
+        queries = DashboardGestionQueries(self._container.connection)
+        self.cmb_medico.blockSignals(True)
+        self.cmb_sala.blockSignals(True)
+        self.cmb_estado.blockSignals(True)
+        self.cmb_medico.clear()
+        self.cmb_sala.clear()
+        self.cmb_estado.clear()
+        self.cmb_medico.addItem(self._i18n.t("dashboard_gestion.operativa.filtro.todos_medicos"), None)
+        for item in queries.listar_medicos_filtro():
+            self.cmb_medico.addItem(item.etiqueta, item.valor)
+        self.cmb_sala.addItem(self._i18n.t("dashboard_gestion.operativa.filtro.todas_salas"), None)
+        for item in queries.listar_salas_filtro():
+            self.cmb_sala.addItem(item.etiqueta, item.valor)
+        self.cmb_estado.addItem(self._i18n.t("dashboard_gestion.operativa.filtro.todos_estados"), "")
+        for estado in ("PROGRAMADA", "CONFIRMADA", "EN_CURSO", "REALIZADA", "CANCELADA", "NO_PRESENTADO"):
+            self.cmb_estado.addItem(estado, estado)
+        self.cmb_medico.blockSignals(False)
+        self.cmb_sala.blockSignals(False)
+        self.cmb_estado.blockSignals(False)
