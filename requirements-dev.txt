@@ -2,6 +2,7 @@
 # Regenerar con: python -m scripts.lock_deps
 coverage==7.6.10
 -r requirements.txt
+httpx==0.28.1
 mypy==1.13.0
 pip-audit==2.7.3
 pip-tools==7.4.1
