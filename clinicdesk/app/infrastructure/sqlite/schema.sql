@@ -488,11 +488,14 @@ CREATE TABLE IF NOT EXISTS auditoria_accesos (
     entidad_tipo TEXT NOT NULL,
     entidad_id TEXT NOT NULL,
     metadata_json TEXT,
-    created_at_utc TEXT NOT NULL
+    created_at_utc TEXT NOT NULL,
+    prev_hash TEXT,
+    entry_hash TEXT NOT NULL DEFAULT ''
 );
 
 CREATE INDEX IF NOT EXISTS idx_auditoria_accesos_timestamp ON auditoria_accesos(timestamp_utc);
 CREATE INDEX IF NOT EXISTS idx_auditoria_accesos_accion_entidad ON auditoria_accesos(accion, entidad_tipo, entidad_id);
+CREATE INDEX IF NOT EXISTS idx_auditoria_accesos_entry_hash ON auditoria_accesos(entry_hash);
 
 -- ============================================================
 -- TELEMETRÍA DE USO (sin PII)
@@ -507,10 +510,13 @@ CREATE TABLE IF NOT EXISTS auditoria_eventos (
     actor_username TEXT NOT NULL,
     actor_role TEXT NOT NULL,
     correlation_id TEXT,
-    metadata_json TEXT
+    metadata_json TEXT,
+    prev_hash TEXT,
+    entry_hash TEXT NOT NULL DEFAULT ''
 );
 CREATE INDEX IF NOT EXISTS idx_auditoria_eventos_timestamp ON auditoria_eventos(timestamp_utc);
 CREATE INDEX IF NOT EXISTS idx_auditoria_eventos_action ON auditoria_eventos(action);
+CREATE INDEX IF NOT EXISTS idx_auditoria_eventos_entry_hash ON auditoria_eventos(entry_hash);
 
 CREATE TABLE IF NOT EXISTS telemetria_eventos (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
