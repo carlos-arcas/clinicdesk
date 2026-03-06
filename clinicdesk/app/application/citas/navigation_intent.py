@@ -16,6 +16,8 @@ class CitasNavigationIntentDTO:
     preset_rango: PresetRangoIntent = "HOY"
     cita_id_destino: int = 0
     filtro_calidad: FiltroCalidadIntent | None = None
+    estado_cita: str | None = None
+    incluir_riesgo: bool | None = None
     rango_desde: datetime | None = None
     rango_hasta: datetime | None = None
     preferir_pestana: PestanaCitasIntent | None = None
