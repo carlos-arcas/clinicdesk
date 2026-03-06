@@ -91,6 +91,17 @@ def _crear_failure_summary(
     resultado_app: subprocess.CompletedProcess[str] | None,
     reason_code: str,
 ) -> None:
+    def _returncode(resultado: subprocess.CompletedProcess[str] | None) -> int | None:
+        return None if resultado is None else resultado.returncode
+
+    def _lineas_resultado(
+        resultado: subprocess.CompletedProcess[str] | None,
+        *,
+        origen: str,
+    ) -> list[str]:
+        valor = "" if resultado is None else (getattr(resultado, origen) or "")
+        return primeras_lineas_redactadas(valor, max_lineas=MAX_LINEAS_DIAGNOSTICO)
+
     resumen = {
         "timestamp_utc": datetime.now(UTC).isoformat(),
         "python_version": sys.version,
@@ -99,28 +110,16 @@ def _crear_failure_summary(
         "comando_seed": comando_seed,
         "comando_app": comando_app,
         "returncodes": {
-            "seed": None if resultado_seed is None else resultado_seed.returncode,
-            "app": None if resultado_app is None else resultado_app.returncode,
+            "seed": _returncode(resultado_seed),
+            "app": _returncode(resultado_app),
         },
         "stdout_lineas": {
-            "seed": primeras_lineas_redactadas(
-                "" if resultado_seed is None else (resultado_seed.stdout or ""),
-                max_lineas=MAX_LINEAS_DIAGNOSTICO,
-            ),
-            "app": primeras_lineas_redactadas(
-                "" if resultado_app is None else (resultado_app.stdout or ""),
-                max_lineas=MAX_LINEAS_DIAGNOSTICO,
-            ),
+            "seed": _lineas_resultado(resultado_seed, origen="stdout"),
+            "app": _lineas_resultado(resultado_app, origen="stdout"),
         },
         "stderr_lineas": {
-            "seed": primeras_lineas_redactadas(
-                "" if resultado_seed is None else (resultado_seed.stderr or ""),
-                max_lineas=MAX_LINEAS_DIAGNOSTICO,
-            ),
-            "app": primeras_lineas_redactadas(
-                "" if resultado_app is None else (resultado_app.stderr or ""),
-                max_lineas=MAX_LINEAS_DIAGNOSTICO,
-            ),
+            "seed": _lineas_resultado(resultado_seed, origen="stderr"),
+            "app": _lineas_resultado(resultado_app, origen="stderr"),
         },
         "reason_code": reason_code,
     }
