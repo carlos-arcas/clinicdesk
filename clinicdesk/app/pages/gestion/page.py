@@ -37,6 +37,11 @@ from clinicdesk.app.application.usecases.centro_salud_operativa import (
 )
 from clinicdesk.app.application.usecases.exportar_centro_salud_operativa_csv import exportar_centro_salud_operativa_csv
 from clinicdesk.app.application.citas.navigation_intent import CitasNavigationIntentDTO
+from clinicdesk.app.application.usecases.centro_salud_operativa_drilldown import (
+    DrilldownAccionDTO,
+    construir_accion_alerta,
+    construir_acciones_kpi,
+)
 from clinicdesk.app.application.usecases.obtener_metricas_operativas import ObtenerMetricasOperativas
 from clinicdesk.app.application.usecases.obtener_resumen_telemetria_semana import ObtenerResumenTelemetriaSemana
 from clinicdesk.app.application.usecases.registrar_telemetria import RegistrarTelemetria
@@ -118,8 +123,12 @@ class PageGestionDashboard(QWidget):
         self.lbl_operativa_kpis.setWordWrap(True)
         self.lbl_operativa_alertas = QLabel("-")
         self.lbl_operativa_alertas.setWordWrap(True)
+        self._layout_acciones_kpi = QVBoxLayout()
+        self._layout_acciones_alerta = QVBoxLayout()
         layout.addWidget(self.lbl_operativa_kpis)
+        layout.addLayout(self._layout_acciones_kpi)
         layout.addWidget(self.lbl_operativa_alertas)
+        layout.addLayout(self._layout_acciones_alerta)
         return box
 
     def _build_prediccion(self) -> QGroupBox:
@@ -369,6 +378,65 @@ class PageGestionDashboard(QWidget):
             for a in resultado.alertas
         ]
         self.lbl_operativa_alertas.setText("\n".join(f"• {linea}" for linea in lineas))
+        self._render_drilldown_kpis(filtros, riesgo_disponible=kpis.riesgo_medio_pct is not None)
+        self._render_drilldown_alertas(filtros, resultado.alertas)
+
+    def _render_drilldown_kpis(self, filtros: FiltrosCentroSaludDTO, *, riesgo_disponible: bool) -> None:
+        self._limpiar_layout(self._layout_acciones_kpi)
+        for accion in construir_acciones_kpi(filtros, riesgo_disponible=riesgo_disponible):
+            self._layout_acciones_kpi.addWidget(self._crear_fila_drilldown(accion))
+
+    def _render_drilldown_alertas(self, filtros: FiltrosCentroSaludDTO, alertas: tuple) -> None:
+        self._limpiar_layout(self._layout_acciones_alerta)
+        for alerta in alertas:
+            accion = construir_accion_alerta(alerta, filtros)
+            self._layout_acciones_alerta.addWidget(self._crear_fila_drilldown(accion, total=alerta.total))
+
+    def _crear_fila_drilldown(self, accion: DrilldownAccionDTO, *, total: int | None = None) -> QWidget:
+        fila = QWidget(self)
+        layout = QHBoxLayout(fila)
+        texto = self._i18n.t(accion.descripcion_i18n_key)
+        if total is not None:
+            texto = self._i18n.t(accion.descripcion_i18n_key, total=total)
+        label = QLabel(texto)
+        layout.addWidget(label)
+        boton = QPushButton(self._i18n.t(accion.accion_i18n_key))
+        boton.setEnabled(accion.disponible)
+        if accion.disponible:
+            boton.clicked.connect(lambda _=False, item=accion: self._ejecutar_drilldown(item))
+        elif accion.motivo_no_disponible_i18n_key:
+            boton.setToolTip(self._i18n.t(accion.motivo_no_disponible_i18n_key))
+        layout.addWidget(boton)
+        return fila
+
+    @staticmethod
+    def _limpiar_layout(layout: QVBoxLayout) -> None:
+        while layout.count():
+            item = layout.takeAt(0)
+            widget = item.widget()
+            if widget is not None:
+                widget.deleteLater()
+
+    def _ejecutar_drilldown(self, accion: DrilldownAccionDTO) -> None:
+        if not accion.disponible or accion.destino is None:
+            self.lbl_estado.setText(self._i18n.t("dashboard_gestion.operativa.drilldown.no_disponible"))
+            self._registrar_telemetria(
+                "gestion_centro_salud_drilldown",
+                contexto=f"origen=centro_salud_operativa;tipo={accion.tipo};clave={accion.clave};resultado=sin_destino",
+            )
+            return
+        try:
+            self._navegar_a(accion.destino, intent=accion.intent_citas)
+            self._registrar_telemetria(
+                "gestion_centro_salud_drilldown",
+                contexto=f"origen=centro_salud_operativa;tipo={accion.tipo};clave={accion.clave};destino={accion.destino};resultado=ok",
+            )
+        except Exception:
+            self.lbl_estado.setText(self._i18n.t("dashboard_gestion.operativa.drilldown.error"))
+            self._registrar_telemetria(
+                "gestion_centro_salud_drilldown",
+                contexto=f"origen=centro_salud_operativa;tipo={accion.tipo};clave={accion.clave};destino={accion.destino};resultado=error",
+            )
 
     def _exportar_operativa_csv(self) -> None:
         resultado = getattr(self, "_ultimo_centro_salud", None)

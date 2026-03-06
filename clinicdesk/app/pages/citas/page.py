@@ -278,14 +278,16 @@ class PageCitas(QWidget):
         self._intent_navegacion_pendiente = intent
         self._filtros_aplicados = FiltrosCitasDTO(
             rango_preset=intent.preset_rango,
-            desde=self._filtros_aplicados.desde,
-            hasta=self._filtros_aplicados.hasta,
+            desde=intent.rango_desde or self._filtros_aplicados.desde,
+            hasta=intent.rango_hasta or self._filtros_aplicados.hasta,
             texto_busqueda=self._filtros_aplicados.texto_busqueda,
-            estado_cita=self._filtros_aplicados.estado_cita,
+            estado_cita=intent.estado_cita if intent.estado_cita is not None else self._filtros_aplicados.estado_cita,
             medico_id=self._filtros_aplicados.medico_id,
             sala_id=self._filtros_aplicados.sala_id,
             paciente_id=self._filtros_aplicados.paciente_id,
-            incluir_riesgo=self._filtros_aplicados.incluir_riesgo,
+            incluir_riesgo=(
+                intent.incluir_riesgo if intent.incluir_riesgo is not None else self._filtros_aplicados.incluir_riesgo
+            ),
             recordatorio_filtro=self._filtros_aplicados.recordatorio_filtro,
             limit=self._filtros_aplicados.limit,
             offset=self._filtros_aplicados.offset,
