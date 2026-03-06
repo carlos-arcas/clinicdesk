@@ -38,10 +38,10 @@ def test_checklist_funcional_tiene_estructura_minima_valida() -> None:
         ):
             assert campo in funcion, f"funciones[{indice}] debe incluir el campo `{campo}`"
 
-        function_id = funcion["id"]
-        assert isinstance(function_id, str) and function_id.strip(), f"funciones[{indice}].id debe ser string no vacío"
-        assert function_id not in ids, f"ID duplicado detectado: {function_id}"
-        ids.add(function_id)
+        id_funcion = funcion["id"]
+        assert isinstance(id_funcion, str) and id_funcion.strip(), f"funciones[{indice}].id debe ser string no vacío"
+        assert id_funcion not in ids, f"ID duplicado detectado: {id_funcion}"
+        ids.add(id_funcion)
 
         assert funcion["estado_global"] in ESTADOS_PERMITIDOS, (
             f"funciones[{indice}].estado_global debe pertenecer a {sorted(ESTADOS_PERMITIDOS)}"
