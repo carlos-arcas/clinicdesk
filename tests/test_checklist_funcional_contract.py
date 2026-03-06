@@ -26,7 +26,16 @@ def test_checklist_funcional_tiene_estructura_minima_valida() -> None:
     for indice, funcion in enumerate(funciones, start=1):
         assert isinstance(funcion, dict), f"funciones[{indice}] debe ser un objeto"
 
-        for campo in ("id", "nombre", "descripcion", "prioridad", "estado_global", "desglose", "evidencias", "observaciones"):
+        for campo in (
+            "id",
+            "nombre",
+            "descripcion",
+            "prioridad",
+            "estado_global",
+            "desglose",
+            "evidencias",
+            "observaciones",
+        ):
             assert campo in funcion, f"funciones[{indice}] debe incluir el campo `{campo}`"
 
         function_id = funcion["id"]
