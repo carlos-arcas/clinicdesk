@@ -1,0 +1,166 @@
+{
+  "version": 1,
+  "ultima_actualizacion": "2026-03-06",
+  "estados_permitidos": [
+    "Verificada",
+    "Parcial",
+    "No verificada",
+    "No implementada"
+  ],
+  "ruta_critica_principal": [
+    "FTR-001",
+    "FTR-002",
+    "FTR-003",
+    "FTR-004",
+    "FTR-005",
+    "FTR-006"
+  ],
+  "funciones": [
+    {
+      "id": "FTR-001",
+      "nombre": "Se puede lanzar la demo operativa",
+      "descripcion": "Permite sembrar datos demo y abrir la app desde un comando único para arrancar un flujo usable.",
+      "prioridad": "Alta",
+      "estado_global": "Parcial",
+      "desglose": {
+        "logica": "Verificada",
+        "ui": "No verificada",
+        "validaciones_seguridad": "Parcial",
+        "e2e": "No verificada"
+      },
+      "evidencias": [
+        "scripts/run_demo.py",
+        "tests/test_run_demo.py"
+      ],
+      "observaciones": "La orquestación y manejo de fallos está probada; no hay evidencia de E2E GUI real pasando en CI para este flujo completo."
+    },
+    {
+      "id": "FTR-002",
+      "nombre": "Se puede consultar healthcheck del servicio web",
+      "descripcion": "Expone /healthz para verificar disponibilidad del proceso web y respuesta mínima JSON.",
+      "prioridad": "Alta",
+      "estado_global": "Verificada",
+      "desglose": {
+        "logica": "Verificada",
+        "ui": "No implementada",
+        "validaciones_seguridad": "Parcial",
+        "e2e": "Parcial"
+      },
+      "evidencias": [
+        "clinicdesk/web/healthz.py",
+        "tests/test_healthz.py"
+      ],
+      "observaciones": "Cobertura de contrato HTTP básico presente; falta evidencia de hardening adicional (auth/rate-limit) para marcar validaciones como Verificada."
+    },
+    {
+      "id": "FTR-003",
+      "nombre": "Se puede autenticar usuario y bloquear tras intentos fallidos",
+      "descripcion": "Gestiona hash de credenciales y aplica bloqueo temporal cuando se exceden intentos de login fallidos.",
+      "prioridad": "Alta",
+      "estado_global": "Verificada",
+      "desglose": {
+        "logica": "Verificada",
+        "ui": "No verificada",
+        "validaciones_seguridad": "Verificada",
+        "e2e": "No verificada"
+      },
+      "evidencias": [
+        "clinicdesk/app/security/auth.py",
+        "tests/test_auth_service.py"
+      ],
+      "observaciones": "El contrato del servicio de autenticación está cubierto unitariamente; no se confirmó flujo integral con pantalla de login en esta iteración."
+    },
+    {
+      "id": "FTR-004",
+      "nombre": "Se puede crear y consultar citas clínicas",
+      "descripcion": "Permite crear citas con validaciones de negocio y listarlas por fecha o rango temporal.",
+      "prioridad": "Alta",
+      "estado_global": "Parcial",
+      "desglose": {
+        "logica": "Verificada",
+        "ui": "Parcial",
+        "validaciones_seguridad": "Parcial",
+        "e2e": "No verificada"
+      },
+      "evidencias": [
+        "clinicdesk/app/application/usecases/crear_cita.py",
+        "tests/test_citas.py",
+        "tests/ui/test_pacientes_viewmodel_puro.py"
+      ],
+      "observaciones": "Hay cobertura robusta de caso de uso y queries; la verificación UI existe en componentes aislados, sin E2E extremo a extremo confirmado para el ciclo completo de agenda."
+    },
+    {
+      "id": "FTR-005",
+      "nombre": "Se puede ejecutar pipeline ML de riesgo de citas",
+      "descripcion": "Soporta construcción de dataset, entrenamiento, scoring y control de drift de forma reproducible.",
+      "prioridad": "Alta",
+      "estado_global": "Parcial",
+      "desglose": {
+        "logica": "Verificada",
+        "ui": "No verificada",
+        "validaciones_seguridad": "Parcial",
+        "e2e": "No verificada"
+      },
+      "evidencias": [
+        "tests/test_ml_training.py",
+        "tests/test_train_calibration_integration.py",
+        "tests/test_drift_report.py"
+      ],
+      "observaciones": "Core analítico con buena cobertura; no hay evidencia en este corte de un escenario E2E automatizado que recorra UI + pipeline completo."
+    },
+    {
+      "id": "FTR-006",
+      "nombre": "Se puede exportar KPIs y resultados en CSV",
+      "descripcion": "Genera artefactos CSV contractuales para BI con métricas de entrenamiento, scoring y drift.",
+      "prioridad": "Alta",
+      "estado_global": "Verificada",
+      "desglose": {
+        "logica": "Verificada",
+        "ui": "No implementada",
+        "validaciones_seguridad": "Parcial",
+        "e2e": "Parcial"
+      },
+      "evidencias": [
+        "clinicdesk/app/application/usecases/export_kpis_csv.py",
+        "tests/test_export_kpis_csv.py"
+      ],
+      "observaciones": "Contrato de exportación probado; pendiente verificar consumo E2E con herramienta externa de reporting en entorno automatizado."
+    },
+    {
+      "id": "FTR-007",
+      "nombre": "Se puede exportar auditoría de accesos con controles",
+      "descripcion": "Permite exportar accesos auditables aplicando RBAC, límites defensivos y controles sobre PII.",
+      "prioridad": "Media",
+      "estado_global": "Verificada",
+      "desglose": {
+        "logica": "Verificada",
+        "ui": "No implementada",
+        "validaciones_seguridad": "Verificada",
+        "e2e": "Parcial"
+      },
+      "evidencias": [
+        "clinicdesk/app/application/usecases/exportar_auditoria_csv.py",
+        "tests/test_exportar_auditoria_csv_usecase.py"
+      ],
+      "observaciones": "Reglas de autorización y sanitización están cubiertas; falta test de flujo completo desde punto de acceso final de usuario."
+    },
+    {
+      "id": "FTR-008",
+      "nombre": "Se puede rotar claves criptográficas de campos sensibles",
+      "descripcion": "CLI de seguridad para recifrar PII con modo dry-run/apply y registro de auditoría.",
+      "prioridad": "Media",
+      "estado_global": "Parcial",
+      "desglose": {
+        "logica": "Verificada",
+        "ui": "No implementada",
+        "validaciones_seguridad": "Verificada",
+        "e2e": "No verificada"
+      },
+      "evidencias": [
+        "scripts/security_cli.py",
+        "tests/test_security_cli.py"
+      ],
+      "observaciones": "Cobertura fuerte de contrato CLI y no exposición de PII; no hay escenario E2E operacional de rotación dentro de despliegue real automatizado."
+    }
+  ]
+}
