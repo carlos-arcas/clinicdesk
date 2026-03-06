@@ -1,34 +1,15 @@
 services:
-  db:
-    image: postgres:16
+  clinicdesk-api:
+    build:
+      context: .
+      dockerfile: docker/api/Dockerfile
     environment:
-      POSTGRES_DB: ${DB_NAME:-clinicdesk}
-      POSTGRES_USER: ${DB_USER:-clinicdesk}
-      POSTGRES_PASSWORD: ${DB_PASSWORD:-clinicdesk}
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-clinicdesk} -d ${DB_NAME:-clinicdesk}"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
-  web:
-    build: .
-    env_file:
-      - .env
-    environment:
-      APP_PORT: ${APP_PORT:-8000}
-      DB_HOST: db
-      DB_PORT: ${DB_PORT:-5432}
-      DB_NAME: ${DB_NAME:-clinicdesk}
-      DB_USER: ${DB_USER:-clinicdesk}
-      DB_PASSWORD: ${DB_PASSWORD:-clinicdesk}
+      CLINICDESK_API_KEY: dev_key_demo
+      CLINICDESK_DB_PATH: /data/clinicdesk_demo.db
     ports:
-      - "${APP_PORT:-8000}:8000"
-    depends_on:
-      db:
-        condition: service_healthy
+      - "8000:8000"
+    volumes:
+      - clinicdesk_api_data:/data
 
 volumes:
-  postgres_data:
+  clinicdesk_api_data:

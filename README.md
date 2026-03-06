@@ -166,30 +166,43 @@ python scripts/setup.py
 python scripts/run_app.py
 ```
 
-### Deploy con Docker
-
-1) Copia variables de entorno:
-
-```bash
-cp .env.example .env
-```
-
-2) Levanta base de datos + servicio web:
+### Deploy con Docker (API demo)
 
 ```bash
 docker compose up --build
 ```
 
-3) Verifica healthcheck:
+Verifica healthcheck:
 
 ```bash
 curl http://localhost:8000/healthz
 ```
 
 
-## API demo (opcional)
+## Docker (API demo)
 
 Esta API REST es **read-only** y pensada para portfolio. No expone PII en claro: documento/teléfono/email y nombre de paciente se devuelven redaccionados.
+
+Levantar demo local con un comando:
+
+```bash
+docker compose up --build
+```
+
+Verificación rápida:
+
+```bash
+curl http://localhost:8000/healthz
+curl -H "X-API-Key: dev_key_demo" "http://localhost:8000/api/v1/citas?desde=2026-01-01&hasta=2026-01-31&estado=PENDIENTE&texto=control"
+```
+
+Variables por defecto en `docker-compose.yml`:
+- `CLINICDESK_API_KEY=dev_key_demo`
+- `CLINICDESK_DB_PATH=/data/clinicdesk_demo.db`
+
+## API demo (opcional)
+
+También puedes arrancar sin Docker:
 
 - Arranque API: `python -m clinicdesk.web.api.serve`
 - Arranque health mínimo legacy (solo `/healthz`): `python -m clinicdesk.web.serve_health`

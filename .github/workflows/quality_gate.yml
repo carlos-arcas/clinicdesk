@@ -393,3 +393,15 @@ jobs:
           name: clinicdesk-release-bundle
           path: dist/*.zip
           if-no-files-found: error
+
+  docker_api_build:
+    name: docker_api_build (non-blocking)
+    runs-on: ubuntu-latest
+    continue-on-error: true
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build Docker API image
+        run: docker build -f docker/api/Dockerfile .
