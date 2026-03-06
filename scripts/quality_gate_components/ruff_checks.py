@@ -117,13 +117,16 @@ def _diagnosticar_fallo_formato(root: Path) -> None:
     )
     _persistir_diff_ruff(root, contenido)
     _imprimir_diff_en_logs(root)
-    if resultado.returncode != 0:
-        _LOGGER.error(
-            "ruff_format_diff_fallo",
+    if resultado.returncode in (0, 1):
+        _LOGGER.info(
+            "ruff_format_diff_ok",
             extra={"returncode": resultado.returncode, "ruta": str(root / RUTA_ARTEFACTO_DIFF_RUFF)},
         )
         return
-    _LOGGER.info("ruff_format_diff_ok", extra={"ruta": str(root / RUTA_ARTEFACTO_DIFF_RUFF)})
+    _LOGGER.error(
+        "ruff_format_diff_fallo",
+        extra={"returncode": resultado.returncode, "ruta": str(root / RUTA_ARTEFACTO_DIFF_RUFF)},
+    )
 
 
 def run_required_ruff_checks(repo_root: Path | None = None) -> int:

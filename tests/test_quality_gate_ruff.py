@@ -70,7 +70,7 @@ def test_genera_diff_y_artefacto_si_format_check_falla(monkeypatch: pytest.Monke
         if command[3:5] == ["format", "--check"]:
             return _Resultado(returncode=1)
         if command[3:5] == ["format", "--diff"]:
-            return _Resultado(returncode=0, stdout="--- diff ---", stderr="")
+            return _Resultado(returncode=1, stdout="--- diff ---", stderr="")
         raise AssertionError(f"Comando inesperado: {command}")
 
     monkeypatch.setattr(ruff_checks.subprocess, "run", fake_run)
@@ -89,7 +89,7 @@ def test_genera_diff_y_artefacto_si_format_check_falla(monkeypatch: pytest.Monke
     ]
     artefacto = (tmp_path / "docs" / "ruff_format_diff.txt").read_text(encoding="utf-8")
     assert "--- diff ---" in artefacto
-    assert "returncode: 0" in artefacto
+    assert "returncode: 1" in artefacto
 
 
 def test_imprime_diff_en_logs_con_delimitadores(monkeypatch: pytest.MonkeyPatch, caplog, tmp_path: Path) -> None:
@@ -117,6 +117,55 @@ def test_imprime_diff_en_logs_con_delimitadores(monkeypatch: pytest.MonkeyPatch,
     assert ruff_checks.DELIMITADOR_INICIO_DIFF in texto
     assert "linea diff" in texto
     assert ruff_checks.DELIMITADOR_FIN_DIFF in texto
+
+
+def test_diff_con_returncode_uno_no_loguea_error_falso(monkeypatch: pytest.MonkeyPatch, caplog, tmp_path: Path) -> None:
+    (tmp_path / "pyproject.toml").write_text("[tool.ruff]\n", encoding="utf-8")
+    monkeypatch.setattr(ruff_checks, "obtener_targets_python", lambda _: ["scripts/a.py"])
+
+    def fake_run(command, **kwargs):
+        if command[:4] == [sys.executable, "-m", "ruff", "--version"]:
+            return _Resultado(returncode=0, stdout="ruff 0.12.0")
+        if command[3] == "check":
+            return _Resultado(returncode=0)
+        if command[3:5] == ["format", "--check"]:
+            return _Resultado(returncode=1)
+        if command[3:5] == ["format", "--diff"]:
+            return _Resultado(returncode=1, stdout="diff valido", stderr="")
+        raise AssertionError(f"Comando inesperado: {command}")
+
+    monkeypatch.setattr(ruff_checks.subprocess, "run", fake_run)
+
+    with caplog.at_level("INFO"):
+        rc = ruff_checks.run_required_ruff_checks(tmp_path)
+
+    assert rc == 1
+    assert "ruff_format_diff_fallo" not in caplog.text
+    assert "ruff_format_diff_ok" in caplog.text
+
+
+def test_diff_loguea_error_cuando_falla_realmente(monkeypatch: pytest.MonkeyPatch, caplog, tmp_path: Path) -> None:
+    (tmp_path / "pyproject.toml").write_text("[tool.ruff]\n", encoding="utf-8")
+    monkeypatch.setattr(ruff_checks, "obtener_targets_python", lambda _: ["scripts/a.py"])
+
+    def fake_run(command, **kwargs):
+        if command[:4] == [sys.executable, "-m", "ruff", "--version"]:
+            return _Resultado(returncode=0, stdout="ruff 0.12.0")
+        if command[3] == "check":
+            return _Resultado(returncode=0)
+        if command[3:5] == ["format", "--check"]:
+            return _Resultado(returncode=1)
+        if command[3:5] == ["format", "--diff"]:
+            return _Resultado(returncode=2, stdout="", stderr="fallo de ejecucion")
+        raise AssertionError(f"Comando inesperado: {command}")
+
+    monkeypatch.setattr(ruff_checks.subprocess, "run", fake_run)
+
+    with caplog.at_level("ERROR"):
+        rc = ruff_checks.run_required_ruff_checks(tmp_path)
+
+    assert rc == 1
+    assert "ruff_format_diff_fallo" in caplog.text
 
 
 def test_trunca_diff_largo_de_forma_estable() -> None:
