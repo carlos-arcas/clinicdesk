@@ -32,6 +32,9 @@ from clinicdesk.app.infrastructure.sqlite.pii_crypto import (
 from clinicdesk.app.infrastructure.sqlite.sqlite_connection_config import (
     configurar_conexion,
 )
+from clinicdesk.app.infrastructure.sqlite.auditoria_integridad import (
+    ensure_auditoria_integridad_schema,
+)
 from clinicdesk.app.bootstrap_logging import get_logger
 
 
@@ -94,6 +97,7 @@ def apply_schema(con: sqlite3.Connection, schema_path: Path) -> None:
     ensure_pacientes_field_crypto_columns(con)
     ensure_medicos_field_crypto_columns(con)
     ensure_personal_field_crypto_columns(con)
+    ensure_auditoria_integridad_schema(con)
     migrate_existing_pii_data(con)
     con.commit()
 
