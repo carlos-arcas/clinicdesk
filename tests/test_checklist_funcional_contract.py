@@ -43,23 +43,23 @@ def test_checklist_funcional_tiene_estructura_minima_valida() -> None:
         assert id_funcion not in ids, f"ID duplicado detectado: {id_funcion}"
         ids.add(id_funcion)
 
-        assert funcion["estado_global"] in ESTADOS_PERMITIDOS, (
-            f"funciones[{indice}].estado_global debe pertenecer a {sorted(ESTADOS_PERMITIDOS)}"
-        )
+        assert (
+            funcion["estado_global"] in ESTADOS_PERMITIDOS
+        ), f"funciones[{indice}].estado_global debe pertenecer a {sorted(ESTADOS_PERMITIDOS)}"
 
         desglose = funcion["desglose"]
         assert isinstance(desglose, dict), f"funciones[{indice}].desglose debe ser objeto"
         for dimension in ("logica", "ui", "validaciones_seguridad", "e2e"):
             assert dimension in desglose, f"funciones[{indice}].desglose debe incluir `{dimension}`"
-            assert desglose[dimension] in ESTADOS_PERMITIDOS, (
-                f"funciones[{indice}].desglose.{dimension} debe pertenecer a {sorted(ESTADOS_PERMITIDOS)}"
-            )
+            assert (
+                desglose[dimension] in ESTADOS_PERMITIDOS
+            ), f"funciones[{indice}].desglose.{dimension} debe pertenecer a {sorted(ESTADOS_PERMITIDOS)}"
 
         evidencias = funcion["evidencias"]
         assert isinstance(evidencias, list) and evidencias, f"funciones[{indice}].evidencias debe ser lista no vacía"
-        assert all(isinstance(item, str) and item.strip() for item in evidencias), (
-            f"funciones[{indice}].evidencias debe contener strings no vacíos"
-        )
+        assert all(
+            isinstance(item, str) and item.strip() for item in evidencias
+        ), f"funciones[{indice}].evidencias debe contener strings no vacíos"
 
     ruta_critica = data.get("ruta_critica_principal")
     assert isinstance(ruta_critica, list), "Debe existir `ruta_critica_principal` como lista"
