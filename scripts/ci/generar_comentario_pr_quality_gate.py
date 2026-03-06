@@ -115,6 +115,12 @@ def generar_markdown(gate_outcome: str, run_url: str) -> str:
     secrets_tail = leer_lineas_tail(RUTA_SECRETS)
     cobertura = obtener_cobertura()
     ruff_diff = "disponible" if RUTA_RUFF_FORMAT_DIFF.exists() else "no generado"
+    nota_ruff = (
+        "Diff Ruff disponible inline en logs (bloque BEGIN/END RUFF FORMAT DIFF) y en artefacto"
+        " `docs/ruff_format_diff.txt`."
+        if ruff_diff == "disponible"
+        else "Sin diff Ruff generado."
+    )
 
     return "\n".join(
         [
@@ -125,6 +131,7 @@ def generar_markdown(gate_outcome: str, run_url: str) -> str:
             f"- **Run:** {run_url or '(no disponible)'}",
             f"- **Coverage:** `{cobertura}`",
             f"- **Ruff format diff artifact:** `{ruff_diff}`",
+            f"- **Ruff diff logs/artifact:** {nota_ruff}",
             "",
             "### quality_report.md (top 40 líneas)",
             "```text",

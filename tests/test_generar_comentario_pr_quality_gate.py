@@ -24,6 +24,17 @@ def test_indica_diff_ruff_disponible(tmp_path: Path, monkeypatch) -> None:
     salida = modulo.generar_markdown("failure", "https://run")
 
     assert "**Ruff format diff artifact:** `disponible`" in salida
+    assert "BEGIN/END RUFF FORMAT DIFF" in salida
+    assert "docs/ruff_format_diff.txt" in salida
+
+
+def test_indica_diff_ruff_no_generado_con_mensaje_sobrio(tmp_path: Path, monkeypatch) -> None:
+    _apuntar_rutas_tmp(tmp_path, monkeypatch)
+
+    salida = modulo.generar_markdown("failure", "https://run")
+
+    assert "**Ruff format diff artifact:** `no generado`" in salida
+    assert "Sin diff Ruff generado." in salida
 
 
 def test_recorta_head_y_tail(tmp_path: Path, monkeypatch) -> None:
