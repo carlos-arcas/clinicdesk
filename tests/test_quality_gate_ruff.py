@@ -278,3 +278,26 @@ def test_falla_si_ruff_no_coincide_con_pin(monkeypatch: pytest.MonkeyPatch, tmp_
 
     assert ruff_checks.run_required_ruff_checks(tmp_path) == 1
     assert comandos == [[sys.executable, "-m", "ruff", "--version"]]
+
+
+
+def test_extrae_pin_ruff_con_espacios_y_comentario() -> None:
+    assert ruff_checks._extraer_version_ruff_pinneada_desde_linea("ruff == 0.8.4   # pin-ci") == "0.8.4"
+
+
+def test_log_de_desalineacion_indica_comando_de_instalacion(
+    monkeypatch: pytest.MonkeyPatch, caplog, tmp_path: Path
+) -> None:
+    (tmp_path / "pyproject.toml").write_text("[tool.ruff]\n", encoding="utf-8")
+    (tmp_path / "requirements-dev.txt").write_text("ruff==0.8.4\n", encoding="utf-8")
+
+    def fake_run(command, **kwargs):
+        return _Resultado(returncode=0, stdout="ruff 0.14.11")
+
+    monkeypatch.setattr(ruff_checks.subprocess, "run", fake_run)
+
+    with caplog.at_level("ERROR"):
+        rc = ruff_checks.run_required_ruff_checks(tmp_path)
+
+    assert rc == 1
+    assert "python -m pip install -r requirements-dev.txt" in caplog.text
