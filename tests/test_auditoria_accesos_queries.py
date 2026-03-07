@@ -150,3 +150,25 @@ def test_resumen_y_exportacion_queries(db_connection) -> None:
     export_rows = queries.exportar_auditoria_accesos(FiltrosAuditoriaAccesos(usuario_contiene="ana"), max_filas=1)
     assert len(export_rows) == 1
     assert export_rows[0].usuario == "ana"
+
+
+def test_buscar_auditoria_accesos_redacta_pii_historica_en_usuario_y_entidad_id(db_connection) -> None:
+    _insert_auditoria_row(
+        db_connection,
+        timestamp_utc="2026-03-10T09:00:00+00:00",
+        usuario="persona@example.com",
+        accion="VER_HISTORIAL_PACIENTE",
+        entidad_tipo="PACIENTE",
+        entidad_id="dni=12345678Z hc:ABC-123",
+    )
+    queries = AuditoriaAccesosQueries(db_connection)
+
+    items, total = queries.buscar_auditoria_accesos(FiltrosAuditoriaAccesos(), limit=10, offset=0)
+
+    assert total == 1
+    assert "persona@example.com" not in items[0].usuario
+    assert "12345678Z" not in items[0].entidad_id
+    assert "ABC-123" not in items[0].entidad_id
+    assert "[REDACTED_EMAIL]" in items[0].usuario
+    assert "[REDACTED_DNI_NIF]" in items[0].entidad_id
+    assert "[REDACTED_HISTORIA_CLINICA]" in items[0].entidad_id

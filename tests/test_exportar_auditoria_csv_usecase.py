@@ -128,3 +128,49 @@ def test_exportar_auditoria_csv_pii_requiere_confirmacion(monkeypatch: pytest.Mo
         usecase.execute(FiltrosAuditoriaAccesos(accion="VER_DETALLE_CITA"), incluir_pii=True)
 
     assert repo.events[-1].metadata["reason_code"] == "confirmation_required"
+
+
+def test_exportar_auditoria_csv_redacta_pii_historica() -> None:
+    rows = [
+        AuditoriaAccesoItemQuery(
+            timestamp_utc="2026-01-01T08:00:00+00:00",
+            usuario="paciente@example.com",
+            modo_demo=False,
+            accion="VER_HISTORIAL_PACIENTE",
+            entidad_tipo="PACIENTE",
+            entidad_id="historia clinica HC-77881, dni=12345678Z",
+        )
+    ]
+    usecase = ExportarAuditoriaCSV(GatewayFake(total=1, rows=rows))
+
+    dto = usecase.execute(FiltrosAuditoriaAccesos(accion="VER_DETALLE_CITA"))
+
+    assert "paciente@example.com" not in dto.csv_texto
+    assert "12345678Z" not in dto.csv_texto
+    assert "HC-77881" not in dto.csv_texto
+    assert "[REDACTED_EMAIL]" in dto.csv_texto
+    assert "[REDACTED_DNI_NIF]" in dto.csv_texto
+    assert "[REDACTED_HISTORIA_CLINICA]" in dto.csv_texto
+
+
+def test_exportar_auditoria_csv_redacta_estructuras_anidadas_en_serializacion() -> None:
+    rows = [
+        {
+            "timestamp_utc": "2026-01-01T08:00:00+00:00",
+            "usuario": "ana",
+            "modo_demo": False,
+            "accion": "VER_HISTORIAL_PACIENTE",
+            "entidad_tipo": "PACIENTE",
+            "entidad_id": {
+                "historia_clinica": "HC-999",
+                "extra": {"telefono": "+34 600 111 222", "detalle": "ok"},
+            },
+        }
+    ]
+    usecase = ExportarAuditoriaCSV(GatewayFake(total=1, rows=rows))
+
+    dto = usecase.execute(FiltrosAuditoriaAccesos(accion="VER_DETALLE_CITA"))
+
+    assert "HC-999" not in dto.csv_texto
+    assert "+34 600 111 222" not in dto.csv_texto
+    assert "[REDACTED_FIELD]" in dto.csv_texto

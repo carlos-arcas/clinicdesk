@@ -7,6 +7,7 @@ from typing import Any
 import sqlite3
 
 from clinicdesk.app.bootstrap_logging import get_logger
+from clinicdesk.app.common.redaccion_pii import sanear_valor_pii
 from clinicdesk.app.common.search_utils import normalize_search_text
 
 LOGGER = get_logger(__name__)
@@ -191,11 +192,13 @@ def _to_iso(value: str | datetime | None) -> str | None:
 
 
 def _map_row(row: sqlite3.Row) -> AuditoriaAccesoItemQuery:
+    usuario, _ = sanear_valor_pii(row["usuario"], clave="usuario")
+    entidad_id, _ = sanear_valor_pii(row["entidad_id"], clave="entidad_id")
     return AuditoriaAccesoItemQuery(
         timestamp_utc=row["timestamp_utc"],
-        usuario=row["usuario"],
+        usuario=str(usuario),
         modo_demo=bool(row["modo_demo"]),
         accion=row["accion"],
         entidad_tipo=row["entidad_tipo"],
-        entidad_id=row["entidad_id"],
+        entidad_id=str(entidad_id),
     )
