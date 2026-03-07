@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import csv
 import errno
+import json
 import os
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -15,6 +16,7 @@ from clinicdesk.app.application.usecases.filtros_auditoria import (
     redactar_texto_filtro_auditoria,
 )
 from clinicdesk.app.bootstrap_logging import get_logger
+from clinicdesk.app.common.redaccion_pii import sanear_valor_pii
 from clinicdesk.app.queries.auditoria_accesos_queries import AuditoriaAccesoItemQuery, FiltrosAuditoriaAccesos
 
 COLUMNAS_EXPORTACION_AUDITORIA = (
@@ -168,9 +170,12 @@ def _obtener_columna_permitida(item: AuditoriaAccesoItemQuery | Mapping[str, Any
         valor = getattr(item, columna, None)
     if valor is None:
         return ""
+    valor_saneado, _ = sanear_valor_pii(valor, clave=columna)
+    if isinstance(valor_saneado, Mapping) or isinstance(valor_saneado, list):
+        return json.dumps(valor_saneado, ensure_ascii=False, sort_keys=True)
     if isinstance(valor, bool):
-        return str(valor)
-    return str(valor)
+        return str(valor_saneado)
+    return str(valor_saneado)
 
 
 def _payload_log_exportacion_auditoria(filtros: FiltrosAuditoriaAccesos, accion: str) -> dict[str, object]:
