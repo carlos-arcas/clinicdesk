@@ -3,6 +3,7 @@ from __future__ import annotations
 import pytest
 
 fastapi = pytest.importorskip("fastapi")
+pytest.importorskip("httpx")
 TestClient = pytest.importorskip("fastapi.testclient").TestClient
 
 from clinicdesk.web.api.app import create_app

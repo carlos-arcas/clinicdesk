@@ -77,18 +77,36 @@ class ObtenerCentroSaludOperativa:
         )
         return CentroSaludOperativaDTO(kpis=kpis, alertas=self._derivar_alertas(filtros, resumen.total_riesgo_alto))
 
-    def _derivar_alertas(self, filtros: FiltrosCentroSaludDTO, total_riesgo_alto: int) -> tuple[AlertaCentroSaludDTO, ...]:
+    def _derivar_alertas(
+        self, filtros: FiltrosCentroSaludDTO, total_riesgo_alto: int
+    ) -> tuple[AlertaCentroSaludDTO, ...]:
         alertas: list[AlertaCentroSaludDTO] = []
         if total_riesgo_alto > 0:
-            alertas.append(AlertaCentroSaludDTO(severidad="ALTA", i18n_key="dashboard_gestion.operativa.alerta.riesgo_alto", total=total_riesgo_alto))
+            alertas.append(
+                AlertaCentroSaludDTO(
+                    severidad="ALTA", i18n_key="dashboard_gestion.operativa.alerta.riesgo_alto", total=total_riesgo_alto
+                )
+            )
         pacientes = self._queries.contar_pacientes_riesgo_operativo(filtros.desde, filtros.hasta)
         if pacientes > 0:
-            alertas.append(AlertaCentroSaludDTO(severidad="MEDIA", i18n_key="dashboard_gestion.operativa.alerta.pacientes_riesgo", total=pacientes))
+            alertas.append(
+                AlertaCentroSaludDTO(
+                    severidad="MEDIA", i18n_key="dashboard_gestion.operativa.alerta.pacientes_riesgo", total=pacientes
+                )
+            )
         cuellos = self._queries.contar_cuellos_botella(filtros.desde, filtros.hasta, filtros.medico_id, filtros.sala_id)
         if cuellos > 0:
-            alertas.append(AlertaCentroSaludDTO(severidad="MEDIA", i18n_key="dashboard_gestion.operativa.alerta.cuellos", total=cuellos))
+            alertas.append(
+                AlertaCentroSaludDTO(
+                    severidad="MEDIA", i18n_key="dashboard_gestion.operativa.alerta.cuellos", total=cuellos
+                )
+            )
         if not alertas:
-            alertas.append(AlertaCentroSaludDTO(severidad="SUAVE", i18n_key="dashboard_gestion.operativa.alerta.sin_alertas", total=0))
+            alertas.append(
+                AlertaCentroSaludDTO(
+                    severidad="SUAVE", i18n_key="dashboard_gestion.operativa.alerta.sin_alertas", total=0
+                )
+            )
         return tuple(alertas)
 
 
