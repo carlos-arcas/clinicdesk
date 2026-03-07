@@ -27,13 +27,17 @@ def load_pii_allowlist(allowlist_path: Path) -> dict[str, str]:
 
 
 def extract_string_literals(node: ast.AST) -> list[str]:
-    if isinstance(node, ast.Constant) and isinstance(node.value, str):
-        return [node.value]
-    if isinstance(node, ast.JoinedStr):
-        return [
-            value.value for value in node.values if isinstance(value, ast.Constant) and isinstance(value.value, str)
-        ]
-    return []
+    literals: list[str] = []
+    for current in ast.walk(node):
+        if isinstance(current, ast.Constant) and isinstance(current.value, str):
+            literals.append(current.value)
+        elif isinstance(current, ast.JoinedStr):
+            literals.extend(
+                value.value
+                for value in current.values
+                if isinstance(value, ast.Constant) and isinstance(value.value, str)
+            )
+    return literals
 
 
 def _iter_python_files(repo_root: Path):
@@ -50,7 +54,7 @@ def _check_logging_call(node: ast.Call, rel_path: Path, allowlist: dict[str, str
     offenders: list[str] = []
     if not isinstance(node.func, ast.Attribute) or node.func.attr not in config.PII_LOGGING_METHODS:
         return offenders
-    for argument in node.args:
+    for argument in (*node.args, *(keyword.value for keyword in node.keywords)):
         for literal in extract_string_literals(argument):
             matched = [token for token in config.PII_TOKENS if token in literal.lower()]
             if not matched:
