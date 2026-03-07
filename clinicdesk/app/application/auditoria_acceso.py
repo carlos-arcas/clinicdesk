@@ -3,6 +3,12 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from enum import Enum
+from typing import TypeAlias
+
+
+JsonPrimitive: TypeAlias = str | int | float | bool | None
+JsonValue: TypeAlias = JsonPrimitive | dict[str, "JsonValue"] | list["JsonValue"]
+JsonObject: TypeAlias = dict[str, JsonValue]
 
 
 class AccionAuditoriaAcceso(str, Enum):
@@ -26,7 +32,7 @@ class EventoAuditoriaAcceso:
     accion: AccionAuditoriaAcceso
     entidad_tipo: EntidadAuditoriaAcceso
     entidad_id: str
-    metadata_json: dict[str, str | int | float | bool | None] | None = None
+    metadata_json: JsonObject | None = None
     id: int | None = None
 
 
