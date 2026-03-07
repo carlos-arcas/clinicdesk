@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -20,9 +21,10 @@ TARGETS_DIFF_RUFF = (
     "tests/test_checklist_funcional_contract.py",
     "tests/test_quality_thresholds_contract.py",
 )
+PATRON_VERSION_RUFF = re.compile(r"ruff\s+(?P<version>\S+)")
 
 
-def _loggear_version_ruff(root: Path) -> int:
+def _loggear_version_ruff(root: Path) -> tuple[int, str]:
     comando = [sys.executable, "-m", "ruff", "--version"]
     _LOGGER.info("[quality-gate] Ejecutando: %s", " ".join(comando))
     resultado = subprocess.run(comando, cwd=root, check=False, capture_output=True, text=True)
@@ -31,7 +33,54 @@ def _loggear_version_ruff(root: Path) -> int:
         _LOGGER.info("[quality-gate] ruff_version=%s", salida)
     if resultado.returncode != 0:
         _LOGGER.error("[quality-gate] ❌ No se pudo obtener la versión de Ruff.")
-    return resultado.returncode
+    return resultado.returncode, salida
+
+
+def _obtener_version_ruff_pinneada(root: Path) -> str | None:
+    requirements_dev = root / "requirements-dev.txt"
+    if not requirements_dev.exists():
+        _LOGGER.error("[quality-gate] ❌ Falta requirements-dev.txt para validar versión de Ruff.")
+        return None
+
+    for linea in requirements_dev.read_text(encoding="utf-8").splitlines():
+        contenido = linea.strip()
+        if not contenido or contenido.startswith("#"):
+            continue
+        if contenido.startswith("ruff=="):
+            return contenido.split("==", maxsplit=1)[1].strip()
+
+    _LOGGER.error("[quality-gate] ❌ requirements-dev.txt no define pin de Ruff (ruff==x.y.z).")
+    return None
+
+
+def _extraer_version_ruff_instalada(salida_version: str) -> str | None:
+    match = PATRON_VERSION_RUFF.search(salida_version)
+    if not match:
+        _LOGGER.error("[quality-gate] ❌ No se pudo parsear la versión de Ruff: %s", salida_version)
+        return None
+    return match.group("version")
+
+
+def _validar_version_ruff(root: Path, salida_version: str) -> int:
+    version_pinneada = _obtener_version_ruff_pinneada(root)
+    if version_pinneada is None:
+        return 1
+
+    version_instalada = _extraer_version_ruff_instalada(salida_version)
+    if version_instalada is None:
+        return 1
+
+    if version_instalada != version_pinneada:
+        _LOGGER.error(
+            "[quality-gate] ❌ Ruff desalineado con CI/local lock: instalado=%s pin=%s. "
+            "Instala requirements-dev.txt antes de ejecutar el gate.",
+            version_instalada,
+            version_pinneada,
+        )
+        return 1
+
+    _LOGGER.info("[quality-gate] Ruff alineado con pin de requirements-dev.txt: %s", version_pinneada)
+    return 0
 
 
 def _ejecutar_comando_ruff(root: Path, comando: Sequence[str]) -> int:
@@ -136,9 +185,12 @@ def run_required_ruff_checks(repo_root: Path | None = None) -> int:
         _LOGGER.error("[quality-gate] ❌ Falta configuración ruff en pyproject.toml.")
         return 1
 
-    version_code = _loggear_version_ruff(root)
+    version_code, version_output = _loggear_version_ruff(root)
     if version_code != 0:
         return version_code
+    version_match_rc = _validar_version_ruff(root, version_output)
+    if version_match_rc != 0:
+        return version_match_rc
 
     python_targets = obtener_targets_python(root)
     check_command = [sys.executable, "-m", "ruff", "check", *python_targets]
