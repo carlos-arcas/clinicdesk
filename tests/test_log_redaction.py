@@ -27,3 +27,24 @@ def test_redact_value_masks_sensitive_keys_recursively() -> None:
     assert redacted["contacto"]["email"] == "***"
     assert redacted["contacto"]["telefono"] == "***"
     assert redacted["items"][0]["documento"] == "***"
+
+
+def test_redact_text_masks_nif() -> None:
+    text = "Identificador fiscal X1234567L"
+
+    redacted = redact_text(text)
+
+    assert "X1234567L" not in redacted
+    assert "***" in redacted
+
+
+def test_redact_value_masks_historia_and_direccion_keys() -> None:
+    payload = {
+        "historia_clinica": "HC-000123",
+        "direccion": "Calle Falsa 123",
+    }
+
+    redacted = redact_value(payload)
+
+    assert redacted["historia_clinica"] == "***"
+    assert redacted["direccion"] == "***"

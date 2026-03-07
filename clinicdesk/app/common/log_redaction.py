@@ -8,6 +8,7 @@ _REDACTED = "***"
 
 _EMAIL_RE = re.compile(r"(?P<user>[A-Za-z0-9._%+-]+)@(?P<domain>[A-Za-z0-9.-]+\.[A-Za-z]{2,})")
 _DNI_RE = re.compile(r"\b\d{7,8}[A-Za-z]?\b")
+_NIF_RE = re.compile(r"\b[A-Za-z]\d{7,8}[A-Za-z]?\b")
 _PHONE_RE = re.compile(r"(?<!\w)(?:\+?\d[\d\s().-]{7,}\d)")
 
 _SENSITIVE_KEY_PARTS = (
@@ -16,6 +17,10 @@ _SENSITIVE_KEY_PARTS = (
     "telefono",
     "teléfono",
     "phone",
+    "nif",
+    "historia",
+    "direccion",
+    "dirección",
     "email",
     "correo",
     "mail",
@@ -27,6 +32,7 @@ _SENSITIVE_KEY_PARTS = (
 def redact_text(value: str) -> str:
     redacted = _EMAIL_RE.sub(lambda _: _REDACTED, value)
     redacted = _DNI_RE.sub(_REDACTED, redacted)
+    redacted = _NIF_RE.sub(_REDACTED, redacted)
     redacted = _PHONE_RE.sub(_REDACTED, redacted)
     return redacted
 
