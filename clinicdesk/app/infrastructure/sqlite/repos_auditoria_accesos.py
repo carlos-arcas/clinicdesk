@@ -9,6 +9,9 @@ from clinicdesk.app.infrastructure.sqlite.auditoria_integridad import (
     ensure_auditoria_integridad_schema,
     siguiente_hash_acceso,
 )
+from clinicdesk.app.infrastructure.sqlite.persistencia_segura_auditoria_telemetria import (
+    sanear_evento_auditoria_para_persistencia,
+)
 
 
 @dataclass(slots=True)
@@ -19,14 +22,19 @@ class RepositorioAuditoriaAccesoSqlite:
         ensure_auditoria_integridad_schema(self.connection)
 
     def registrar(self, evento: EventoAuditoriaAcceso) -> None:
-        metadata_json = json.dumps(evento.metadata_json, ensure_ascii=False) if evento.metadata_json else None
+        usuario_saneado, entidad_id_saneado, metadata_saneada, _ = sanear_evento_auditoria_para_persistencia(
+            usuario=evento.usuario,
+            entidad_id=evento.entidad_id,
+            metadata_json=evento.metadata_json,
+        )
+        metadata_json = json.dumps(metadata_saneada, ensure_ascii=False) if metadata_saneada else None
         payload = {
             "timestamp_utc": evento.timestamp_utc,
-            "usuario": evento.usuario,
+            "usuario": usuario_saneado,
             "modo_demo": 1 if evento.modo_demo else 0,
             "accion": evento.accion.value,
             "entidad_tipo": evento.entidad_tipo.value,
-            "entidad_id": evento.entidad_id,
+            "entidad_id": entidad_id_saneado,
             "metadata_json": metadata_json,
             "created_at_utc": evento.timestamp_utc,
         }
@@ -49,11 +57,11 @@ class RepositorioAuditoriaAccesoSqlite:
             """,
             (
                 evento.timestamp_utc,
-                evento.usuario,
+                usuario_saneado,
                 1 if evento.modo_demo else 0,
                 evento.accion.value,
                 evento.entidad_tipo.value,
-                evento.entidad_id,
+                entidad_id_saneado,
                 metadata_json,
                 evento.timestamp_utc,
                 prev_hash,
