@@ -280,7 +280,6 @@ def test_falla_si_ruff_no_coincide_con_pin(monkeypatch: pytest.MonkeyPatch, tmp_
     assert comandos == [[sys.executable, "-m", "ruff", "--version"]]
 
 
-
 def test_extrae_pin_ruff_con_espacios_y_comentario() -> None:
     assert ruff_checks._extraer_version_ruff_pinneada_desde_linea("ruff == 0.8.4   # pin-ci") == "0.8.4"
 
