@@ -108,3 +108,24 @@ def test_logging_permite_pii_si_env_lo_habilita(tmp_path: Path, monkeypatch) -> 
     assert "persona@example.com" in content
     assert "12345678" in content
     assert "reason_code=pii_redacted" not in content
+
+
+def test_logging_redacts_nif_historia_y_direccion_en_extra(tmp_path: Path) -> None:
+    configure_logging("test-app", tmp_path, json=False)
+    set_run_context("run-redact-extra")
+    logger = get_logger("tests.logging")
+
+    logger.info(
+        "evento_operativo",
+        extra={
+            "nif": "X1234567L",
+            "historia_clinica": "HC-000321",
+            "direccion": "Avenida Privada 1",
+        },
+    )
+
+    content = (tmp_path / "app.log").read_text(encoding="utf-8")
+    assert "X1234567L" not in content
+    assert "HC-000321" not in content
+    assert "Avenida Privada 1" not in content
+    assert "reason_code=pii_redacted" in content
