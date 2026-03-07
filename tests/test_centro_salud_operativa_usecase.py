@@ -2,7 +2,10 @@ from __future__ import annotations
 
 from datetime import date
 
-from clinicdesk.app.application.usecases.centro_salud_operativa import FiltrosCentroSaludDTO, ObtenerCentroSaludOperativa
+from clinicdesk.app.application.usecases.centro_salud_operativa import (
+    FiltrosCentroSaludDTO,
+    ObtenerCentroSaludOperativa,
+)
 
 
 class _FakeQueries:

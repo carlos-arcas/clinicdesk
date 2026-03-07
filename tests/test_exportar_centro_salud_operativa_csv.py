@@ -19,7 +19,9 @@ def test_exportar_centro_salud_operativa_csv_incluye_kpis_y_alertas() -> None:
             tasa_no_asistencia_pct=7.5,
             riesgo_medio_pct=55.4,
         ),
-        alertas=(AlertaCentroSaludDTO(severidad="ALTA", i18n_key="dashboard_gestion.operativa.alerta.riesgo_alto", total=2),),
+        alertas=(
+            AlertaCentroSaludDTO(severidad="ALTA", i18n_key="dashboard_gestion.operativa.alerta.riesgo_alto", total=2),
+        ),
     )
 
     contenido = exportar_centro_salud_operativa_csv(data)
