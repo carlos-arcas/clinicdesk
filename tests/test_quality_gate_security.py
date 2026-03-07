@@ -152,6 +152,26 @@ def test_pii_logging_guardrail_ignores_tests_folder(tmp_path: Path, monkeypatch)
     assert pii_guardrail.check_pii_logging_guardrail() == 0
 
 
+def test_pii_logging_guardrail_detects_sensitive_message_in_keyword_argument(tmp_path: Path, monkeypatch) -> None:
+    source_file = tmp_path / "module.py"
+    source_file.write_text('logger.info(msg="error con email del paciente")\n', encoding="utf-8")
+
+    monkeypatch.setattr(basic_repo_checks.config, "REPO_ROOT", tmp_path)
+    monkeypatch.setattr(pii_guardrail.config, "PII_LOGGING_ALLOWLIST_PATH", tmp_path / "allowlist.json")
+
+    assert pii_guardrail.check_pii_logging_guardrail() == 8
+
+
+def test_pii_logging_guardrail_detects_sensitive_message_in_concatenated_literal(tmp_path: Path, monkeypatch) -> None:
+    source_file = tmp_path / "module.py"
+    source_file.write_text('logger.info("error " + "con email del paciente")\n', encoding="utf-8")
+
+    monkeypatch.setattr(basic_repo_checks.config, "REPO_ROOT", tmp_path)
+    monkeypatch.setattr(pii_guardrail.config, "PII_LOGGING_ALLOWLIST_PATH", tmp_path / "allowlist.json")
+
+    assert pii_guardrail.check_pii_logging_guardrail() == 8
+
+
 def test_run_pip_audit_resets_report_before_execution(tmp_path: Path, monkeypatch) -> None:
     report_path = tmp_path / "pip_audit_report.txt"
     report_path.write_text("RESTO RUN ANTERIOR", encoding="utf-8")
