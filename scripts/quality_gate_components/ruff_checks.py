@@ -22,6 +22,7 @@ TARGETS_DIFF_RUFF = (
     "tests/test_quality_thresholds_contract.py",
 )
 PATRON_VERSION_RUFF = re.compile(r"ruff\s+(?P<version>\S+)")
+PATRON_PIN_RUFF = re.compile(r"^ruff\s*==\s*(?P<version>[^\s#;]+)")
 
 
 def _loggear_version_ruff(root: Path) -> tuple[int, str]:
@@ -46,8 +47,9 @@ def _obtener_version_ruff_pinneada(root: Path) -> str | None:
         contenido = linea.strip()
         if not contenido or contenido.startswith("#"):
             continue
-        if contenido.startswith("ruff=="):
-            return contenido.split("==", maxsplit=1)[1].strip()
+        version = _extraer_version_ruff_pinneada_desde_linea(contenido)
+        if version is not None:
+            return version
 
     _LOGGER.error("[quality-gate] ❌ requirements-dev.txt no define pin de Ruff (ruff==x.y.z).")
     return None
@@ -57,6 +59,13 @@ def _extraer_version_ruff_instalada(salida_version: str) -> str | None:
     match = PATRON_VERSION_RUFF.search(salida_version)
     if not match:
         _LOGGER.error("[quality-gate] ❌ No se pudo parsear la versión de Ruff: %s", salida_version)
+        return None
+    return match.group("version")
+
+
+def _extraer_version_ruff_pinneada_desde_linea(linea_requirements: str) -> str | None:
+    match = PATRON_PIN_RUFF.search(linea_requirements)
+    if not match:
         return None
     return match.group("version")
 
@@ -73,7 +82,8 @@ def _validar_version_ruff(root: Path, salida_version: str) -> int:
     if version_instalada != version_pinneada:
         _LOGGER.error(
             "[quality-gate] ❌ Ruff desalineado con CI/local lock: instalado=%s pin=%s. "
-            "Instala requirements-dev.txt antes de ejecutar el gate.",
+            "Instala dependencias con `python -m pip install -r requirements-dev.txt` "
+            "antes de ejecutar el gate.",
             version_instalada,
             version_pinneada,
         )
