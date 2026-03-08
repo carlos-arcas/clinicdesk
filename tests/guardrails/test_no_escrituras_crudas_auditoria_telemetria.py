@@ -30,6 +30,18 @@ CONTRATOS_SANEAMIENTO_POR_MODULO: dict[Path, tuple[str, ...]] = {
     ),
 }
 
+CONTRATOS_INTEGRIDAD_POR_MODULO: dict[Path, tuple[str, ...]] = {
+    Path("clinicdesk/app/infrastructure/sqlite/repos_auditoria_accesos.py"): (
+        "siguiente_hash_acceso",
+    ),
+    Path("clinicdesk/app/infrastructure/sqlite/repos_auditoria_eventos.py"): (
+        "siguiente_hash_evento",
+    ),
+    Path("scripts/verify_audit_chain.py"): (
+        "verificar_cadena",
+    ),
+}
+
 
 @dataclass(frozen=True, slots=True)
 class SqlEscrituraSensibleDetectada:
@@ -277,4 +289,29 @@ def test_falla_contrato_si_desaparece_llamada_al_helper_en_modulo_oficial(tmp_pa
     )
     assert _validar_contrato_saneo_modulo_oficial(ruta, ("sanear_evento_auditoria_para_persistencia",)) == [
         "sanear_evento_auditoria_para_persistencia"
+    ]
+
+
+def test_modulos_oficiales_usan_helper_obligatorio_de_integridad() -> None:
+    faltantes: list[str] = []
+    for ruta, funciones_requeridas in CONTRATOS_INTEGRIDAD_POR_MODULO.items():
+        faltan = _validar_contrato_saneo_modulo_oficial(ruta, funciones_requeridas)
+        if faltan:
+            faltantes.append(f"{ruta}: faltan {', '.join(faltan)}")
+
+    assert not faltantes, "Contrato de integridad roto en módulos oficiales:\n" + "\n".join(faltantes)
+
+
+def test_falla_contrato_si_desaparece_llamada_de_integridad_en_modulo_oficial(tmp_path: Path) -> None:
+    ruta = _escribir_python(
+        tmp_path,
+        "repos_auditoria_accesos.py",
+        "from dataclasses import dataclass\n"
+        "@dataclass\n"
+        "class RepositorioAuditoriaAccesoSqlite:\n"
+        "    def registrar(self, evento):\n"
+        "        self.connection.execute('INSERT INTO auditoria_accesos(usuario) VALUES (?)', ('u',))\n",
+    )
+    assert _validar_contrato_saneo_modulo_oficial(ruta, ("siguiente_hash_acceso",)) == [
+        "siguiente_hash_acceso"
     ]
