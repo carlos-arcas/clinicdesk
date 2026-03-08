@@ -1,42 +1,20 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-import json
 import re
+import json
 from typing import Any
 
 from clinicdesk.app.application.ports.telemetria_port import RepositorioTelemetria
 from clinicdesk.app.application.security import UserContext
 from clinicdesk.app.application.telemetria import EventoTelemetriaDTO, ahora_utc_iso
 from clinicdesk.app.bootstrap_logging import get_logger
+from clinicdesk.app.common.politica_saneo_auditoria_telemetria import (
+    CLAVES_CONTEXTO_TELEMETRIA_PERMITIDAS,
+    es_clave_sensible_auditoria_telemetria,
+)
 
 LOGGER = get_logger(__name__)
-
-_ALLOWED_CONTEXTO_KEYS: frozenset[str] = frozenset(
-    {
-        "page",
-        "origen",
-        "tipo",
-        "clave",
-        "resultado",
-        "destino",
-        "vista",
-        "found",
-        "modulo",
-        "accion_ui",
-        "reason_code",
-        "contexto",
-        "tab",
-        "detalle",
-    }
-)
-_BLOCKED_KEY_PATTERNS: tuple[re.Pattern[str], ...] = (
-    re.compile(r"email", re.IGNORECASE),
-    re.compile(r"telefono|teléfono|tlf|movil|móvil", re.IGNORECASE),
-    re.compile(r"dni|nif", re.IGNORECASE),
-    re.compile(r"historia[_\s]?clinica|historia[_\s]?clínica", re.IGNORECASE),
-    re.compile(r"direccion|dirección", re.IGNORECASE),
-)
 _RE_EMAIL = re.compile(r"[\w.%-]+@[\w.-]+\.[A-Za-z]{2,}")
 _RE_DNI = re.compile(r"\b\d{8}[A-Za-z]?\b")
 _RE_PHONE = re.compile(r"\b(?:\+?\d{1,3}[\s-]?)?(?:\d[\s-]?){9,}\b")
@@ -125,10 +103,10 @@ def _sanear_contexto_kv(texto: str) -> tuple[str | None, bool]:
         key, value = chunk.split("=", 1)
         key_norm = key.strip()
         value_norm = value.strip()
-        if key_norm not in _ALLOWED_CONTEXTO_KEYS:
+        if key_norm not in CLAVES_CONTEXTO_TELEMETRIA_PERMITIDAS:
             redaccion_aplicada = True
             continue
-        if _es_clave_sensible(key_norm):
+        if es_clave_sensible_auditoria_telemetria(key_norm):
             redaccion_aplicada = True
             continue
         valor_redactado = _redactar_texto(value_norm)
@@ -149,10 +127,10 @@ def _sanear_payload(payload: Any, *, es_raiz: bool = False) -> tuple[Any | None,
         redaccion_aplicada = False
         for raw_key, value in payload.items():
             key = str(raw_key)
-            if key not in _ALLOWED_CONTEXTO_KEYS and es_raiz:
+            if key not in CLAVES_CONTEXTO_TELEMETRIA_PERMITIDAS and es_raiz:
                 redaccion_aplicada = True
                 continue
-            if _es_clave_sensible(key):
+            if es_clave_sensible_auditoria_telemetria(key):
                 redaccion_aplicada = True
                 continue
             valor_saneado, valor_redactado = _sanear_payload(value)
@@ -179,10 +157,6 @@ def _sanear_payload(payload: Any, *, es_raiz: bool = False) -> tuple[Any | None,
         redactado = _redactar_texto(payload)
         return redactado, redactado != payload
     return payload, False
-
-
-def _es_clave_sensible(key: str) -> bool:
-    return any(pattern.search(key) for pattern in _BLOCKED_KEY_PATTERNS)
 
 
 def _redactar_texto(value: str) -> str:
