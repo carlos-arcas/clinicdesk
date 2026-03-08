@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import sqlite3
+
+import pytest
 from pathlib import Path
 
 from clinicdesk.app.application.auditoria_acceso import (
@@ -9,12 +11,16 @@ from clinicdesk.app.application.auditoria_acceso import (
     EventoAuditoriaAcceso,
 )
 from clinicdesk.app.application.auditoria.audit_service import AuditEvent
+from clinicdesk.app.application.usecases.buscar_auditoria_accesos import BuscarAuditoriaAccesos
+from clinicdesk.app.application.usecases.exportar_auditoria_csv import ExportarAuditoriaCSV
+from clinicdesk.app.application.usecases.preflight_integridad_auditoria import IntegridadAuditoriaComprometidaError
 from clinicdesk.app.infrastructure.sqlite.auditoria_integridad import (
     ensure_auditoria_integridad_schema,
     verificar_cadena,
 )
 from clinicdesk.app.infrastructure.sqlite.repos_auditoria_accesos import RepositorioAuditoriaAccesoSqlite
 from clinicdesk.app.infrastructure.sqlite.repos_auditoria_eventos import RepositorioAuditoriaEventosSqlite
+from clinicdesk.app.queries.auditoria_accesos_queries import AuditoriaAccesosQueries, FiltrosAuditoriaAccesos
 
 
 SCHEMA_PATH = Path(__file__).resolve().parents[2] / "clinicdesk" / "app" / "infrastructure" / "sqlite" / "schema.sql"
@@ -136,5 +142,81 @@ def test_ensure_auditoria_integridad_schema_es_idempotente_en_migracion(tmp_path
     assert columnas_accesos == {"prev_hash", "entry_hash"}
     assert columnas_eventos == {"prev_hash", "entry_hash"}
     assert verificar_cadena(con).ok is True
+
+    con.close()
+
+
+def test_buscar_y_exportar_operan_con_integridad_sana(tmp_path: Path) -> None:
+    con = _new_connection(tmp_path / "audit-read-ok.sqlite")
+    repo = RepositorioAuditoriaAccesoSqlite(con)
+    repo.registrar(
+        EventoAuditoriaAcceso(
+            timestamp_utc="2026-01-01T10:11:12+00:00",
+            usuario="admin",
+            modo_demo=False,
+            accion=AccionAuditoriaAcceso.VER_HISTORIAL_PACIENTE,
+            entidad_tipo=EntidadAuditoriaAcceso.PACIENTE,
+            entidad_id="77",
+            metadata_json={"origen": "auditoria"},
+        )
+    )
+
+    queries = AuditoriaAccesosQueries(con)
+    buscar_uc = BuscarAuditoriaAccesos(queries, verificador_integridad=queries)
+    exportar_uc = ExportarAuditoriaCSV(queries, verificador_integridad=queries)
+
+    resultado_buscar = buscar_uc.execute(FiltrosAuditoriaAccesos(), limit=10, offset=0)
+    resultado_exportar = exportar_uc.execute(FiltrosAuditoriaAccesos())
+
+    assert resultado_buscar.total == 1
+    assert len(resultado_buscar.items) == 1
+    assert resultado_exportar.filas == 1
+
+    con.close()
+
+
+def test_buscar_y_exportar_bloquean_si_cadena_esta_rota(tmp_path: Path) -> None:
+    con = _new_connection(tmp_path / "audit-read-fail.sqlite")
+    repo = RepositorioAuditoriaAccesoSqlite(con)
+    repo.registrar(
+        EventoAuditoriaAcceso(
+            timestamp_utc="2026-01-01T10:11:12+00:00",
+            usuario="admin",
+            modo_demo=False,
+            accion=AccionAuditoriaAcceso.VER_HISTORIAL_PACIENTE,
+            entidad_tipo=EntidadAuditoriaAcceso.PACIENTE,
+            entidad_id="77",
+            metadata_json={"origen": "auditoria"},
+        )
+    )
+    repo.registrar(
+        EventoAuditoriaAcceso(
+            timestamp_utc="2026-01-01T10:12:12+00:00",
+            usuario="admin",
+            modo_demo=False,
+            accion=AccionAuditoriaAcceso.VER_DETALLE_CITA,
+            entidad_tipo=EntidadAuditoriaAcceso.CITA,
+            entidad_id="88",
+            metadata_json={"origen": "agenda"},
+        )
+    )
+
+    con.execute("DROP TRIGGER IF EXISTS trg_auditoria_accesos_no_update")
+    con.execute("UPDATE auditoria_accesos SET entidad_id = 'MANIPULADO' WHERE id = 2")
+    con.commit()
+
+    queries = AuditoriaAccesosQueries(con)
+    buscar_uc = BuscarAuditoriaAccesos(queries, verificador_integridad=queries)
+    exportar_uc = ExportarAuditoriaCSV(queries, verificador_integridad=queries)
+
+    with pytest.raises(IntegridadAuditoriaComprometidaError) as buscar_error:
+        buscar_uc.execute(FiltrosAuditoriaAccesos(), limit=10, offset=0)
+    assert buscar_error.value.tabla == "auditoria_accesos"
+    assert buscar_error.value.primer_fallo_id == 2
+
+    with pytest.raises(IntegridadAuditoriaComprometidaError) as exportar_error:
+        exportar_uc.execute(FiltrosAuditoriaAccesos())
+    assert exportar_error.value.tabla == "auditoria_accesos"
+    assert exportar_error.value.primer_fallo_id == 2
 
     con.close()

@@ -31,15 +31,11 @@ CONTRATOS_SANEAMIENTO_POR_MODULO: dict[Path, tuple[str, ...]] = {
 }
 
 CONTRATOS_INTEGRIDAD_POR_MODULO: dict[Path, tuple[str, ...]] = {
-    Path("clinicdesk/app/infrastructure/sqlite/repos_auditoria_accesos.py"): (
-        "siguiente_hash_acceso",
-    ),
-    Path("clinicdesk/app/infrastructure/sqlite/repos_auditoria_eventos.py"): (
-        "siguiente_hash_evento",
-    ),
-    Path("scripts/verify_audit_chain.py"): (
-        "verificar_cadena",
-    ),
+    Path("clinicdesk/app/infrastructure/sqlite/repos_auditoria_accesos.py"): ("siguiente_hash_acceso",),
+    Path("clinicdesk/app/infrastructure/sqlite/repos_auditoria_eventos.py"): ("siguiente_hash_evento",),
+    Path("clinicdesk/app/application/usecases/buscar_auditoria_accesos.py"): ("exigir_integridad_auditoria",),
+    Path("clinicdesk/app/application/usecases/exportar_auditoria_csv.py"): ("exigir_integridad_auditoria",),
+    Path("scripts/verify_audit_chain.py"): ("verificar_cadena",),
 }
 
 
@@ -133,7 +129,9 @@ def _es_sql_escritura_sensible(sql: str) -> bool:
     sql_normalizada = " ".join(sql.lower().split())
     if not any(tabla in sql_normalizada for tabla in TABLAS_SENSIBLES):
         return False
-    return bool(PATRON_SQL_ESCRITURA_SENSIBLE.search(sql_normalizada) or PATRON_UPSERT_UPDATE_SENSIBLE.search(sql_normalizada))
+    return bool(
+        PATRON_SQL_ESCRITURA_SENSIBLE.search(sql_normalizada) or PATRON_UPSERT_UPDATE_SENSIBLE.search(sql_normalizada)
+    )
 
 
 def _detectar_escrituras_sensibles_en_archivo(ruta: Path) -> list[SqlEscrituraSensibleDetectada]:
@@ -312,6 +310,4 @@ def test_falla_contrato_si_desaparece_llamada_de_integridad_en_modulo_oficial(tm
         "    def registrar(self, evento):\n"
         "        self.connection.execute('INSERT INTO auditoria_accesos(usuario) VALUES (?)', ('u',))\n",
     )
-    assert _validar_contrato_saneo_modulo_oficial(ruta, ("siguiente_hash_acceso",)) == [
-        "siguiente_hash_acceso"
-    ]
+    assert _validar_contrato_saneo_modulo_oficial(ruta, ("siguiente_hash_acceso",)) == ["siguiente_hash_acceso"]
