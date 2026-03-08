@@ -7,8 +7,10 @@ from typing import Any
 import sqlite3
 
 from clinicdesk.app.bootstrap_logging import get_logger
+from clinicdesk.app.application.usecases.preflight_integridad_auditoria import EstadoIntegridadAuditoria
 from clinicdesk.app.common.redaccion_pii import sanear_valor_pii
 from clinicdesk.app.common.search_utils import normalize_search_text
+from clinicdesk.app.infrastructure.sqlite.auditoria_integridad import verificar_cadena
 
 LOGGER = get_logger(__name__)
 
@@ -43,6 +45,14 @@ class AuditoriaAccesosQueries:
 
     def __init__(self, connection: sqlite3.Connection) -> None:
         self._connection = connection
+
+    def verificar_integridad_auditoria(self) -> EstadoIntegridadAuditoria:
+        resultado = verificar_cadena(self._connection)
+        return EstadoIntegridadAuditoria(
+            ok=resultado.ok,
+            tabla=resultado.tabla,
+            primer_fallo_id=resultado.primer_fallo_id,
+        )
 
     def buscar_auditoria_accesos(
         self,

@@ -14,6 +14,10 @@ from clinicdesk.app.application.usecases.exportar_auditoria_csv import (
     ExportacionAuditoriaError,
     ExportarAuditoriaCSV,
 )
+from clinicdesk.app.application.usecases.preflight_integridad_auditoria import (
+    EstadoIntegridadAuditoria,
+    IntegridadAuditoriaComprometidaError,
+)
 from clinicdesk.app.domain.exceptions import AuthorizationError
 from clinicdesk.app.queries.auditoria_accesos_queries import AuditoriaAccesoItemQuery, FiltrosAuditoriaAccesos
 
@@ -174,3 +178,42 @@ def test_exportar_auditoria_csv_redacta_estructuras_anidadas_en_serializacion() 
     assert "HC-999" not in dto.csv_texto
     assert "+34 600 111 222" not in dto.csv_texto
     assert "[REDACTED_FIELD]" in dto.csv_texto
+
+
+class VerificadorIntegridadFake:
+    def __init__(self, resultado: EstadoIntegridadAuditoria) -> None:
+        self.resultado = resultado
+        self.llamadas = 0
+
+    def verificar_integridad_auditoria(self) -> EstadoIntegridadAuditoria:
+        self.llamadas += 1
+        return self.resultado
+
+
+def test_exportar_auditoria_csv_ejecuta_preflight_integridad() -> None:
+    verificador = VerificadorIntegridadFake(EstadoIntegridadAuditoria(ok=True))
+    usecase = ExportarAuditoriaCSV(
+        GatewayFake(total=1, rows=[]),
+        verificador_integridad=verificador,
+    )
+
+    usecase.execute(FiltrosAuditoriaAccesos(accion="VER_DETALLE_CITA"))
+
+    assert verificador.llamadas == 1
+
+
+def test_exportar_auditoria_csv_bloquea_si_cadena_comprometida() -> None:
+    verificador = VerificadorIntegridadFake(
+        EstadoIntegridadAuditoria(ok=False, tabla="auditoria_accesos", primer_fallo_id=3)
+    )
+    usecase = ExportarAuditoriaCSV(
+        GatewayFake(total=1, rows=[]),
+        verificador_integridad=verificador,
+    )
+
+    with pytest.raises(IntegridadAuditoriaComprometidaError) as excinfo:
+        usecase.execute(FiltrosAuditoriaAccesos(accion="VER_DETALLE_CITA"))
+
+    assert excinfo.value.reason_code == "auditoria_integridad_comprometida"
+    assert excinfo.value.tabla == "auditoria_accesos"
+    assert excinfo.value.primer_fallo_id == 3

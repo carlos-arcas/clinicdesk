@@ -3,6 +3,10 @@ from __future__ import annotations
 from datetime import UTC, datetime
 
 from clinicdesk.app.application.usecases.buscar_auditoria_accesos import BuscarAuditoriaAccesos
+from clinicdesk.app.application.usecases.preflight_integridad_auditoria import (
+    EstadoIntegridadAuditoria,
+    IntegridadAuditoriaComprometidaError,
+)
 from clinicdesk.app.queries.auditoria_accesos_queries import AuditoriaAccesoItemQuery, FiltrosAuditoriaAccesos
 
 
@@ -78,3 +82,37 @@ def test_buscar_auditoria_reutiliza_total_conocido() -> None:
 
     assert gateway.calcular_total_recibido is False
     assert resultado.total == 120
+
+
+class VerificadorIntegridadFake:
+    def __init__(self, resultado: EstadoIntegridadAuditoria) -> None:
+        self.resultado = resultado
+        self.llamadas = 0
+
+    def verificar_integridad_auditoria(self) -> EstadoIntegridadAuditoria:
+        self.llamadas += 1
+        return self.resultado
+
+
+def test_buscar_auditoria_ejecuta_preflight_integridad() -> None:
+    verificador = VerificadorIntegridadFake(EstadoIntegridadAuditoria(ok=True))
+    usecase = BuscarAuditoriaAccesos(GatewayFake(), verificador_integridad=verificador)
+
+    usecase.execute(FiltrosAuditoriaAccesos(usuario_contiene="audit"), limit=10, offset=20)
+
+    assert verificador.llamadas == 1
+
+
+def test_buscar_auditoria_bloquea_si_cadena_comprometida() -> None:
+    verificador = VerificadorIntegridadFake(
+        EstadoIntegridadAuditoria(ok=False, tabla="auditoria_accesos", primer_fallo_id=7)
+    )
+    usecase = BuscarAuditoriaAccesos(GatewayFake(), verificador_integridad=verificador)
+
+    try:
+        usecase.execute(FiltrosAuditoriaAccesos(usuario_contiene="audit"), limit=10, offset=20)
+        raise AssertionError("se esperaba IntegridadAuditoriaComprometidaError")
+    except IntegridadAuditoriaComprometidaError as exc:
+        assert exc.reason_code == "auditoria_integridad_comprometida"
+        assert exc.tabla == "auditoria_accesos"
+        assert exc.primer_fallo_id == 7

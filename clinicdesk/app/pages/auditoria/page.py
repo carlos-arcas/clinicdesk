@@ -11,6 +11,7 @@ from clinicdesk.app.application.usecases.exportar_auditoria_csv import (
 )
 from clinicdesk.app.application.usecases.filtros_auditoria import PRESET_PERSONALIZADO
 from clinicdesk.app.application.usecases.obtener_resumen_auditoria import ObtenerResumenAuditoria
+from clinicdesk.app.application.usecases.preflight_integridad_auditoria import IntegridadAuditoriaComprometidaError
 from clinicdesk.app.application.usecases.paginacion_incremental import calcular_siguiente_offset
 from clinicdesk.app.application.usecases.registrar_telemetria import RegistrarTelemetria
 from clinicdesk.app.application.security import UserContext
@@ -41,9 +42,9 @@ class PageAuditoria(QWidget):
         self._queries = AuditoriaAccesosQueries(container.connection)
         self._uc_telemetria = RegistrarTelemetria(RepositorioTelemetriaEventosSqlite(container.connection))
         self._contexto_telemetria = UserContext()
-        self._uc_buscar = BuscarAuditoriaAccesos(self._queries)
+        self._uc_buscar = BuscarAuditoriaAccesos(self._queries, verificador_integridad=self._queries)
         self._uc_resumen = ObtenerResumenAuditoria(self._queries)
-        self._uc_exportar = ExportarAuditoriaCSV(self._queries)
+        self._uc_exportar = ExportarAuditoriaCSV(self._queries, verificador_integridad=self._queries)
         self._exportador = ExportadorCsvAuditoria(self, self._settings, self._tr)
         self._vm = AuditoriaViewModel(self._listar_primer_bloque)
         self._ui: AuditoriaUIRefs = build_auditoria_ui(self, self._tr)
@@ -229,8 +230,12 @@ class PageAuditoria(QWidget):
                 toast_cancelled_key="job.cancelled",
                 on_success=_on_success,
             )
-        except (ExportacionAuditoriaDemasiadasFilasError, ExportacionAuditoriaError) as exc:
-            self._exportador.mostrar_error(exc.reason_code, permitir_reintento=False)
+        except (
+            ExportacionAuditoriaDemasiadasFilasError,
+            ExportacionAuditoriaError,
+            IntegridadAuditoriaComprometidaError,
+        ) as exc:
+            self._exportador.mostrar_error(getattr(exc, "reason_code", "unexpected_error"), permitir_reintento=False)
             self._registrar_telemetria("auditoria_export", "fail")
         except OSError as exc:
             self._exportador.mostrar_error("disk_write_error", permitir_reintento=False)

@@ -15,6 +15,10 @@ from clinicdesk.app.application.usecases.filtros_auditoria import (
     aplicar_preset_rango_auditoria,
     redactar_texto_filtro_auditoria,
 )
+from clinicdesk.app.application.usecases.preflight_integridad_auditoria import (
+    VerificadorIntegridadAuditoriaGateway,
+    exigir_integridad_auditoria,
+)
 from clinicdesk.app.bootstrap_logging import get_logger
 from clinicdesk.app.common.redaccion_pii import sanear_valor_pii
 from clinicdesk.app.queries.auditoria_accesos_queries import AuditoriaAccesoItemQuery, FiltrosAuditoriaAccesos
@@ -77,11 +81,13 @@ class ExportarAuditoriaCSV:
         user_context: UserContext | None = None,
         autorizador_acciones: AutorizadorAcciones | None = None,
         audit_service: AuditService | None = None,
+        verificador_integridad: VerificadorIntegridadAuditoriaGateway | None = None,
     ) -> None:
         self._gateway = gateway
         self._user_context = user_context
         self._autorizador_acciones = autorizador_acciones
         self._audit_service = audit_service
+        self._verificador_integridad = verificador_integridad
 
     def execute(
         self,
@@ -93,6 +99,7 @@ class ExportarAuditoriaCSV:
     ) -> ExportacionCSVDTO:
         try:
             self._exigir_permiso_exportacion()
+            exigir_integridad_auditoria(self._verificador_integridad)
             self._exigir_guardrail_pii(incluir_pii, confirmacion)
             filtros_finales = aplicar_preset_rango_auditoria(filtros, preset_rango)
             _, total = self._gateway.buscar_auditoria_accesos(filtros_finales, limit=1, offset=0)

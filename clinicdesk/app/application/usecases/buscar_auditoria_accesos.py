@@ -8,6 +8,10 @@ from clinicdesk.app.application.usecases.filtros_auditoria import (
     aplicar_preset_rango_auditoria,
     redactar_texto_filtro_auditoria,
 )
+from clinicdesk.app.application.usecases.preflight_integridad_auditoria import (
+    VerificadorIntegridadAuditoriaGateway,
+    exigir_integridad_auditoria,
+)
 from clinicdesk.app.queries.auditoria_accesos_queries import (
     AuditoriaAccesoItemQuery,
     FiltrosAuditoriaAccesos,
@@ -45,8 +49,14 @@ class BuscarAuditoriaAccesosGateway(Protocol):
 
 
 class BuscarAuditoriaAccesos:
-    def __init__(self, gateway: BuscarAuditoriaAccesosGateway) -> None:
+    def __init__(
+        self,
+        gateway: BuscarAuditoriaAccesosGateway,
+        *,
+        verificador_integridad: VerificadorIntegridadAuditoriaGateway | None = None,
+    ) -> None:
         self._gateway = gateway
+        self._verificador_integridad = verificador_integridad
 
     def execute(
         self,
@@ -56,6 +66,7 @@ class BuscarAuditoriaAccesos:
         preset_rango: str | None = None,
         total_conocido: int | None = None,
     ) -> ResultadoAuditoriaAccesosDTO:
+        exigir_integridad_auditoria(self._verificador_integridad)
         filtros_finales = aplicar_preset_rango_auditoria(filtros, preset_rango)
         debe_calcular_total = total_conocido is None
         items, total = self._gateway.buscar_auditoria_accesos(
