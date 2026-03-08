@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import re
-
 from clinicdesk.app.application.auditoria_acceso import (
     AccionAuditoriaAcceso,
     EntidadAuditoriaAcceso,
@@ -14,29 +13,13 @@ from clinicdesk.app.application.auditoria_acceso import (
 from clinicdesk.app.application.ports.auditoria_acceso_port import RepositorioAuditoriaAcceso
 from clinicdesk.app.application.security import UserContext
 from clinicdesk.app.bootstrap_logging import get_logger
+from clinicdesk.app.common.politica_saneo_auditoria_telemetria import (
+    CLAVES_METADATA_AUDITORIA_PERMITIDAS,
+    es_clave_sensible_auditoria_telemetria,
+)
 
 
 LOGGER = get_logger(__name__)
-
-_ALLOWED_METADATA_KEYS: frozenset[str] = frozenset(
-    {
-        "origen",
-        "modulo",
-        "vista",
-        "accion_ui",
-        "reason_code",
-        "duracion_ms",
-        "resultado",
-        "contexto",
-    }
-)
-_BLOCKED_KEY_PATTERNS: tuple[re.Pattern[str], ...] = (
-    re.compile(r"email", re.IGNORECASE),
-    re.compile(r"telefono|teléfono|tlf", re.IGNORECASE),
-    re.compile(r"dni|nif", re.IGNORECASE),
-    re.compile(r"historia[_\s]?clinica|historia[_\s]?clínica", re.IGNORECASE),
-    re.compile(r"direccion|dirección", re.IGNORECASE),
-)
 _RE_EMAIL = re.compile(r"[\w.%-]+@[\w.-]+\.[A-Za-z]{2,}")
 _RE_DNI = re.compile(r"\b\d{8}[A-Za-z]?\b")
 _RE_PHONE = re.compile(r"\b(?:\+?\d{1,3}[\s-]?)?(?:\d[\s-]?){9,}\b")
@@ -100,10 +83,10 @@ def _sanear_metadata_acceso(metadata: JsonObject | None) -> tuple[JsonObject | N
     saneada: JsonObject = {}
     redaccion_aplicada = False
     for key, value in metadata.items():
-        if key not in _ALLOWED_METADATA_KEYS:
+        if key not in CLAVES_METADATA_AUDITORIA_PERMITIDAS:
             redaccion_aplicada = True
             continue
-        if _es_clave_sensible(key):
+        if es_clave_sensible_auditoria_telemetria(key):
             redaccion_aplicada = True
             continue
         valor_saneado, valor_redactado = _sanear_valor(value)
@@ -114,16 +97,12 @@ def _sanear_metadata_acceso(metadata: JsonObject | None) -> tuple[JsonObject | N
     return saneada, redaccion_aplicada
 
 
-def _es_clave_sensible(key: str) -> bool:
-    return any(pattern.search(key) for pattern in _BLOCKED_KEY_PATTERNS)
-
-
 def _sanear_valor(value: JsonValue) -> tuple[JsonValue, bool]:
     if isinstance(value, dict):
         saneado: JsonObject = {}
         redaccion_aplicada = False
         for key, nested in value.items():
-            if _es_clave_sensible(key):
+            if es_clave_sensible_auditoria_telemetria(key):
                 redaccion_aplicada = True
                 continue
             nested_saneado, nested_redactado = _sanear_valor(nested)
