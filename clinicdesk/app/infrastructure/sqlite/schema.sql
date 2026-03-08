@@ -497,6 +497,18 @@ CREATE INDEX IF NOT EXISTS idx_auditoria_accesos_timestamp ON auditoria_accesos(
 CREATE INDEX IF NOT EXISTS idx_auditoria_accesos_accion_entidad ON auditoria_accesos(accion, entidad_tipo, entidad_id);
 CREATE INDEX IF NOT EXISTS idx_auditoria_accesos_entry_hash ON auditoria_accesos(entry_hash);
 
+CREATE TRIGGER IF NOT EXISTS trg_auditoria_accesos_no_update
+BEFORE UPDATE ON auditoria_accesos
+BEGIN
+    SELECT RAISE(ABORT, 'auditoria_accesos_append_only');
+END;
+
+CREATE TRIGGER IF NOT EXISTS trg_auditoria_accesos_no_delete
+BEFORE DELETE ON auditoria_accesos
+BEGIN
+    SELECT RAISE(ABORT, 'auditoria_accesos_append_only');
+END;
+
 -- ============================================================
 -- TELEMETRÍA DE USO (sin PII)
 -- ============================================================
@@ -531,3 +543,15 @@ CREATE TABLE IF NOT EXISTS telemetria_eventos (
 
 CREATE INDEX IF NOT EXISTS idx_telemetria_eventos_timestamp ON telemetria_eventos(timestamp_utc);
 CREATE INDEX IF NOT EXISTS idx_telemetria_eventos_evento ON telemetria_eventos(evento);
+
+CREATE TRIGGER IF NOT EXISTS trg_telemetria_eventos_no_update
+BEFORE UPDATE ON telemetria_eventos
+BEGIN
+    SELECT RAISE(ABORT, 'telemetria_eventos_append_only');
+END;
+
+CREATE TRIGGER IF NOT EXISTS trg_telemetria_eventos_no_delete
+BEFORE DELETE ON telemetria_eventos
+BEGIN
+    SELECT RAISE(ABORT, 'telemetria_eventos_append_only');
+END;

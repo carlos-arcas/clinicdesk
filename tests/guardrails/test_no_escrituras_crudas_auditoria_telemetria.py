@@ -13,7 +13,7 @@ RUTAS_ESCRITURA_PERMITIDAS = {
 }
 TABLAS_SENSIBLES = ("auditoria_accesos", "telemetria_eventos")
 PATRON_SQL_ESCRITURA_SENSIBLE = re.compile(
-    r"\b(?:insert(?:\s+or\s+replace)?\s+into|update|replace\s+into)\s+"
+    r"\b(?:insert(?:\s+or\s+replace)?\s+into|update|delete\s+from|replace\s+into)\s+"
     r"(?:\w+\.)?(auditoria_accesos|telemetria_eventos)\b"
 )
 PATRON_UPSERT_UPDATE_SENSIBLE = re.compile(
@@ -186,6 +186,24 @@ def test_detecta_update_telemetria_fuera_de_allowlist(tmp_path: Path) -> None:
         'def x(c):\n    c.execute("UPDATE telemetria_eventos SET usuario = ?", ("u",))\n',
     )
     assert _lineas(_detectar_escrituras_sensibles_en_archivo(ruta)) == [2]
+
+
+def test_detecta_delete_auditoria_fuera_de_allowlist(tmp_path: Path) -> None:
+    ruta = _escribir_python(
+        tmp_path,
+        "modulo.py",
+        'def x(c):\n    c.execute("DELETE FROM auditoria_accesos WHERE id = ?", (1,))\n',
+    )
+    assert _lineas(_detectar_escrituras_sensibles_en_archivo(ruta)) == [2]
+
+
+def test_detecta_delete_telemetria_fuera_de_allowlist(tmp_path: Path) -> None:
+    ruta = _escribir_python(
+        tmp_path,
+        "modulo.py",
+        'def x(c):\n    sql = "DELETE FROM telemetria_eventos WHERE id = ?"\n    c.executemany(sql, [(1,)])\n',
+    )
+    assert _lineas(_detectar_escrituras_sensibles_en_archivo(ruta)) == [3]
 
 
 def test_detecta_sql_sensible_multilinea(tmp_path: Path) -> None:
