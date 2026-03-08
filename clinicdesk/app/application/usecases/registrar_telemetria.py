@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-import re
 import json
 from typing import Any
 
@@ -13,12 +12,9 @@ from clinicdesk.app.common.politica_saneo_auditoria_telemetria import (
     CLAVES_CONTEXTO_TELEMETRIA_PERMITIDAS,
     es_clave_sensible_auditoria_telemetria,
 )
+from clinicdesk.app.common.redaccion_pii import redactar_texto_pii
 
 LOGGER = get_logger(__name__)
-_RE_EMAIL = re.compile(r"[\w.%-]+@[\w.-]+\.[A-Za-z]{2,}")
-_RE_DNI = re.compile(r"\b\d{8}[A-Za-z]?\b")
-_RE_PHONE = re.compile(r"\b(?:\+?\d{1,3}[\s-]?)?(?:\d[\s-]?){9,}\b")
-_RE_HC = re.compile(r"\b(?:hc|historia(?:\s+clinica)?)\s*[:#-]?\s*[A-Za-z0-9-]{3,}\b", re.IGNORECASE)
 
 
 @dataclass(slots=True)
@@ -160,8 +156,5 @@ def _sanear_payload(payload: Any, *, es_raiz: bool = False) -> tuple[Any | None,
 
 
 def _redactar_texto(value: str) -> str:
-    redacted = _RE_EMAIL.sub("[REDACTED_EMAIL]", value)
-    redacted = _RE_DNI.sub("[REDACTED_DNI]", redacted)
-    redacted = _RE_PHONE.sub("[REDACTED_PHONE]", redacted)
-    redacted = _RE_HC.sub("[REDACTED_HISTORIA_CLINICA]", redacted)
+    redacted, _ = redactar_texto_pii(value)
     return redacted

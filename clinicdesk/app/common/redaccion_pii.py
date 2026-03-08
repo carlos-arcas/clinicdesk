@@ -4,12 +4,14 @@ import re
 from collections.abc import Mapping, Sequence
 from typing import Any
 
-_TOKEN_EMAIL = "[REDACTED_EMAIL]"
-_TOKEN_DNI_NIF = "[REDACTED_DNI_NIF]"
-_TOKEN_TELEFONO = "[REDACTED_PHONE]"
-_TOKEN_HISTORIA = "[REDACTED_HISTORIA_CLINICA]"
-_TOKEN_DIRECCION = "[REDACTED_DIRECCION]"
-_TOKEN_CAMPO_SENSIBLE = "[REDACTED_FIELD]"
+from clinicdesk.app.common.politica_placeholders_pii import (
+    TOKEN_PII_CAMPO_SENSIBLE,
+    TOKEN_PII_DIRECCION,
+    TOKEN_PII_DNI_NIF,
+    TOKEN_PII_EMAIL,
+    TOKEN_PII_HISTORIA_CLINICA,
+    TOKEN_PII_TELEFONO,
+)
 
 _RE_EMAIL = re.compile(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}")
 _RE_DNI_NIF = re.compile(r"\b(?:\d{7,8}[A-Za-z]?|[A-Za-z]\d{7,8}[A-Za-z]?)\b")
@@ -28,11 +30,11 @@ _PATRONES_CLAVE_SENSIBLE: tuple[re.Pattern[str], ...] = (
 
 
 def redactar_texto_pii(texto: str) -> tuple[str, bool]:
-    redacted = _RE_EMAIL.sub(_TOKEN_EMAIL, texto)
-    redacted = _RE_DNI_NIF.sub(_TOKEN_DNI_NIF, redacted)
-    redacted = _RE_TELEFONO.sub(_TOKEN_TELEFONO, redacted)
-    redacted = _RE_HISTORIA.sub(_TOKEN_HISTORIA, redacted)
-    redacted = _RE_DIRECCION.sub(_TOKEN_DIRECCION, redacted)
+    redacted = _RE_EMAIL.sub(TOKEN_PII_EMAIL, texto)
+    redacted = _RE_DNI_NIF.sub(TOKEN_PII_DNI_NIF, redacted)
+    redacted = _RE_TELEFONO.sub(TOKEN_PII_TELEFONO, redacted)
+    redacted = _RE_HISTORIA.sub(TOKEN_PII_HISTORIA_CLINICA, redacted)
+    redacted = _RE_DIRECCION.sub(TOKEN_PII_DIRECCION, redacted)
     return redacted, redacted != texto
 
 
@@ -40,7 +42,7 @@ def sanear_valor_pii(value: Any, *, clave: str | None = None) -> tuple[Any, bool
     if value is None:
         return None, False
     if clave and _es_clave_sensible(clave):
-        return _TOKEN_CAMPO_SENSIBLE, True
+        return TOKEN_PII_CAMPO_SENSIBLE, True
     if isinstance(value, str):
         return redactar_texto_pii(value)
     if isinstance(value, Mapping):

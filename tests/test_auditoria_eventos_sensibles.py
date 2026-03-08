@@ -93,7 +93,7 @@ def test_audit_service_redacta_pii_en_valores() -> None:
         },
     )
 
-    assert event.metadata["error_code"] == "usuario=[REDACTED_EMAIL] dni=[REDACTED_DNI] telefono=[REDACTED_PHONE]"
+    assert event.metadata["error_code"] == "usuario=[REDACTED_EMAIL] dni=[REDACTED_DNI_NIF] telefono=[REDACTED_PHONE]"
 
 
 def test_audit_service_falla_si_key_no_permitida() -> None:

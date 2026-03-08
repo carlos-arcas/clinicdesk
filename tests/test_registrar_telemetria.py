@@ -64,7 +64,7 @@ def test_registrar_telemetria_redacta_pii_en_texto_libre() -> None:
     assert "12345678Z" not in contexto
     assert "600123123" not in contexto
     assert "[REDACTED_EMAIL]" in contexto
-    assert "[REDACTED_DNI]" in contexto
+    assert "[REDACTED_DNI_NIF]" in contexto
     assert "[REDACTED_PHONE]" in contexto
 
 

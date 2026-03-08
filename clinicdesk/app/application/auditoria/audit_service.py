@@ -6,6 +6,7 @@ import re
 from typing import Protocol
 
 from clinicdesk.app.application.security import Role
+from clinicdesk.app.common.redaccion_pii import redactar_texto_pii
 
 
 class AuditMetadataError(ValueError):
@@ -65,9 +66,6 @@ class AuditService:
         re.compile(r"telefono|tlf", re.IGNORECASE),
         re.compile(r"direccion", re.IGNORECASE),
     )
-    _RE_EMAIL = re.compile(r"[\w.%-]+@[\w.-]+\.[A-Za-z]{2,}")
-    _RE_DNI = re.compile(r"\b\d{8}[A-Za-z]?\b")
-    _RE_PHONE = re.compile(r"\b(?:\+?\d{1,3}[\s-]?)?(?:\d[\s-]?){9,}\b")
 
     def __init__(self, repository: AuditRepository) -> None:
         self._repository = repository
@@ -121,8 +119,6 @@ class AuditService:
 
     def _sanitize_value(self, value: str | int | float | bool | None) -> str | int | float | bool | None:
         if isinstance(value, str):
-            redacted = self._RE_EMAIL.sub("[REDACTED_EMAIL]", value)
-            redacted = self._RE_DNI.sub("[REDACTED_DNI]", redacted)
-            redacted = self._RE_PHONE.sub("[REDACTED_PHONE]", redacted)
+            redacted, _ = redactar_texto_pii(value)
             return redacted
         return value
