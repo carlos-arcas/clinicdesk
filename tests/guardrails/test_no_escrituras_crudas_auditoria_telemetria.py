@@ -36,6 +36,7 @@ CONTRATOS_INTEGRIDAD_POR_MODULO: dict[Path, tuple[str, ...]] = {
     Path("clinicdesk/app/application/usecases/buscar_auditoria_accesos.py"): ("exigir_integridad_auditoria",),
     Path("clinicdesk/app/application/usecases/exportar_auditoria_csv.py"): ("exigir_integridad_auditoria",),
     Path("scripts/verify_audit_chain.py"): ("verificar_cadena",),
+    Path("scripts/verify_telemetry_chain.py"): ("verificar_cadena_telemetria",),
 }
 
 

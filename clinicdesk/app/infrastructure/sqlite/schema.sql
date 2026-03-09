@@ -538,11 +538,14 @@ CREATE TABLE IF NOT EXISTS telemetria_eventos (
     evento TEXT NOT NULL,
     contexto TEXT,
     entidad_tipo TEXT,
-    entidad_id TEXT
+    entidad_id TEXT,
+    prev_hash TEXT,
+    entry_hash TEXT NOT NULL DEFAULT ''
 );
 
 CREATE INDEX IF NOT EXISTS idx_telemetria_eventos_timestamp ON telemetria_eventos(timestamp_utc);
 CREATE INDEX IF NOT EXISTS idx_telemetria_eventos_evento ON telemetria_eventos(evento);
+CREATE INDEX IF NOT EXISTS idx_telemetria_eventos_entry_hash ON telemetria_eventos(entry_hash);
 
 CREATE TRIGGER IF NOT EXISTS trg_telemetria_eventos_no_update
 BEFORE UPDATE ON telemetria_eventos

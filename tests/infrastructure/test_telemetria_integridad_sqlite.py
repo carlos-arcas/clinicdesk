@@ -1,0 +1,104 @@
+from __future__ import annotations
+
+import sqlite3
+from pathlib import Path
+
+from clinicdesk.app.application.telemetria import EventoTelemetriaDTO
+from clinicdesk.app.infrastructure.sqlite.auditoria_integridad import (
+    ensure_telemetria_integridad_schema,
+    verificar_cadena_telemetria,
+)
+from clinicdesk.app.infrastructure.sqlite.repos_telemetria_eventos import RepositorioTelemetriaEventosSqlite
+from clinicdesk.app.queries.telemetria_eventos_queries import TelemetriaEventosQueries
+
+SCHEMA_PATH = Path(__file__).resolve().parents[2] / "clinicdesk" / "app" / "infrastructure" / "sqlite" / "schema.sql"
+
+
+def _new_connection(db_path: Path) -> sqlite3.Connection:
+    con = sqlite3.connect(db_path.as_posix())
+    con.row_factory = sqlite3.Row
+    con.executescript(SCHEMA_PATH.read_text(encoding="utf-8"))
+    ensure_telemetria_integridad_schema(con)
+    con.commit()
+    return con
+
+
+def test_telemetria_cadena_ok_y_detecta_tampering_en_contexto_anidado(tmp_path: Path) -> None:
+    con = _new_connection(tmp_path / "telemetry.sqlite")
+    repo = RepositorioTelemetriaEventosSqlite(con)
+
+    repo.registrar(
+        EventoTelemetriaDTO(
+            timestamp_utc="2026-01-01T10:00:00+00:00",
+            usuario="tester",
+            modo_demo=False,
+            evento="gestion_abrir_cita",
+            contexto='{"page":"agenda","filtros":{"estado":"abierta"}}',
+            entidad_tipo="cita",
+            entidad_id="10",
+        )
+    )
+    repo.registrar(
+        EventoTelemetriaDTO(
+            timestamp_utc="2026-01-01T10:01:00+00:00",
+            usuario="tester",
+            modo_demo=False,
+            evento="auditoria_export",
+            contexto='{"page":"auditoria","detalle":{"tab":"resumen"}}',
+            entidad_tipo="auditoria",
+            entidad_id="11",
+        )
+    )
+
+    assert verificar_cadena_telemetria(con).ok is True
+
+    con.execute("DROP TRIGGER IF EXISTS trg_telemetria_eventos_no_update")
+    con.execute(
+        """
+        UPDATE telemetria_eventos
+        SET contexto = '{"page":"auditoria","detalle":{"tab":"manipulado"}}'
+        WHERE id = 2
+        """
+    )
+    con.commit()
+
+    resultado = verificar_cadena_telemetria(con)
+    assert resultado.ok is False
+    assert resultado.tabla == "telemetria_eventos"
+    assert resultado.primer_fallo_id == 2
+
+
+def test_telemetria_schema_integridad_es_idempotente_y_resumen_se_mantiene(tmp_path: Path) -> None:
+    con = _new_connection(tmp_path / "telemetry-idempotent.sqlite")
+
+    ensure_telemetria_integridad_schema(con)
+    ensure_telemetria_integridad_schema(con)
+    con.commit()
+
+    columnas = {
+        row["name"]
+        for row in con.execute("PRAGMA table_info(telemetria_eventos)").fetchall()
+        if row["name"] in {"prev_hash", "entry_hash"}
+    }
+    assert columnas == {"prev_hash", "entry_hash"}
+
+    repo = RepositorioTelemetriaEventosSqlite(con)
+    repo.registrar(
+        EventoTelemetriaDTO(
+            timestamp_utc="2026-01-07T12:00:00+00:00",
+            usuario="u1",
+            modo_demo=False,
+            evento="gestion_abrir_cita",
+            contexto="page=gestion",
+            entidad_tipo="cita",
+            entidad_id="20",
+        )
+    )
+
+    top = TelemetriaEventosQueries(con).top_eventos_por_rango(
+        "2026-01-07T00:00:00+00:00",
+        "2026-01-07T23:59:59+00:00",
+        limit=5,
+    )
+    assert top and top[0].evento == "gestion_abrir_cita"
+    assert verificar_cadena_telemetria(con).ok is True

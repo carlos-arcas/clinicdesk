@@ -22,7 +22,9 @@ def _crear_conexion() -> sqlite3.Connection:
             evento TEXT NOT NULL,
             contexto TEXT,
             entidad_tipo TEXT,
-            entidad_id TEXT
+            entidad_id TEXT,
+            prev_hash TEXT,
+            entry_hash TEXT NOT NULL DEFAULT ''
         );
         """
     )
@@ -103,7 +105,9 @@ def test_usecase_y_repo_no_persisten_pii_en_contexto(db_connection) -> None:
             evento TEXT NOT NULL,
             contexto TEXT,
             entidad_tipo TEXT,
-            entidad_id TEXT
+            entidad_id TEXT,
+            prev_hash TEXT,
+            entry_hash TEXT NOT NULL DEFAULT ''
         );
         """
     )
