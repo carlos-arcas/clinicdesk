@@ -39,6 +39,7 @@ CONTRATOS_INTEGRIDAD_POR_MODULO: dict[Path, tuple[str, ...]] = {
     Path("clinicdesk/app/queries/telemetria_eventos_queries.py"): ("verificar_cadena_telemetria",),
     Path("scripts/verify_audit_chain.py"): ("verificar_cadena",),
     Path("scripts/verify_telemetry_chain.py"): ("verificar_cadena_telemetria",),
+    Path("scripts/verify_audit_runtime_controls.py"): ("verificar_cadena", "verificar_cadena_telemetria"),
 }
 
 
