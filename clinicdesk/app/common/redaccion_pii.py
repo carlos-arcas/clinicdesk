@@ -66,4 +66,3 @@ def sanear_valor_pii(value: Any, *, clave: str | None = None) -> tuple[Any, bool
 
 def _es_clave_sensible(clave: str) -> bool:
     return any(pattern.search(clave) for pattern in _PATRONES_CLAVE_SENSIBLE)
-

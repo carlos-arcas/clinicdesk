@@ -17,4 +17,3 @@ PLACEHOLDERS_PII_CANONICOS: frozenset[str] = frozenset(
         TOKEN_PII_CAMPO_SENSIBLE,
     }
 )
-

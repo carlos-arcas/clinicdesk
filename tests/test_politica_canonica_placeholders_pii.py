@@ -40,10 +40,7 @@ TOKENS_DIVERGENTES_PROHIBIDOS = (
 
 
 def test_politica_canonica_en_texto_runtime_y_saneo_export() -> None:
-    texto = (
-        "email ana@test.com telefono 600123123 dni 12345678Z "
-        "hc HC-123 direccion Avenida Salud 1"
-    )
+    texto = "email ana@test.com telefono 600123123 dni 12345678Z hc HC-123 direccion Avenida Salud 1"
 
     texto_redactado, redaccion_texto = redactar_texto_pii(texto)
     contexto_app, redaccion_app = _sanear_contexto_telemetria(f"detalle={texto}")

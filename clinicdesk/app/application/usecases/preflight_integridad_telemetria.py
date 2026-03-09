@@ -31,4 +31,3 @@ def exigir_integridad_telemetria(verificador: VerificadorIntegridadTelemetriaGat
         tabla=resultado.tabla,
         primer_fallo_id=resultado.primer_fallo_id,
     )
-

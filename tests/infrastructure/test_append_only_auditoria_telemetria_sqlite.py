@@ -85,14 +85,10 @@ def test_tablas_sensibles_bloquean_update_delete_directo(
     with pytest.raises(sqlite3.IntegrityError, match=error_esperado):
         db_connection.execute(sql, (objetivo_id,))
 
-    row = db_connection.execute(
-        "SELECT usuario FROM auditoria_accesos WHERE id = ?", (auditoria_id,)
-    ).fetchone()
+    row = db_connection.execute("SELECT usuario FROM auditoria_accesos WHERE id = ?", (auditoria_id,)).fetchone()
     assert row is not None and row["usuario"] == "admin"
 
-    row = db_connection.execute(
-        "SELECT usuario FROM telemetria_eventos WHERE id = ?", (telemetria_id,)
-    ).fetchone()
+    row = db_connection.execute("SELECT usuario FROM telemetria_eventos WHERE id = ?", (telemetria_id,)).fetchone()
     assert row is not None and row["usuario"] == "tester"
 
 

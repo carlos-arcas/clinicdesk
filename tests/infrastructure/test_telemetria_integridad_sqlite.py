@@ -109,8 +109,6 @@ def test_telemetria_schema_integridad_es_idempotente_y_resumen_se_mantiene(tmp_p
     assert verificar_cadena_telemetria(con).ok is True
 
 
-
-
 def test_telemetria_legacy_sin_hash_chain_se_backfillea_y_verifica_en_preflight(tmp_path: Path) -> None:
     db_path = tmp_path / "telemetry-legacy.sqlite"
     con = sqlite3.connect(db_path.as_posix())
@@ -149,9 +147,7 @@ def test_telemetria_legacy_sin_hash_chain_se_backfillea_y_verifica_en_preflight(
     resultado = TelemetriaEventosQueries(con).verificar_integridad_telemetria()
     assert resultado.ok is True
 
-    fila_legacy = con.execute(
-        "SELECT prev_hash, entry_hash FROM telemetria_eventos WHERE id = 1"
-    ).fetchone()
+    fila_legacy = con.execute("SELECT prev_hash, entry_hash FROM telemetria_eventos WHERE id = 1").fetchone()
     assert fila_legacy["prev_hash"] == "GENESIS"
     assert fila_legacy["entry_hash"]
 
@@ -168,9 +164,7 @@ def test_telemetria_legacy_sin_hash_chain_se_backfillea_y_verifica_en_preflight(
         )
     )
 
-    filas = con.execute(
-        "SELECT id, prev_hash, entry_hash FROM telemetria_eventos ORDER BY id ASC"
-    ).fetchall()
+    filas = con.execute("SELECT id, prev_hash, entry_hash FROM telemetria_eventos ORDER BY id ASC").fetchall()
     assert filas[1]["prev_hash"] == filas[0]["entry_hash"]
     assert TelemetriaEventosQueries(con).verificar_integridad_telemetria().ok is True
 
