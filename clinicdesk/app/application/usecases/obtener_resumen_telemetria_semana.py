@@ -4,6 +4,10 @@ from dataclasses import dataclass
 from datetime import UTC, datetime, time, timedelta
 from typing import Protocol
 
+from clinicdesk.app.application.usecases.preflight_integridad_telemetria import (
+    VerificadorIntegridadTelemetriaGateway,
+    exigir_integridad_telemetria,
+)
 from clinicdesk.app.queries.telemetria_eventos_queries import TopEventoTelemetriaQuery
 
 
@@ -28,10 +32,17 @@ class ObtenerResumenTelemetriaSemanaGateway(Protocol):
 
 
 class ObtenerResumenTelemetriaSemana:
-    def __init__(self, gateway: ObtenerResumenTelemetriaSemanaGateway) -> None:
+    def __init__(
+        self,
+        gateway: ObtenerResumenTelemetriaSemanaGateway,
+        *,
+        verificador_integridad: VerificadorIntegridadTelemetriaGateway,
+    ) -> None:
         self._gateway = gateway
+        self._verificador_integridad = verificador_integridad
 
     def ejecutar(self) -> ResumenTelemetriaSemanaDTO:
+        exigir_integridad_telemetria(self._verificador_integridad)
         desde, hasta = _rango_ultimos_7_dias_utc()
         top_eventos = self._gateway.top_eventos_por_rango(desde, hasta, limit=5)
         return ResumenTelemetriaSemanaDTO(
