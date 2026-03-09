@@ -5,7 +5,11 @@ import sqlite3
 from pathlib import Path
 
 from clinicdesk.app.application.auditoria.audit_service import AuditEvent
-from clinicdesk.app.application.auditoria_acceso import AccionAuditoriaAcceso, EntidadAuditoriaAcceso, EventoAuditoriaAcceso
+from clinicdesk.app.application.auditoria_acceso import (
+    AccionAuditoriaAcceso,
+    EntidadAuditoriaAcceso,
+    EventoAuditoriaAcceso,
+)
 from clinicdesk.app.application.telemetria import EventoTelemetriaDTO
 from clinicdesk.app.infrastructure.sqlite.repos_auditoria_accesos import RepositorioAuditoriaAccesoSqlite
 from clinicdesk.app.infrastructure.sqlite.repos_auditoria_eventos import RepositorioAuditoriaEventosSqlite
@@ -127,9 +131,7 @@ def test_json_contiene_claves_estables_y_out(tmp_path: Path, capsys) -> None:
     out_path = tmp_path / "reporte.json"
     _crear_db_sana(db_path)
 
-    exit_code = verify_audit_runtime_controls.main(
-        ["--db-path", db_path.as_posix(), "--out", out_path.as_posix()]
-    )
+    exit_code = verify_audit_runtime_controls.main(["--db-path", db_path.as_posix(), "--out", out_path.as_posix()])
 
     assert exit_code == 0
     reporte_stdout = _json_stdout(capsys)
