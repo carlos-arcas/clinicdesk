@@ -81,7 +81,7 @@ class ExportarAuditoriaCSV:
         user_context: UserContext | None = None,
         autorizador_acciones: AutorizadorAcciones | None = None,
         audit_service: AuditService | None = None,
-        verificador_integridad: VerificadorIntegridadAuditoriaGateway | None = None,
+        verificador_integridad: VerificadorIntegridadAuditoriaGateway,
     ) -> None:
         self._gateway = gateway
         self._user_context = user_context

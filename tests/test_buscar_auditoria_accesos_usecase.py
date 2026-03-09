@@ -44,7 +44,8 @@ class GatewayFake:
 
 
 def test_buscar_auditoria_accesos_usecase_mapea_resultado() -> None:
-    usecase = BuscarAuditoriaAccesos(GatewayFake())
+    verificador = VerificadorIntegridadFake(EstadoIntegridadAuditoria(ok=True))
+    usecase = BuscarAuditoriaAccesos(GatewayFake(), verificador_integridad=verificador)
     resultado = usecase.execute(
         FiltrosAuditoriaAccesos(usuario_contiene="audit"), limit=10, offset=20, preset_rango="personalizado"
     )
@@ -61,7 +62,8 @@ def test_buscar_auditoria_accesos_usecase_mapea_resultado() -> None:
 
 def test_buscar_auditoria_aplica_preset_hoy() -> None:
     gateway = GatewayFake()
-    BuscarAuditoriaAccesos(gateway).execute(
+    verificador = VerificadorIntegridadFake(EstadoIntegridadAuditoria(ok=True))
+    BuscarAuditoriaAccesos(gateway, verificador_integridad=verificador).execute(
         FiltrosAuditoriaAccesos(usuario_contiene="audit"), limit=10, offset=20, preset_rango="hoy"
     )
 
@@ -73,7 +75,8 @@ def test_buscar_auditoria_aplica_preset_hoy() -> None:
 
 def test_buscar_auditoria_reutiliza_total_conocido() -> None:
     gateway = GatewayFake()
-    resultado = BuscarAuditoriaAccesos(gateway).execute(
+    verificador = VerificadorIntegridadFake(EstadoIntegridadAuditoria(ok=True))
+    resultado = BuscarAuditoriaAccesos(gateway, verificador_integridad=verificador).execute(
         FiltrosAuditoriaAccesos(usuario_contiene="audit"),
         limit=10,
         offset=20,
