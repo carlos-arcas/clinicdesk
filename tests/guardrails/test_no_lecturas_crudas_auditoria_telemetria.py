@@ -13,7 +13,9 @@ RUTAS_SELECT_PERMITIDAS = {
 }
 TABLAS_SENSIBLES = ("auditoria_accesos", "telemetria_eventos")
 
-PATRON_REFERENCIA_TABLA_SENSIBLE = re.compile(r"\b(from|join)\b[\s\S]{0,200}?\b(auditoria_accesos|telemetria_eventos)\b")
+PATRON_REFERENCIA_TABLA_SENSIBLE = re.compile(
+    r"\b(from|join)\b[\s\S]{0,200}?\b(auditoria_accesos|telemetria_eventos)\b"
+)
 
 
 @dataclass(frozen=True, slots=True)

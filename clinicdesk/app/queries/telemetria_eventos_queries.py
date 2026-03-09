@@ -25,8 +25,6 @@ class TelemetriaEventosQueries:
     def _con(self) -> sqlite3.Connection:
         return self._proveedor if isinstance(self._proveedor, sqlite3.Connection) else self._proveedor.obtener()
 
-
-
     def verificar_integridad_telemetria(self) -> EstadoIntegridadTelemetria:
         resultado = verificar_cadena_telemetria(self._con())
         return EstadoIntegridadTelemetria(
@@ -34,6 +32,7 @@ class TelemetriaEventosQueries:
             tabla=resultado.tabla,
             primer_fallo_id=resultado.primer_fallo_id,
         )
+
     def top_eventos_por_rango(
         self,
         desde_utc: str | datetime,

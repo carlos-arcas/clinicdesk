@@ -71,7 +71,9 @@ def test_exportar_auditoria_csv_solo_serializa_columnas_permitidas() -> None:
             "campo_interno": "secreto",
         }
     ]
-    usecase = ExportarAuditoriaCSV(GatewayFake(total=1, rows=rows), verificador_integridad=VerificadorIntegridadOkFake())
+    usecase = ExportarAuditoriaCSV(
+        GatewayFake(total=1, rows=rows), verificador_integridad=VerificadorIntegridadOkFake()
+    )
 
     dto = usecase.execute(FiltrosAuditoriaAccesos(accion="VER_DETALLE_CITA"))
     data = list(csv.reader(StringIO(dto.csv_texto)))
@@ -93,7 +95,9 @@ def test_exportar_auditoria_csv_headers_exactos_y_ordenados() -> None:
             entidad_id="10",
         )
     ]
-    usecase = ExportarAuditoriaCSV(GatewayFake(total=1, rows=rows), verificador_integridad=VerificadorIntegridadOkFake())
+    usecase = ExportarAuditoriaCSV(
+        GatewayFake(total=1, rows=rows), verificador_integridad=VerificadorIntegridadOkFake()
+    )
 
     dto = usecase.execute(FiltrosAuditoriaAccesos(accion="VER_DETALLE_CITA"))
     data = list(csv.reader(StringIO(dto.csv_texto)))
@@ -102,7 +106,9 @@ def test_exportar_auditoria_csv_headers_exactos_y_ordenados() -> None:
 
 
 def test_exportar_auditoria_csv_limite_defensivo() -> None:
-    usecase = ExportarAuditoriaCSV(GatewayFake(total=10_001, rows=[]), verificador_integridad=VerificadorIntegridadOkFake())
+    usecase = ExportarAuditoriaCSV(
+        GatewayFake(total=10_001, rows=[]), verificador_integridad=VerificadorIntegridadOkFake()
+    )
 
     with pytest.raises(ExportacionAuditoriaDemasiadasFilasError):
         usecase.execute(FiltrosAuditoriaAccesos(accion="VER_DETALLE_CITA"))
@@ -152,7 +158,9 @@ def test_exportar_auditoria_csv_redacta_pii_historica() -> None:
             entidad_id="historia clinica HC-77881, dni=12345678Z",
         )
     ]
-    usecase = ExportarAuditoriaCSV(GatewayFake(total=1, rows=rows), verificador_integridad=VerificadorIntegridadOkFake())
+    usecase = ExportarAuditoriaCSV(
+        GatewayFake(total=1, rows=rows), verificador_integridad=VerificadorIntegridadOkFake()
+    )
 
     dto = usecase.execute(FiltrosAuditoriaAccesos(accion="VER_DETALLE_CITA"))
 
@@ -178,7 +186,9 @@ def test_exportar_auditoria_csv_redacta_estructuras_anidadas_en_serializacion() 
             },
         }
     ]
-    usecase = ExportarAuditoriaCSV(GatewayFake(total=1, rows=rows), verificador_integridad=VerificadorIntegridadOkFake())
+    usecase = ExportarAuditoriaCSV(
+        GatewayFake(total=1, rows=rows), verificador_integridad=VerificadorIntegridadOkFake()
+    )
 
     dto = usecase.execute(FiltrosAuditoriaAccesos(accion="VER_DETALLE_CITA"))
 
