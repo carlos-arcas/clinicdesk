@@ -53,7 +53,7 @@ class BuscarAuditoriaAccesos:
         self,
         gateway: BuscarAuditoriaAccesosGateway,
         *,
-        verificador_integridad: VerificadorIntegridadAuditoriaGateway | None = None,
+        verificador_integridad: VerificadorIntegridadAuditoriaGateway,
     ) -> None:
         self._gateway = gateway
         self._verificador_integridad = verificador_integridad

@@ -45,6 +45,11 @@ class GatewayFake:
         return self.rows
 
 
+class VerificadorIntegridadOkFake:
+    def verificar_integridad_auditoria(self) -> EstadoIntegridadAuditoria:
+        return EstadoIntegridadAuditoria(ok=True)
+
+
 class _RepoAuditoriaFake:
     def __init__(self) -> None:
         self.events: list[AuditEvent] = []
@@ -66,7 +71,7 @@ def test_exportar_auditoria_csv_solo_serializa_columnas_permitidas() -> None:
             "campo_interno": "secreto",
         }
     ]
-    usecase = ExportarAuditoriaCSV(GatewayFake(total=1, rows=rows))
+    usecase = ExportarAuditoriaCSV(GatewayFake(total=1, rows=rows), verificador_integridad=VerificadorIntegridadOkFake())
 
     dto = usecase.execute(FiltrosAuditoriaAccesos(accion="VER_DETALLE_CITA"))
     data = list(csv.reader(StringIO(dto.csv_texto)))
@@ -88,7 +93,7 @@ def test_exportar_auditoria_csv_headers_exactos_y_ordenados() -> None:
             entidad_id="10",
         )
     ]
-    usecase = ExportarAuditoriaCSV(GatewayFake(total=1, rows=rows))
+    usecase = ExportarAuditoriaCSV(GatewayFake(total=1, rows=rows), verificador_integridad=VerificadorIntegridadOkFake())
 
     dto = usecase.execute(FiltrosAuditoriaAccesos(accion="VER_DETALLE_CITA"))
     data = list(csv.reader(StringIO(dto.csv_texto)))
@@ -97,7 +102,7 @@ def test_exportar_auditoria_csv_headers_exactos_y_ordenados() -> None:
 
 
 def test_exportar_auditoria_csv_limite_defensivo() -> None:
-    usecase = ExportarAuditoriaCSV(GatewayFake(total=10_001, rows=[]))
+    usecase = ExportarAuditoriaCSV(GatewayFake(total=10_001, rows=[]), verificador_integridad=VerificadorIntegridadOkFake())
 
     with pytest.raises(ExportacionAuditoriaDemasiadasFilasError):
         usecase.execute(FiltrosAuditoriaAccesos(accion="VER_DETALLE_CITA"))
@@ -110,6 +115,7 @@ def test_exportar_auditoria_csv_exige_rbac_y_audita_fail() -> None:
         user_context=UserContext(role=Role.READONLY, username="readonly"),
         autorizador_acciones=AutorizadorAcciones(),
         audit_service=AuditService(repo),
+        verificador_integridad=VerificadorIntegridadOkFake(),
     )
 
     with pytest.raises(AuthorizationError):
@@ -126,6 +132,7 @@ def test_exportar_auditoria_csv_pii_requiere_confirmacion(monkeypatch: pytest.Mo
         user_context=UserContext(role=Role.ADMIN, username="admin"),
         autorizador_acciones=AutorizadorAcciones(),
         audit_service=AuditService(repo),
+        verificador_integridad=VerificadorIntegridadOkFake(),
     )
 
     with pytest.raises(ExportacionAuditoriaError, match="confirmation_required"):
@@ -145,7 +152,7 @@ def test_exportar_auditoria_csv_redacta_pii_historica() -> None:
             entidad_id="historia clinica HC-77881, dni=12345678Z",
         )
     ]
-    usecase = ExportarAuditoriaCSV(GatewayFake(total=1, rows=rows))
+    usecase = ExportarAuditoriaCSV(GatewayFake(total=1, rows=rows), verificador_integridad=VerificadorIntegridadOkFake())
 
     dto = usecase.execute(FiltrosAuditoriaAccesos(accion="VER_DETALLE_CITA"))
 
@@ -171,7 +178,7 @@ def test_exportar_auditoria_csv_redacta_estructuras_anidadas_en_serializacion() 
             },
         }
     ]
-    usecase = ExportarAuditoriaCSV(GatewayFake(total=1, rows=rows))
+    usecase = ExportarAuditoriaCSV(GatewayFake(total=1, rows=rows), verificador_integridad=VerificadorIntegridadOkFake())
 
     dto = usecase.execute(FiltrosAuditoriaAccesos(accion="VER_DETALLE_CITA"))
 
