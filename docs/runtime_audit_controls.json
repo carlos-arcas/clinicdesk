@@ -1,0 +1,37 @@
+{
+  "controls": [
+    {
+      "critical": true,
+      "details": "cadena integra",
+      "name": "auditoria.chain",
+      "status": "ok"
+    },
+    {
+      "critical": true,
+      "details": "append-only activo",
+      "name": "auditoria.append_only.auditoria_accesos",
+      "status": "ok"
+    },
+    {
+      "critical": false,
+      "details": "sin politica append-only declarada en schema runtime",
+      "name": "auditoria.append_only.auditoria_eventos",
+      "status": "not_applicable"
+    },
+    {
+      "critical": true,
+      "details": "cadena integra",
+      "name": "telemetria.chain",
+      "status": "ok"
+    },
+    {
+      "critical": true,
+      "details": "append-only activo",
+      "name": "telemetria.append_only.telemetria_eventos",
+      "status": "ok"
+    }
+  ],
+  "db_path": "/tmp/runtime-audit-evidence-zd7kjp8m/runtime_audit_evidence.sqlite",
+  "generated_at": "2026-03-09T17:52:08+00:00",
+  "status": "ok"
+}
