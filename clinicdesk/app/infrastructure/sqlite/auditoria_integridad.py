@@ -31,7 +31,12 @@ def ensure_auditoria_integridad_schema(con: sqlite3.Connection) -> None:
 
 
 def ensure_telemetria_integridad_schema(con: sqlite3.Connection) -> None:
-    _ensure_tabla_cadena(con, "telemetria_eventos", _payload_desde_fila_telemetria)
+    _ensure_tabla_cadena(
+        con,
+        "telemetria_eventos",
+        _payload_desde_fila_telemetria,
+        proteger_append_only=True,
+    )
 
 
 def siguiente_hash_evento(con: sqlite3.Connection, payload: dict[str, Any]) -> tuple[str, str]:
@@ -54,6 +59,7 @@ def siguiente_hash_telemetria(con: sqlite3.Connection, payload: dict[str, Any]) 
 
 
 def verificar_cadena_telemetria(con: sqlite3.Connection) -> ResultadoVerificacionCadena:
+    ensure_telemetria_integridad_schema(con)
     return _verificar_tabla(con, "telemetria_eventos", _payload_desde_fila_telemetria)
 
 
@@ -61,6 +67,8 @@ def _ensure_tabla_cadena(
     con: sqlite3.Connection,
     tabla: str,
     construir_payload: Callable[[sqlite3.Row], dict[str, Any]],
+    *,
+    proteger_append_only: bool = False,
 ) -> None:
     columnas = {row["name"] for row in con.execute(f"PRAGMA table_info({tabla})").fetchall()}
     if "prev_hash" not in columnas:
@@ -68,7 +76,62 @@ def _ensure_tabla_cadena(
     if "entry_hash" not in columnas:
         con.execute(f"ALTER TABLE {tabla} ADD COLUMN entry_hash TEXT NOT NULL DEFAULT ''")
     con.execute(f"CREATE INDEX IF NOT EXISTS idx_{tabla}_entry_hash ON {tabla}(entry_hash)")
+
+    if not _tabla_requiere_backfill(con, tabla):
+        return
+
+    if proteger_append_only:
+        _rehash_tabla_respetando_append_only(con, tabla, construir_payload)
+        return
+
     _rehash_tabla(con, tabla, construir_payload)
+
+
+def _tabla_requiere_backfill(con: sqlite3.Connection, tabla: str) -> bool:
+    fila = con.execute(
+        f"""
+        SELECT id
+        FROM {tabla}
+        WHERE prev_hash IS NULL
+           OR entry_hash IS NULL
+           OR entry_hash = ''
+        ORDER BY id ASC
+        LIMIT 1
+        """
+    ).fetchone()
+    return fila is not None
+
+
+def _rehash_tabla_respetando_append_only(
+    con: sqlite3.Connection,
+    tabla: str,
+    construir_payload: Callable[[sqlite3.Row], dict[str, Any]],
+) -> None:
+    trigger_update = f"trg_{tabla}_no_update"
+    trigger_delete = f"trg_{tabla}_no_delete"
+    con.execute(f"DROP TRIGGER IF EXISTS {trigger_update}")
+    con.execute(f"DROP TRIGGER IF EXISTS {trigger_delete}")
+    try:
+        _rehash_tabla(con, tabla, construir_payload)
+    finally:
+        con.execute(
+            f"""
+            CREATE TRIGGER IF NOT EXISTS {trigger_update}
+            BEFORE UPDATE ON {tabla}
+            BEGIN
+                SELECT RAISE(ABORT, '{tabla}_append_only');
+            END;
+            """
+        )
+        con.execute(
+            f"""
+            CREATE TRIGGER IF NOT EXISTS {trigger_delete}
+            BEFORE DELETE ON {tabla}
+            BEGIN
+                SELECT RAISE(ABORT, '{tabla}_append_only');
+            END;
+            """
+        )
 
 
 def _rehash_tabla(

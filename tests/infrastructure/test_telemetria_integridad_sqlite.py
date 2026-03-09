@@ -109,6 +109,104 @@ def test_telemetria_schema_integridad_es_idempotente_y_resumen_se_mantiene(tmp_p
     assert verificar_cadena_telemetria(con).ok is True
 
 
+
+
+def test_telemetria_legacy_sin_hash_chain_se_backfillea_y_verifica_en_preflight(tmp_path: Path) -> None:
+    db_path = tmp_path / "telemetry-legacy.sqlite"
+    con = sqlite3.connect(db_path.as_posix())
+    con.row_factory = sqlite3.Row
+    con.executescript(
+        """
+        CREATE TABLE telemetria_eventos (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            timestamp_utc TEXT NOT NULL,
+            usuario TEXT NOT NULL,
+            modo_demo INTEGER NOT NULL,
+            evento TEXT NOT NULL,
+            contexto TEXT,
+            entidad_tipo TEXT,
+            entidad_id TEXT
+        );
+        """
+    )
+    con.execute(
+        """
+        INSERT INTO telemetria_eventos(timestamp_utc, usuario, modo_demo, evento, contexto, entidad_tipo, entidad_id)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            "2026-01-01T10:00:00+00:00",
+            "legacy",
+            0,
+            "gestion_abrir_cita",
+            '{"page":"agenda"}',
+            "cita",
+            "1",
+        ),
+    )
+    con.commit()
+
+    resultado = TelemetriaEventosQueries(con).verificar_integridad_telemetria()
+    assert resultado.ok is True
+
+    fila_legacy = con.execute(
+        "SELECT prev_hash, entry_hash FROM telemetria_eventos WHERE id = 1"
+    ).fetchone()
+    assert fila_legacy["prev_hash"] == "GENESIS"
+    assert fila_legacy["entry_hash"]
+
+    repo = RepositorioTelemetriaEventosSqlite(con)
+    repo.registrar(
+        EventoTelemetriaDTO(
+            timestamp_utc="2026-01-01T10:01:00+00:00",
+            usuario="nuevo",
+            modo_demo=False,
+            evento="auditoria_export",
+            contexto='{"page":"auditoria"}',
+            entidad_tipo="auditoria",
+            entidad_id="2",
+        )
+    )
+
+    filas = con.execute(
+        "SELECT id, prev_hash, entry_hash FROM telemetria_eventos ORDER BY id ASC"
+    ).fetchall()
+    assert filas[1]["prev_hash"] == filas[0]["entry_hash"]
+    assert TelemetriaEventosQueries(con).verificar_integridad_telemetria().ok is True
+
+
+def test_telemetria_legacy_backfill_es_idempotente(tmp_path: Path) -> None:
+    con = sqlite3.connect((tmp_path / "telemetry-legacy-idempotent.sqlite").as_posix())
+    con.row_factory = sqlite3.Row
+    con.executescript(
+        """
+        CREATE TABLE telemetria_eventos (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            timestamp_utc TEXT NOT NULL,
+            usuario TEXT NOT NULL,
+            modo_demo INTEGER NOT NULL,
+            evento TEXT NOT NULL,
+            contexto TEXT,
+            entidad_tipo TEXT,
+            entidad_id TEXT
+        );
+        INSERT INTO telemetria_eventos(timestamp_utc, usuario, modo_demo, evento, contexto, entidad_tipo, entidad_id)
+        VALUES ('2026-01-01T10:00:00+00:00', 'legacy', 0, 'evento_legacy', NULL, NULL, NULL);
+        """
+    )
+
+    ensure_telemetria_integridad_schema(con)
+    con.commit()
+    hashes_1 = con.execute("SELECT prev_hash, entry_hash FROM telemetria_eventos WHERE id = 1").fetchone()
+
+    ensure_telemetria_integridad_schema(con)
+    con.commit()
+    hashes_2 = con.execute("SELECT prev_hash, entry_hash FROM telemetria_eventos WHERE id = 1").fetchone()
+
+    assert hashes_1["prev_hash"] == hashes_2["prev_hash"] == "GENESIS"
+    assert hashes_1["entry_hash"] == hashes_2["entry_hash"]
+
+
 def test_resumen_telemetria_exige_preflight_y_funciona_si_cadena_esta_sana(tmp_path: Path) -> None:
     con = _new_connection(tmp_path / "telemetry-read-ok.sqlite")
     repo = RepositorioTelemetriaEventosSqlite(con)
