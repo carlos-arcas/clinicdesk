@@ -15,6 +15,7 @@ def test_genera_markdown_con_marcador(tmp_path: Path, monkeypatch) -> None:
     assert "**Outcome:** `success`" in salida
     assert "https://github.com/run/1" in salida
     assert "**Ruff format diff artifact:** `no generado`" in salida
+    assert "**Runtime audit controls report:** `no generado`" in salida
 
 
 def test_indica_diff_ruff_disponible(tmp_path: Path, monkeypatch) -> None:
@@ -34,6 +35,7 @@ def test_indica_diff_ruff_no_generado_con_mensaje_sobrio(tmp_path: Path, monkeyp
     salida = modulo.generar_markdown("failure", "https://run")
 
     assert "**Ruff format diff artifact:** `no generado`" in salida
+    assert "**Runtime audit controls report:** `no generado`" in salida
     assert "Sin diff Ruff generado." in salida
 
 
@@ -88,3 +90,4 @@ def _apuntar_rutas_tmp(tmp_path: Path, monkeypatch) -> None:
     monkeypatch.setattr(modulo, "RUTA_PIP_AUDIT", tmp_path / "pip_audit_report.txt")
     monkeypatch.setattr(modulo, "RUTA_SECRETS", tmp_path / "secrets_scan_report.txt")
     monkeypatch.setattr(modulo, "RUTA_RUFF_FORMAT_DIFF", tmp_path / "ruff_format_diff.txt")
+    monkeypatch.setattr(modulo, "RUTA_RUNTIME_CONTROLES", tmp_path / "runtime_audit_controls.json")

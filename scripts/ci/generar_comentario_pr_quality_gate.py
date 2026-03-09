@@ -14,6 +14,7 @@ RUTA_COBERTURA_XML = Path("docs/coverage.xml")
 RUTA_PIP_AUDIT = Path("docs/pip_audit_report.txt")
 RUTA_SECRETS = Path("docs/secrets_scan_report.txt")
 RUTA_RUFF_FORMAT_DIFF = Path("docs/ruff_format_diff.txt")
+RUTA_RUNTIME_CONTROLES = Path("docs/runtime_audit_controls.json")
 RUTA_SALIDA = Path("docs/pr_quality_gate_comment.md")
 
 MARCADOR_COMENTARIO = "<!-- clinicdesk-quality-gate -->"
@@ -109,12 +110,24 @@ def obtener_cobertura() -> str:
     return cobertura_desde_json(RUTA_COBERTURA_JSON) or cobertura_desde_xml(RUTA_COBERTURA_XML) or "no disponible"
 
 
+def obtener_estado_runtime_controles() -> str:
+    if not RUTA_RUNTIME_CONTROLES.exists():
+        return "no generado"
+    try:
+        reporte = json.loads(RUTA_RUNTIME_CONTROLES.read_text(encoding="utf-8", errors="ignore"))
+    except json.JSONDecodeError:
+        return "inválido"
+    estado = reporte.get("status")
+    return str(estado) if estado else "sin status"
+
+
 def generar_markdown(gate_outcome: str, run_url: str) -> str:
     quality_head = leer_lineas_head(RUTA_REPORTE_CALIDAD)
     pip_tail = leer_lineas_tail(RUTA_PIP_AUDIT)
     secrets_tail = leer_lineas_tail(RUTA_SECRETS)
     cobertura = obtener_cobertura()
     ruff_diff = "disponible" if RUTA_RUFF_FORMAT_DIFF.exists() else "no generado"
+    runtime_status = obtener_estado_runtime_controles()
     nota_ruff = (
         "Diff Ruff disponible inline en logs (bloque BEGIN/END RUFF FORMAT DIFF) y en artefacto"
         " `docs/ruff_format_diff.txt`."
@@ -132,6 +145,7 @@ def generar_markdown(gate_outcome: str, run_url: str) -> str:
             f"- **Coverage:** `{cobertura}`",
             f"- **Ruff format diff artifact:** `{ruff_diff}`",
             f"- **Ruff diff logs/artifact:** {nota_ruff}",
+            f"- **Runtime audit controls report:** `{runtime_status}` (`docs/runtime_audit_controls.json`)",
             "",
             "### quality_report.md (top 40 líneas)",
             "```text",

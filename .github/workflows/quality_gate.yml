@@ -95,6 +95,12 @@ jobs:
             echo "docs/secrets_scan_report.txt not found."
           fi
 
+
+      - name: Generate runtime audit controls evidence
+        if: always()
+        env:
+          PYTHONPATH: .
+        run: python -m scripts.generate_runtime_audit_controls_evidence
       - name: Upload quality artifacts
         if: always()
         uses: actions/upload-artifact@v4
@@ -109,6 +115,7 @@ jobs:
             docs/mypy_report.txt
             docs/secrets_scan_report.txt
             docs/ruff_format_diff.txt
+            docs/runtime_audit_controls.json
             logs/*.log
             .coverage
             htmlcov/**
