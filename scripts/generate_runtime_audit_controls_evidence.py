@@ -28,11 +28,7 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     return parser.parse_args(argv)
 
 
-def poblar_db_evidencia(con: sqlite3.Connection) -> None:
-    repo_accesos = RepositorioAuditoriaAccesoSqlite(con)
-    repo_eventos = RepositorioAuditoriaEventosSqlite(con)
-    repo_telemetria = RepositorioTelemetriaEventosSqlite(con)
-
+def _poblar_auditoria_accesos(repo_accesos: RepositorioAuditoriaAccesoSqlite) -> None:
     repo_accesos.registrar(
         EventoAuditoriaAcceso(
             timestamp_utc="2026-01-08T10:00:00+00:00",
@@ -54,6 +50,8 @@ def poblar_db_evidencia(con: sqlite3.Connection) -> None:
         )
     )
 
+
+def _poblar_auditoria_eventos(repo_eventos: RepositorioAuditoriaEventosSqlite) -> None:
     repo_eventos.append(
         AuditEvent(
             action="runtime_controls_probe",
@@ -77,6 +75,8 @@ def poblar_db_evidencia(con: sqlite3.Connection) -> None:
         )
     )
 
+
+def _poblar_telemetria(repo_telemetria: RepositorioTelemetriaEventosSqlite) -> None:
     repo_telemetria.registrar(
         EventoTelemetriaDTO(
             timestamp_utc="2026-01-08T10:00:00+00:00",
@@ -99,6 +99,16 @@ def poblar_db_evidencia(con: sqlite3.Connection) -> None:
             entidad_id="101",
         )
     )
+
+
+def poblar_db_evidencia(con: sqlite3.Connection) -> None:
+    repo_accesos = RepositorioAuditoriaAccesoSqlite(con)
+    repo_eventos = RepositorioAuditoriaEventosSqlite(con)
+    repo_telemetria = RepositorioTelemetriaEventosSqlite(con)
+
+    _poblar_auditoria_accesos(repo_accesos)
+    _poblar_auditoria_eventos(repo_eventos)
+    _poblar_telemetria(repo_telemetria)
 
 
 def generar_evidencia_runtime(*, out_path: Path) -> int:
