@@ -69,7 +69,11 @@ class PageGestionDashboard(QWidget):
         )
         self._uc_calidad_datos = ObtenerCalidadDatos(CalidadDatosQueries(container.connection))
         self._uc_telemetria = RegistrarTelemetria(container.telemetria_eventos_repo)
-        self._uc_resumen_telemetria = ObtenerResumenTelemetriaSemana(TelemetriaEventosQueries(container.connection))
+        self._queries_telemetria = TelemetriaEventosQueries(container.connection)
+        self._uc_resumen_telemetria = ObtenerResumenTelemetriaSemana(
+            self._queries_telemetria,
+            verificador_integridad=self._queries_telemetria,
+        )
         self._uc_centro_salud = ObtenerCentroSaludOperativa(DashboardGestionQueries(container.connection))
         self._build_ui()
         self._i18n.subscribe(self._retranslate)

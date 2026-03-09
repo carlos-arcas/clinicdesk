@@ -5,6 +5,8 @@ from datetime import datetime
 import sqlite3
 
 from clinicdesk.app.bootstrap_logging import get_logger
+from clinicdesk.app.application.usecases.preflight_integridad_telemetria import EstadoIntegridadTelemetria
+from clinicdesk.app.infrastructure.sqlite.auditoria_integridad import verificar_cadena_telemetria
 from clinicdesk.app.infrastructure.sqlite.proveedor_conexion_sqlite import ProveedorConexionSqlitePorHilo
 
 LOGGER = get_logger(__name__)
@@ -23,6 +25,15 @@ class TelemetriaEventosQueries:
     def _con(self) -> sqlite3.Connection:
         return self._proveedor if isinstance(self._proveedor, sqlite3.Connection) else self._proveedor.obtener()
 
+
+
+    def verificar_integridad_telemetria(self) -> EstadoIntegridadTelemetria:
+        resultado = verificar_cadena_telemetria(self._con())
+        return EstadoIntegridadTelemetria(
+            ok=resultado.ok,
+            tabla=resultado.tabla,
+            primer_fallo_id=resultado.primer_fallo_id,
+        )
     def top_eventos_por_rango(
         self,
         desde_utc: str | datetime,

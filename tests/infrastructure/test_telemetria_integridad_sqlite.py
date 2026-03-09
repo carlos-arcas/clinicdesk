@@ -1,9 +1,14 @@
 from __future__ import annotations
 
 import sqlite3
+from datetime import UTC, datetime
 from pathlib import Path
 
+import pytest
+
 from clinicdesk.app.application.telemetria import EventoTelemetriaDTO
+from clinicdesk.app.application.usecases.obtener_resumen_telemetria_semana import ObtenerResumenTelemetriaSemana
+from clinicdesk.app.application.usecases.preflight_integridad_telemetria import IntegridadTelemetriaComprometidaError
 from clinicdesk.app.infrastructure.sqlite.auditoria_integridad import (
     ensure_telemetria_integridad_schema,
     verificar_cadena_telemetria,
@@ -102,3 +107,55 @@ def test_telemetria_schema_integridad_es_idempotente_y_resumen_se_mantiene(tmp_p
     )
     assert top and top[0].evento == "gestion_abrir_cita"
     assert verificar_cadena_telemetria(con).ok is True
+
+
+def test_resumen_telemetria_exige_preflight_y_funciona_si_cadena_esta_sana(tmp_path: Path) -> None:
+    con = _new_connection(tmp_path / "telemetry-read-ok.sqlite")
+    repo = RepositorioTelemetriaEventosSqlite(con)
+    ahora = datetime.now(UTC).isoformat()
+    repo.registrar(
+        EventoTelemetriaDTO(
+            timestamp_utc=ahora,
+            usuario="u1",
+            modo_demo=False,
+            evento="gestion_abrir_cita",
+            contexto="page=gestion",
+            entidad_tipo="cita",
+            entidad_id="20",
+        )
+    )
+
+    queries = TelemetriaEventosQueries(con)
+    resumen = ObtenerResumenTelemetriaSemana(queries, verificador_integridad=queries).ejecutar()
+
+    assert resumen.top_eventos
+    assert resumen.top_eventos[0].evento == "gestion_abrir_cita"
+
+
+def test_resumen_telemetria_falla_si_cadena_esta_manipulada(tmp_path: Path) -> None:
+    con = _new_connection(tmp_path / "telemetry-read-fail.sqlite")
+    repo = RepositorioTelemetriaEventosSqlite(con)
+    ahora = datetime.now(UTC).isoformat()
+    repo.registrar(
+        EventoTelemetriaDTO(
+            timestamp_utc=ahora,
+            usuario="u1",
+            modo_demo=False,
+            evento="gestion_abrir_cita",
+            contexto="page=gestion",
+            entidad_tipo="cita",
+            entidad_id="20",
+        )
+    )
+
+    con.execute("DROP TRIGGER IF EXISTS trg_telemetria_eventos_no_update")
+    con.execute("UPDATE telemetria_eventos SET evento = 'evento_manipulado' WHERE id = 1")
+    con.commit()
+
+    queries = TelemetriaEventosQueries(con)
+    with pytest.raises(IntegridadTelemetriaComprometidaError) as exc:
+        ObtenerResumenTelemetriaSemana(queries, verificador_integridad=queries).ejecutar()
+
+    assert exc.value.reason_code == "telemetria_integridad_comprometida"
+    assert exc.value.tabla == "telemetria_eventos"
+    assert exc.value.primer_fallo_id == 1
