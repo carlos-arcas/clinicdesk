@@ -119,40 +119,55 @@ def _sanear_contexto_kv(texto: str) -> tuple[str | None, bool]:
 
 def _sanear_payload(payload: Any, *, es_raiz: bool = False) -> tuple[Any | None, bool]:
     if isinstance(payload, dict):
-        saneado: dict[str, Any] = {}
-        redaccion_aplicada = False
-        for raw_key, value in payload.items():
-            key = str(raw_key)
-            if key not in CLAVES_CONTEXTO_TELEMETRIA_PERMITIDAS and es_raiz:
-                redaccion_aplicada = True
-                continue
-            if es_clave_sensible_auditoria_telemetria(key):
-                redaccion_aplicada = True
-                continue
-            valor_saneado, valor_redactado = _sanear_payload(value)
-            if valor_saneado is None and isinstance(value, dict):
-                redaccion_aplicada = True
-                continue
-            saneado[key] = valor_saneado
-            redaccion_aplicada = redaccion_aplicada or valor_redactado
-        if not saneado:
-            return None, redaccion_aplicada
-        return saneado, redaccion_aplicada
+        return _sanear_payload_dict(payload, es_raiz=es_raiz)
     if isinstance(payload, list):
-        saneada: list[Any] = []
-        redaccion_aplicada = False
-        for value in payload:
-            valor_saneado, valor_redactado = _sanear_payload(value)
-            if valor_saneado is None and isinstance(value, dict):
-                redaccion_aplicada = True
-                continue
-            saneada.append(valor_saneado)
-            redaccion_aplicada = redaccion_aplicada or valor_redactado
-        return saneada, redaccion_aplicada
+        return _sanear_payload_lista(payload)
     if isinstance(payload, str):
         redactado = _redactar_texto(payload)
         return redactado, redactado != payload
     return payload, False
+
+
+def _sanear_payload_dict(payload: dict[Any, Any], *, es_raiz: bool) -> tuple[dict[str, Any] | None, bool]:
+    saneado: dict[str, Any] = {}
+    redaccion_aplicada = False
+    for raw_key, value in payload.items():
+        key = str(raw_key)
+        if _debe_omitir_clave_contexto(key, es_raiz=es_raiz):
+            redaccion_aplicada = True
+            continue
+        valor_saneado, valor_redactado = _sanear_payload(value)
+        if _debe_omitir_valor_saneado(valor_saneado, value):
+            redaccion_aplicada = True
+            continue
+        saneado[key] = valor_saneado
+        redaccion_aplicada = redaccion_aplicada or valor_redactado
+    if not saneado:
+        return None, redaccion_aplicada
+    return saneado, redaccion_aplicada
+
+
+def _sanear_payload_lista(payload: list[Any]) -> tuple[list[Any], bool]:
+    saneada: list[Any] = []
+    redaccion_aplicada = False
+    for value in payload:
+        valor_saneado, valor_redactado = _sanear_payload(value)
+        if _debe_omitir_valor_saneado(valor_saneado, value):
+            redaccion_aplicada = True
+            continue
+        saneada.append(valor_saneado)
+        redaccion_aplicada = redaccion_aplicada or valor_redactado
+    return saneada, redaccion_aplicada
+
+
+def _debe_omitir_clave_contexto(key: str, *, es_raiz: bool) -> bool:
+    if es_raiz and key not in CLAVES_CONTEXTO_TELEMETRIA_PERMITIDAS:
+        return True
+    return es_clave_sensible_auditoria_telemetria(key)
+
+
+def _debe_omitir_valor_saneado(valor_saneado: Any | None, valor_original: Any) -> bool:
+    return valor_saneado is None and isinstance(valor_original, dict)
 
 
 def _redactar_texto(value: str) -> str:

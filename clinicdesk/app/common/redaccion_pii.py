@@ -41,27 +41,43 @@ def redactar_texto_pii(texto: str) -> tuple[str, bool]:
 def sanear_valor_pii(value: Any, *, clave: str | None = None) -> tuple[Any, bool]:
     if value is None:
         return None, False
-    if clave and _es_clave_sensible(clave):
+    if _debe_redactar_por_clave(clave):
         return TOKEN_PII_CAMPO_SENSIBLE, True
     if isinstance(value, str):
         return redactar_texto_pii(value)
     if isinstance(value, Mapping):
-        saneado: dict[str, Any] = {}
-        redaccion_aplicada = False
-        for nested_key, nested_value in value.items():
-            nested_saneado, nested_redactado = sanear_valor_pii(nested_value, clave=str(nested_key))
-            saneado[str(nested_key)] = nested_saneado
-            redaccion_aplicada = redaccion_aplicada or nested_redactado
-        return saneado, redaccion_aplicada
-    if isinstance(value, Sequence) and not isinstance(value, (bytes, bytearray)):
-        saneada_lista: list[Any] = []
-        redaccion_aplicada = False
-        for item in value:
-            item_saneado, item_redactado = sanear_valor_pii(item, clave=clave)
-            saneada_lista.append(item_saneado)
-            redaccion_aplicada = redaccion_aplicada or item_redactado
-        return saneada_lista, redaccion_aplicada
+        return _sanear_mapping_pii(value)
+    if _es_secuencia_saneable(value):
+        return _sanear_secuencia_pii(value, clave=clave)
     return value, False
+
+
+def _debe_redactar_por_clave(clave: str | None) -> bool:
+    return bool(clave and _es_clave_sensible(clave))
+
+
+def _sanear_mapping_pii(value: Mapping[Any, Any]) -> tuple[dict[str, Any], bool]:
+    saneado: dict[str, Any] = {}
+    redaccion_aplicada = False
+    for nested_key, nested_value in value.items():
+        nested_saneado, nested_redactado = sanear_valor_pii(nested_value, clave=str(nested_key))
+        saneado[str(nested_key)] = nested_saneado
+        redaccion_aplicada = redaccion_aplicada or nested_redactado
+    return saneado, redaccion_aplicada
+
+
+def _sanear_secuencia_pii(value: Sequence[Any], *, clave: str | None) -> tuple[list[Any], bool]:
+    saneada_lista: list[Any] = []
+    redaccion_aplicada = False
+    for item in value:
+        item_saneado, item_redactado = sanear_valor_pii(item, clave=clave)
+        saneada_lista.append(item_saneado)
+        redaccion_aplicada = redaccion_aplicada or item_redactado
+    return saneada_lista, redaccion_aplicada
+
+
+def _es_secuencia_saneable(value: Any) -> bool:
+    return isinstance(value, Sequence) and not isinstance(value, (bytes, bytearray))
 
 
 def _es_clave_sensible(clave: str) -> bool:

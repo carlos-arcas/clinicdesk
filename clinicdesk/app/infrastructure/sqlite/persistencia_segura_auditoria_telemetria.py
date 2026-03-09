@@ -45,51 +45,75 @@ def sanear_contexto_telemetria_para_persistencia(contexto: str | None) -> tuple[
         return None, False
 
     if texto.startswith("{") or texto.startswith("["):
-        try:
-            payload = json.loads(texto)
-        except json.JSONDecodeError:
-            valor, redaccion_aplicada = sanear_valor_pii(texto, clave="contexto")
-            return str(valor), redaccion_aplicada
-
-        payload_filtrado, claves_descartadas = _filtrar_diccionario_raiz_safe_by_default(
-            payload, CLAVES_CONTEXTO_TELEMETRIA_PERMITIDAS
-        )
-        payload_saneado, redaccion_aplicada = sanear_valor_pii(payload_filtrado, clave="contexto")
-        redaccion_aplicada = redaccion_aplicada or claves_descartadas
-        if isinstance(payload_saneado, dict) and redaccion_aplicada:
-            payload_saneado["redaccion_aplicada"] = True
-        return json.dumps(payload_saneado, ensure_ascii=False, sort_keys=True), redaccion_aplicada
+        return _sanear_contexto_json_para_persistencia(texto)
 
     if "=" in texto:
-        partes_saneadas: list[str] = []
-        redaccion_aplicada = False
-        for parte in texto.split(";"):
-            chunk = parte.strip()
-            if not chunk:
-                continue
-            if "=" not in chunk:
-                valor_libre, redactado_libre = sanear_valor_pii(chunk, clave="detalle")
-                redaccion_aplicada = redaccion_aplicada or redactado_libre
-                continue
-            raw_key, raw_value = chunk.split("=", 1)
-            key = raw_key.strip()
-            value = raw_value.strip()
-            if key not in CLAVES_CONTEXTO_TELEMETRIA_PERMITIDAS:
-                redaccion_aplicada = True
-                continue
-            if es_clave_sensible_auditoria_telemetria(key):
-                redaccion_aplicada = True
-                continue
-            value_saneado, value_redactado = sanear_valor_pii(value, clave=key)
-            redaccion_aplicada = redaccion_aplicada or value_redactado
-            partes_saneadas.append(f"{key}={value_saneado}")
+        return _sanear_contexto_kv_para_persistencia(texto)
 
-        if redaccion_aplicada:
-            partes_saneadas.append("redaccion_aplicada=true")
-        if not partes_saneadas:
-            return None, redaccion_aplicada
-        return ";".join(partes_saneadas), redaccion_aplicada
+    valor, redaccion_aplicada = sanear_valor_pii(texto, clave="contexto")
+    return str(valor), redaccion_aplicada
 
+
+def _sanear_contexto_json_para_persistencia(texto: str) -> tuple[str | None, bool]:
+    try:
+        payload = json.loads(texto)
+    except json.JSONDecodeError:
+        return _sanear_texto_plano_contexto(texto)
+
+    payload_filtrado, claves_descartadas = _filtrar_diccionario_raiz_safe_by_default(
+        payload, CLAVES_CONTEXTO_TELEMETRIA_PERMITIDAS
+    )
+    payload_saneado, redaccion_aplicada = sanear_valor_pii(payload_filtrado, clave="contexto")
+    redaccion_aplicada = redaccion_aplicada or claves_descartadas
+    if isinstance(payload_saneado, dict) and redaccion_aplicada:
+        payload_saneado["redaccion_aplicada"] = True
+    return json.dumps(payload_saneado, ensure_ascii=False, sort_keys=True), redaccion_aplicada
+
+
+def _sanear_contexto_kv_para_persistencia(texto: str) -> tuple[str | None, bool]:
+    partes_saneadas: list[str] = []
+    redaccion_aplicada = False
+    for parte in texto.split(";"):
+        chunk = parte.strip()
+        if not chunk:
+            continue
+        if "=" not in chunk:
+            redaccion_aplicada = _acumular_redaccion_texto_libre(chunk, redaccion_aplicada)
+            continue
+        parte_saneada, parte_redactada = _sanear_parte_kv_contexto(chunk)
+        redaccion_aplicada = redaccion_aplicada or parte_redactada
+        if parte_saneada is not None:
+            partes_saneadas.append(parte_saneada)
+
+    if redaccion_aplicada:
+        partes_saneadas.append("redaccion_aplicada=true")
+    if not partes_saneadas:
+        return None, redaccion_aplicada
+    return ";".join(partes_saneadas), redaccion_aplicada
+
+
+def _acumular_redaccion_texto_libre(chunk: str, redaccion_aplicada: bool) -> bool:
+    _, redactado_libre = sanear_valor_pii(chunk, clave="detalle")
+    return redaccion_aplicada or redactado_libre
+
+
+def _sanear_parte_kv_contexto(chunk: str) -> tuple[str | None, bool]:
+    raw_key, raw_value = chunk.split("=", 1)
+    key = raw_key.strip()
+    value = raw_value.strip()
+    if _debe_descartar_clave_contexto(key):
+        return None, True
+    value_saneado, value_redactado = sanear_valor_pii(value, clave=key)
+    return f"{key}={value_saneado}", value_redactado
+
+
+def _debe_descartar_clave_contexto(key: str) -> bool:
+    if key not in CLAVES_CONTEXTO_TELEMETRIA_PERMITIDAS:
+        return True
+    return es_clave_sensible_auditoria_telemetria(key)
+
+
+def _sanear_texto_plano_contexto(texto: str) -> tuple[str, bool]:
     valor, redaccion_aplicada = sanear_valor_pii(texto, clave="contexto")
     return str(valor), redaccion_aplicada
 
