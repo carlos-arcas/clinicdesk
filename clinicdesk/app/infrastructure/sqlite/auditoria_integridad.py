@@ -30,6 +30,10 @@ def ensure_auditoria_integridad_schema(con: sqlite3.Connection) -> None:
     _ensure_tabla_cadena(con, "auditoria_accesos", _payload_desde_fila_acceso)
 
 
+def ensure_telemetria_integridad_schema(con: sqlite3.Connection) -> None:
+    _ensure_tabla_cadena(con, "telemetria_eventos", _payload_desde_fila_telemetria)
+
+
 def siguiente_hash_evento(con: sqlite3.Connection, payload: dict[str, Any]) -> tuple[str, str]:
     return _siguiente_hash_para_tabla(con, "auditoria_eventos", payload)
 
@@ -43,6 +47,14 @@ def verificar_cadena(con: sqlite3.Connection) -> ResultadoVerificacionCadena:
     if not resultado_eventos.ok:
         return resultado_eventos
     return _verificar_tabla(con, "auditoria_accesos", _payload_desde_fila_acceso)
+
+
+def siguiente_hash_telemetria(con: sqlite3.Connection, payload: dict[str, Any]) -> tuple[str, str]:
+    return _siguiente_hash_para_tabla(con, "telemetria_eventos", payload)
+
+
+def verificar_cadena_telemetria(con: sqlite3.Connection) -> ResultadoVerificacionCadena:
+    return _verificar_tabla(con, "telemetria_eventos", _payload_desde_fila_telemetria)
 
 
 def _ensure_tabla_cadena(
@@ -122,4 +134,16 @@ def _payload_desde_fila_acceso(fila: sqlite3.Row) -> dict[str, Any]:
         "entidad_id": fila["entidad_id"],
         "metadata_json": fila["metadata_json"],
         "created_at_utc": fila["created_at_utc"],
+    }
+
+
+def _payload_desde_fila_telemetria(fila: sqlite3.Row) -> dict[str, Any]:
+    return {
+        "timestamp_utc": fila["timestamp_utc"],
+        "usuario": fila["usuario"],
+        "modo_demo": fila["modo_demo"],
+        "evento": fila["evento"],
+        "contexto": fila["contexto"],
+        "entidad_tipo": fila["entidad_tipo"],
+        "entidad_id": fila["entidad_id"],
     }
