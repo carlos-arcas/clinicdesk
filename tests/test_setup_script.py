@@ -53,8 +53,14 @@ def test_setup_main_ejecuta_comandos_esperados(monkeypatch, tmp_path: Path) -> N
 
     assert rc == 0
     assert [setup.sys.executable, "-m", "venv", str(venv_dir)] in comandos
-    assert any(comando[1:] == ["-m", "pip", "install", "-r", str(setup.PROJECT_ROOT / "requirements.txt")] for comando in comandos)
-    assert any(comando[1:] == ["-m", "pip", "install", "-r", str(setup.PROJECT_ROOT / "requirements-dev.txt")] for comando in comandos)
+    assert any(
+        comando[1:] == ["-m", "pip", "install", "-r", str(setup.PROJECT_ROOT / "requirements.txt")]
+        for comando in comandos
+    )
+    assert any(
+        comando[1:] == ["-m", "pip", "install", "-r", str(setup.PROJECT_ROOT / "requirements-dev.txt")]
+        for comando in comandos
+    )
 
 
 def test_setup_main_devuelve_error_si_falla_subproceso(monkeypatch, tmp_path: Path, capsys) -> None:
