@@ -37,8 +37,6 @@ def _seed_auditoria(db_connection: sqlite3.Connection) -> int:
     return int(row["id"])
 
 
-
-
 def _seed_auditoria_eventos(db_connection: sqlite3.Connection) -> int:
     repo = RepositorioAuditoriaEventosSqlite(db_connection)
     repo.append(
@@ -55,6 +53,7 @@ def _seed_auditoria_eventos(db_connection: sqlite3.Connection) -> int:
     row = db_connection.execute("SELECT id FROM auditoria_eventos ORDER BY id DESC LIMIT 1").fetchone()
     assert row is not None
     return int(row["id"])
+
 
 def _seed_telemetria(db_connection: sqlite3.Connection) -> int:
     repo = RepositorioTelemetriaEventosSqlite(db_connection)
