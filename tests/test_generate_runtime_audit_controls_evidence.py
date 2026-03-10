@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import ast
 import json
 import sqlite3
 from pathlib import Path
@@ -82,3 +83,19 @@ def test_guardrail_workflow_publica_runtime_audit_controls_artifact() -> None:
     workflow = Path(".github/workflows/quality_gate.yml").read_text(encoding="utf-8")
     assert "python -m scripts.generate_runtime_audit_controls_evidence" in workflow
     assert "docs/runtime_audit_controls.json" in workflow
+
+
+def test_guardrail_estructura_generador_runtime() -> None:
+    ruta = Path("scripts/generate_runtime_audit_controls_evidence.py")
+    arbol = ast.parse(ruta.read_text(encoding="utf-8"))
+    funciones = {nodo.name: nodo for nodo in arbol.body if isinstance(nodo, ast.FunctionDef)}
+
+    helpers_esperados = {
+        "_poblar_auditoria_accesos",
+        "_poblar_auditoria_eventos",
+        "_poblar_telemetria",
+    }
+    assert helpers_esperados.issubset(funciones)
+
+    funcion_orquestadora = funciones["poblar_db_evidencia"]
+    assert (funcion_orquestadora.end_lineno or 0) - funcion_orquestadora.lineno + 1 <= 40
