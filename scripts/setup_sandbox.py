@@ -5,6 +5,17 @@ import subprocess
 import sys
 from pathlib import Path
 
+from scripts.quality_gate_components.bootstrap_dependencias import (
+    comando_instalacion,
+    resolver_wheelhouse,
+    wheelhouse_disponible,
+)
+from scripts.quality_gate_components.doctor_entorno_calidad_core import (
+    codigo_salida_estable,
+    diagnosticar_entorno_calidad,
+    renderizar_reporte,
+)
+
 PYTHON_MINIMO = (3, 11)
 RAIZ_REPO = Path(__file__).resolve().parents[1]
 
@@ -36,27 +47,10 @@ def _texto_error_red(stderr: str) -> bool:
         r"Network is unreachable",
         r"ProxyError",
         r"407 Proxy Authentication Required",
+        r"Proxy connection refused",
+        r"Could not fetch URL",
     )
     return any(re.search(patron, stderr, flags=re.IGNORECASE) for patron in patrones_red)
-
-
-def _comando_instalacion_requirements(nombre_archivo: str) -> tuple[list[str], str]:
-    wheelhouse = RAIZ_REPO / "wheelhouse"
-    ruta_requirements = RAIZ_REPO / nombre_archivo
-    comando_base = [sys.executable, "-m", "pip", "install"]
-    if nombre_archivo == "requirements-dev.txt" and wheelhouse.exists():
-        comando = [
-            *comando_base,
-            "--no-index",
-            "--find-links",
-            "wheelhouse",
-            "-r",
-            str(ruta_requirements),
-        ]
-        return comando, "modo offline (wheelhouse)"
-
-    comando = [*comando_base, "-r", str(ruta_requirements)]
-    return comando, "modo estándar"
 
 
 def _instalar_archivo_requirements(nombre_archivo: str) -> bool:
@@ -65,15 +59,10 @@ def _instalar_archivo_requirements(nombre_archivo: str) -> bool:
         _log(f"[setup_sandbox][error] No existe {nombre_archivo} en {RAIZ_REPO}.")
         return False
 
-    comando, detalle_modo = _comando_instalacion_requirements(nombre_archivo)
-    _log(f"[setup_sandbox] Instalando {nombre_archivo} en {detalle_modo}...")
-    resultado = subprocess.run(
-        comando,
-        cwd=RAIZ_REPO,
-        capture_output=True,
-        text=True,
-        check=False,
-    )
+    wheelhouse = resolver_wheelhouse(RAIZ_REPO)
+    comando, modo = comando_instalacion(sys.executable, ruta_requirements, wheelhouse)
+    _log(f"[setup_sandbox] Instalando {nombre_archivo} en modo {modo}...")
+    resultado = subprocess.run(comando, cwd=RAIZ_REPO, capture_output=True, text=True, check=False)
     if resultado.returncode == 0:
         _log(f"[setup_sandbox] OK: {nombre_archivo}")
         return True
@@ -81,11 +70,10 @@ def _instalar_archivo_requirements(nombre_archivo: str) -> bool:
     stderr = (resultado.stderr or "").strip()
     stdout = (resultado.stdout or "").strip()
     if _texto_error_red(stderr):
-        _log("[setup_sandbox][error] Falló la instalación por conectividad (sin internet/proxy).")
-        _log(
-            "[setup_sandbox][ayuda] Instala dependencias durante la fase de setup "
-            "con acceso a red y reutiliza el entorno resultante en el runtime aislado."
-        )
+        _log("[setup_sandbox][error] Falló la instalación por conectividad (red/proxy).")
+        if not wheelhouse_disponible(wheelhouse):
+            _log(f"[setup_sandbox][error] Wheelhouse ausente en: {wheelhouse}")
+            _log("[setup_sandbox][accion] Genera wheelhouse con: python -m scripts.dev.build_wheelhouse")
     else:
         _log(f"[setup_sandbox][error] pip devolvió exit code {resultado.returncode} al instalar {nombre_archivo}.")
 
@@ -95,8 +83,6 @@ def _instalar_archivo_requirements(nombre_archivo: str) -> bool:
     if stderr:
         _log("[setup_sandbox][stderr] Resumen de pip:")
         _log(stderr.splitlines()[-1])
-    _log("Dependencias no instalables en este entorno.")
-    _log("Use wheelhouse offline o ejecute setup en un entorno con internet.")
     return False
 
 
@@ -104,10 +90,21 @@ def main() -> int:
     if not _version_python_valida():
         return 1
 
+    diagnostico = diagnosticar_entorno_calidad(RAIZ_REPO)
+    for linea in renderizar_reporte(diagnostico):
+        _log(linea)
+
     archivos = ("requirements.txt", "requirements-dev.txt")
     resultados = [_instalar_archivo_requirements(nombre) for nombre in archivos]
     comando_sandbox = "CLINICDESK_SANDBOX_MODE=1 python -m scripts.gate_pr"
     if all(resultados):
+        diagnostico_final = diagnosticar_entorno_calidad(RAIZ_REPO)
+        for linea in renderizar_reporte(diagnostico_final):
+            _log(linea)
+        rc_doctor = codigo_salida_estable(diagnostico_final)
+        if rc_doctor != 0:
+            _log(f"[setup_sandbox][error] Entorno no alineado tras setup (doctor rc={rc_doctor}).")
+            return 1
         _log(f"[setup_sandbox] Entorno preparado. Ejecuta: {comando_sandbox}")
         return 0
 
