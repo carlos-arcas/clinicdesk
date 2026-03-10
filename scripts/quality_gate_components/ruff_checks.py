@@ -17,12 +17,9 @@ DELIMITADOR_INICIO_DIFF = "BEGIN RUFF FORMAT DIFF"
 DELIMITADOR_FIN_DIFF = "END RUFF FORMAT DIFF"
 MAX_LINEAS_DIFF_HEAD = 200
 MAX_LINEAS_DIFF_TAIL = 50
-TARGETS_DIFF_RUFF = (
-    "tests/test_checklist_funcional_contract.py",
-    "tests/test_quality_thresholds_contract.py",
-)
 PATRON_VERSION_RUFF = re.compile(r"ruff\s+(?P<version>\S+)")
 PATRON_PIN_RUFF = re.compile(r"^ruff\s*==\s*(?P<version>[^\s#;]+)")
+PATRON_WOULD_REFORMAT = re.compile(r"^Would reformat:\s+(?P<ruta>.+)$")
 
 
 def _loggear_version_ruff(root: Path) -> tuple[int, str]:
@@ -99,6 +96,11 @@ def _ejecutar_comando_ruff(root: Path, comando: Sequence[str]) -> int:
     return resultado.returncode
 
 
+def _ejecutar_comando_ruff_con_salida(root: Path, comando: Sequence[str]) -> subprocess.CompletedProcess[str]:
+    _LOGGER.info("[quality-gate] Ejecutando: %s", " ".join(comando))
+    return subprocess.run(comando, cwd=root, check=False, capture_output=True, text=True)
+
+
 def _persistir_diff_ruff(root: Path, contenido: str) -> None:
     ruta = root / RUTA_ARTEFACTO_DIFF_RUFF
     ruta.parent.mkdir(parents=True, exist_ok=True)
@@ -121,6 +123,36 @@ def _construir_reporte_diff(comando: Sequence[str], retorno: str, stdout: str, s
             "",
         ]
     )
+
+
+def _construir_reporte_fallback(stdout: str, stderr: str) -> str:
+    return "\n".join(
+        [
+            "comando: no-ejecutado (sin archivos parseables de 'Would reformat:')",
+            "returncode: no-ejecutado",
+            "motivo: Ruff format --check falló, pero no se pudieron extraer rutas concretas para --diff.",
+            "--- salida format --check stdout ---",
+            stdout or "(vacío)",
+            "--- salida format --check stderr ---",
+            stderr or "(vacío)",
+            "",
+        ]
+    )
+
+
+def _extraer_archivos_reformateables(stdout: str, stderr: str) -> list[str]:
+    archivos: list[str] = []
+    vistos: set[str] = set()
+    for linea in [*stdout.splitlines(), *stderr.splitlines()]:
+        match = PATRON_WOULD_REFORMAT.match(linea.strip())
+        if not match:
+            continue
+        ruta = match.group("ruta").strip()
+        if ruta in vistos:
+            continue
+        vistos.add(ruta)
+        archivos.append(ruta)
+    return archivos
 
 
 def _persistir_error_diff(root: Path, comando: Sequence[str], exc: OSError) -> None:
@@ -158,11 +190,21 @@ def _imprimir_diff_en_logs(root: Path) -> None:
     _LOGGER.info(DELIMITADOR_FIN_DIFF)
 
 
-def _diagnosticar_fallo_formato(root: Path) -> None:
-    comando = [sys.executable, "-m", "ruff", "format", "--diff", *TARGETS_DIFF_RUFF]
+def _diagnosticar_fallo_formato(root: Path, stdout_format_check: str, stderr_format_check: str) -> None:
+    archivos_reales = _extraer_archivos_reformateables(stdout_format_check, stderr_format_check)
+    if not archivos_reales:
+        _LOGGER.warning(
+            "ruff_format_diff_sin_targets_parseables",
+            extra={"motivo": "no_would_reformat", "ruta": str(root / RUTA_ARTEFACTO_DIFF_RUFF)},
+        )
+        _persistir_diff_ruff(root, _construir_reporte_fallback(stdout_format_check, stderr_format_check))
+        _imprimir_diff_en_logs(root)
+        return
+
+    comando = [sys.executable, "-m", "ruff", "format", "--diff", *archivos_reales]
     _LOGGER.info(
         "ruff_format_diff_ejecucion",
-        extra={"comando": " ".join(comando), "targets": list(TARGETS_DIFF_RUFF)},
+        extra={"comando": " ".join(comando), "targets": archivos_reales},
     )
     try:
         resultado = subprocess.run(comando, cwd=root, check=False, capture_output=True, text=True)
@@ -209,9 +251,9 @@ def run_required_ruff_checks(repo_root: Path | None = None) -> int:
         return check_rc
 
     format_command = [sys.executable, "-m", "ruff", "format", "--check", *python_targets]
-    format_rc = _ejecutar_comando_ruff(root, format_command)
-    if format_rc != 0:
-        _LOGGER.error("ruff_format_check_fallo", extra={"returncode": format_rc})
-        _diagnosticar_fallo_formato(root)
-        return format_rc
+    resultado_format_check = _ejecutar_comando_ruff_con_salida(root, format_command)
+    if resultado_format_check.returncode != 0:
+        _LOGGER.error("ruff_format_check_fallo", extra={"returncode": resultado_format_check.returncode})
+        _diagnosticar_fallo_formato(root, resultado_format_check.stdout, resultado_format_check.stderr)
+        return resultado_format_check.returncode
     return 0

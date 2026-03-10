@@ -71,9 +71,39 @@ def test_genera_diff_y_artefacto_si_format_check_falla(monkeypatch: pytest.Monke
         if command[3] == "check":
             return _Resultado(returncode=0)
         if command[3:5] == ["format", "--check"]:
-            return _Resultado(returncode=1)
+            return _Resultado(returncode=1, stdout="Would reformat: scripts/a.py\n1 file would be reformatted")
         if command[3:5] == ["format", "--diff"]:
-            return _Resultado(returncode=1, stdout="--- diff ---", stderr="")
+            return _Resultado(returncode=1, stdout="--- diff scripts/a.py ---", stderr="")
+        raise AssertionError(f"Comando inesperado: {command}")
+
+    monkeypatch.setattr(ruff_checks.subprocess, "run", fake_run)
+
+    rc = ruff_checks.run_required_ruff_checks(tmp_path)
+
+    assert rc == 1
+    assert comandos[-1] == [sys.executable, "-m", "ruff", "format", "--diff", "scripts/a.py"]
+    artefacto = (tmp_path / "docs" / "ruff_format_diff.txt").read_text(encoding="utf-8")
+    assert "--- diff scripts/a.py ---" in artefacto
+    assert "returncode: 1" in artefacto
+
+
+def test_ejecuta_diff_con_multiples_archivos_parseados(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    (tmp_path / "pyproject.toml").write_text("[tool.ruff]\n", encoding="utf-8")
+    (tmp_path / "requirements-dev.txt").write_text("ruff==0.12.0\n", encoding="utf-8")
+    monkeypatch.setattr(ruff_checks, "obtener_targets_python", lambda _: ["scripts/a.py", "scripts/b.py"])
+    comandos: list[list[str]] = []
+
+    def fake_run(command, **kwargs):
+        comandos.append(list(command))
+        if command[:4] == [sys.executable, "-m", "ruff", "--version"]:
+            return _Resultado(returncode=0, stdout="ruff 0.12.0")
+        if command[3] == "check":
+            return _Resultado(returncode=0)
+        if command[3:5] == ["format", "--check"]:
+            salida = "\n".join(["Would reformat: scripts/a.py", "Would reformat: scripts/b.py"])
+            return _Resultado(returncode=1, stdout=salida)
+        if command[3:5] == ["format", "--diff"]:
+            return _Resultado(returncode=1, stdout="--- diff multiple ---")
         raise AssertionError(f"Comando inesperado: {command}")
 
     monkeypatch.setattr(ruff_checks.subprocess, "run", fake_run)
@@ -87,12 +117,38 @@ def test_genera_diff_y_artefacto_si_format_check_falla(monkeypatch: pytest.Monke
         "ruff",
         "format",
         "--diff",
-        "tests/test_checklist_funcional_contract.py",
-        "tests/test_quality_thresholds_contract.py",
+        "scripts/a.py",
+        "scripts/b.py",
     ]
+
+
+def test_fallback_si_no_hay_archivos_parseables(monkeypatch: pytest.MonkeyPatch, caplog, tmp_path: Path) -> None:
+    (tmp_path / "pyproject.toml").write_text("[tool.ruff]\n", encoding="utf-8")
+    (tmp_path / "requirements-dev.txt").write_text("ruff==0.12.0\n", encoding="utf-8")
+    monkeypatch.setattr(ruff_checks, "obtener_targets_python", lambda _: ["scripts/a.py"])
+    comandos: list[list[str]] = []
+
+    def fake_run(command, **kwargs):
+        comandos.append(list(command))
+        if command[:4] == [sys.executable, "-m", "ruff", "--version"]:
+            return _Resultado(returncode=0, stdout="ruff 0.12.0")
+        if command[3] == "check":
+            return _Resultado(returncode=0)
+        if command[3:5] == ["format", "--check"]:
+            return _Resultado(returncode=1, stdout="contenido no parseable")
+        raise AssertionError(f"No debe ejecutar diff sin targets reales: {command}")
+
+    monkeypatch.setattr(ruff_checks.subprocess, "run", fake_run)
+
+    with caplog.at_level("WARNING"):
+        rc = ruff_checks.run_required_ruff_checks(tmp_path)
+
+    assert rc == 1
+    assert all(cmd[3:5] != ["format", "--diff"] for cmd in comandos)
     artefacto = (tmp_path / "docs" / "ruff_format_diff.txt").read_text(encoding="utf-8")
-    assert "--- diff ---" in artefacto
-    assert "returncode: 1" in artefacto
+    assert "sin archivos parseables" in artefacto
+    assert "contenido no parseable" in artefacto
+    assert "ruff_format_diff_sin_targets_parseables" in caplog.text
 
 
 def test_imprime_diff_en_logs_con_delimitadores(monkeypatch: pytest.MonkeyPatch, caplog, tmp_path: Path) -> None:
@@ -106,7 +162,7 @@ def test_imprime_diff_en_logs_con_delimitadores(monkeypatch: pytest.MonkeyPatch,
         if command[3] == "check":
             return _Resultado(returncode=0)
         if command[3:5] == ["format", "--check"]:
-            return _Resultado(returncode=1)
+            return _Resultado(returncode=1, stdout="Would reformat: scripts/a.py")
         if command[3:5] == ["format", "--diff"]:
             return _Resultado(returncode=0, stdout="linea diff", stderr="")
         raise AssertionError(f"Comando inesperado: {command}")
@@ -134,7 +190,7 @@ def test_diff_con_returncode_uno_no_loguea_error_falso(monkeypatch: pytest.Monke
         if command[3] == "check":
             return _Resultado(returncode=0)
         if command[3:5] == ["format", "--check"]:
-            return _Resultado(returncode=1)
+            return _Resultado(returncode=1, stdout="Would reformat: scripts/a.py")
         if command[3:5] == ["format", "--diff"]:
             return _Resultado(returncode=1, stdout="diff valido", stderr="")
         raise AssertionError(f"Comando inesperado: {command}")
@@ -160,7 +216,7 @@ def test_diff_loguea_error_cuando_falla_realmente(monkeypatch: pytest.MonkeyPatc
         if command[3] == "check":
             return _Resultado(returncode=0)
         if command[3:5] == ["format", "--check"]:
-            return _Resultado(returncode=1)
+            return _Resultado(returncode=1, stdout="Would reformat: scripts/a.py")
         if command[3:5] == ["format", "--diff"]:
             return _Resultado(returncode=2, stdout="", stderr="fallo de ejecucion")
         raise AssertionError(f"Comando inesperado: {command}")
@@ -199,7 +255,7 @@ def test_persistencia_estable_si_diff_falla(monkeypatch: pytest.MonkeyPatch, tmp
         if command[3] == "check":
             return _Resultado(returncode=0)
         if command[3:5] == ["format", "--check"]:
-            return _Resultado(returncode=1)
+            return _Resultado(returncode=1, stdout="Would reformat: scripts/a.py")
         if command[3:5] == ["format", "--diff"]:
             return _Resultado(returncode=2, stdout="", stderr="diff-error")
         raise AssertionError(f"Comando inesperado: {command}")
@@ -225,7 +281,7 @@ def test_persistencia_estable_si_diff_no_se_puede_ejecutar(monkeypatch: pytest.M
         if command[3] == "check":
             return _Resultado(returncode=0)
         if command[3:5] == ["format", "--check"]:
-            return _Resultado(returncode=1)
+            return _Resultado(returncode=1, stdout="Would reformat: scripts/a.py")
         if command[3:5] == ["format", "--diff"]:
             raise OSError("sin ejecutable")
         raise AssertionError(f"Comando inesperado: {command}")
@@ -251,7 +307,7 @@ def test_loguea_fallo_real_de_format_check(monkeypatch: pytest.MonkeyPatch, capl
         if command[3] == "check":
             return _Resultado(returncode=0)
         if command[3:5] == ["format", "--check"]:
-            return _Resultado(returncode=1)
+            return _Resultado(returncode=1, stdout="Would reformat: scripts/a.py")
         if command[3:5] == ["format", "--diff"]:
             return _Resultado(returncode=0, stdout="ok", stderr="")
         raise AssertionError(f"Comando inesperado: {command}")
