@@ -6,6 +6,30 @@ from pathlib import Path
 from scripts import setup
 
 
+class _Resultado:
+    def __init__(self, returncode: int, stdout: str = "", stderr: str = ""):
+        self.returncode = returncode
+        self.stdout = stdout
+        self.stderr = stderr
+
+
+class _DiagnosticoAlineado:
+    herramientas = ()
+    wheelhouse_disponible = False
+    wheelhouse = Path("wheelhouse")
+    python_activo = "3.12.0"
+    venv_activo = True
+    cache_pip = "/tmp/pip"
+    tiene_faltantes = False
+    tiene_desalineaciones = False
+
+
+def _mockear_doctor_alineado(monkeypatch) -> None:
+    monkeypatch.setattr(setup, "diagnosticar_entorno_calidad", lambda *_args, **_kwargs: _DiagnosticoAlineado())
+    monkeypatch.setattr(setup, "renderizar_reporte", lambda *_args, **_kwargs: [])
+    monkeypatch.setattr(setup, "codigo_salida_estable", lambda *_args, **_kwargs: 0)
+
+
 def test_setup_main_ejecuta_comandos_esperados(monkeypatch, tmp_path: Path) -> None:
     comandos: list[list[str]] = []
     venv_dir = tmp_path / ".venv"
@@ -14,24 +38,23 @@ def test_setup_main_ejecuta_comandos_esperados(monkeypatch, tmp_path: Path) -> N
 
     def fake_run(command, **kwargs):
         comandos.append(command)
+        if command[:5] == [setup.sys.executable, "-m", "pip", "cache", "dir"]:
+            return _Resultado(returncode=0, stdout="/tmp/pip-cache")
         return subprocess.CompletedProcess(command, 0)
 
     monkeypatch.setattr(setup, "PROJECT_ROOT", Path(__file__).resolve().parents[1])
     monkeypatch.setattr(setup, "VENV_DIR", venv_dir)
     monkeypatch.setattr(setup.subprocess, "run", fake_run)
     monkeypatch.setattr(setup, "_venv_python", lambda: python_venv)
+    _mockear_doctor_alineado(monkeypatch)
     monkeypatch.setattr(Path, "exists", lambda self: True if self == python_venv else original_exists(self))
 
     rc = setup.main()
 
     assert rc == 0
-    assert comandos[0] == [setup.sys.executable, "-m", "venv", str(venv_dir)]
-    assert ["-m", "pip", "install", "-r", str(setup.PROJECT_ROOT / "requirements.txt")] == comandos[1][1:]
-    assert ["-m", "pip", "install", "-r", str(setup.PROJECT_ROOT / "requirements-dev.txt")] == comandos[2][1:]
-    assert comandos[3][1:] == ["-m", "ruff", "--version"]
-    assert comandos[4][1:] == ["-m", "pytest", "--version"]
-    assert comandos[5][1:] == ["-m", "pip_audit", "--version"]
-    assert comandos[6][1:] == ["-m", "mypy", "--version"]
+    assert [setup.sys.executable, "-m", "venv", str(venv_dir)] in comandos
+    assert any(comando[1:] == ["-m", "pip", "install", "-r", str(setup.PROJECT_ROOT / "requirements.txt")] for comando in comandos)
+    assert any(comando[1:] == ["-m", "pip", "install", "-r", str(setup.PROJECT_ROOT / "requirements-dev.txt")] for comando in comandos)
 
 
 def test_setup_main_devuelve_error_si_falla_subproceso(monkeypatch, tmp_path: Path, capsys) -> None:
@@ -40,6 +63,8 @@ def test_setup_main_devuelve_error_si_falla_subproceso(monkeypatch, tmp_path: Pa
     original_exists = Path.exists
 
     def fake_run(command, **kwargs):
+        if command[:5] == [setup.sys.executable, "-m", "pip", "cache", "dir"]:
+            return _Resultado(returncode=0, stdout="/tmp/pip-cache")
         if command[-1].endswith("requirements.txt"):
             return subprocess.CompletedProcess(command, 1)
         return subprocess.CompletedProcess(command, 0)
@@ -48,6 +73,7 @@ def test_setup_main_devuelve_error_si_falla_subproceso(monkeypatch, tmp_path: Pa
     monkeypatch.setattr(setup, "VENV_DIR", venv_dir)
     monkeypatch.setattr(setup.subprocess, "run", fake_run)
     monkeypatch.setattr(setup, "_venv_python", lambda: python_venv)
+    _mockear_doctor_alineado(monkeypatch)
     monkeypatch.setattr(Path, "exists", lambda self: True if self == python_venv else original_exists(self))
 
     rc = setup.main()

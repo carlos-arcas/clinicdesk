@@ -11,6 +11,7 @@ from scripts.check_security_docs import check_security_docs
 
 from . import config
 from .basic_repo_checks import check_forbidden_artifacts, check_no_print_calls, check_secret_patterns
+from .doctor_entorno_calidad_core import codigo_salida_estable, diagnosticar_entorno_calidad, renderizar_reporte
 from .mypy_checks import run_mypy_blocking_scope, run_mypy_report
 from .pii_guardrail import check_pii_logging_guardrail
 from .requirements_pin_check import check_requirements_pinneados
@@ -35,6 +36,13 @@ def parse_args() -> argparse.Namespace:
         help="Path to structural thresholds JSON file.",
     )
     return parser.parse_args()
+
+
+def _run_doctor_entorno() -> int:
+    diagnostico = diagnosticar_entorno_calidad(config.REPO_ROOT)
+    for linea in renderizar_reporte(diagnostico):
+        _LOGGER.info(linea)
+    return codigo_salida_estable(diagnostico)
 
 
 def _run_pre_checks() -> int:
@@ -109,7 +117,13 @@ def main() -> int:
     configure_logging("clinicdesk-quality-gate", config.REPO_ROOT / "logs", level="INFO", json=False)
     set_run_context("qualitygate")
 
-    for stage in (_run_pre_checks, _run_post_static_checks, _run_test_and_coverage, _run_docs_checks):
+    for stage in (
+        _run_doctor_entorno,
+        _run_pre_checks,
+        _run_post_static_checks,
+        _run_test_and_coverage,
+        _run_docs_checks,
+    ):
         rc = stage()
         if rc != 0:
             return rc
