@@ -141,6 +141,34 @@ def test_json_contiene_claves_estables_y_out(tmp_path: Path, capsys) -> None:
     assert set(reporte_stdout.keys()) == {"controls", "db_path", "generated_at", "status"}
 
 
+def test_resuelve_db_path_oficial_sin_argumento(monkeypatch, tmp_path: Path, capsys) -> None:
+    db_path = tmp_path / "runtime-default.sqlite"
+    _crear_db_sana(db_path)
+    monkeypatch.setenv("CLINICDESK_DB_PATH", db_path.as_posix())
+
+    exit_code = verify_audit_runtime_controls.main([])
+
+    assert exit_code == 0
+    reporte = _json_stdout(capsys)
+    assert reporte["status"] == "ok"
+    assert reporte["db_path"] == db_path.as_posix()
+
+
+def test_db_inaccesible_devuelve_json_estable_y_exit_no_cero(tmp_path: Path, capsys) -> None:
+    db_path = tmp_path / "no-existe" / "runtime.sqlite"
+
+    exit_code = verify_audit_runtime_controls.main(["--db-path", db_path.as_posix()])
+
+    assert exit_code == verify_audit_runtime_controls.EXIT_DB_UNAVAILABLE
+    reporte = _json_stdout(capsys)
+    assert reporte["status"] == "error"
+    assert reporte["db_path"] == db_path.as_posix()
+    assert reporte["controls"] == []
+    assert reporte["error_code"] == "db_unavailable"
+    assert "No se pudo abrir la DB SQLite" in reporte["message"]
+    assert set(reporte.keys()) == {"controls", "db_path", "error_code", "generated_at", "message", "status"}
+
+
 def test_script_reutiliza_verificadores_oficiales(monkeypatch, tmp_path: Path) -> None:
     db_path = tmp_path / "runtime-contract.sqlite"
     _crear_db_sana(db_path)

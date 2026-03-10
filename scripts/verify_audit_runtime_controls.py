@@ -12,6 +12,10 @@ from clinicdesk.app.bootstrap import resolve_db_path
 from clinicdesk.app.infrastructure.sqlite.auditoria_integridad import verificar_cadena, verificar_cadena_telemetria
 from clinicdesk.app.infrastructure.sqlite.runtime_audit_controls import verificar_append_only_tabla
 
+EXIT_OK = 0
+EXIT_CONTROLES_FAILED = 1
+EXIT_DB_UNAVAILABLE = 2
+
 
 def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Verifica controles runtime de auditoría y telemetría")
@@ -100,16 +104,43 @@ def build_report(db_path: Path) -> dict[str, Any]:
     }
 
 
+def build_error_report(db_path: Path, *, error_code: str, message: str) -> dict[str, Any]:
+    return {
+        "status": "error",
+        "db_path": db_path.as_posix(),
+        "generated_at": datetime.now(UTC).replace(microsecond=0).isoformat(),
+        "controls": [],
+        "error_code": error_code,
+        "message": message,
+    }
+
+
+def _emit_output(report: dict[str, Any], out_path: str | None) -> None:
+    output = json.dumps(report, ensure_ascii=False, indent=2, sort_keys=True)
+    if out_path:
+        Path(out_path).write_text(output + "\n", encoding="utf-8")
+    sys.stdout.write(output + "\n")
+
+
 def main(argv: list[str] | None = None) -> int:
     args = _parse_args(argv)
     db_path = _resolver_db_path(args.db_path)
-    report = build_report(db_path)
+    try:
+        report = build_report(db_path)
+    except sqlite3.OperationalError as exc:
+        report = build_error_report(
+            db_path,
+            error_code="db_unavailable",
+            message=(
+                "No se pudo abrir la DB SQLite. Verifica que la ruta exista y tenga permisos de lectura/escritura. "
+                f"Detalle SQLite: {exc}"
+            ),
+        )
+        _emit_output(report, args.out)
+        return EXIT_DB_UNAVAILABLE
 
-    output = json.dumps(report, ensure_ascii=False, indent=2, sort_keys=True)
-    if args.out:
-        Path(args.out).write_text(output + "\n", encoding="utf-8")
-    sys.stdout.write(output + "\n")
-    return 0 if report["status"] == "ok" else 1
+    _emit_output(report, args.out)
+    return EXIT_OK if report["status"] == "ok" else EXIT_CONTROLES_FAILED
 
 
 if __name__ == "__main__":
