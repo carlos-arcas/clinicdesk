@@ -41,7 +41,9 @@ def test_doctor_entorno_alineado(monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 
 
 def test_doctor_reporta_ruff_ausente(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    (tmp_path / "requirements-dev.txt").write_text("ruff==0.8.4\npytest==8.3.2\nmypy==1.13.0\npip-audit==2.7.3\n", encoding="utf-8")
+    (tmp_path / "requirements-dev.txt").write_text(
+        "ruff==0.8.4\npytest==8.3.2\nmypy==1.13.0\npip-audit==2.7.3\n", encoding="utf-8"
+    )
 
     def fake_run(command, **_kwargs):
         if command[:5] == [sys.executable, "-m", "pip", "cache", "dir"]:
@@ -57,7 +59,9 @@ def test_doctor_reporta_ruff_ausente(monkeypatch: pytest.MonkeyPatch, tmp_path: 
 
 
 def test_doctor_reporta_ruff_version_incorrecta(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    (tmp_path / "requirements-dev.txt").write_text("ruff==0.8.4\npytest==8.3.2\nmypy==1.13.0\npip-audit==2.7.3\n", encoding="utf-8")
+    (tmp_path / "requirements-dev.txt").write_text(
+        "ruff==0.8.4\npytest==8.3.2\nmypy==1.13.0\npip-audit==2.7.3\n", encoding="utf-8"
+    )
 
     def fake_run(command, **_kwargs):
         if command[:5] == [sys.executable, "-m", "pip", "cache", "dir"]:
@@ -81,7 +85,9 @@ def test_doctor_reporta_ruff_version_incorrecta(monkeypatch: pytest.MonkeyPatch,
 
 
 def test_doctor_detecta_wheelhouse_requerido_ausente(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    (tmp_path / "requirements-dev.txt").write_text("ruff==0.8.4\npytest==8.3.2\nmypy==1.13.0\npip-audit==2.7.3\n", encoding="utf-8")
+    (tmp_path / "requirements-dev.txt").write_text(
+        "ruff==0.8.4\npytest==8.3.2\nmypy==1.13.0\npip-audit==2.7.3\n", encoding="utf-8"
+    )
 
     def fake_run(command, **_kwargs):
         if command[:5] == [sys.executable, "-m", "pip", "cache", "dir"]:
