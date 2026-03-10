@@ -57,6 +57,8 @@ def test_verificar_cadena_ok_y_detecta_tampering(tmp_path: Path) -> None:
 
     assert verificar_cadena(con).ok is True
 
+    # Simula tampering privilegiado/out-of-band: fuera del flujo normal append-only.
+    con.execute("DROP TRIGGER IF EXISTS trg_auditoria_eventos_no_update")
     con.execute("UPDATE auditoria_eventos SET action = 'ALTERADO' WHERE id = 2")
     con.commit()
     resultado_campo = verificar_cadena(con)
