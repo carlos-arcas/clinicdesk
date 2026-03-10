@@ -3,13 +3,15 @@
 ## Funciones con trabajo pendiente
 
 - **FTR-001 — Se puede lanzar la demo operativa**
-  - Pendiente principal: evidencia E2E GUI en CI para marcar estado global como Verificada.
+  - Pendiente principal: La orquestación y manejo de fallos está probada; no hay evidencia de E2E GUI real pasando en CI para este flujo completo.
 - **FTR-004 — Se puede crear y consultar citas clínicas**
-  - Pendiente principal: flujo E2E que cubra alta de cita desde UI hasta consulta final.
+  - Pendiente principal: Hay cobertura robusta de caso de uso y queries; la verificación UI existe en componentes aislados, sin E2E extremo a extremo confirmado para el ciclo completo de agenda.
 - **FTR-005 — Se puede ejecutar pipeline ML de riesgo de citas**
-  - Pendiente principal: prueba E2E operativa del ciclo completo disparado desde interfaz/punto de entrada de usuario.
+  - Pendiente principal: Core analítico con buena cobertura; no hay evidencia en este corte de un escenario E2E automatizado que recorra UI + pipeline completo.
 - **FTR-008 — Se puede rotar claves criptográficas de campos sensibles**
-  - Pendiente principal: validación E2E de rotación en entorno operativo representativo.
+  - Pendiente principal: Cobertura fuerte de contrato CLI y no exposición de PII; no hay escenario E2E operacional de rotación dentro de despliegue real automatizado.
+- **FTR-009 — WEB_LORE_V1 en Next.js como slice extremo a extremo**
+  - Pendiente principal: Bloqueada en esta rama: no existen rutas frontend/ ni web/apps/lore; el repositorio activo es una app de escritorio Python + API demo, por lo que no se puede implementar el slice solicitado sin cambiar de código base.
 
 ## Funciones con estado "No verificada" por dimensión
 
