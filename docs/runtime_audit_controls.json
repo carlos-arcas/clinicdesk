@@ -13,10 +13,10 @@
       "status": "ok"
     },
     {
-      "critical": false,
-      "details": "sin politica append-only declarada en schema runtime",
+      "critical": true,
+      "details": "append-only activo",
       "name": "auditoria.append_only.auditoria_eventos",
-      "status": "not_applicable"
+      "status": "ok"
     },
     {
       "critical": true,
@@ -31,7 +31,7 @@
       "status": "ok"
     }
   ],
-  "db_path": "/tmp/runtime-audit-evidence-zd7kjp8m/runtime_audit_evidence.sqlite",
-  "generated_at": "2026-03-09T17:52:08+00:00",
+  "db_path": "/tmp/runtime-audit-evidence-vtl8ptqm/runtime_audit_evidence.sqlite",
+  "generated_at": "2026-03-10T18:17:54+00:00",
   "status": "ok"
 }
