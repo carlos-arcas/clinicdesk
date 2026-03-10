@@ -61,6 +61,12 @@ python -m scripts.gate_rapido
 python -m scripts.gate_sandbox
 ```
 
+- Doctor de entorno de calidad (preflight reproducible):
+
+```bash
+python -m scripts.doctor_entorno_calidad
+```
+
 - Lint canónico de repositorio (Python + structural gate):
 
 ```bash
