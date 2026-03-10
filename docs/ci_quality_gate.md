@@ -52,6 +52,21 @@ El gate canónico `python -m scripts.gate_pr` ahora ejecuta además:
    - Escaneo AST de llamadas `logger.*` para strings hardcodeados con tokens sensibles (`dni`, `nif`, `email`, `telefono`, `direccion`, `historia_clinica`).
    - Allowlist mínima: `docs/pii_logging_allowlist.json` con `clave` y `motivo` explícito.
 
+### Preflight de entorno (doctor)
+Antes del gate, valida entorno y pins con:
+
+- `python -m scripts.doctor_entorno_calidad`
+
+Salida/códigos estables:
+- `0`: entorno alineado.
+- `2`: herramienta crítica ausente.
+- `3`: mismatch de versión pinneada.
+- `4`: wheelhouse requerido y ausente (cuando se usa `--require-wheelhouse`).
+
+Para bootstrap offline-first opcional:
+- definir `CLINICDESK_WHEELHOUSE=/ruta/a/wheelhouse`
+- generar wheelhouse (fuera de CI): `python -m scripts.dev.build_wheelhouse`
+
 ### Ejecución local exacta
 1. `python -m pip install --upgrade pip`
 2. `pip install -r requirements-dev.txt`

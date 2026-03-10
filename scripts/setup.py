@@ -5,6 +5,13 @@ import subprocess
 import sys
 from pathlib import Path
 
+from scripts.quality_gate_components.bootstrap_dependencias import comando_instalacion, resolver_wheelhouse
+from scripts.quality_gate_components.doctor_entorno_calidad_core import (
+    codigo_salida_estable,
+    diagnosticar_entorno_calidad,
+    renderizar_reporte,
+)
+
 
 def resolve_repo_root() -> Path:
     override = os.environ.get("CLINICDESK_REPO_ROOT")
@@ -67,14 +74,11 @@ def _instalar_dependencias(python_venv: Path) -> None:
     if not requirements.exists() or not requirements_dev.exists():
         raise RuntimeError("No se encontraron requirements.txt y/o requirements-dev.txt en la raíz del repositorio.")
 
-    _run_command(
-        [str(python_venv), "-m", "pip", "install", "-r", str(requirements)],
-        "Instalar dependencias runtime",
-    )
-    _run_command(
-        [str(python_venv), "-m", "pip", "install", "-r", str(requirements_dev)],
-        "Instalar dependencias dev",
-    )
+    wheelhouse = resolver_wheelhouse(PROJECT_ROOT)
+    comando_runtime, modo_runtime = comando_instalacion(str(python_venv), requirements, wheelhouse)
+    comando_dev, modo_dev = comando_instalacion(str(python_venv), requirements_dev, wheelhouse)
+    _run_command(comando_runtime, f"Instalar dependencias runtime ({modo_runtime})")
+    _run_command(comando_dev, f"Instalar dependencias dev ({modo_dev})")
 
 
 def _verificar_herramientas(python_venv: Path) -> None:
@@ -94,6 +98,9 @@ def _log(mensaje: str) -> None:
 
 def main() -> int:
     try:
+        diagnostico = diagnosticar_entorno_calidad(PROJECT_ROOT)
+        for linea in renderizar_reporte(diagnostico):
+            _log(linea)
         _crear_venv_si_no_existe()
         python_venv = _venv_python()
         if not python_venv.exists():
@@ -101,6 +108,9 @@ def main() -> int:
         _advertir_requirements_no_pinneados()
         _instalar_dependencias(python_venv)
         _verificar_herramientas(python_venv)
+        diagnostico_final = diagnosticar_entorno_calidad(PROJECT_ROOT)
+        if codigo_salida_estable(diagnostico_final) != 0:
+            raise RuntimeError("El entorno quedó desalineado tras setup. Revisa el reporte del doctor.")
     except RuntimeError as exc:
         _log(f"[setup][error] {exc}")
         return 1
