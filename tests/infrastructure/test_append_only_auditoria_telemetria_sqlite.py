@@ -5,6 +5,7 @@ from pathlib import Path
 
 import pytest
 
+from clinicdesk.app.application.auditoria.audit_service import AuditEvent
 from clinicdesk.app.application.auditoria_acceso import (
     AccionAuditoriaAcceso,
     EntidadAuditoriaAcceso,
@@ -12,6 +13,7 @@ from clinicdesk.app.application.auditoria_acceso import (
 )
 from clinicdesk.app.application.telemetria import EventoTelemetriaDTO
 from clinicdesk.app.infrastructure.sqlite.repos_auditoria_accesos import RepositorioAuditoriaAccesoSqlite
+from clinicdesk.app.infrastructure.sqlite.repos_auditoria_eventos import RepositorioAuditoriaEventosSqlite
 from clinicdesk.app.infrastructure.sqlite.repos_telemetria_eventos import RepositorioTelemetriaEventosSqlite
 
 
@@ -35,6 +37,25 @@ def _seed_auditoria(db_connection: sqlite3.Connection) -> int:
     return int(row["id"])
 
 
+
+
+def _seed_auditoria_eventos(db_connection: sqlite3.Connection) -> int:
+    repo = RepositorioAuditoriaEventosSqlite(db_connection)
+    repo.append(
+        AuditEvent(
+            action="cita_open",
+            outcome="ok",
+            actor_username="admin",
+            actor_role="staff",
+            correlation_id="corr-append-only",
+            metadata={"origen": "tests"},
+            timestamp_utc="2026-01-01T10:11:13+00:00",
+        )
+    )
+    row = db_connection.execute("SELECT id FROM auditoria_eventos ORDER BY id DESC LIMIT 1").fetchone()
+    assert row is not None
+    return int(row["id"])
+
 def _seed_telemetria(db_connection: sqlite3.Connection) -> int:
     repo = RepositorioTelemetriaEventosSqlite(db_connection)
     repo.registrar(
@@ -56,12 +77,15 @@ def _seed_telemetria(db_connection: sqlite3.Connection) -> int:
 def test_tablas_sensibles_siguen_permitiendo_insertar_en_boundary(db_connection: sqlite3.Connection) -> None:
     _seed_auditoria(db_connection)
     _seed_telemetria(db_connection)
+    _seed_auditoria_eventos(db_connection)
 
     total_auditoria = db_connection.execute("SELECT COUNT(*) FROM auditoria_accesos").fetchone()[0]
     total_telemetria = db_connection.execute("SELECT COUNT(*) FROM telemetria_eventos").fetchone()[0]
+    total_auditoria_eventos = db_connection.execute("SELECT COUNT(*) FROM auditoria_eventos").fetchone()[0]
 
     assert total_auditoria == 1
     assert total_telemetria == 1
+    assert total_auditoria_eventos == 1
 
 
 @pytest.mark.parametrize(
@@ -71,6 +95,8 @@ def test_tablas_sensibles_siguen_permitiendo_insertar_en_boundary(db_connection:
         ("DELETE FROM auditoria_accesos WHERE id = ?", "auditoria_accesos_append_only"),
         ("UPDATE telemetria_eventos SET usuario = 'otro' WHERE id = ?", "telemetria_eventos_append_only"),
         ("DELETE FROM telemetria_eventos WHERE id = ?", "telemetria_eventos_append_only"),
+        ("UPDATE auditoria_eventos SET action = 'otro' WHERE id = ?", "auditoria_eventos_append_only"),
+        ("DELETE FROM auditoria_eventos WHERE id = ?", "auditoria_eventos_append_only"),
     ],
 )
 def test_tablas_sensibles_bloquean_update_delete_directo(
@@ -80,7 +106,13 @@ def test_tablas_sensibles_bloquean_update_delete_directo(
 ) -> None:
     auditoria_id = _seed_auditoria(db_connection)
     telemetria_id = _seed_telemetria(db_connection)
-    objetivo_id = auditoria_id if "auditoria_accesos" in sql else telemetria_id
+    auditoria_eventos_id = _seed_auditoria_eventos(db_connection)
+    if "auditoria_accesos" in sql:
+        objetivo_id = auditoria_id
+    elif "auditoria_eventos" in sql:
+        objetivo_id = auditoria_eventos_id
+    else:
+        objetivo_id = telemetria_id
 
     with pytest.raises(sqlite3.IntegrityError, match=error_esperado):
         db_connection.execute(sql, (objetivo_id,))
@@ -90,6 +122,9 @@ def test_tablas_sensibles_bloquean_update_delete_directo(
 
     row = db_connection.execute("SELECT usuario FROM telemetria_eventos WHERE id = ?", (telemetria_id,)).fetchone()
     assert row is not None and row["usuario"] == "tester"
+
+    row = db_connection.execute("SELECT action FROM auditoria_eventos WHERE id = ?", (auditoria_eventos_id,)).fetchone()
+    assert row is not None and row["action"] == "cita_open"
 
 
 def test_schema_append_only_es_idempotente_y_deja_triggers_activos() -> None:
@@ -110,6 +145,8 @@ def test_schema_append_only_es_idempotente_y_deja_triggers_activos() -> None:
               AND name IN (
                 'trg_auditoria_accesos_no_update',
                 'trg_auditoria_accesos_no_delete',
+                'trg_auditoria_eventos_no_update',
+                'trg_auditoria_eventos_no_delete',
                 'trg_telemetria_eventos_no_update',
                 'trg_telemetria_eventos_no_delete'
               )
@@ -120,6 +157,8 @@ def test_schema_append_only_es_idempotente_y_deja_triggers_activos() -> None:
     assert triggers == {
         "trg_auditoria_accesos_no_update",
         "trg_auditoria_accesos_no_delete",
+        "trg_auditoria_eventos_no_update",
+        "trg_auditoria_eventos_no_delete",
         "trg_telemetria_eventos_no_update",
         "trg_telemetria_eventos_no_delete",
     }

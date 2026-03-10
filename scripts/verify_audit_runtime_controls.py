@@ -58,16 +58,13 @@ def build_report(db_path: Path) -> dict[str, Any]:
         )
 
         append_auditoria_eventos = verificar_append_only_tabla(con, "auditoria_eventos")
-        if append_auditoria_eventos.aplica:
-            status_eventos = "ok" if append_auditoria_eventos.ok else "failed"
-        else:
-            status_eventos = "not_applicable"
+        status_eventos = "ok" if append_auditoria_eventos.ok else "failed"
         controles.append(
             _control(
                 "auditoria.append_only.auditoria_eventos",
                 status_eventos,
                 append_auditoria_eventos.detalle,
-                critical=False,
+                critical=True,
             )
         )
 

@@ -78,6 +78,7 @@ def test_db_sana_retorna_ok_y_json_estable(tmp_path: Path, capsys) -> None:
     assert controles["auditoria.chain"]["status"] == "ok"
     assert controles["telemetria.chain"]["status"] == "ok"
     assert controles["auditoria.append_only.auditoria_accesos"]["status"] == "ok"
+    assert controles["auditoria.append_only.auditoria_eventos"]["status"] == "ok"
     assert controles["telemetria.append_only.telemetria_eventos"]["status"] == "ok"
 
 

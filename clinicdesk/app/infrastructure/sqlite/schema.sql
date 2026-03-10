@@ -530,6 +530,18 @@ CREATE INDEX IF NOT EXISTS idx_auditoria_eventos_timestamp ON auditoria_eventos(
 CREATE INDEX IF NOT EXISTS idx_auditoria_eventos_action ON auditoria_eventos(action);
 CREATE INDEX IF NOT EXISTS idx_auditoria_eventos_entry_hash ON auditoria_eventos(entry_hash);
 
+CREATE TRIGGER IF NOT EXISTS trg_auditoria_eventos_no_update
+BEFORE UPDATE ON auditoria_eventos
+BEGIN
+    SELECT RAISE(ABORT, 'auditoria_eventos_append_only');
+END;
+
+CREATE TRIGGER IF NOT EXISTS trg_auditoria_eventos_no_delete
+BEFORE DELETE ON auditoria_eventos
+BEGIN
+    SELECT RAISE(ABORT, 'auditoria_eventos_append_only');
+END;
+
 CREATE TABLE IF NOT EXISTS telemetria_eventos (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     timestamp_utc TEXT NOT NULL,

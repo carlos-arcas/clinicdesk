@@ -34,6 +34,7 @@ def test_generar_evidencia_crea_json_y_db_no_vacia(tmp_path: Path, monkeypatch) 
     assert controles["auditoria.chain"]["status"] == "ok"
     assert controles["telemetria.chain"]["status"] == "ok"
     assert controles["auditoria.append_only.auditoria_accesos"]["status"] == "ok"
+    assert controles["auditoria.append_only.auditoria_eventos"]["status"] == "ok"
     assert controles["telemetria.append_only.telemetria_eventos"]["status"] == "ok"
 
     assert conteos["auditoria_accesos"] >= 2
