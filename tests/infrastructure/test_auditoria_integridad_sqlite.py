@@ -21,6 +21,7 @@ from clinicdesk.app.infrastructure.sqlite.auditoria_integridad import (
 from clinicdesk.app.infrastructure.sqlite.repos_auditoria_accesos import RepositorioAuditoriaAccesoSqlite
 from clinicdesk.app.infrastructure.sqlite.repos_auditoria_eventos import RepositorioAuditoriaEventosSqlite
 from clinicdesk.app.queries.auditoria_accesos_queries import AuditoriaAccesosQueries, FiltrosAuditoriaAccesos
+from tests.support_tampering_sqlite import simular_tampering_privilegiado_sqlite
 
 
 SCHEMA_PATH = Path(__file__).resolve().parents[2] / "clinicdesk" / "app" / "infrastructure" / "sqlite" / "schema.sql"
@@ -57,10 +58,11 @@ def test_verificar_cadena_ok_y_detecta_tampering(tmp_path: Path) -> None:
 
     assert verificar_cadena(con).ok is True
 
-    # Simula tampering privilegiado/out-of-band: fuera del flujo normal append-only.
-    con.execute("DROP TRIGGER IF EXISTS trg_auditoria_eventos_no_update")
-    con.execute("UPDATE auditoria_eventos SET action = 'ALTERADO' WHERE id = 2")
-    con.commit()
+    simular_tampering_privilegiado_sqlite(
+        con,
+        trigger_no_update="trg_auditoria_eventos_no_update",
+        sentencia_update="UPDATE auditoria_eventos SET action = 'ALTERADO' WHERE id = 2",
+    )
     resultado_campo = verificar_cadena(con)
     assert resultado_campo.ok is False
     assert resultado_campo.primer_fallo_id == 2
@@ -72,6 +74,27 @@ def test_verificar_cadena_ok_y_detecta_tampering(tmp_path: Path) -> None:
     resultado_hash = verificar_cadena(con)
     assert resultado_hash.ok is False
     assert resultado_hash.primer_fallo_id == 3
+
+    con.close()
+
+
+def test_helper_tampering_privilegiado_aplica_corrupcion_en_db_temporal(tmp_path: Path) -> None:
+    con = _new_connection(tmp_path / "audit-helper.sqlite")
+    repo = RepositorioAuditoriaEventosSqlite(con)
+
+    repo.append(_build_event("LOGIN", "2026-01-01T10:00:00+00:00"))
+    repo.append(_build_event("OPEN_PATIENT", "2026-01-01T10:01:00+00:00"))
+
+    simular_tampering_privilegiado_sqlite(
+        con,
+        trigger_no_update="trg_auditoria_eventos_no_update",
+        sentencia_update="UPDATE auditoria_eventos SET action = ? WHERE id = 2",
+        parametros=("ALTERADO_HELPER",),
+    )
+
+    action = con.execute("SELECT action FROM auditoria_eventos WHERE id = 2").fetchone()["action"]
+    assert action == "ALTERADO_HELPER"
+    assert verificar_cadena(con).ok is False
 
     con.close()
 
@@ -105,15 +128,15 @@ def test_cadena_auditoria_accesos_detecta_tampering_en_metadata_anidada(tmp_path
 
     assert verificar_cadena(con).ok is True
 
-    con.execute("DROP TRIGGER IF EXISTS trg_auditoria_accesos_no_update")
-    con.execute(
-        """
-        UPDATE auditoria_accesos
-        SET metadata_json = '{"origen":"agenda","contexto":{"detalle":"MANIPULADO"}}'
-        WHERE id = 2
-        """
+    simular_tampering_privilegiado_sqlite(
+        con,
+        trigger_no_update="trg_auditoria_accesos_no_update",
+        sentencia_update=(
+            "UPDATE auditoria_accesos "
+            "SET metadata_json = '{\"origen\":\"agenda\",\"contexto\":{\"detalle\":\"MANIPULADO\"}}' "
+            "WHERE id = 2"
+        ),
     )
-    con.commit()
 
     resultado = verificar_cadena(con)
     assert resultado.ok is False
@@ -203,9 +226,11 @@ def test_buscar_y_exportar_bloquean_si_cadena_esta_rota(tmp_path: Path) -> None:
         )
     )
 
-    con.execute("DROP TRIGGER IF EXISTS trg_auditoria_accesos_no_update")
-    con.execute("UPDATE auditoria_accesos SET entidad_id = 'MANIPULADO' WHERE id = 2")
-    con.commit()
+    simular_tampering_privilegiado_sqlite(
+        con,
+        trigger_no_update="trg_auditoria_accesos_no_update",
+        sentencia_update="UPDATE auditoria_accesos SET entidad_id = 'MANIPULADO' WHERE id = 2",
+    )
 
     queries = AuditoriaAccesosQueries(con)
     buscar_uc = BuscarAuditoriaAccesos(queries, verificador_integridad=queries)
