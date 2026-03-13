@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 
 from PySide6.QtCore import QThread, Qt
+from PySide6.QtGui import QKeySequence, QShortcut
 from PySide6.QtWidgets import QTableWidgetItem, QWidget
 
 from clinicdesk.app.application.confirmaciones import (
@@ -42,6 +43,7 @@ from clinicdesk.app.pages.confirmaciones.seleccion_confirmaciones import (
 from clinicdesk.app.pages.confirmaciones.telemetria_confirmaciones import log_carga, registrar_telemetria
 from clinicdesk.app.pages.confirmaciones.ui_builder import build_confirmaciones_ui
 from clinicdesk.app.pages.confirmaciones.workers_confirmaciones import arrancar_busqueda_rapida, arrancar_carga
+from clinicdesk.app.pages.shared.contexto_tabla import ContextoTablaListado, capturar_contexto_tabla, restaurar_contexto_tabla
 from clinicdesk.app.queries.confirmaciones_queries import ConfirmacionesQueries
 from clinicdesk.app.ui.ux.error_feedback import presentar_error_recuperable
 from clinicdesk.app.ui.ux.window_feedback import set_busy, toast_error, toast_info, toast_success
@@ -73,6 +75,7 @@ class PageConfirmaciones(QWidget):
         self._cita_focus_pendiente: int | None = None
         self._db_path = resolver_db_path_desde_conexion(container.connection)
         self._preferencias_restauradas = False
+        self._contexto_tabla_pendiente = ContextoTablaListado(fila_id=None, scroll_vertical=0, mantener_foco=False)
         self._vm = ConfirmacionesViewModel(listar_confirmaciones=self._listar_confirmaciones_sync)
         self._ui: ConfirmacionesUIRefs = build_confirmaciones_ui(self, i18n)
         self._lote = GestorLoteConfirmaciones(
@@ -84,10 +87,22 @@ class PageConfirmaciones(QWidget):
         )
         self._ui.contenido_tabla.layout().insertWidget(1, self._lote.barra)
         self._connect_signals()
+        self._build_shortcuts()
         self._vm.subscribe(self._on_estado_vm)
         self._vm.subscribe_eventos(self._on_evento_vm)
         self._i18n.subscribe(self._retranslate)
         self._retranslate()
+
+
+    def _build_shortcuts(self) -> None:
+        self._shortcut_focus_busqueda = QShortcut(QKeySequence("Ctrl+F"), self)
+        self._shortcut_focus_busqueda.activated.connect(self._ui.txt_buscar.setFocus)
+        self._shortcut_limpiar_busqueda = QShortcut(QKeySequence("Ctrl+L"), self)
+        self._shortcut_limpiar_busqueda.activated.connect(self._atajo_limpiar_busqueda)
+
+    def _atajo_limpiar_busqueda(self) -> None:
+        self._ui.txt_buscar.clear()
+        self._load_data(reset=True)
 
     def _connect_signals(self) -> None:
         self._ui.btn_ir_prediccion.clicked.connect(self._ir_a_prediccion)
@@ -145,6 +160,7 @@ class PageConfirmaciones(QWidget):
 
     def _load_data(self, *, reset: bool) -> None:
         self._guardar_preferencias()
+        self._contexto_tabla_pendiente = capturar_contexto_tabla(self._ui.table, columna_id=0)
         self._token_carga += 1
         token = self._token_carga
         if reset:
@@ -221,6 +237,7 @@ class PageConfirmaciones(QWidget):
             self._vm.seleccionar(self._cita_focus_pendiente)
             self._cita_focus_pendiente = None
         self._vm.resolver_carga_ok(rows=result.items, emitir_toast=True)
+        restaurar_contexto_tabla(self._ui.table, self._contexto_tabla_pendiente, columna_id=0)
         if result.items:
             self._ui.table.setFocus()
 

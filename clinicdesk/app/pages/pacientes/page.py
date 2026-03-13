@@ -5,6 +5,7 @@ from typing import Optional
 import logging
 
 from PySide6.QtCore import QThread
+from PySide6.QtGui import QKeySequence, QShortcut
 from PySide6.QtWidgets import QWidget
 
 from clinicdesk.app.container import AppContainer
@@ -44,6 +45,7 @@ from clinicdesk.app.ui.ux.error_feedback import presentar_error_recuperable
 from clinicdesk.app.pages.pacientes.window_feedback import set_busy, toast_error, toast_success
 from clinicdesk.app.pages.pacientes.workers_pacientes import arrancar_busqueda_rapida, arrancar_carga
 from clinicdesk.app.pages.pacientes.ui_builder import build_pacientes_ui
+from clinicdesk.app.pages.shared.contexto_tabla import ContextoTablaListado, capturar_contexto_tabla, restaurar_contexto_tabla
 from clinicdesk.app.pages.shared.crud_page_helpers import set_buttons_enabled
 from clinicdesk.app.queries.historial_paciente_queries import HistorialPacienteQueries
 from clinicdesk.app.queries.historial_listados_queries import HistorialListadosQueries
@@ -87,6 +89,7 @@ class PagePacientes(QWidget):
         self._token_carga = 0
         self._thread_busqueda_rapida: QThread | None = None
         self._preferencias_restauradas = False
+        self._contexto_tabla_pendiente = ContextoTablaListado(fila_id=None, scroll_vertical=0, mantener_foco=False)
         self._vm = PacientesViewModel(listar_pacientes=self._listar_pacientes_sync)
 
         self._ui = build_pacientes_ui(
@@ -103,10 +106,22 @@ class PagePacientes(QWidget):
         self.btn_historial = self._ui.btn_historial
         self.btn_csv = self._ui.btn_csv
         self._connect_signals()
+        self._build_shortcuts()
         self._vm.subscribe(self._on_estado_vm)
         self._vm.subscribe_eventos(self._on_evento_vm)
         self._refresh()
         self.filtros.txt_busqueda.setFocus()
+
+
+    def _build_shortcuts(self) -> None:
+        self._shortcut_focus_busqueda = QShortcut(QKeySequence("Ctrl+F"), self)
+        self._shortcut_focus_busqueda.activated.connect(self.filtros.txt_busqueda.setFocus)
+        self._shortcut_limpiar_filtros = QShortcut(QKeySequence("Ctrl+L"), self)
+        self._shortcut_limpiar_filtros.activated.connect(self._atajo_limpiar_filtros)
+
+    def _atajo_limpiar_filtros(self) -> None:
+        self._reset_filters()
+        self._refresh()
 
     def _connect_signals(self) -> None:
         self.filtros.filtros_cambiados.connect(self._refresh)
@@ -127,6 +142,7 @@ class PagePacientes(QWidget):
 
     def _refresh(self) -> None:
         self._guardar_preferencias()
+        self._contexto_tabla_pendiente = capturar_contexto_tabla(self.table, columna_id=0)
         self._token_carga += 1
         token = self._token_carga
         selected_id = obtener_selected_id(self._ui)
@@ -202,6 +218,7 @@ class PagePacientes(QWidget):
         self.filtros.set_contador(len(rows), total_base)
         self._vm.seleccionar(selected_id)
         self._vm.resolver_carga_ok(rows=rows, emitir_toast=True)
+        restaurar_contexto_tabla(self.table, self._contexto_tabla_pendiente, columna_id=0)
         if rows:
             self.table.setFocus()
 
