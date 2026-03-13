@@ -67,3 +67,44 @@ def test_toast_manager_autohide_avanza_cola() -> None:
 
     assert manager.actual is not None
     assert manager.actual.mensaje_key == "toast.ok"
+
+
+def test_ver_detalles_solo_aparece_si_hay_detalle() -> None:
+    toast_module = _load_module()
+    manager = toast_module.ToastManager(traducir=lambda key: key)
+
+    payload_sin_detalle = manager.error("toast.fail")
+    assert payload_sin_detalle.tiene_detalle is False
+
+    manager.close_current()
+    payload_con_detalle = manager.error("toast.fail", detalle="stacktrace")
+    assert payload_con_detalle.tiene_detalle is True
+
+
+def test_accion_toast_se_ejecuta_una_sola_vez() -> None:
+    toast_module = _load_module()
+    manager = toast_module.ToastManager(traducir=lambda key: key)
+    ejecuciones: list[str] = []
+
+    manager.error(
+        "toast.retry",
+        accion_label_key="toast.action.retry",
+        accion_callback=lambda: ejecuciones.append("retry"),
+        persistente=True,
+    )
+
+    assert manager.run_current_action() is True
+    assert manager.run_current_action() is False
+    assert ejecuciones == ["retry"]
+
+
+def test_cierre_toast_notifica_once() -> None:
+    toast_module = _load_module()
+    manager = toast_module.ToastManager(traducir=lambda key: key)
+    cierres: list[str] = []
+
+    manager.success("toast.ok", on_close=lambda: cierres.append("close"))
+    manager.close_current()
+    manager.close_current()
+
+    assert cierres == ["close"]

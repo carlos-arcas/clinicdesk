@@ -40,6 +40,7 @@ from clinicdesk.app.pages.pacientes.render_pacientes import (
     selected_id as obtener_selected_id,
     update_action_buttons,
 )
+from clinicdesk.app.ui.ux.error_feedback import presentar_error_recuperable
 from clinicdesk.app.pages.pacientes.window_feedback import set_busy, toast_error, toast_success
 from clinicdesk.app.pages.pacientes.workers_pacientes import arrancar_busqueda_rapida, arrancar_carga
 from clinicdesk.app.pages.pacientes.ui_builder import build_pacientes_ui
@@ -209,7 +210,17 @@ class PagePacientes(QWidget):
             "pacientes_carga_error",
             extra={"action": "pacientes_carga_error", "error": error_type},
         )
-        self._vm.resolver_carga_error(error_key="ux_states.pacientes.error", emitir_toast=True)
+        self._vm.resolver_carga_error(error_key="ux_states.pacientes.error", emitir_toast=False)
+        feedback = presentar_error_recuperable(error_type)
+        toast_error(
+            self,
+            "toast.refresh_fail_retry",
+            titulo_key=feedback.titulo_key,
+            detalle=feedback.detalle,
+            accion_label_key="toast.action.retry",
+            accion_callback=self._refresh,
+            persistente=True,
+        )
 
     def _on_estado_vm(self, estado: EstadoListado[PacienteRow]) -> None:
         render_estado(

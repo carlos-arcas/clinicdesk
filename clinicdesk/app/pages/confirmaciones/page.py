@@ -43,6 +43,7 @@ from clinicdesk.app.pages.confirmaciones.telemetria_confirmaciones import log_ca
 from clinicdesk.app.pages.confirmaciones.ui_builder import build_confirmaciones_ui
 from clinicdesk.app.pages.confirmaciones.workers_confirmaciones import arrancar_busqueda_rapida, arrancar_carga
 from clinicdesk.app.queries.confirmaciones_queries import ConfirmacionesQueries
+from clinicdesk.app.ui.ux.error_feedback import presentar_error_recuperable
 from clinicdesk.app.ui.ux.window_feedback import set_busy, toast_error, toast_info, toast_success
 from clinicdesk.app.ui.viewmodels.contratos import EstadoListado, EventoUI
 from clinicdesk.app.ui.viewmodels.confirmaciones_vm import ConfirmacionesViewModel
@@ -227,7 +228,17 @@ class PageConfirmaciones(QWidget):
         LOGGER.warning(
             "confirmaciones_carga_error", extra={"action": "confirmaciones_carga_error", "error": error_type}
         )
-        self._vm.resolver_carga_error(error_key="ux_states.confirmaciones.error", emitir_toast=True)
+        self._vm.resolver_carga_error(error_key="ux_states.confirmaciones.error", emitir_toast=False)
+        feedback = presentar_error_recuperable(error_type)
+        toast_error(
+            self,
+            "toast.refresh_fail_retry",
+            titulo_key=feedback.titulo_key,
+            detalle=feedback.detalle,
+            accion_label_key="toast.action.retry",
+            accion_callback=self._refresh if hasattr(self, "_refresh") else (lambda: self._load_data(reset=True)),
+            persistente=True,
+        )
 
     def _on_estado_vm(self, estado: EstadoListado[object]) -> None:
         render_estado(self._ui, estado, on_retry=lambda: self._load_data(reset=True), render_rows=self._render_rows)
