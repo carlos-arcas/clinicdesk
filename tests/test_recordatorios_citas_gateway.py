@@ -4,8 +4,12 @@ import sqlite3
 import threading
 from pathlib import Path
 
+import pytest
+
 from clinicdesk.app.infrastructure.sqlite.recordatorios_citas_gateway import RecordatoriosCitasSqliteGateway
 from clinicdesk.app.infrastructure.sqlite.proveedor_conexion_sqlite import ProveedorConexionSqlitePorHilo
+from clinicdesk.app.common.crypto_field_protection import encrypt, hash_lookup
+from clinicdesk.app.infrastructure.sqlite.field_crypto_migrations import ensure_pacientes_field_crypto_columns
 
 
 def _build_connection() -> sqlite3.Connection:
@@ -93,6 +97,38 @@ def test_gateway_contacto_citas_devuelve_minimo() -> None:
     assert set(contactos.keys()) == {1, 2}
     assert contactos[1] == ("600000000", "ana@test.com")
     assert contactos[2] == (None, "eva@test.com")
+
+
+def test_gateway_contacto_citas_descifra_campos_protegidos(monkeypatch: pytest.MonkeyPatch) -> None:
+    pytest.importorskip("cryptography", reason="Falta dependencia opcional cryptography en este entorno")
+    monkeypatch.setenv("CLINICDESK_FIELD_CRYPTO", "1")
+    monkeypatch.setenv("CLINICDESK_CRYPTO_KEY", "test-key-material")
+
+    con = _build_connection()
+    ensure_pacientes_field_crypto_columns(con)
+    con.execute(
+        """
+        UPDATE pacientes
+        SET telefono = NULL,
+            telefono_enc = ?,
+            telefono_hash = ?,
+            email = NULL,
+            email_enc = ?,
+            email_hash = ?
+        WHERE id = 1
+        """,
+        (
+            encrypt("600000000"),
+            hash_lookup("600000000", field="telefono"),
+            encrypt("ana@test.com"),
+            hash_lookup("ana@test.com", field="email"),
+        ),
+    )
+    gateway = RecordatoriosCitasSqliteGateway(con)
+
+    contactos = gateway.obtener_contacto_citas((1,))
+
+    assert contactos[1] == ("600000000", "ana@test.com")
 
 
 def test_gateway_con_proveedor_no_comparte_conexion_entre_hilos(tmp_path) -> None:

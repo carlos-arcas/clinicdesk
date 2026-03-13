@@ -7,6 +7,9 @@ from clinicdesk.app.application.recordatorios.puertos import (
     DatosRecordatorioCitaDTO,
     EstadoRecordatorioDTO,
 )
+from clinicdesk.app.infrastructure.sqlite.pacientes.pii import decrypt_optional
+from clinicdesk.app.infrastructure.sqlite.pacientes_field_protection import PacientesFieldProtection
+from clinicdesk.app.infrastructure.sqlite.pii_crypto import get_connection_pii_cipher
 
 
 class RecordatoriosCitasSqliteGateway:
@@ -18,37 +21,80 @@ class RecordatoriosCitasSqliteGateway:
         self._con = connection
         self._proveedor = proveedor_conexion
 
+    def _has_crypto_columns(self) -> bool:
+        con = self._obtener_conexion()
+        columns = {row["name"] for row in con.execute("PRAGMA table_info(pacientes)").fetchall()}
+        return {"telefono_enc", "email_enc"}.issubset(columns)
+
+    def _contacto_paciente(self, row: sqlite3.Row) -> tuple[str | None, str | None]:
+        con = self._obtener_conexion()
+        protection = PacientesFieldProtection(con)
+        pii_cipher = get_connection_pii_cipher(con)
+        telefono = protection.decode(
+            "telefono",
+            legacy=decrypt_optional(pii_cipher, row["telefono"]),
+            encrypted=row["telefono_enc"] if "telefono_enc" in row.keys() else None,
+        )
+        email = protection.decode(
+            "email",
+            legacy=decrypt_optional(pii_cipher, row["email"]),
+            encrypted=row["email_enc"] if "email_enc" in row.keys() else None,
+        )
+        return telefono, email
+
     def obtener_datos_recordatorio_cita(self, cita_id: int) -> DatosRecordatorioCitaDTO | None:
         row = (
             self._obtener_conexion()
             .execute(
-                """
-            SELECT
-                c.id AS cita_id,
-                c.inicio AS inicio,
-                p.nombre || ' ' || p.apellidos AS paciente_nombre,
-                p.telefono AS telefono,
-                p.email AS email,
-                m.nombre || ' ' || m.apellidos AS medico_nombre
-            FROM citas c
-            JOIN pacientes p ON p.id = c.paciente_id
-            JOIN medicos m ON m.id = c.medico_id
-            WHERE c.id = ? AND c.activo = 1
-            """,
+                self._sql_obtener_datos_cita(),
                 (cita_id,),
             )
             .fetchone()
         )
         if row is None:
             return None
+        telefono, email = self._contacto_paciente(row)
         return DatosRecordatorioCitaDTO(
             cita_id=int(row["cita_id"]),
             inicio=str(row["inicio"]),
             paciente_nombre=str(row["paciente_nombre"]),
-            telefono=row["telefono"],
-            email=row["email"],
+            telefono=telefono,
+            email=email,
             medico_nombre=row["medico_nombre"],
         )
+
+    def _sql_obtener_datos_cita(self) -> str:
+        if self._has_crypto_columns():
+            return """
+            SELECT
+                c.id AS cita_id,
+                c.inicio AS inicio,
+                p.nombre || ' ' || p.apellidos AS paciente_nombre,
+                p.telefono AS telefono,
+                p.telefono_enc AS telefono_enc,
+                p.email AS email,
+                p.email_enc AS email_enc,
+                m.nombre || ' ' || m.apellidos AS medico_nombre
+            FROM citas c
+            JOIN pacientes p ON p.id = c.paciente_id
+            JOIN medicos m ON m.id = c.medico_id
+            WHERE c.id = ? AND c.activo = 1
+            """
+        return """
+            SELECT
+                c.id AS cita_id,
+                c.inicio AS inicio,
+                p.nombre || ' ' || p.apellidos AS paciente_nombre,
+                p.telefono AS telefono,
+                NULL AS telefono_enc,
+                p.email AS email,
+                NULL AS email_enc,
+                m.nombre || ' ' || m.apellidos AS medico_nombre
+            FROM citas c
+            JOIN pacientes p ON p.id = c.paciente_id
+            JOIN medicos m ON m.id = c.medico_id
+            WHERE c.id = ? AND c.activo = 1
+            """
 
     def upsert_recordatorio_cita(self, cita_id: int, canal: str, estado: str, now_utc: str) -> None:
         self._obtener_conexion().execute(
@@ -88,17 +134,27 @@ class RecordatoriosCitasSqliteGateway:
         rows = (
             self._obtener_conexion()
             .execute(
-                f"""
-            SELECT c.id AS cita_id, p.telefono AS telefono, p.email AS email
-            FROM citas c
-            JOIN pacientes p ON p.id = c.paciente_id
-            WHERE c.id IN ({_placeholders(cita_ids)}) AND c.activo = 1
-            """,
+                self._sql_contacto_lote(cita_ids),
                 cita_ids,
             )
             .fetchall()
         )
-        return {int(row["cita_id"]): (row["telefono"], row["email"]) for row in rows}
+        return {int(row["cita_id"]): self._contacto_paciente(row) for row in rows}
+
+    def _sql_contacto_lote(self, cita_ids: tuple[int, ...]) -> str:
+        if self._has_crypto_columns():
+            return f"""
+            SELECT c.id AS cita_id, p.telefono AS telefono, p.telefono_enc AS telefono_enc, p.email AS email, p.email_enc AS email_enc
+            FROM citas c
+            JOIN pacientes p ON p.id = c.paciente_id
+            WHERE c.id IN ({_placeholders(cita_ids)}) AND c.activo = 1
+            """
+        return f"""
+            SELECT c.id AS cita_id, p.telefono AS telefono, NULL AS telefono_enc, p.email AS email, NULL AS email_enc
+            FROM citas c
+            JOIN pacientes p ON p.id = c.paciente_id
+            WHERE c.id IN ({_placeholders(cita_ids)}) AND c.activo = 1
+            """
 
     def obtener_estado_recordatorio_lote(self, cita_ids: tuple[int, ...]) -> dict[tuple[int, str], str]:
         if not cita_ids:
