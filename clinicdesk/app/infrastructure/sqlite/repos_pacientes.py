@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Iterable, List, Optional
 
 from clinicdesk.app.common.search_utils import normalize_search_text
+from clinicdesk.app.common.sensitive_field_canonicalization import canonicalize_for_lookup
 from clinicdesk.app.domain.enums import TipoDocumento
 from clinicdesk.app.domain.exceptions import ValidationError
 from clinicdesk.app.domain.modelos import Paciente
@@ -67,6 +68,12 @@ class PacientesRepository:
         row = fetch_by_documento(self._con, self._field_protection, tipo=tipo, documento=documento)
         return int(row["id"]) if row else None
 
+    def get_id_by_email(self, email: str) -> Optional[int]:
+        return self._get_id_by_contacto("email", email)
+
+    def get_id_by_telefono(self, telefono: str) -> Optional[int]:
+        return self._get_id_by_contacto("telefono", telefono)
+
     def list_all(self, *, solo_activos: bool = True) -> List[Paciente]:
         sql = "SELECT * FROM pacientes" + (" WHERE activo = 1" if solo_activos else "")
         sql += " ORDER BY apellidos, nombre"
@@ -107,3 +114,25 @@ class PacientesRepository:
 
     def _decrypt(self, value: str | None) -> str | None:
         return decrypt_optional(self._pii_cipher, value)
+
+    def _get_id_by_contacto(self, field: str, value: str) -> Optional[int]:
+        canonical = canonicalize_for_lookup(field, value)
+        if canonical is None:
+            return None
+        if self._field_protection.enabled:
+            row = self._con.execute(
+                f"SELECT id FROM pacientes WHERE {field}_hash = ?",
+                (self._field_protection.hash_for_lookup(field, canonical),),
+            ).fetchone()
+            return int(row["id"]) if row else None
+        if field == "email":
+            row = self._con.execute(
+                "SELECT id FROM pacientes WHERE LOWER(TRIM(COALESCE(email, ''))) = ?",
+                (canonical,),
+            ).fetchone()
+            return int(row["id"]) if row else None
+        row = self._con.execute(
+            "SELECT id FROM pacientes WHERE REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(TRIM(COALESCE(telefono, '')), ' ', ''), '-', ''), '.', ''), '(', ''), ')', '') = ?",
+            (canonical.lstrip("+"),),
+        ).fetchone()
+        return int(row["id"]) if row else None

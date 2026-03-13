@@ -104,7 +104,26 @@ Estas transformaciones no cifran ni hashean, pero son precondiciones para que ha
 
 ---
 
-## 4) Decisiones explícitas para esta fase
+## 4) Contrato operativo vigente (PACIENTES)
+- Canonicalización previa obligatoria para protección por campo:
+  - `documento`: `strip`, eliminación de espacios/guiones, `upper`.
+  - `email`: `strip`, `lower`.
+  - `telefono`: `strip`, eliminación de separadores comunes (` `, `(`, `)`, `.`, `-`) y conservación de dígitos.
+  - `direccion`: `strip` + colapso de espacios internos.
+- Persistencia en modo protegido:
+  - `documento`: `documento_hash` en `documento` por compatibilidad `NOT NULL` legacy + `documento_enc` + `documento_hash`.
+  - `telefono/email/direccion`: legacy nullable en `NULL` + `*_enc` + `*_hash`.
+- Lectura:
+  - prioridad a `*_enc` descifrado;
+  - fallback a legacy si aún no migró el registro.
+- Búsquedas exactas protegidas:
+  - documento/email/teléfono se resuelven por hash de valor canónico en modo protegido;
+  - en fallback legacy se aplican comparaciones canónicas equivalentes para evitar falsos negativos.
+- Feature flags:
+  - fuente de verdad primaria: `SECURITY_FIELD_PROTECTION_ENABLED`.
+  - compatibilidad backward: si no está definida, se usa `CLINICDESK_FIELD_CRYPTO`.
+
+## 5) Decisiones explícitas para esta fase
 - ✅ PACIENTES cifrado implementado (incremental por campo con feature flag).
 - ✅ Escritura endurecida en modo cifrado: en PACIENTES solo se persiste `*_enc + *_hash` para `documento/email/telefono/direccion`.
 - No se introduce SQLCipher todavía.
@@ -142,3 +161,8 @@ python -m scripts.crypto_migrate_patients \
 - Nunca emite payloads sensibles por consola (solo métricas agregadas por logging).
 - Si se solicita `--wipe-legacy`, bloquea rutas fuera de `./data`.
 - Si falta `CLINICDESK_FIELD_CRYPTO=1` o `CLINICDESK_CRYPTO_KEY`, aborta antes de escribir.
+
+## 6) Limitaciones actuales (honestas)
+- El cifrado por campo no sustituye cifrado de fichero completo de base de datos.
+- La canonicalización de teléfono es conservadora (no normaliza por país ni transforma prefijos internacionales).
+- Se mantiene fallback legacy para transición controlada; su retirada requiere plan de migración completo y validado.

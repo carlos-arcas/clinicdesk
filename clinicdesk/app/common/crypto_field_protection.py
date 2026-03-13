@@ -5,6 +5,8 @@ import hashlib
 import hmac
 import os
 
+from clinicdesk.app.common.sensitive_field_canonicalization import canonicalize_for_lookup
+
 _ENV_KEY = "CLINICDESK_CRYPTO_KEY"
 _ENV_KEY_PREVIOUS = "CLINICDESK_CRYPTO_KEY_PREVIOUS"
 _VERSION = "cfp:v1:"
@@ -42,8 +44,8 @@ def decrypt(value: str) -> str:
     raise CryptoFieldProtectionError("No se pudo descifrar campo protegido.") from last_error
 
 
-def hash_lookup(value: str) -> str:
-    normalized = _normalize_lookup(value)
+def hash_lookup(value: str, *, field: str | None = None) -> str:
+    normalized = _normalize_lookup(value, field=field)
     digest = hmac.new(_lookup_key(), normalized.encode("utf-8"), hashlib.sha256).digest()
     return base64.urlsafe_b64encode(digest).decode("ascii")
 
@@ -99,5 +101,10 @@ def _is_invalid_tag_error(exc: Exception) -> bool:
     return isinstance(exc, InvalidTag)
 
 
-def _normalize_lookup(value: str) -> str:
+def _normalize_lookup(value: str, *, field: str | None) -> str:
+    if field is not None:
+        normalized = canonicalize_for_lookup(field, value)
+        if normalized is None:
+            return ""
+        return normalized
     return " ".join(value.strip().lower().split())

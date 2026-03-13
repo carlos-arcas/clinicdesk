@@ -3,6 +3,7 @@ from __future__ import annotations
 import sqlite3
 
 from clinicdesk.app.domain.modelos import Paciente
+from clinicdesk.app.common.sensitive_field_canonicalization import canonicalize_for_lookup
 from clinicdesk.app.infrastructure.sqlite.date_utils import format_iso_date
 from clinicdesk.app.infrastructure.sqlite.pacientes_field_protection import PacientesFieldProtection
 
@@ -103,12 +104,15 @@ def fetch_by_documento(
     tipo: str,
     documento: str,
 ) -> sqlite3.Row | None:
+    documento_canonico = canonicalize_for_lookup("documento", documento)
+    if documento_canonico is None:
+        return None
     if protection.enabled:
         return con.execute(
             "SELECT id FROM pacientes WHERE tipo_documento = ? AND documento_hash = ?",
-            (tipo, protection.hash_for_lookup("documento", documento)),
+            (tipo, protection.hash_for_lookup("documento", documento_canonico)),
         ).fetchone()
     return con.execute(
-        "SELECT id FROM pacientes WHERE tipo_documento = ? AND documento = ?",
-        (tipo, documento),
+        "SELECT id FROM pacientes WHERE tipo_documento = ? AND UPPER(REPLACE(REPLACE(TRIM(documento), ' ', ''), '-', '')) = ?",
+        (tipo, documento_canonico),
     ).fetchone()
