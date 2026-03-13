@@ -11,6 +11,10 @@ from clinicdesk.app.application.usecases.score_citas import ScoreCitasResponse
 from clinicdesk.app.application.usecases.train_citas_model import TrainCitasModelResponse
 
 
+class ExportCSVValidationError(ValueError):
+    """Error explícito de validación para contratos de exportación CSV."""
+
+
 class ExportFeaturesCSV:
     FILE_NAME = "features_export.csv"
     COLUMNS = (
@@ -30,6 +34,7 @@ class ExportFeaturesCSV:
         features: Iterable[CitasFeatureRow | dict[str, Any]],
         output_path: str | Path,
     ) -> Path:
+        _validate_non_empty_token(dataset_version, "dataset_version")
         output_file = _resolve_output_file(output_path, self.FILE_NAME)
         rows = [self._to_row(dataset_version, _to_feature_row(feature)) for feature in features]
         _write_csv(output_file, self.COLUMNS, rows)
@@ -141,6 +146,9 @@ class ExportScoringCSV:
         threshold_used: float,
         output_path: str | Path,
     ) -> Path:
+        _validate_predictor_kind(predictor_kind)
+        _validate_non_empty_token(model_version, "model_version")
+        _validate_non_empty_token(scoring.version, "dataset_version")
         output_file = _resolve_output_file(output_path, self.FILE_NAME)
         rows = [
             (
@@ -163,6 +171,8 @@ class ExportDriftCSV:
     COLUMNS = ("from_version", "to_version", "feature_name", "psi_value", "overall_flag")
 
     def execute(self, report: DriftReport, output_path: str | Path) -> Path:
+        if report.from_version == report.to_version:
+            raise ExportCSVValidationError("from_version y to_version deben ser distintos en export drift.")
         output_file = _resolve_output_file(output_path, self.FILE_NAME)
         rows = [
             (
@@ -176,6 +186,16 @@ class ExportDriftCSV:
         ]
         _write_csv(output_file, self.COLUMNS, rows)
         return output_file
+
+
+def _validate_predictor_kind(predictor_kind: str) -> None:
+    if predictor_kind not in {"baseline", "trained"}:
+        raise ExportCSVValidationError("predictor_kind inválido en export scoring.")
+
+
+def _validate_non_empty_token(value: str, label: str) -> None:
+    if not value.strip():
+        raise ExportCSVValidationError(f"{label} es requerido para export CSV.")
 
 
 def _resolve_output_file(output_path: str | Path, file_name: str) -> Path:

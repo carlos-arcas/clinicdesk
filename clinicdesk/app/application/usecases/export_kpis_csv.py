@@ -23,6 +23,10 @@ class ExportKpisRequest:
     run_ts: str | None = None
 
 
+class ExportKpisValidationError(ValueError):
+    """Error explícito de validación para export KPI."""
+
+
 class ExportKpisCSV:
     OVERVIEW_FILE = "kpi_overview.csv"
     BUCKET_FILE = "kpi_scores_by_bucket.csv"
@@ -30,6 +34,7 @@ class ExportKpisCSV:
     TRAINING_FILE = "kpi_training_metrics.csv"
 
     def execute(self, request: ExportKpisRequest) -> dict[str, str]:
+        _validate_request(request)
         output_dir = _resolve_output_dir(request.exports_dir)
         run_ts = request.run_ts or _utc_now()
         labels = Counter(item.label for item in request.score_response.items)
@@ -193,3 +198,12 @@ def _fmt(value: float) -> str:
 
 def _utc_now() -> str:
     return datetime.now(tz=timezone.utc).isoformat()
+
+
+def _validate_request(request: ExportKpisRequest) -> None:
+    if not request.dataset_version.strip():
+        raise ExportKpisValidationError("dataset_version es requerido para export KPI.")
+    if request.predictor_kind not in {"baseline", "trained"}:
+        raise ExportKpisValidationError("predictor_kind inválido para export KPI.")
+    if request.score_response.version != request.dataset_version:
+        raise ExportKpisValidationError("dataset_version inconsistente entre request y score_response.")

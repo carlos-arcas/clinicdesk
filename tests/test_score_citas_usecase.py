@@ -10,6 +10,7 @@ from clinicdesk.app.application.usecases.score_citas import (
     ScoreCitas,
     ScoreCitasRequest,
     ScoringDatasetNotFoundError,
+    ScoringValidationError,
 )
 
 
@@ -69,3 +70,20 @@ def test_score_citas_limit_returns_only_requested_rows() -> None:
 
     assert response.total == 2
     assert [item.cita_id for item in response.items] == ["a", "b"]
+
+
+def test_score_citas_fails_when_dataset_is_empty() -> None:
+    fake_store = FakeFeatureStoreService({"v_empty": []})
+    usecase = ScoreCitas(fake_store, BaselineCitasPredictor())
+
+    with pytest.raises(ScoringValidationError, match="Dataset de features vacío"):
+        usecase.execute(ScoreCitasRequest(dataset_version="v_empty"))
+
+
+def test_score_citas_baseline_adds_predictor_reason() -> None:
+    fake_store = FakeFeatureStoreService({"v1": [_row("c-1")]})
+    usecase = ScoreCitas(fake_store, BaselineCitasPredictor())
+
+    response = usecase.execute(ScoreCitasRequest(dataset_version="v1"))
+
+    assert "predictor:baseline" in response.items[0].reasons

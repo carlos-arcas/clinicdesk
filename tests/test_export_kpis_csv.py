@@ -1,11 +1,17 @@
 from __future__ import annotations
 
 import csv
+
+import pytest
 from pathlib import Path
 
 from clinicdesk.app.application.ml.drift import DriftReport
 from clinicdesk.app.application.ml.evaluation import EvalMetrics
-from clinicdesk.app.application.usecases.export_kpis_csv import ExportKpisCSV, ExportKpisRequest
+from clinicdesk.app.application.usecases.export_kpis_csv import (
+    ExportKpisCSV,
+    ExportKpisRequest,
+    ExportKpisValidationError,
+)
 from clinicdesk.app.application.usecases.score_citas import ScoreCitasResponse, ScoredCita
 from clinicdesk.app.application.usecases.train_citas_model import TrainCitasModelResponse
 
@@ -86,3 +92,19 @@ def _request(tmp_path: Path, psi_value: float) -> ExportKpisRequest:
 def _read_csv(path: Path) -> list[list[str]]:
     with path.open("r", encoding="utf-8", newline="") as handle:
         return list(csv.reader(handle))
+
+
+def test_export_kpis_csv_rejects_dataset_version_mismatch(tmp_path: Path) -> None:
+    request = _request(tmp_path, 0.1)
+    request = ExportKpisRequest(
+        dataset_version="otro_ds",
+        predictor_kind=request.predictor_kind,
+        exports_dir=request.exports_dir,
+        train_response=request.train_response,
+        score_response=request.score_response,
+        drift_report=request.drift_report,
+        run_ts=request.run_ts,
+    )
+
+    with pytest.raises(ExportKpisValidationError, match="dataset_version inconsistente"):
+        ExportKpisCSV().execute(request)

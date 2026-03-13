@@ -82,3 +82,17 @@ def test_score_citas_trained_raises_for_schema_mismatch(tmp_path) -> None:
         usecase.execute(
             ScoreCitasRequest(dataset_version=dataset_version, predictor_kind="trained", model_version="m1")
         )
+
+
+def test_score_citas_trained_fails_when_dataset_version_differs_from_trained_metadata(tmp_path) -> None:
+    feature_service = FeatureStoreService(LocalJsonFeatureStore(tmp_path / "features"))
+    model_store = LocalJsonModelStore(tmp_path / "models")
+    dataset_version = feature_service.save_citas_features_with_artifacts(_rows(), _quality(30), version="dsv1")
+    feature_service.save_citas_features_with_artifacts(_rows(), _quality(30), version="dsv2")
+    TrainCitasModel(feature_service, model_store).execute(
+        TrainCitasModelRequest(dataset_version=dataset_version, model_version="m1")
+    )
+
+    usecase = ScoreCitas(feature_service, BaselineCitasPredictor(), model_store=model_store)
+    with pytest.raises(ScoringValidationError, match="incompatible con dataset_version"):
+        usecase.execute(ScoreCitasRequest(dataset_version="dsv2", predictor_kind="trained", model_version="m1"))

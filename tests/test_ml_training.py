@@ -10,6 +10,7 @@ from clinicdesk.app.application.usecases.train_citas_model import (
     TrainCitasModel,
     TrainCitasModelNotEnoughDataError,
     TrainCitasModelRequest,
+    ModelTrainingValidationError,
 )
 from clinicdesk.app.infrastructure.feature_store.local_json_feature_store import LocalJsonFeatureStore
 from clinicdesk.app.infrastructure.model_store.local_json_model_store import LocalJsonModelStore
@@ -72,6 +73,9 @@ def test_train_usecase_trains_evaluates_and_registers_model(tmp_path) -> None:
     assert metadata["test_metrics"]["accuracy"] == asdict(response.test_metrics)["accuracy"]
     assert metadata["test_row_count"] == 6
     assert metadata["split_config"] == {"test_ratio": 0.2, "min_train": 20, "time_field": "inicio_ts"}
+    assert metadata["pipeline_stage"] == "train"
+    assert metadata["predictor_kind"] == "trained"
+    assert metadata["traceability"]["dataset_version"] == "dataset-v1"
 
 
 def test_train_usecase_raises_not_enough_data_for_temporal_holdout(tmp_path) -> None:
@@ -82,4 +86,14 @@ def test_train_usecase_raises_not_enough_data_for_temporal_holdout(tmp_path) -> 
     version = feature_service.save_citas_features_with_artifacts(tiny_rows, _quality(len(tiny_rows)), version="tiny")
 
     with pytest.raises(TrainCitasModelNotEnoughDataError, match="min_train"):
+        TrainCitasModel(feature_service, model_store).execute(TrainCitasModelRequest(dataset_version=version))
+
+
+def test_train_usecase_raises_when_dataset_is_empty(tmp_path) -> None:
+    feature_service = FeatureStoreService(LocalJsonFeatureStore(tmp_path / "features"))
+    model_store = LocalJsonModelStore(tmp_path / "registry")
+
+    version = feature_service.save_citas_features_with_artifacts([], _quality(0), version="empty")
+
+    with pytest.raises(ModelTrainingValidationError, match="No hay filas de features"):
         TrainCitasModel(feature_service, model_store).execute(TrainCitasModelRequest(dataset_version=version))

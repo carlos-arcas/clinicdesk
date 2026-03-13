@@ -91,6 +91,8 @@ class ScoreCitas:
             ) from exc
         if not isinstance(loaded, list):
             raise ScoringValidationError("Payload de feature store inválido: se esperaba list.")
+        if not loaded:
+            raise ScoringValidationError("Dataset de features vacío: no hay filas para scoring.")
         return loaded
 
     def _load_metadata_if_present(self, dataset_version: str) -> tuple[Any | None, str | None]:
@@ -120,9 +122,10 @@ class ScoreCitas:
         request: ScoreCitasRequest,
     ) -> tuple[list[PredictionResult], str | None]:
         if request.predictor_kind == "baseline":
-            return self._predictor.predict_batch(features), None
+            return self._predictor.predict_batch(features), "predictor:baseline"
         model_payload, model_metadata = self._load_trained_model(request.model_version or "")
         self._validate_schema_compatibility(dataset_metadata, model_metadata)
+        self._validate_model_dataset_compatibility(request.dataset_version, model_metadata)
         predictions = predict_batch_trained(model_from_dict(model_payload), features)
         threshold = float(model_metadata.get("calibrated_threshold", 0.5))
         calibrated_predictions = [self._apply_trained_threshold(pred, threshold) for pred in predictions]
@@ -148,6 +151,14 @@ class ScoreCitas:
             return
         if str(model_metadata.get("schema_hash", "")) != str(dataset_metadata.schema_hash):
             raise ScoringValidationError("schema_hash mismatch entre dataset de scoring y modelo entrenado.")
+
+    def _validate_model_dataset_compatibility(self, dataset_version: str, model_metadata: dict[str, Any]) -> None:
+        trained_on = str(model_metadata.get("trained_on_dataset_version", "")).strip()
+        if trained_on and trained_on != dataset_version:
+            raise ScoringValidationError(
+                "Modelo entrenado incompatible con dataset_version de scoring: "
+                f"espera '{trained_on}' y recibió '{dataset_version}'."
+            )
 
 
 def _to_feature_row(raw: Any) -> CitasFeatureRow:

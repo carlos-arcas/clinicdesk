@@ -30,9 +30,13 @@ class DriftCitasFeatures:
     def _validate_request(self, request: DriftCitasFeaturesRequest) -> None:
         if not request.from_version.strip() or not request.to_version.strip():
             raise DriftCitasFeaturesValidationError("from_version y to_version son requeridos.")
+        if request.from_version == request.to_version:
+            raise DriftCitasFeaturesValidationError("from_version y to_version deben ser diferentes para drift.")
 
     def _load_rows(self, version: str) -> list[CitasFeatureRow]:
         loaded = self._feature_store_service.load_citas_features(version)
+        if not loaded:
+            raise DriftCitasFeaturesValidationError(f"Dataset de drift vacío para versión '{version}'.")
         return [_to_feature_row(item) for item in loaded]
 
 

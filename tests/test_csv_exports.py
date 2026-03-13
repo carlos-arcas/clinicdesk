@@ -2,12 +2,15 @@ from __future__ import annotations
 
 import csv
 import importlib.util
+
+import pytest
 from pathlib import Path
 
 from clinicdesk.app.application.features.citas_features import CitasFeatureRow
 from clinicdesk.app.application.ml.drift import DriftReport
 from clinicdesk.app.application.ml.evaluation import EvalMetrics
 from clinicdesk.app.application.usecases.export_csv import (
+    ExportCSVValidationError,
     ExportDriftCSV,
     ExportFeaturesCSV,
     ExportModelMetricsCSV,
@@ -155,3 +158,25 @@ def _load_ml_cli_module():
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
+
+
+def test_export_scoring_csv_rejects_invalid_predictor_kind(tmp_path: Path) -> None:
+    response = ScoreCitasResponse(version="v2", total=0, items=[])
+
+    with pytest.raises(ExportCSVValidationError, match="predictor_kind inválido"):
+        ExportScoringCSV().execute(response, "otro", "m2", 0.61, tmp_path)
+
+
+def test_export_drift_csv_rejects_same_versions(tmp_path: Path) -> None:
+    report = DriftReport(
+        from_version="v1",
+        to_version="v1",
+        total_from=10,
+        total_to=10,
+        feature_shifts={},
+        psi_by_feature={"duracion_bucket": 0.1},
+        overall_flag=False,
+    )
+
+    with pytest.raises(ExportCSVValidationError, match="deben ser distintos"):
+        ExportDriftCSV().execute(report, tmp_path)

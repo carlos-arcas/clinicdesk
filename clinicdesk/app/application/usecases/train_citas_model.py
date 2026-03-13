@@ -63,10 +63,15 @@ class TrainCitasModel:
     def execute(self, request: TrainCitasModelRequest) -> TrainCitasModelResponse:
         if not request.dataset_version.strip():
             raise ModelTrainingValidationError("dataset_version es requerido para entrenar.")
-        rows = [
-            _to_feature_row(item) for item in self._feature_store_service.load_citas_features(request.dataset_version)
-        ]
+        loaded_rows = self._feature_store_service.load_citas_features(request.dataset_version)
+        if not loaded_rows:
+            raise ModelTrainingValidationError("No hay filas de features para entrenar el modelo.")
+        rows = [_to_feature_row(item) for item in loaded_rows]
         metadata = self._feature_store_service.load_citas_features_metadata(request.dataset_version)
+        if metadata.row_count != len(rows):
+            raise ModelTrainingValidationError("Metadata de features inválida: row_count no coincide.")
+        if metadata.content_hash != compute_content_hash(canonical_json_bytes(loaded_rows)):
+            raise ModelTrainingValidationError("Metadata de features inválida: content_hash no coincide.")
         expected_schema_hash = compute_schema_hash(
             build_schema_from_dataclass(CitasFeatureRow, version=FeatureStoreService.CITAS_SCHEMA_VERSION)
         )
@@ -130,6 +135,8 @@ class TrainCitasModel:
             "created_at": datetime.now(tz=timezone.utc).isoformat(),
             "content_hash": compute_content_hash(canonical_json_bytes(payload)),
             "schema_hash": schema_hash,
+            "pipeline_stage": "train",
+            "predictor_kind": "trained",
             "split_config": asdict(split_cfg),
             "train_metrics": asdict(train_metrics),
             "test_metrics": asdict(test_metrics),
@@ -137,6 +144,11 @@ class TrainCitasModel:
             "calibration_policy": asdict(self.DEFAULT_CALIBRATION_POLICY),
             "test_metrics_at_calibrated_threshold": asdict(calibrated_metrics),
             "test_row_count": test_row_count,
+            "traceability": {
+                "dataset_version": dataset_version,
+                "schema_hash": schema_hash,
+                "artifact_type": "model",
+            },
             "evaluation_note": "offline eval with deterministic temporal holdout (proxy label)",
         }
 
