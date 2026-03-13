@@ -66,21 +66,42 @@ Cobertura de este subconjunto:
 
 
 ## Estrategia desktop/UI headless (realista)
-- Tests **puros** (sin Qt): helpers, validadores, estados y contratos UI desacoplados.
-- Tests **UI headless críticos**: marcados con `ui` + `uiqt`, ejecutados con `QT_QPA_PLATFORM=offscreen`.
+- Tests **puros** (sin Qt): helpers, validadores, estado de formularios, estado de listados y restauración de contexto de tabla.
+- Tests **UI headless críticos**: marcados con `ui` + `uiqt`, ejecutados con `QT_QPA_PLATFORM=offscreen` cuando la librería gráfica existe.
 - Tests que dependen de runtime gráfico completo deben quedar fuera del subset crítico y documentarse explícitamente.
 
-### Comandos recomendados (bash/CI)
+### Subset crítico portable (sin runtime gráfico)
+Este subset no importa widgets Qt en tiempo de colección y puede correr en entornos restringidos (por ejemplo, contenedores sin `libGL`):
+
 ```bash
-# Smoke core rápido (sin UI)
-python -m pytest -q -m "not ui"
-
-# Smoke UI crítico headless (formularios/estados)
-QT_QPA_PLATFORM=offscreen python -m pytest -q -m "uiqt" tests/ui/test_paciente_form_dialog.py tests/ui/test_cita_form_dialog.py tests/ui/test_estados_listado.py
-
-# Helpers puros reutilizables de UI
-python -m pytest -q tests/ui/test_formularios_validacion_pura.py tests/ui/test_forms_estado.py
+python -m pytest -q \
+  tests/ui/test_formularios_validacion_pura.py \
+  tests/ui/test_forms_estado.py \
+  tests/ui/test_contexto_tabla_puro.py \
+  tests/ui/test_estados_listado_puro.py
 ```
+
+Contrato que blinda este subset:
+- Validación/formato de formularios y prioridad del primer error.
+- Dirty state, CTA habilitado/deshabilitado y anti doble submit via `ControladorEstadoFormulario`.
+- Preservación/restauración de contexto de tabla sin depender de `QTableWidget` real.
+- Resolución de estado de listado (loading/error/empty/content) y distinción de vacío real vs vacío por filtro.
+
+### Subset UI mínimo (si PySide6 + libGL están disponibles)
+```bash
+QT_QPA_PLATFORM=offscreen python -m pytest -q -m "uiqt" \
+  tests/ui/test_paciente_form_dialog.py \
+  tests/ui/test_cita_form_dialog.py \
+  tests/ui/test_estados_listado.py \
+  tests/ui/test_contexto_tabla.py
+```
+
+Si falta runtime gráfico, estos tests deben quedar en skip explícito y el valor principal sigue cubierto por el subset portable.
+
+### Cómo decidir test puro vs test Qt
+- **Puro**: reglas de estado, validaciones, resolución de contratos UX, restauración de contexto y decisiones de CTA.
+- **Qt**: smoke de wiring real (señales, foco, widgets, `QMessageBox`, apertura/cierre de diálogo).
+- Regla práctica: si la aserción puede expresarse con DTOs/estructuras simples, debe ir a test puro.
 
 ### Fixtures reutilizables UI
 - `tests/ui/conftest.py` expone builders/fixtures reutilizables para:
