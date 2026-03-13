@@ -38,3 +38,10 @@ def test_allowlist_rejects_overly_broad_wildcards_without_justification() -> Non
         f"sin justificación explícita ({WILDCARD_JUSTIFICATION_TOKEN}). "
         f"Entradas inválidas: {broad_paths}"
     )
+
+
+def test_allowlist_estructural_vacia_para_evitar_deuda_permanente() -> None:
+    assert _load_allowlist() == [], (
+        "La deuda estructural allowlisted debe permanecer en cero. "
+        "Si reaparece una excepción, resolver el hotspot y evitar ampliar la allowlist."
+    )
