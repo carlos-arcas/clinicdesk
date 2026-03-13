@@ -42,3 +42,22 @@ Para evitar congelar UI, la carga de listas debe ejecutarse en worker (`QThread`
 - `finished`
 
 El hilo de UI solo orquesta estado y render final.
+
+
+## Contrato reusable para formularios críticos
+
+Para formularios densos (pacientes/citas) se usa `ControladorEstadoFormulario` (`clinicdesk.app.ui.forms_estado`) con estados explícitos:
+
+- `modificado` / `cambios_sin_guardar`
+- `valido` / `errores_validacion`
+- `guardando`
+- `listo_para_enviar`
+- `error_guardado`
+
+Reglas operativas:
+
+1. **Validación inline**: mostrar errores junto al campo y no solo en submit.
+2. **CTA principal inteligente**: habilitar `Guardar/Crear` solo cuando `listo_para_enviar=True`.
+3. **Sin doble envío**: al iniciar submit, pasar a `guardando=True` y bloquear CTA.
+4. **Dirty state**: en cancelar/cerrar, confirmar descarte solo si hay cambios reales.
+5. **Foco guiado**: al validar en submit, mover foco al primer campo inválido.

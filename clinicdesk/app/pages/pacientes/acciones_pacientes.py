@@ -26,8 +26,8 @@ from clinicdesk.app.pages.shared.crud_page_helpers import confirm_deactivation
 from clinicdesk.app.ui.error_presenter import present_error
 
 
-def on_nuevo(*, parent: QWidget, uc_crear: CrearPacienteUseCase, on_success: Callable[[], None]) -> None:
-    dialog = PacienteFormDialog(parent)
+def on_nuevo(*, parent: QWidget, i18n: I18nManager, uc_crear: CrearPacienteUseCase, on_success: Callable[[], None]) -> None:
+    dialog = PacienteFormDialog(parent, i18n=i18n)
     if dialog.exec() != QDialog.Accepted:
         return
     data = dialog.get_data()
@@ -49,6 +49,7 @@ def on_editar(
     selected_id: int | None,
     obtener_paciente: Callable[[int], object | None],
     uc_editar: EditarPacienteUseCase,
+    i18n: I18nManager,
     on_success: Callable[[], None],
 ) -> None:
     if not selected_id:
@@ -56,7 +57,7 @@ def on_editar(
     paciente = obtener_paciente(selected_id)
     if not paciente:
         return
-    dialog = PacienteFormDialog(parent)
+    dialog = PacienteFormDialog(parent, i18n=i18n)
     dialog.set_paciente(paciente)
     if dialog.exec() != QDialog.Accepted:
         return
