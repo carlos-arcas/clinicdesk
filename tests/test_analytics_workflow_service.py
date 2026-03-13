@@ -115,6 +115,8 @@ def test_run_full_workflow_returns_exports_and_summary() -> None:
     assert "scoring" in result.export_paths
     assert "Se analizaron" in result.summary_text
     assert result.drift_flag is True
+    assert result.metrics == {"accuracy": 0.81, "threshold": 0.57, "score_total": 10.0}
+    assert set(result.internal_versions) == {"dataset_version", "model_version"}
 
 
 def test_cancel_token_interrupts_workflow() -> None:
