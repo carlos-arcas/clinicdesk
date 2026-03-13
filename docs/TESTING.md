@@ -50,3 +50,16 @@ Comando recomendado de cobertura core:
 ```bat
 python -m pytest --cov=clinicdesk/app/domain --cov=clinicdesk/app/application --cov=clinicdesk/app/infrastructure --cov-report=term-missing --cov-fail-under=85
 ```
+
+## Subconjunto crítico recomendado (citas core)
+Para validar rápido reglas clínicas y persistencia de citas antes del gate completo:
+
+```bat
+python -m pytest -q tests/test_citas.py tests/test_citas_crear_usecase_core.py tests/test_citas_repositorio_integracion.py tests/test_citas_listado_queries.py
+```
+
+Cobertura de este subconjunto:
+- Reglas duras de `CrearCitaUseCase` (IDs/fechas/solapes/no existencia/inactividad).
+- Reglas de warning y override (cuadrante y ausencias).
+- Contratos de persistencia en SQLite temporal (`CitasRepository`).
+- Consultas de listado con filtros clínicos y de calidad de datos (`CitasQueries`).
