@@ -1,16 +1,17 @@
 from __future__ import annotations
 
 from clinicdesk.app.container import AppContainer
+from clinicdesk.app.i18n import I18nManager
 from clinicdesk.app.pages.demo_ml.page import PageDemoML
 from clinicdesk.app.pages.page_def import PageDef
 from clinicdesk.app.pages.pages_registry import PageRegistry
 
 
-def register(registry: PageRegistry, container: AppContainer) -> None:
+def register(registry: PageRegistry, container: AppContainer, i18n: I18nManager) -> None:
     registry.register(
         PageDef(
             key="demo_ml",
-            title="Analítica (Demo)",
-            factory=lambda: PageDemoML(container.demo_ml_facade),
+            title=i18n.t("demo_ml.nav.titulo"),
+            factory=lambda: PageDemoML(container.demo_ml_facade, i18n),
         )
     )

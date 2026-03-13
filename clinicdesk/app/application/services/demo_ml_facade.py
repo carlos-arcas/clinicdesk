@@ -18,6 +18,7 @@ from clinicdesk.app.application.seguridad_salida import (
     serializar_persona_demo_ml,
 )
 from clinicdesk.app.application.services.feature_store_service import FeatureStoreService
+from clinicdesk.app.application.ports.model_store_port import ModelStorePort
 from clinicdesk.app.application.usecases.drift_citas_features import (
     DriftCitasFeatures,
     DriftCitasFeaturesRequest,
@@ -112,6 +113,7 @@ class DemoMLFacade:
         train_uc: TrainCitasModel,
         score_uc: ScoreCitas,
         drift_uc: DriftCitasFeatures,
+        model_store: ModelStorePort | None = None,
     ) -> None:
         self._read_gateway = read_gateway
         self._seed_demo_uc = seed_demo_uc
@@ -120,6 +122,7 @@ class DemoMLFacade:
         self._train_uc = train_uc
         self._score_uc = score_uc
         self._drift_uc = drift_uc
+        self._model_store = model_store
         self._export_features = ExportFeaturesCSV()
         self._export_metrics = ExportModelMetricsCSV()
         self._export_scoring = ExportScoringCSV()
@@ -227,6 +230,30 @@ class DemoMLFacade:
             run_ts=run_ts,
         )
         return self._export_kpis.execute(request)
+
+
+    def list_dataset_versions(self) -> list[str]:
+        return self._feature_store_service.list_citas_versions()
+
+    def load_dataset_metadata(self, version: str):
+        try:
+            return self._feature_store_service.load_citas_features_metadata(version)
+        except FileNotFoundError:
+            return None
+
+    def list_model_versions(self, model_name: str = TrainCitasModel.MODEL_NAME) -> list[str]:
+        if self._model_store is None:
+            return []
+        return self._model_store.list_model_versions(model_name)
+
+    def load_model_metadata(self, version: str, model_name: str = TrainCitasModel.MODEL_NAME) -> dict[str, Any] | None:
+        if self._model_store is None:
+            return None
+        try:
+            _, metadata = self._model_store.load_model(model_name, version)
+        except FileNotFoundError:
+            return None
+        return metadata
 
     def default_baseline_threshold(self) -> float:
         return BaselineCitasPredictor().threshold

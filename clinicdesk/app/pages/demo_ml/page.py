@@ -32,15 +32,22 @@ from PySide6.QtWidgets import (
 )
 
 from clinicdesk.app.application.ml.drift_explain import explain_drift
+from clinicdesk.app.application.ml.interpretacion_ml_humana import (
+    interpretar_drift,
+    interpretar_entrenamiento,
+    interpretar_scoring,
+)
 from clinicdesk.app.application.services.analytics_workflow_service import (
     AnalyticsWorkflowConfig,
     AnalyticsWorkflowResult,
     AnalyticsWorkflowService,
 )
 from clinicdesk.app.application.services.demo_ml_facade import DemoMLFacade
+from clinicdesk.app.application.services.ml_centro_guiado_service import CentroMLGuiadoService
 from clinicdesk.app.application.services.demo_run_service import CancelToken
 from clinicdesk.app.application.usecases.seed_demo_data import SeedDemoDataRequest
 from clinicdesk.app.bootstrap_logging import get_logger, set_run_context
+from clinicdesk.app.i18n import I18nManager
 from clinicdesk.app.ui.widgets.kpi_card import KpiCard
 from clinicdesk.app.ui.widgets.progress_dialog import ProgressDialog
 
@@ -118,10 +125,12 @@ class PageDemoML(QWidget):
         "Detectar cambios en comportamiento",
     ]
 
-    def __init__(self, facade: DemoMLFacade, parent: QWidget | None = None) -> None:
+    def __init__(self, facade: DemoMLFacade, i18n: I18nManager, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self._facade = facade
+        self._i18n = i18n
         self._workflow = AnalyticsWorkflowService(facade)
+        self._centro_service = CentroMLGuiadoService(facade)
         self._settings = QSettings("clinicdesk", "analytics_demo")
         self._thread: QThread | None = None
         self._workflow_worker: _WorkflowWorker | None = None
@@ -133,6 +142,9 @@ class PageDemoML(QWidget):
         self._last_drift: Any | None = None
         self._build_ui()
 
+    def _t(self, key: str) -> str:
+        return self._i18n.t(key)
+
     def _build_ui(self) -> None:
         root = QVBoxLayout(self)
         splitter = QSplitter()
@@ -143,6 +155,7 @@ class PageDemoML(QWidget):
         self._restore_settings()
         self._refresh_tables()
         self._reset_kpi_cards()
+        self._refresh_guided_state()
 
     def _build_left_column(self) -> QWidget:
         panel = QWidget()
@@ -215,6 +228,10 @@ class PageDemoML(QWidget):
         self.score_limit.setValue(20)
         self.export_dir = QLineEdit(self._settings.value("last_export_dir", "./exports", str) or "./exports")
         self.lbl_last = QLabel("Último análisis: sin ejecuciones")
+        self.lbl_estado = QLabel(self._t("demo_ml.estado.pipeline_pendiente"))
+        self.lbl_estado.setWordWrap(True)
+        self.lbl_recomendado = QLabel(self._t("demo_ml.estado.siguiente.prepare"))
+        self.lbl_recomendado.setWordWrap(True)
         self.lbl_export_files = QLabel("Archivos exportados: aún no hay resultados")
         self.lbl_export_files.setWordWrap(True)
         self.btn_open_export = QPushButton("Abrir carpeta de exportación")
@@ -239,6 +256,8 @@ class PageDemoML(QWidget):
         form.addRow(cards)
         form.addRow(self.btn_open_export)
         form.addRow(self.lbl_export_files)
+        form.addRow(self.lbl_estado)
+        form.addRow(self.lbl_recomendado)
         form.addRow(self.lbl_last)
         return box
 
@@ -397,6 +416,7 @@ class PageDemoML(QWidget):
         self.adv_dataset.setText(version)
         self._log(f"Preparación completada: {version}")
         self.card_citas.set_data("Listo", "Features disponibles", "ok")
+        self._refresh_guided_state()
 
     def _on_train_done(self, payload: tuple[Any, str]) -> None:
         train_response, model_version = payload
@@ -405,16 +425,33 @@ class PageDemoML(QWidget):
         subtitle = f"Recall test {train_response.test_metrics.recall:.2f} · Precision test {train_response.test_metrics.precision:.2f}"
         self.card_threshold.set_data(f"{train_response.calibrated_threshold:.2f}", subtitle, "ok")
         self._log("Modelo de predicción listo")
+        texto = interpretar_entrenamiento(
+            train_response.test_metrics.accuracy,
+            train_response.test_metrics.precision,
+            train_response.test_metrics.recall,
+        )
+        self._log(f"{texto.titulo}: {texto.significado}")
+        self._log(f"Siguiente paso: {texto.recomendacion}")
+        self._refresh_guided_state()
 
     def _on_score_done(self, response: Any) -> None:
         self._last_score = response
         self._update_score_cards(response)
         self._log(f"Análisis de riesgo completado: {response.total} citas")
+        riesgo_alto = sum(1 for item in response.items if item.label == "risk")
+        texto = interpretar_scoring(response.total, riesgo_alto)
+        self._log(f"{texto.titulo}: {texto.significado}")
+        self._log(f"Qué hacer ahora: {texto.recomendacion}")
+        self._refresh_guided_state()
 
     def _on_drift_done(self, response: Any) -> None:
         self._last_drift = response
         self._update_drift_card(response)
         self._log(f"Detección de cambios completada: {response.overall_flag}")
+        texto = interpretar_drift(response)
+        self._log(f"{texto.titulo}: {texto.significado}")
+        self._log(f"Acción recomendada: {texto.recomendacion}")
+        self._refresh_guided_state()
 
     def _on_workflow_done(self, result: AnalyticsWorkflowResult) -> None:
         self._last_result = result
@@ -431,6 +468,7 @@ class PageDemoML(QWidget):
             for index, step in enumerate(self._STEPS):
                 dialog.update(index, "done", step)
         self._log(result.summary_text)
+        self._refresh_guided_state()
 
     def _on_task_error(self, message: str) -> None:
         LOGGER.error("analytics_action_failed", extra={"run_id": self._run_id, "message": message})
@@ -494,8 +532,45 @@ class PageDemoML(QWidget):
         self.lbl_last.setText(f"Último análisis: {ts} (ver detalles) · {summary}")
 
     def _refresh_export_files(self, exports: dict[str, str]) -> None:
+        if not exports:
+            self.lbl_export_files.setText(self._t("demo_ml.estado.export_sin_resultados"))
+            return
         file_list = " · ".join(sorted(Path(path).name for path in exports.values()))
         self.lbl_export_files.setText(f"Archivos exportados: {file_list}")
+
+
+    def _refresh_guided_state(self) -> None:
+        estado = self._centro_service.construir_estado(self.export_dir.text().strip() or "./exports")
+        self.btn_train.setEnabled(self._paso_habilitado(estado, "train"))
+        self.btn_score.setEnabled(self._paso_habilitado(estado, "score"))
+        self.btn_drift.setEnabled(self._paso_habilitado(estado, "drift"))
+        self.btn_open_export.setEnabled(bool(estado.archivos_exportados))
+        self.lbl_estado.setText(self._render_estado(estado))
+        self.lbl_recomendado.setText(self._render_siguiente_paso(estado.siguiente_accion))
+        self._refresh_export_files({name: name for name in estado.archivos_exportados}) if estado.archivos_exportados else None
+
+    def _paso_habilitado(self, estado, clave: str) -> bool:
+        for paso in estado.pasos:
+            if paso.clave == clave:
+                return paso.habilitado
+        return False
+
+    def _render_estado(self, estado) -> str:
+        bloqueados = [paso for paso in estado.pasos if not paso.habilitado and paso.motivo_bloqueo]
+        if not bloqueados:
+            return self._t("demo_ml.estado.pipeline_listo")
+        return self._t("demo_ml.estado.pipeline_bloqueado").format(motivo=bloqueados[0].motivo_bloqueo)
+
+    def _render_siguiente_paso(self, siguiente: str) -> str:
+        mapa = {
+            "prepare": self._t("demo_ml.estado.siguiente.prepare"),
+            "train": self._t("demo_ml.estado.siguiente.train"),
+            "score": self._t("demo_ml.estado.siguiente.score"),
+            "drift": self._t("demo_ml.estado.siguiente.drift"),
+            "export": self._t("demo_ml.estado.siguiente.export"),
+            "summary": self._t("demo_ml.estado.siguiente.summary"),
+        }
+        return mapa.get(siguiente, self._t("demo_ml.estado.siguiente.summary"))
 
     def _is_running(self) -> bool:
         if self._thread is not None and self._thread.isRunning():
