@@ -19,6 +19,10 @@ from PySide6.QtWidgets import (
 from clinicdesk.app.container import AppContainer
 from clinicdesk.app.i18n import I18nManager
 from clinicdesk.app.pages.shared.selector_dialog import select_medico, select_paciente, select_sala
+from clinicdesk.app.ui.formularios_validacion import (
+    primer_campo_con_error,
+    validar_formulario_cita,
+)
 from clinicdesk.app.ui.forms_estado import ControladorEstadoFormulario
 from clinicdesk.app.ui.label_utils import required_label
 
@@ -139,14 +143,7 @@ class CitaFormDialog(QDialog):
         }
 
     def _validar_campos(self, valores: dict[str, str]) -> dict[str, str]:
-        errores: dict[str, str] = {}
-        if not valores.get("paciente_id") or not valores.get("medico_id") or not valores.get("sala_id"):
-            errores["inicio"] = self._i18n.t("citas.form.error.selectores")
-        if not valores.get("inicio"):
-            errores["inicio"] = self._i18n.t("citas.form.error.inicio")
-        if not valores.get("fin"):
-            errores["fin"] = self._i18n.t("citas.form.error.fin")
-        return errores
+        return validar_formulario_cita(valores, i18n=self._i18n)
 
     def _on_form_changed(self, *_: object) -> None:
         self._control_estado.actualizar_valores(self._snapshot_formulario())
@@ -201,11 +198,13 @@ class CitaFormDialog(QDialog):
         self.accept()
 
     def _enfocar_primer_error(self, errores: dict[str, str]) -> None:
-        if "inicio" in errores:
-            self.ed_inicio.setFocus()
-            return
-        if "fin" in errores:
-            self.ed_fin.setFocus()
+        widgets_por_campo = {
+            "inicio": self.ed_inicio,
+            "fin": self.ed_fin,
+        }
+        campo = primer_campo_con_error(errores, tuple(widgets_por_campo.keys()))
+        if campo:
+            widgets_por_campo[campo].setFocus()
 
     def reject(self) -> None:
         self._control_estado.actualizar_valores(self._snapshot_formulario(), validar=False)
