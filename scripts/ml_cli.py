@@ -18,6 +18,7 @@ from clinicdesk.app.application.usecases.export_csv import (
     ExportModelMetricsFromMetadataCSV,
     ExportScoringCSV,
 )
+from clinicdesk.app.application.usecases.export_evaluation_summary import ExportEvaluationSummary
 from clinicdesk.app.application.usecases.export_kpis_csv import ExportKpisCSV, ExportKpisRequest
 from clinicdesk.app.application.usecases.score_citas import ScoreCitas, ScoreCitasRequest
 from clinicdesk.app.application.usecases.seed_demo_data import SeedDemoData, SeedDemoDataRequest
@@ -37,6 +38,7 @@ from clinicdesk.app.bootstrap_logging import configure_logging, get_logger, log_
 from clinicdesk.app.crash_handler import install_global_exception_hook
 from scripts.ml_cli_support import (
     add_export_parser,
+    build_evaluation_summary_data,
     build_metrics_export_data,
     build_read_adapter,
     build_train_response_from_metadata,
@@ -243,6 +245,8 @@ def _handle_export(args: argparse.Namespace) -> int:
         return _export_metrics(args)
     if args.export_command == "scoring":
         return _export_scoring(args)
+    if args.export_command == "summary":
+        return _export_summary(args)
     if args.export_command == "drift":
         return _export_drift(args)
     if args.export_command == "kpis":
@@ -265,6 +269,17 @@ def _export_metrics(args: argparse.Namespace) -> int:
     metrics = build_metrics_export_data(args, metadata)
     output = ExportModelMetricsFromMetadataCSV().execute(metrics, args.output)
     _LOGGER.info(output)
+    return 0
+
+
+def _export_summary(args: argparse.Namespace) -> int:
+    _require_default_model_name(args.model_name)
+    model_store = LocalJsonModelStore(args.model_store_path)
+    _, metadata = model_store.load_model(args.model_name, args.model_version)
+    summary_data = build_evaluation_summary_data(args, metadata)
+    outputs = ExportEvaluationSummary().execute(summary_data, args.output)
+    for path in outputs.values():
+        _LOGGER.info(path)
     return 0
 
 

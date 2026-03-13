@@ -166,3 +166,47 @@ def test_seed_demo_command(tmp_path: Path) -> None:
     )
     assert rc == 0
     assert sqlite_path.exists()
+
+
+def test_export_summary_from_trained_model(tmp_path: Path) -> None:
+    cli = _load_ml_cli_module()
+    feature_store = str(tmp_path / "feature_store")
+    model_store = str(tmp_path / "model_store")
+    exports = str(tmp_path / "exports")
+
+    assert cli.main(["build-features", "--demo-fake", "--version", "v_demo", "--store-path", feature_store]) == 0
+    assert (
+        cli.main(
+            [
+                "train",
+                "--dataset-version",
+                "v_demo",
+                "--model-version",
+                "m_demo",
+                "--feature-store-path",
+                feature_store,
+                "--model-store-path",
+                model_store,
+            ]
+        )
+        == 0
+    )
+    assert (
+        cli.main(
+            [
+                "export",
+                "summary",
+                "--model-version",
+                "m_demo",
+                "--dataset-version",
+                "v_demo",
+                "--model-store-path",
+                model_store,
+                "--output",
+                exports,
+            ]
+        )
+        == 0
+    )
+    assert (tmp_path / "exports" / "evaluation_summary.json").exists()
+    assert (tmp_path / "exports" / "evaluation_summary.md").exists()

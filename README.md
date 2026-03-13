@@ -230,3 +230,14 @@ curl -H "X-API-Key: mi_clave_demo" "http://localhost:8000/api/v1/pacientes?texto
 
 Si `CLINICDESK_API_KEY` no está definida, la API arranca pero `/api/*` responderá `503` con mensaje de configuración.
 
+
+
+### Evaluation Summary / Model Card ligera
+El comando `export summary` genera un artefacto textual versionable para demo/CI:
+- `evaluation_summary.json`: contrato estable (`schema_version=ml_eval_summary_v1`) con contexto, métricas y notas de interpretación.
+- `evaluation_summary.md`: lectura rápida para entrevista (dataset, predictor, métricas test y limitaciones).
+
+Qué mirar primero en demo técnica:
+1. `context` (dataset/model/predictor y trazabilidad).
+2. `metrics.test` vs `metrics.test_calibrated` para explicar calibración de threshold.
+3. `interpretation` y `limitations` para comunicar alcance real y no sobre-vender resultados.

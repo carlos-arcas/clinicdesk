@@ -59,13 +59,19 @@ class ExportModelMetricsCSV:
         "model_name",
         "model_version",
         "dataset_version",
+        "predictor_kind",
+        "trained_on_dataset_version",
         "train_accuracy",
         "test_accuracy",
         "train_precision",
         "test_precision",
         "train_recall",
         "test_recall",
+        "test_calibrated_accuracy",
+        "test_calibrated_precision",
+        "test_calibrated_recall",
         "calibrated_threshold",
+        "test_row_count",
         "created_at",
     )
 
@@ -75,13 +81,19 @@ class ExportModelMetricsCSV:
             metrics.model_name,
             metrics.model_version,
             metrics.dataset_version,
+            "trained",
+            metrics.dataset_version,
             _fmt_float(metrics.train_metrics.accuracy),
             _fmt_float(metrics.test_metrics.accuracy),
             _fmt_float(metrics.train_metrics.precision),
             _fmt_float(metrics.test_metrics.precision),
             _fmt_float(metrics.train_metrics.recall),
             _fmt_float(metrics.test_metrics.recall),
+            _fmt_float(metrics.test_metrics_at_calibrated_threshold.accuracy),
+            _fmt_float(metrics.test_metrics_at_calibrated_threshold.precision),
+            _fmt_float(metrics.test_metrics_at_calibrated_threshold.recall),
             _fmt_float(metrics.calibrated_threshold),
+            str(metrics.test_metrics.tp + metrics.test_metrics.fp + metrics.test_metrics.tn + metrics.test_metrics.fn),
             "",
         )
         _write_csv(output_file, self.COLUMNS, [row])
@@ -93,13 +105,19 @@ class ModelMetricsExportData:
     model_name: str
     model_version: str
     dataset_version: str
+    predictor_kind: str
+    trained_on_dataset_version: str
     train_accuracy: float
     test_accuracy: float
     train_precision: float
     test_precision: float
     train_recall: float
     test_recall: float
+    test_calibrated_accuracy: float
+    test_calibrated_precision: float
+    test_calibrated_recall: float
     calibrated_threshold: float
+    test_row_count: int
     created_at: str
 
 
@@ -113,13 +131,19 @@ class ExportModelMetricsFromMetadataCSV:
             data.model_name,
             data.model_version,
             data.dataset_version,
+            data.predictor_kind,
+            data.trained_on_dataset_version,
             _fmt_float(data.train_accuracy),
             _fmt_float(data.test_accuracy),
             _fmt_float(data.train_precision),
             _fmt_float(data.test_precision),
             _fmt_float(data.train_recall),
             _fmt_float(data.test_recall),
+            _fmt_float(data.test_calibrated_accuracy),
+            _fmt_float(data.test_calibrated_precision),
+            _fmt_float(data.test_calibrated_recall),
             _fmt_float(data.calibrated_threshold),
+            str(data.test_row_count),
             data.created_at,
         )
         _write_csv(output_file, self.COLUMNS, [row])
