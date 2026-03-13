@@ -278,7 +278,7 @@ class PagePacientes(QWidget):
         update_action_buttons(self._ui, can_write=self._can_write, set_buttons_enabled=set_buttons_enabled)
 
     def _on_nuevo(self) -> None:
-        on_nuevo(parent=self, uc_crear=self._uc_crear, on_success=self._on_nuevo_ok)
+        on_nuevo(parent=self, i18n=self._i18n, uc_crear=self._uc_crear, on_success=self._on_nuevo_ok)
 
     def _on_nuevo_ok(self) -> None:
         self._reset_filters()
@@ -290,6 +290,7 @@ class PagePacientes(QWidget):
             selected_id=obtener_selected_id(self._ui),
             obtener_paciente=self._container.pacientes_repo.get_by_id,
             uc_editar=self._uc_editar,
+            i18n=self._i18n,
             on_success=self._refresh,
         )
 

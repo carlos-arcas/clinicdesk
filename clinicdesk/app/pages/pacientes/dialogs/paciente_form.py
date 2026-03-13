@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Optional
 
-from PySide6.QtCore import QDate, QTimer
+from PySide6.QtCore import QDate
 from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
@@ -12,15 +12,20 @@ from PySide6.QtWidgets import (
     QDialogButtonBox,
     QFormLayout,
     QHBoxLayout,
+    QLabel,
     QLineEdit,
+    QMessageBox,
     QTextEdit,
+    QVBoxLayout,
     QWidget,
 )
 
 from clinicdesk.app.domain.enums import TipoDocumento
 from clinicdesk.app.domain.exceptions import ValidationError
 from clinicdesk.app.domain.modelos import Paciente
+from clinicdesk.app.i18n import I18nManager
 from clinicdesk.app.ui.error_presenter import present_error
+from clinicdesk.app.ui.forms_estado import ControladorEstadoFormulario
 from clinicdesk.app.ui.label_utils import required_label
 
 
@@ -30,15 +35,17 @@ class PacienteFormData:
 
 
 class PacienteFormDialog(QDialog):
-    def __init__(self, parent: Optional[QWidget] = None) -> None:
+    def __init__(self, parent: Optional[QWidget] = None, *, i18n: I18nManager | None = None) -> None:
         super().__init__(parent)
-        self.setWindowTitle("Paciente")
+        self._i18n = i18n or I18nManager("es")
+        self.setWindowTitle(self._i18n.t("pacientes.form.title"))
         self._paciente_id: Optional[int] = None
         self._num_historia: Optional[str] = None
+        self._submit_en_curso = False
+        self._control_estado = ControladorEstadoFormulario(validador=self._validar_campos)
 
         self.cbo_tipo_documento = QComboBox()
         self.cbo_tipo_documento.addItems([t.value for t in TipoDocumento])
-
         self.txt_documento = QLineEdit()
         self.txt_nombre = QLineEdit()
         self.txt_apellidos = QLineEdit()
@@ -48,48 +55,86 @@ class PacienteFormDialog(QDialog):
         self.date_fecha_nacimiento.setDisplayFormat("yyyy-MM-dd")
         self.date_fecha_nacimiento.setCalendarPopup(True)
         self.date_fecha_nacimiento.setDate(QDate.currentDate())
-        self.chk_sin_fecha = QCheckBox("Sin fecha")
+        self.chk_sin_fecha = QCheckBox(self._i18n.t("form.sin_fecha"))
         self.chk_sin_fecha.setChecked(True)
         self.chk_sin_fecha.toggled.connect(self._toggle_fecha_nacimiento)
         self._toggle_fecha_nacimiento(True)
         self.txt_direccion = QLineEdit()
         self.txt_num_historia = QLineEdit()
         self.txt_num_historia.setReadOnly(True)
-        self.txt_num_historia.setPlaceholderText("Se genera automáticamente")
+        self.txt_num_historia.setPlaceholderText(self._i18n.t("pacientes.form.historia.auto"))
         self.txt_alergias = QTextEdit()
         self.txt_observaciones = QTextEdit()
-        self.chk_activo = QCheckBox("Registro activo")
+        self.chk_activo = QCheckBox(self._i18n.t("form.registro_activo"))
         self.chk_activo.setChecked(True)
-        self.chk_activo.setToolTip("Si se desmarca, el registro quedará inactivo y oculto en filtros de activos.")
+        self.chk_activo.setToolTip(self._i18n.t("form.registro_activo.tooltip"))
 
+        self._labels_error: dict[str, QLabel] = {}
         form = QFormLayout()
-        form.addRow(required_label("Tipo documento"), self.cbo_tipo_documento)
-        form.addRow(required_label("Documento"), self.txt_documento)
-        form.addRow(required_label("Nombre"), self.txt_nombre)
-        form.addRow(required_label("Apellidos"), self.txt_apellidos)
-        form.addRow("Teléfono", self.txt_telefono)
-        form.addRow("Email", self.txt_email)
+        form.addRow(required_label(self._i18n.t("form.tipo_documento")), self.cbo_tipo_documento)
+        form.addRow(required_label(self._i18n.t("form.documento")), self._campo_con_error("documento", self.txt_documento))
+        form.addRow(required_label(self._i18n.t("form.nombre")), self._campo_con_error("nombre", self.txt_nombre))
+        form.addRow(required_label(self._i18n.t("form.apellidos")), self._campo_con_error("apellidos", self.txt_apellidos))
+        form.addRow(self._i18n.t("form.telefono"), self._campo_con_error("telefono", self.txt_telefono))
+        form.addRow(self._i18n.t("form.email"), self._campo_con_error("email", self.txt_email))
         fecha_layout = QHBoxLayout()
         fecha_layout.addWidget(self.date_fecha_nacimiento)
         fecha_layout.addWidget(self.chk_sin_fecha)
         fecha_widget = QWidget()
         fecha_widget.setLayout(fecha_layout)
-        form.addRow("Fecha nacimiento", fecha_widget)
-        form.addRow("Dirección", self.txt_direccion)
-        form.addRow("Nº historia", self.txt_num_historia)
-        form.addRow("Alergias", self.txt_alergias)
-        form.addRow("Observaciones", self.txt_observaciones)
+        form.addRow(self._i18n.t("form.fecha_nacimiento"), fecha_widget)
+        form.addRow(self._i18n.t("form.direccion"), self.txt_direccion)
+        form.addRow(self._i18n.t("pacientes.form.historia"), self.txt_num_historia)
+        form.addRow(self._i18n.t("pacientes.form.alergias"), self.txt_alergias)
+        form.addRow(self._i18n.t("pacientes.form.observaciones"), self.txt_observaciones)
         form.addRow("", self.chk_activo)
 
-        buttons = QDialogButtonBox(QDialogButtonBox.Save | QDialogButtonBox.Cancel)
-        buttons.button(QDialogButtonBox.Save).setText("Guardar")
-        buttons.button(QDialogButtonBox.Cancel).setText("Cancelar")
-        buttons.accepted.connect(self.accept)
-        buttons.rejected.connect(self.reject)
+        self.lbl_error_general = QLabel("")
+        self.lbl_error_general.setStyleSheet("color: #b00020;")
 
-        layout = QFormLayout(self)
-        layout.addRow(form)
-        layout.addRow(buttons)
+        buttons = QDialogButtonBox(QDialogButtonBox.Save | QDialogButtonBox.Cancel)
+        self._btn_guardar = buttons.button(QDialogButtonBox.Save)
+        self._btn_cancelar = buttons.button(QDialogButtonBox.Cancel)
+        self._btn_guardar.setText(self._i18n.t("comun.guardar"))
+        self._btn_cancelar.setText(self._i18n.t("comun.cancelar"))
+        self._btn_guardar.clicked.connect(self._on_guardar_click)
+        self._btn_cancelar.clicked.connect(self.reject)
+
+        layout = QVBoxLayout(self)
+        layout.addLayout(form)
+        layout.addWidget(self.lbl_error_general)
+        layout.addWidget(buttons)
+
+        self._bind_estado()
+        self._control_estado.inicializar(self._snapshot_formulario())
+        self._aplicar_estado()
+        self.txt_documento.setFocus()
+
+    def _campo_con_error(self, clave: str, widget: QWidget) -> QWidget:
+        wrapper = QWidget()
+        layout = QVBoxLayout(wrapper)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(4)
+        label = QLabel("")
+        label.setStyleSheet("color: #b00020;")
+        label.setVisible(False)
+        self._labels_error[clave] = label
+        layout.addWidget(widget)
+        layout.addWidget(label)
+        return wrapper
+
+    def _bind_estado(self) -> None:
+        self.txt_documento.textChanged.connect(lambda _: self._on_campo_cambiado("documento"))
+        self.txt_nombre.textChanged.connect(lambda _: self._on_campo_cambiado("nombre"))
+        self.txt_apellidos.textChanged.connect(lambda _: self._on_campo_cambiado("apellidos"))
+        self.txt_telefono.textChanged.connect(lambda _: self._on_campo_cambiado("telefono"))
+        self.txt_email.textChanged.connect(lambda _: self._on_campo_cambiado("email"))
+        self.txt_direccion.textChanged.connect(lambda _: self._on_campo_cambiado("direccion"))
+        self.txt_alergias.textChanged.connect(lambda: self._on_campo_cambiado("alergias"))
+        self.txt_observaciones.textChanged.connect(lambda: self._on_campo_cambiado("observaciones"))
+        self.chk_sin_fecha.toggled.connect(lambda _: self._on_campo_cambiado("sin_fecha"))
+        self.date_fecha_nacimiento.dateChanged.connect(lambda _: self._on_campo_cambiado("fecha_nacimiento"))
+        self.cbo_tipo_documento.currentTextChanged.connect(lambda _: self._on_campo_cambiado("tipo_documento"))
 
     def set_paciente(self, paciente: Paciente) -> None:
         self._paciente_id = paciente.id
@@ -101,13 +146,7 @@ class PacienteFormDialog(QDialog):
         self.txt_telefono.setText(paciente.telefono or "")
         self.txt_email.setText(paciente.email or "")
         if paciente.fecha_nacimiento:
-            self.date_fecha_nacimiento.setDate(
-                QDate(
-                    paciente.fecha_nacimiento.year,
-                    paciente.fecha_nacimiento.month,
-                    paciente.fecha_nacimiento.day,
-                )
-            )
+            self.date_fecha_nacimiento.setDate(QDate(paciente.fecha_nacimiento.year, paciente.fecha_nacimiento.month, paciente.fecha_nacimiento.day))
             self.chk_sin_fecha.setChecked(False)
         else:
             self.chk_sin_fecha.setChecked(True)
@@ -116,13 +155,73 @@ class PacienteFormDialog(QDialog):
         self.txt_alergias.setPlainText(paciente.alergias or "")
         self.txt_observaciones.setPlainText(paciente.observaciones or "")
         self.chk_activo.setChecked(paciente.activo)
+        self._control_estado.inicializar(self._snapshot_formulario())
+        self._aplicar_estado()
+
+    def _on_campo_cambiado(self, _: str) -> None:
+        self._control_estado.actualizar_valores(self._snapshot_formulario())
+        self._control_estado.limpiar_error_guardado()
+        self._aplicar_estado()
+
+    def _snapshot_formulario(self) -> dict[str, str]:
+        return {
+            "tipo_documento": self.cbo_tipo_documento.currentText().strip(),
+            "documento": self.txt_documento.text().strip(),
+            "nombre": self.txt_nombre.text().strip(),
+            "apellidos": self.txt_apellidos.text().strip(),
+            "telefono": self.txt_telefono.text().strip(),
+            "email": self.txt_email.text().strip(),
+            "direccion": self.txt_direccion.text().strip(),
+            "alergias": self.txt_alergias.toPlainText().strip(),
+            "observaciones": self.txt_observaciones.toPlainText().strip(),
+            "sin_fecha": "1" if self.chk_sin_fecha.isChecked() else "0",
+            "fecha_nacimiento": self.date_fecha_nacimiento.date().toString("yyyy-MM-dd"),
+        }
+
+    def _validar_campos(self, valores: dict[str, str]) -> dict[str, str]:
+        errores: dict[str, str] = {}
+        if not valores.get("documento"):
+            errores["documento"] = self._i18n.t("form.error.documento_requerido")
+        if not valores.get("nombre"):
+            errores["nombre"] = self._i18n.t("form.error.nombre_requerido")
+        if not valores.get("apellidos"):
+            errores["apellidos"] = self._i18n.t("form.error.apellidos_requeridos")
+        email = valores.get("email", "")
+        if email and "@" not in email:
+            errores["email"] = self._i18n.t("form.error.email_invalido")
+        return errores
+
+    def _aplicar_estado(self) -> None:
+        estado = self._control_estado.estado
+        self._btn_guardar.setEnabled(estado.listo_para_enviar and not self._submit_en_curso)
+        self._btn_guardar.setText(
+            self._i18n.t("form.guardando") if estado.guardando else self._i18n.t("comun.guardar")
+        )
+        self.lbl_error_general.setText(estado.error_guardado or "")
+        for clave, label in self._labels_error.items():
+            mensaje = estado.errores_validacion.get(clave, "")
+            label.setText(mensaje)
+            label.setVisible(bool(mensaje))
+
+    def _on_guardar_click(self) -> None:
+        if self._submit_en_curso:
+            return
+        self._control_estado.actualizar_valores(self._snapshot_formulario())
+        estado = self._control_estado.validar()
+        self._aplicar_estado()
+        if not estado.valido:
+            self._enfocar_primer_error(estado.errores_validacion)
+            return
+        self._submit_en_curso = True
+        self._control_estado.marcar_guardando(True)
+        self._aplicar_estado()
+        self.accept()
 
     def get_data(self) -> Optional[PacienteFormData]:
         try:
             fecha_dt = None
             if not self.chk_sin_fecha.isChecked():
                 fecha_dt = self.date_fecha_nacimiento.date().toPython()
-
             paciente = Paciente(
                 id=self._paciente_id,
                 tipo_documento=TipoDocumento(self.cbo_tipo_documento.currentText()),
@@ -140,30 +239,44 @@ class PacienteFormDialog(QDialog):
             )
             paciente.validar()
         except (ValueError, ValidationError) as exc:
-            self._highlight_for_error(exc)
+            self._submit_en_curso = False
+            self._control_estado.marcar_guardando(False)
+            self._control_estado.registrar_error_guardado(self._i18n.t("form.error.revisar_campos"))
+            self._aplicar_estado()
             present_error(self, exc)
             return None
 
+        self._control_estado.marcar_guardado_exitoso()
         return PacienteFormData(paciente=paciente)
+
+    def reject(self) -> None:
+        self._control_estado.actualizar_valores(self._snapshot_formulario(), validar=False)
+        if self._control_estado.estado.cambios_sin_guardar and not self._confirmar_descartar():
+            return
+        super().reject()
+
+    def _confirmar_descartar(self) -> bool:
+        respuesta = QMessageBox.question(
+            self,
+            self._i18n.t("form.unsaved.title"),
+            self._i18n.t("form.unsaved.message"),
+            QMessageBox.Yes | QMessageBox.No,
+            QMessageBox.No,
+        )
+        return respuesta == QMessageBox.Yes
 
     def _toggle_fecha_nacimiento(self, checked: bool) -> None:
         self.date_fecha_nacimiento.setEnabled(not checked)
 
-    def _mark_invalid(self, widget: QWidget) -> None:
-        widget.setStyleSheet("border: 1px solid #d9534f;")
-        QTimer.singleShot(2500, lambda: widget.setStyleSheet(""))
-
-    def _highlight_for_error(self, exc: Exception) -> None:
-        message = str(exc).lower()
-        if "documento" in message:
-            self._mark_invalid(self.txt_documento)
-        elif "nombre" in message and "apellidos" not in message:
-            self._mark_invalid(self.txt_nombre)
-        elif "apellidos" in message:
-            self._mark_invalid(self.txt_apellidos)
-        elif "teléfono" in message or "telefono" in message:
-            self._mark_invalid(self.txt_telefono)
-        elif "email" in message:
-            self._mark_invalid(self.txt_email)
-        elif "fecha" in message:
-            self._mark_invalid(self.date_fecha_nacimiento)
+    def _enfocar_primer_error(self, errores: dict[str, str]) -> None:
+        orden = [
+            ("documento", self.txt_documento),
+            ("nombre", self.txt_nombre),
+            ("apellidos", self.txt_apellidos),
+            ("telefono", self.txt_telefono),
+            ("email", self.txt_email),
+        ]
+        for clave, widget in orden:
+            if clave in errores:
+                widget.setFocus()
+                break
