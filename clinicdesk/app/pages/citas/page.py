@@ -72,6 +72,7 @@ from clinicdesk.app.pages.citas.widgets.persistencia_citas_settings import (
     serializar_filtros_citas,
 )
 from clinicdesk.app.pages.citas.widgets.tooltip_citas import CLAVES_TOOLTIP_POR_DEFECTO, construir_tooltip_cita
+from clinicdesk.app.pages.shared.contexto_tabla import ContextoTablaListado, capturar_contexto_tabla, restaurar_contexto_tabla
 from clinicdesk.app.pages.citas.lote_hitos_controller import GestorLoteHitosCitas
 from clinicdesk.app.pages.prediccion_operativa.helpers import construir_bullets_explicacion
 from clinicdesk.app.queries.citas_queries import CitaRow, CitasQueries
@@ -140,6 +141,7 @@ class PageCitas(QWidget):
         self._estimaciones_duracion: dict[int, str] = {}
         self._estimaciones_espera: dict[int, str] = {}
         self._db_path = self._resolver_db_path()
+        self._contexto_lista_pendiente = ContextoTablaListado(fila_id=None, scroll_vertical=0, mantener_foco=False)
 
         self._build_ui()
         self._bind_events()
@@ -405,6 +407,7 @@ class PageCitas(QWidget):
             )
 
     def _programar_refresco_lista(self) -> None:
+        self._contexto_lista_pendiente = capturar_contexto_tabla(self.table_lista, columna_id=0)
         self._set_estado_lista("citas.ux.cargando", loading=True)
         QTimer.singleShot(0, self._refresh_lista)
 
@@ -505,9 +508,13 @@ class PageCitas(QWidget):
                 self.table_lista.setItem(idx, 0, check_item)
                 offset = 1
             for col, clave in enumerate(visibles):
-                self.table_lista.setItem(idx, col + offset, QTableWidgetItem(formatear_valor_atributo_cita(clave, row)))
+                item_col = QTableWidgetItem(formatear_valor_atributo_cita(clave, row))
+                if col == 0:
+                    item_col.setData(Qt.UserRole, cita_id)
+                self.table_lista.setItem(idx, col + offset, item_col)
         self._actualizando_checks_lote = False
         self._actualizar_ui_lote_hitos()
+        restaurar_contexto_tabla(self.table_lista, self._contexto_lista_pendiente, columna_id=0)
 
     def _resolver_intent_navegacion(self, vista: str) -> None:
         intent = self._intent_navegacion_pendiente
