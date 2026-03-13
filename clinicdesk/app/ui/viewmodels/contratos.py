@@ -10,6 +10,7 @@ ItemT = TypeVar("ItemT")
 
 class EstadoPantalla(Enum):
     LOADING = "loading"
+    PROCESSING = "processing"
     EMPTY = "empty"
     ERROR = "error"
     CONTENT = "content"

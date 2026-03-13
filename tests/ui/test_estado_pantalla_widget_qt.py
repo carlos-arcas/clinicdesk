@@ -6,7 +6,7 @@ import pytest
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 try:
-    from PySide6.QtWidgets import QLabel, QStackedWidget
+    from PySide6.QtWidgets import QLabel, QPushButton, QStackedWidget
 except ImportError as exc:  # pragma: no cover
     pytest.skip(f"PySide6 no disponible: {exc}", allow_module_level=True)
 
@@ -26,9 +26,15 @@ def test_estado_pantalla_widget_muestra_vista_por_estado(qtbot) -> None:
     assert widget.estado_actual == "loading"
     assert stack.currentWidget() is not None
 
+    widget.set_processing("ux_states.pacientes.processing")
+    assert widget.estado_actual == "processing"
+    assert stack.currentWidget() is not None
+
     widget.set_empty("ux_states.pacientes.empty", cta_text_key="ux_states.pacientes.cta_refresh")
     assert widget.estado_actual == "empty"
     assert stack.currentWidget() is not None
+    boton_cta = widget.findChildren(QPushButton)[0]
+    assert boton_cta.isVisible()
 
     widget.set_error("ux_states.pacientes.error", detalle_tecnico="RuntimeError", on_retry=lambda: None)
     assert widget.estado_actual == "error"

@@ -18,6 +18,24 @@ from clinicdesk.app.pages.confirmaciones.contratos_ui import ConfirmacionesUIRef
 from clinicdesk.app.ui.widgets.estado_pantalla_widget import EstadoPantallaWidget
 
 
+def _configurar_accesibilidad(i18n: I18nManager, ui: ConfirmacionesUIRefs) -> None:
+    ui.txt_buscar.setAccessibleName(i18n.t("confirmaciones.filtro.buscar"))
+    ui.btn_actualizar.setAccessibleName(i18n.t("confirmaciones.filtro.actualizar"))
+    ui.chk_todo_visible.setAccessibleName(i18n.t("confirmaciones.seleccion.todo_visible"))
+    ui.table.setAccessibleName(i18n.t("confirmaciones.titulo"))
+    ui.txt_buscar.setClearButtonEnabled(True)
+    QWidget.setTabOrder(ui.cmb_rango, ui.desde)
+    QWidget.setTabOrder(ui.desde, ui.hasta)
+    QWidget.setTabOrder(ui.hasta, ui.cmb_riesgo)
+    QWidget.setTabOrder(ui.cmb_riesgo, ui.cmb_recordatorio)
+    QWidget.setTabOrder(ui.cmb_recordatorio, ui.txt_buscar)
+    QWidget.setTabOrder(ui.txt_buscar, ui.btn_actualizar)
+    QWidget.setTabOrder(ui.btn_actualizar, ui.chk_todo_visible)
+    QWidget.setTabOrder(ui.chk_todo_visible, ui.table)
+    QWidget.setTabOrder(ui.table, ui.btn_prev)
+    QWidget.setTabOrder(ui.btn_prev, ui.btn_next)
+
+
 def build_confirmaciones_ui(parent: QWidget, i18n: I18nManager) -> ConfirmacionesUIRefs:
     root = QVBoxLayout(parent)
     lbl_title = QLabel()
@@ -71,7 +89,7 @@ def build_confirmaciones_ui(parent: QWidget, i18n: I18nManager) -> Confirmacione
     estado_pantalla = EstadoPantallaWidget(i18n, parent)
     estado_pantalla.set_content(contenido_tabla)
     root.addWidget(estado_pantalla)
-    return ConfirmacionesUIRefs(
+    refs = ConfirmacionesUIRefs(
         lbl_title=lbl_title,
         banner=banner,
         btn_ir_prediccion=btn_ir_prediccion,
@@ -91,3 +109,5 @@ def build_confirmaciones_ui(parent: QWidget, i18n: I18nManager) -> Confirmacione
         estado_pantalla=estado_pantalla,
         contenido_tabla=contenido_tabla,
     )
+    _configurar_accesibilidad(i18n, refs)
+    return refs

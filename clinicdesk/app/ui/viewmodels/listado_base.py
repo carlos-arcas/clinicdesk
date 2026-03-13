@@ -39,6 +39,11 @@ class ListadoViewModelBase(Generic[ItemT]):
         self._estado.error_key = None
         self._emit()
 
+    def set_processing(self) -> None:
+        self._estado.estado_pantalla = EstadoPantalla.PROCESSING
+        self._estado.error_key = None
+        self._emit()
+
     def set_error(self, error_key: str) -> None:
         self._estado.estado_pantalla = EstadoPantalla.ERROR
         self._estado.error_key = error_key

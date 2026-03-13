@@ -23,6 +23,7 @@ class EstadoPantallaWidget(QWidget):
         self._retry_handler: Callable[[], None] | None = None
         self._mensaje_loading: str | None = None
         self._mensaje_empty: str | None = None
+        self._mensaje_processing: str | None = None
         self._cta_text_key: str | None = None
         self._mensaje_error: str | None = None
         self._detalle_tecnico: str | None = None
@@ -31,28 +32,40 @@ class EstadoPantallaWidget(QWidget):
         self._stack = QStackedWidget(self)
         self._vista_loading = self._crear_vista_estado()
         self._lbl_loading = QLabel("", self._vista_loading)
+        self._lbl_loading.setWordWrap(True)
         self._vista_loading.layout().addWidget(self._lbl_loading)
+
+        self._vista_processing = self._crear_vista_estado()
+        self._lbl_processing = QLabel("", self._vista_processing)
+        self._lbl_processing.setWordWrap(True)
+        self._vista_processing.layout().addWidget(self._lbl_processing)
 
         self._vista_empty = self._crear_vista_estado()
         self._lbl_empty = QLabel("", self._vista_empty)
+        self._lbl_empty.setWordWrap(True)
         self._btn_empty_cta = QPushButton("", self._vista_empty)
         self._btn_empty_cta.setVisible(False)
         self._btn_empty_cta.clicked.connect(self._on_cta_clicked)
+        self._btn_empty_cta.setDefault(False)
         self._vista_empty.layout().addWidget(self._lbl_empty)
         self._vista_empty.layout().addWidget(self._btn_empty_cta)
 
         self._vista_error = self._crear_vista_estado()
         self._lbl_error = QLabel("", self._vista_error)
+        self._lbl_error.setWordWrap(True)
         self._lbl_error_detalle = QLabel("", self._vista_error)
+        self._lbl_error_detalle.setWordWrap(True)
         self._lbl_error_detalle.setVisible(False)
         self._btn_retry = QPushButton("", self._vista_error)
         self._btn_retry.setVisible(False)
         self._btn_retry.clicked.connect(self._on_retry_clicked)
+        self._btn_retry.setDefault(False)
         self._vista_error.layout().addWidget(self._lbl_error)
         self._vista_error.layout().addWidget(self._lbl_error_detalle)
         self._vista_error.layout().addWidget(self._btn_retry)
 
         self._stack.addWidget(self._vista_loading)
+        self._stack.addWidget(self._vista_processing)
         self._stack.addWidget(self._vista_empty)
         self._stack.addWidget(self._vista_error)
 
@@ -69,6 +82,13 @@ class EstadoPantallaWidget(QWidget):
         self._estado_actual = "loading"
         self._lbl_loading.setText(self._i18n.t(mensaje_key))
         self._stack.setCurrentWidget(self._vista_loading)
+        self._lbl_loading.setFocus()
+
+    def set_processing(self, mensaje_key: str) -> None:
+        self._mensaje_processing = mensaje_key
+        self._estado_actual = "processing"
+        self._lbl_processing.setText(self._i18n.t(mensaje_key))
+        self._stack.setCurrentWidget(self._vista_processing)
 
     def set_empty(
         self,
@@ -85,6 +105,10 @@ class EstadoPantallaWidget(QWidget):
         if cta_text_key:
             self._btn_empty_cta.setText(self._i18n.t(cta_text_key))
         self._stack.setCurrentWidget(self._vista_empty)
+        if self._btn_empty_cta.isVisible():
+            self._btn_empty_cta.setFocus()
+        else:
+            self._lbl_empty.setFocus()
 
     def set_error(
         self,
@@ -103,6 +127,10 @@ class EstadoPantallaWidget(QWidget):
         if on_retry is not None:
             self._btn_retry.setText(self._i18n.t("ux_states.retry"))
         self._stack.setCurrentWidget(self._vista_error)
+        if self._btn_retry.isVisible():
+            self._btn_retry.setFocus()
+        else:
+            self._lbl_error.setFocus()
 
     def set_content(self, widget: QWidget) -> None:
         if self._contenido is not widget:
@@ -124,6 +152,8 @@ class EstadoPantallaWidget(QWidget):
     def _retranslate(self) -> None:
         if self._estado_actual == "loading" and self._mensaje_loading:
             self._lbl_loading.setText(self._i18n.t(self._mensaje_loading))
+        if self._estado_actual == "processing" and self._mensaje_processing:
+            self._lbl_processing.setText(self._i18n.t(self._mensaje_processing))
         if self._mensaje_empty:
             self._lbl_empty.setText(self._i18n.t(self._mensaje_empty))
         if self._cta_text_key:

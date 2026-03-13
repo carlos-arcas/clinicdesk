@@ -8,7 +8,8 @@ from PySide6.QtWidgets import QTableWidgetItem, QWidget
 from clinicdesk.app.pages.confirmaciones.acciones_whatsapp_rapido import estado_accion_whatsapp_rapida
 from clinicdesk.app.pages.confirmaciones.contratos_ui import ConfirmacionesUIRefs
 from clinicdesk.app.pages.confirmaciones.tabla_actions import crear_actions_confirmacion
-from clinicdesk.app.ui.viewmodels.contratos import EstadoListado, EstadoPantalla
+from clinicdesk.app.ui.viewmodels.estado_listado_presenter import EstadoListadoPresenter
+from clinicdesk.app.ui.viewmodels.contratos import EstadoListado
 
 _COL_CHECK = 0
 
@@ -20,21 +21,16 @@ def render_estado(
     on_retry: Callable[[], None],
     render_rows: Callable[[list[object]], None],
 ) -> None:
-    if estado.estado_pantalla is EstadoPantalla.LOADING:
-        ui.estado_pantalla.set_loading("ux_states.confirmaciones.loading")
-        return
-    if estado.estado_pantalla is EstadoPantalla.ERROR:
-        ui.estado_pantalla.set_error(estado.error_key or "ux_states.confirmaciones.error", on_retry=on_retry)
-        return
-    render_rows(estado.items)
-    if estado.estado_pantalla is EstadoPantalla.EMPTY:
-        ui.estado_pantalla.set_empty(
-            "ux_states.confirmaciones.empty",
-            cta_text_key="ux_states.confirmaciones.cta_refresh",
-            on_cta=on_retry,
-        )
-        return
-    ui.estado_pantalla.set_content(ui.contenido_tabla)
+    presenter = EstadoListadoPresenter[object](
+        estado_widget=ui.estado_pantalla,
+        contenido=ui.contenido_tabla,
+        mensaje_loading_key="ux_states.confirmaciones.loading",
+        mensaje_empty_key="ux_states.confirmaciones.empty",
+        mensaje_error_default_key="ux_states.confirmaciones.error",
+        cta_refresh_key="ux_states.confirmaciones.cta_refresh",
+        mensaje_processing_key="ux_states.confirmaciones.processing",
+    )
+    presenter.render(estado, on_retry=on_retry, render_rows=render_rows)
 
 
 def render_tabla(

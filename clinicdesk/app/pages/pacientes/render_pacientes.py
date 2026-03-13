@@ -5,7 +5,8 @@ from typing import Callable
 from clinicdesk.app.pages.pacientes.contratos_ui import PacientesUIRefs
 from clinicdesk.app.pages.shared.table_utils import apply_row_style, set_item
 from clinicdesk.app.queries.pacientes_queries import PacienteRow
-from clinicdesk.app.ui.viewmodels.contratos import EstadoListado, EstadoPantalla
+from clinicdesk.app.ui.viewmodels.estado_listado_presenter import EstadoListadoPresenter
+from clinicdesk.app.ui.viewmodels.contratos import EstadoListado
 
 
 def render_estado(
@@ -17,24 +18,23 @@ def render_estado(
     apply_selected_id: Callable[[int], None],
     update_buttons: Callable[[], None],
 ) -> None:
-    if estado.estado_pantalla is EstadoPantalla.LOADING:
-        ui.estado_pantalla.set_loading("ux_states.pacientes.loading")
-        return
-    if estado.estado_pantalla is EstadoPantalla.ERROR:
-        ui.estado_pantalla.set_error(estado.error_key or "ux_states.pacientes.error", on_retry=on_retry)
-        return
-    render_rows(estado.items)
-    if estado.seleccion_id is not None:
-        apply_selected_id(estado.seleccion_id)
-    update_buttons()
-    if estado.estado_pantalla is EstadoPantalla.EMPTY:
-        ui.estado_pantalla.set_empty(
-            "ux_states.pacientes.empty",
-            cta_text_key="ux_states.pacientes.cta_refresh",
-            on_cta=on_retry,
-        )
-        return
-    ui.estado_pantalla.set_content(ui.contenido_tabla)
+    presenter = EstadoListadoPresenter[PacienteRow](
+        estado_widget=ui.estado_pantalla,
+        contenido=ui.contenido_tabla,
+        mensaje_loading_key="ux_states.pacientes.loading",
+        mensaje_empty_key="ux_states.pacientes.empty",
+        mensaje_error_default_key="ux_states.pacientes.error",
+        cta_refresh_key="ux_states.pacientes.cta_refresh",
+        mensaje_processing_key="ux_states.pacientes.processing",
+    )
+
+    def _render_rows(rows: list[PacienteRow]) -> None:
+        render_rows(rows)
+        if estado.seleccion_id is not None:
+            apply_selected_id(estado.seleccion_id)
+        update_buttons()
+
+    presenter.render(estado, on_retry=on_retry, render_rows=_render_rows)
 
 
 def render_tabla(

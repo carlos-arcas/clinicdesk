@@ -14,6 +14,7 @@ def preparar_whatsapp_rapido(page, item) -> None:
     if page._cita_en_preparacion is not None:
         return
     page._cita_en_preparacion = item.cita_id
+    page._vm.set_processing()
     page._load_data(reset=False)
     page._registrar_telemetria("confirmaciones_whatsapp_rapido", "click", item.cita_id)
     page._thread_rapido = QThread(page)
@@ -38,6 +39,7 @@ def on_whatsapp_rapido_ok(page) -> None:
         page._i18n.t("confirmaciones.titulo"),
         page._i18n.t("confirmaciones.accion.hecho"),
     )
+    page._ui.table.setFocus()
 
 
 def on_whatsapp_rapido_fail(page, reason_code: str) -> None:
@@ -53,3 +55,4 @@ def on_whatsapp_rapido_fail(page, reason_code: str) -> None:
         page._i18n.t("confirmaciones.titulo"),
         page._i18n.t("confirmaciones.accion.error_guardar"),
     )
+    page._ui.table.setFocus()

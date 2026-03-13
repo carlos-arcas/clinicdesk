@@ -106,6 +106,7 @@ class PagePacientes(QWidget):
         self._vm.subscribe(self._on_estado_vm)
         self._vm.subscribe_eventos(self._on_evento_vm)
         self._refresh()
+        self.filtros.txt_buscar.setFocus()
 
     def _connect_signals(self) -> None:
         self.filtros.filtros_cambiados.connect(self._refresh)

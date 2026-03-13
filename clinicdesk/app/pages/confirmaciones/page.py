@@ -108,6 +108,7 @@ class PageConfirmaciones(QWidget):
             self._restaurar_preferencias()
             self._preferencias_restauradas = True
         self._load_data(reset=True)
+        self._ui.txt_buscar.setFocus()
 
     def _retranslate(self) -> None:
         t = self._i18n.t

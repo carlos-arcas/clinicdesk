@@ -9,6 +9,23 @@ from clinicdesk.app.pages.shared.filtro_listado import FiltroListadoWidget
 from clinicdesk.app.ui.widgets.estado_pantalla_widget import EstadoPantallaWidget
 
 
+def _configurar_accesibilidad(i18n: I18nManager, ui: PacientesUIRefs) -> None:
+    ui.table.setAccessibleName(i18n.t("quick_search.title.pacientes"))
+    ui.btn_nuevo.setAccessibleName(i18n.t("pacientes.acciones.nuevo"))
+    ui.btn_editar.setAccessibleName(i18n.t("pacientes.acciones.editar"))
+    ui.btn_desactivar.setAccessibleName(i18n.t("pacientes.acciones.desactivar"))
+    ui.btn_historial.setAccessibleName(i18n.t("pacientes.historial.boton"))
+    ui.btn_csv.setAccessibleName(i18n.t("menu.csv"))
+    ui.btn_historial.setToolTip(i18n.t("pacientes.historial.boton"))
+    QWidget.setTabOrder(ui.filtros.txt_buscar, ui.filtros.cbo_estado)
+    QWidget.setTabOrder(ui.filtros.cbo_estado, ui.btn_nuevo)
+    QWidget.setTabOrder(ui.btn_nuevo, ui.btn_editar)
+    QWidget.setTabOrder(ui.btn_editar, ui.btn_desactivar)
+    QWidget.setTabOrder(ui.btn_desactivar, ui.btn_historial)
+    QWidget.setTabOrder(ui.btn_historial, ui.btn_csv)
+    QWidget.setTabOrder(ui.btn_csv, ui.table)
+
+
 def build_pacientes_ui(parent: QWidget, i18n: I18nManager, *, can_write: bool, headers: list[str]) -> PacientesUIRefs:
     root = QVBoxLayout(parent)
 
@@ -20,7 +37,7 @@ def build_pacientes_ui(parent: QWidget, i18n: I18nManager, *, can_write: bool, h
     root.addWidget(filtros)
     root.addLayout(acciones[0])
     root.addWidget(estado_pantalla)
-    return PacientesUIRefs(
+    refs = PacientesUIRefs(
         filtros=filtros,
         btn_nuevo=acciones[1],
         btn_editar=acciones[2],
@@ -31,15 +48,17 @@ def build_pacientes_ui(parent: QWidget, i18n: I18nManager, *, can_write: bool, h
         estado_pantalla=estado_pantalla,
         contenido_tabla=contenido_tabla,
     )
+    _configurar_accesibilidad(i18n, refs)
+    return refs
 
 
 def _build_acciones(
     i18n: I18nManager, *, can_write: bool
 ) -> tuple[QHBoxLayout, QPushButton, QPushButton, QPushButton, QPushButton, QPushButton]:
     actions = QHBoxLayout()
-    btn_nuevo = QPushButton("Nuevo")
-    btn_editar = QPushButton("Editar")
-    btn_desactivar = QPushButton("Desactivar")
+    btn_nuevo = QPushButton(i18n.t("pacientes.acciones.nuevo"))
+    btn_editar = QPushButton(i18n.t("pacientes.acciones.editar"))
+    btn_desactivar = QPushButton(i18n.t("pacientes.acciones.desactivar"))
     btn_historial = QPushButton(i18n.t("pacientes.historial.boton"))
     btn_csv = QPushButton(i18n.t("menu.csv"))
 
