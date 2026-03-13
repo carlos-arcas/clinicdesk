@@ -11,6 +11,7 @@ from PySide6.QtWidgets import (
     QListWidget,
     QListWidgetItem,
     QMainWindow,
+    QMessageBox,
     QPushButton,
     QProgressBar,
     QSizePolicy,
@@ -246,12 +247,23 @@ class MainWindow(QMainWindow):
 
         self._toast_close_btn = QPushButton(self)
         self._toast_close_btn.clicked.connect(self._close_toast)
+        self._toast_titulo = QLabel(self)
+        self._toast_titulo.setVisible(False)
         self._toast_label = QLabel(self)
+        self._toast_accion_btn = QPushButton(self)
+        self._toast_accion_btn.setVisible(False)
+        self._toast_accion_btn.clicked.connect(self._run_toast_action)
+        self._toast_detalles_btn = QPushButton(self)
+        self._toast_detalles_btn.setVisible(False)
+        self._toast_detalles_btn.clicked.connect(self._show_toast_details)
         self._toast_widget = QWidget(self)
         toast_layout = QHBoxLayout(self._toast_widget)
         toast_layout.setContentsMargins(8, 2, 8, 2)
         toast_layout.setSpacing(8)
+        toast_layout.addWidget(self._toast_titulo)
         toast_layout.addWidget(self._toast_label)
+        toast_layout.addWidget(self._toast_accion_btn)
+        toast_layout.addWidget(self._toast_detalles_btn)
         toast_layout.addWidget(self._toast_close_btn)
         self._status_bar.addPermanentWidget(self._toast_widget)
         self._toast_widget.hide()
@@ -290,6 +302,8 @@ class MainWindow(QMainWindow):
             item.setText(labels.get(key, item.text()))
 
         self._toast_close_btn.setText(self._i18n.t("comun.cerrar"))
+        self._toast_accion_btn.setText(self._i18n.t("toast.action.default"))
+        self._toast_detalles_btn.setText(self._i18n.t("toast.action.view_details"))
         self._job_cancel_btn.setText(self._i18n.t("job.cancel"))
         if self._busy_key is None:
             self._busy_label.setText(self._i18n.t(self._busy_default_key))
@@ -310,6 +324,19 @@ class MainWindow(QMainWindow):
     def _close_toast(self) -> None:
         self._toast_manager.close_current()
 
+    def _run_toast_action(self) -> None:
+        self._toast_manager.run_current_action()
+
+    def _show_toast_details(self) -> None:
+        payload = self._toast_manager.actual
+        if payload is None or not payload.tiene_detalle:
+            return
+        QMessageBox.information(
+            self,
+            payload.titulo or self._i18n.t("toast.details.title"),
+            payload.detalle or "",
+        )
+
     def _render_toast(self, payload: ToastPayload | None) -> None:
         if payload is None:
             self._toast_widget.hide()
@@ -320,17 +347,22 @@ class MainWindow(QMainWindow):
             "error": "background:#842029;color:#ffffff;border-radius:4px;",
         }.get(payload.tipo, "")
         self._toast_widget.setStyleSheet(estilo)
+        self._toast_titulo.setVisible(bool(payload.titulo))
+        self._toast_titulo.setText(f"{payload.titulo}:" if payload.titulo else "")
         self._toast_label.setText(payload.mensaje)
+        self._toast_accion_btn.setVisible(payload.tiene_accion)
+        self._toast_accion_btn.setText(payload.accion_label or self._i18n.t("toast.action.default"))
+        self._toast_detalles_btn.setVisible(payload.tiene_detalle)
         self._toast_widget.show()
 
-    def toast_success(self, key: str) -> None:
-        self._toast_manager.success(key)
+    def toast_success(self, key: str, **kwargs: Any) -> None:
+        self._toast_manager.success(key, **kwargs)
 
-    def toast_info(self, key: str) -> None:
-        self._toast_manager.info(key)
+    def toast_info(self, key: str, **kwargs: Any) -> None:
+        self._toast_manager.info(key, **kwargs)
 
-    def toast_error(self, key: str) -> None:
-        self._toast_manager.error(key)
+    def toast_error(self, key: str, **kwargs: Any) -> None:
+        self._toast_manager.error(key, **kwargs)
 
     def set_busy(self, busy: bool, mensaje_key: str) -> None:
         self._busy_key = mensaje_key if busy else None
