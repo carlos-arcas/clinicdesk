@@ -23,16 +23,6 @@
       "path": "clinicdesk/app/infrastructure/sqlite/repos_pacientes.py",
       "max_class_loc": 300,
       "reason": "Deuda temporal aceptada: repositorio legacy mientras se completa partición por mixins"
-    },
-    {
-      "path": "clinicdesk/app/infrastructure/sqlite/repos_personal.py",
-      "max_class_loc": 240,
-      "reason": "Deuda temporal aceptada: repositorio legacy pendiente de segmentación"
-    },
-    {
-      "path": "clinicdesk/app/infrastructure/sqlite/repos_recetas.py",
-      "max_class_loc": 230,
-      "reason": "Deuda temporal aceptada: refactor diferido por compatibilidad con UI"
     }
   ]
 }
