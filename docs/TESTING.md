@@ -63,3 +63,27 @@ Cobertura de este subconjunto:
 - Reglas de warning y override (cuadrante y ausencias).
 - Contratos de persistencia en SQLite temporal (`CitasRepository`).
 - Consultas de listado con filtros clínicos y de calidad de datos (`CitasQueries`).
+
+
+## Estrategia desktop/UI headless (realista)
+- Tests **puros** (sin Qt): helpers, validadores, estados y contratos UI desacoplados.
+- Tests **UI headless críticos**: marcados con `ui` + `uiqt`, ejecutados con `QT_QPA_PLATFORM=offscreen`.
+- Tests que dependen de runtime gráfico completo deben quedar fuera del subset crítico y documentarse explícitamente.
+
+### Comandos recomendados (bash/CI)
+```bash
+# Smoke core rápido (sin UI)
+python -m pytest -q -m "not ui"
+
+# Smoke UI crítico headless (formularios/estados)
+QT_QPA_PLATFORM=offscreen python -m pytest -q -m "uiqt" tests/ui/test_paciente_form_dialog.py tests/ui/test_cita_form_dialog.py tests/ui/test_estados_listado.py
+
+# Helpers puros reutilizables de UI
+python -m pytest -q tests/ui/test_formularios_validacion_pura.py tests/ui/test_forms_estado.py
+```
+
+### Fixtures reutilizables UI
+- `tests/ui/conftest.py` expone builders/fixtures reutilizables para:
+  - creación de `PacienteFormDialog` y `CitaFormDialog`,
+  - completar campos mínimos válidos de cada formulario.
+- Recomendación: reutilizar estas fixtures en nuevos smoke tests antes de crear helpers ad-hoc.

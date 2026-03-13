@@ -25,6 +25,10 @@ from clinicdesk.app.domain.exceptions import ValidationError
 from clinicdesk.app.domain.modelos import Paciente
 from clinicdesk.app.i18n import I18nManager
 from clinicdesk.app.ui.error_presenter import present_error
+from clinicdesk.app.ui.formularios_validacion import (
+    primer_campo_con_error,
+    validar_formulario_paciente,
+)
 from clinicdesk.app.ui.forms_estado import ControladorEstadoFormulario
 from clinicdesk.app.ui.label_utils import required_label
 
@@ -179,17 +183,7 @@ class PacienteFormDialog(QDialog):
         }
 
     def _validar_campos(self, valores: dict[str, str]) -> dict[str, str]:
-        errores: dict[str, str] = {}
-        if not valores.get("documento"):
-            errores["documento"] = self._i18n.t("form.error.documento_requerido")
-        if not valores.get("nombre"):
-            errores["nombre"] = self._i18n.t("form.error.nombre_requerido")
-        if not valores.get("apellidos"):
-            errores["apellidos"] = self._i18n.t("form.error.apellidos_requeridos")
-        email = valores.get("email", "")
-        if email and "@" not in email:
-            errores["email"] = self._i18n.t("form.error.email_invalido")
-        return errores
+        return validar_formulario_paciente(valores, i18n=self._i18n)
 
     def _aplicar_estado(self) -> None:
         estado = self._control_estado.estado
@@ -269,14 +263,13 @@ class PacienteFormDialog(QDialog):
         self.date_fecha_nacimiento.setEnabled(not checked)
 
     def _enfocar_primer_error(self, errores: dict[str, str]) -> None:
-        orden = [
-            ("documento", self.txt_documento),
-            ("nombre", self.txt_nombre),
-            ("apellidos", self.txt_apellidos),
-            ("telefono", self.txt_telefono),
-            ("email", self.txt_email),
-        ]
-        for clave, widget in orden:
-            if clave in errores:
-                widget.setFocus()
-                break
+        widgets_por_campo = {
+            "documento": self.txt_documento,
+            "nombre": self.txt_nombre,
+            "apellidos": self.txt_apellidos,
+            "telefono": self.txt_telefono,
+            "email": self.txt_email,
+        }
+        campo = primer_campo_con_error(errores, tuple(widgets_por_campo.keys()))
+        if campo:
+            widgets_por_campo[campo].setFocus()

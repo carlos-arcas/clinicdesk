@@ -1,62 +1,69 @@
 from __future__ import annotations
 
-from PySide6.QtWidgets import QMessageBox
+import os
 
-from clinicdesk.app.pages.pacientes.dialogs.paciente_form import PacienteFormDialog
+import pytest
 
+os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+try:
+    from PySide6.QtWidgets import QMessageBox
+except ImportError as exc:  # pragma: no cover
+    pytest.skip(f"PySide6 no disponible: {exc}", allow_module_level=True)
 
-def test_paciente_form_validacion_inline_y_cta(qtbot) -> None:
-    dialog = PacienteFormDialog()
-    qtbot.addWidget(dialog)
-
-    assert not dialog._btn_guardar.isEnabled()
-
-    qtbot.keyClicks(dialog.txt_documento, "12345678A")
-    qtbot.keyClicks(dialog.txt_nombre, "Ana")
-    qtbot.keyClicks(dialog.txt_apellidos, "Pérez")
-
-    assert dialog._btn_guardar.isEnabled()
-
-    dialog.txt_email.setText("email-invalido")
-    assert not dialog._btn_guardar.isEnabled()
-    assert dialog._labels_error["email"].isVisible()
+pytestmark = [pytest.mark.ui, pytest.mark.uiqt]
 
 
-def test_paciente_form_confirma_descartar_cambios(monkeypatch, qtbot) -> None:
-    dialog = PacienteFormDialog()
-    qtbot.addWidget(dialog)
-    dialog.txt_documento.setText("DOC-1")
+def test_paciente_form_validacion_inline_y_cta(
+    qtbot,
+    crear_dialogo_paciente,
+    completar_campos_minimos_paciente,
+) -> None:
+    dialogo = crear_dialogo_paciente()
+
+    assert not dialogo._btn_guardar.isEnabled()
+
+    completar_campos_minimos_paciente(dialogo)
+    assert dialogo._btn_guardar.isEnabled()
+
+    dialogo.txt_email.setText("email-invalido")
+    assert not dialogo._btn_guardar.isEnabled()
+    assert dialogo._labels_error["email"].isVisible()
+
+
+def test_paciente_form_confirma_descartar_cambios(monkeypatch, crear_dialogo_paciente) -> None:
+    dialogo = crear_dialogo_paciente()
+    dialogo.txt_documento.setText("DOC-1")
 
     monkeypatch.setattr(QMessageBox, "question", lambda *args, **kwargs: QMessageBox.No)
-    dialog.reject()
-    assert dialog.result() == 0
+    dialogo.reject()
+    assert dialogo.result() == 0
 
     monkeypatch.setattr(QMessageBox, "question", lambda *args, **kwargs: QMessageBox.Yes)
-    dialog.reject()
-    assert dialog.result() == QMessageBox.Rejected
+    dialogo.reject()
+    assert dialogo.result() == QMessageBox.Rejected
 
 
-def test_paciente_form_prevenir_doble_guardado(monkeypatch, qtbot) -> None:
-    dialog = PacienteFormDialog()
-    qtbot.addWidget(dialog)
-    dialog.txt_documento.setText("12345678A")
-    dialog.txt_nombre.setText("Ana")
-    dialog.txt_apellidos.setText("Pérez")
+def test_paciente_form_prevenir_doble_guardado(
+    monkeypatch,
+    crear_dialogo_paciente,
+    completar_campos_minimos_paciente,
+) -> None:
+    dialogo = crear_dialogo_paciente()
+    completar_campos_minimos_paciente(dialogo)
 
     llamados = {"accept": 0}
 
     def _accept_once() -> None:
         llamados["accept"] += 1
 
-    monkeypatch.setattr(dialog, "accept", _accept_once)
-    dialog._on_guardar_click()
-    dialog._on_guardar_click()
+    monkeypatch.setattr(dialogo, "accept", _accept_once)
+    dialogo._on_guardar_click()
+    dialogo._on_guardar_click()
 
     assert llamados["accept"] == 1
 
 
-def test_paciente_form_foco_en_primer_error(qtbot) -> None:
-    dialog = PacienteFormDialog()
-    qtbot.addWidget(dialog)
-    dialog._on_guardar_click()
-    assert dialog.txt_documento.hasFocus()
+def test_paciente_form_foco_en_primer_error(crear_dialogo_paciente) -> None:
+    dialogo = crear_dialogo_paciente()
+    dialogo._on_guardar_click()
+    assert dialogo.txt_documento.hasFocus()
