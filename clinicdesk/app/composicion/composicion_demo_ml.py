@@ -51,6 +51,7 @@ def build_demo_ml_facade(
         train_uc=TrainCitasModel(feature_service, model_store),
         score_uc=ScoreCitas(feature_service, BaselineCitasPredictor(), model_store=model_store),
         drift_uc=DriftCitasFeatures(feature_service),
+        model_store=model_store,
     )
 
 
