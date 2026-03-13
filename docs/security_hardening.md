@@ -58,3 +58,33 @@ Todos los intentos se auditan (`ok`/`fail`) con `reason_code`, evitando PII en m
 ## Referencias
 
 - [Gestión de claves de cifrado](./security_keys.md)
+
+
+## Guardrails de observabilidad segura (Fase 3)
+
+Se añade contrato explícito para metadata operativa en auditoría:
+
+- Implementación central: `clinicdesk/app/application/auditoria/metadata_segura.py`.
+- Estrategia por **allowlist de claves** (`CLAVES_METADATA_AUDITORIA_PERMITIDAS`).
+- Bloqueo explícito de claves sensibles (PII/PHI y columnas técnicas `*_enc` / `*_hash`).
+- Redacción automática de valores string con `redactar_texto_pii`.
+
+### Reglas operativas
+
+Permitido en metadata de auditoría:
+- ids técnicos (`cita_id`, `medico_id`, `sala_id`, `incidencia_id`),
+- contadores y métricas agregadas,
+- `reason_code`, `error_type`, `outcome`, trazabilidad por `correlation_id`.
+
+No permitido:
+- documento/email/teléfono/dirección,
+- notas clínicas, observaciones o campos libres con PHI,
+- cualquier clave `*_enc` o `*_hash`.
+
+### Guardrail anti-regresión
+
+El chequeo `scripts/quality_gate_components/pii_guardrail.py` ahora detecta además:
+- claves sensibles dentro de `extra={...}` en llamadas `logger.*`,
+- claves sensibles en `metadata={...}` en llamadas `.registrar(...)` de auditoría.
+
+Objetivo: impedir reintroducción accidental de PII/PHI en telemetría operativa y auditoría técnica.

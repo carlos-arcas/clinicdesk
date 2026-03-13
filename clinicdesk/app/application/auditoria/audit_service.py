@@ -2,15 +2,14 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import UTC, datetime
-import re
 from typing import Protocol
 
+from clinicdesk.app.application.auditoria.metadata_segura import (
+    CLAVES_METADATA_AUDITORIA_PERMITIDAS,
+    MetadataAuditoriaError as AuditMetadataError,
+    sanitizar_metadata_auditoria,
+)
 from clinicdesk.app.application.security import Role
-from clinicdesk.app.common.redaccion_pii import redactar_texto_pii
-
-
-class AuditMetadataError(ValueError):
-    pass
 
 
 @dataclass(frozen=True, slots=True)
@@ -29,43 +28,7 @@ class AuditRepository(Protocol):
 
 
 class AuditService:
-    _ALLOWED_METADATA_KEYS: frozenset[str] = frozenset(
-        {
-            "cita_id",
-            "medico_id",
-            "sala_id",
-            "paciente_id_hash",
-            "motivo_override",
-            "warnings_count",
-            "incidencia_id",
-            "error_code",
-            "error_type",
-            "seed",
-            "n_doctors",
-            "n_patients",
-            "n_appointments",
-            "incidences",
-            "medicamentos",
-            "materiales",
-            "recetas",
-            "movimientos",
-            "turnos",
-            "ausencias",
-            "from_date",
-            "to_date",
-            "dataset_version",
-            "reason_code",
-            "db_path_hint",
-            "export_rows",
-        }
-    )
-    _BLOCKED_KEY_PATTERNS: tuple[re.Pattern[str], ...] = (
-        re.compile(r"dni", re.IGNORECASE),
-        re.compile(r"documento", re.IGNORECASE),
-        re.compile(r"email", re.IGNORECASE),
-        re.compile(r"telefono|tlf", re.IGNORECASE),
-        re.compile(r"direccion", re.IGNORECASE),
-    )
+    _ALLOWED_METADATA_KEYS: frozenset[str] = CLAVES_METADATA_AUDITORIA_PERMITIDAS
 
     def __init__(self, repository: AuditRepository) -> None:
         self._repository = repository
@@ -104,21 +67,4 @@ class AuditService:
     def _sanitize_metadata(
         self, metadata: dict[str, str | int | float | bool | None]
     ) -> dict[str, str | int | float | bool | None]:
-        sanitized: dict[str, str | int | float | bool | None] = {}
-        for key, value in metadata.items():
-            if key not in self._ALLOWED_METADATA_KEYS:
-                raise AuditMetadataError(f"Metadata key no permitida: {key}")
-            self._ensure_key_is_not_pii(key)
-            sanitized[key] = self._sanitize_value(value)
-        return sanitized
-
-    def _ensure_key_is_not_pii(self, key: str) -> None:
-        for pattern in self._BLOCKED_KEY_PATTERNS:
-            if pattern.search(key):
-                raise AuditMetadataError(f"Metadata key bloqueada por PII: {key}")
-
-    def _sanitize_value(self, value: str | int | float | bool | None) -> str | int | float | bool | None:
-        if isinstance(value, str):
-            redacted, _ = redactar_texto_pii(value)
-            return redacted
-        return value
+        return sanitizar_metadata_auditoria(metadata)

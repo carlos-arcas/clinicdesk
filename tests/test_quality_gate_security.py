@@ -219,3 +219,26 @@ def test_run_secrets_scan_logs_only_method_and_count_without_secret(tmp_path: Pa
     assert secret_value not in caplog.text
     assert "metodo=fallback" in caplog.text
     assert "hallazgos=" in caplog.text
+
+
+def test_pii_logging_guardrail_detects_sensitive_key_in_extra_metadata(tmp_path: Path, monkeypatch) -> None:
+    source_file = tmp_path / "module.py"
+    source_file.write_text('logger.info("evento", extra={"email": "x"})\n', encoding="utf-8")
+
+    monkeypatch.setattr(basic_repo_checks.config, "REPO_ROOT", tmp_path)
+    monkeypatch.setattr(pii_guardrail.config, "PII_LOGGING_ALLOWLIST_PATH", tmp_path / "allowlist.json")
+
+    assert pii_guardrail.check_pii_logging_guardrail() == 8
+
+
+def test_pii_logging_guardrail_detects_sensitive_key_in_audit_metadata(tmp_path: Path, monkeypatch) -> None:
+    source_file = tmp_path / "module.py"
+    source_file.write_text(
+        'audit_service.registrar(action="X", outcome="ok", actor_username="u", actor_role="admin", correlation_id=None, metadata={"nota_override": "dato"})\n',
+        encoding="utf-8",
+    )
+
+    monkeypatch.setattr(basic_repo_checks.config, "REPO_ROOT", tmp_path)
+    monkeypatch.setattr(pii_guardrail.config, "PII_LOGGING_ALLOWLIST_PATH", tmp_path / "allowlist.json")
+
+    assert pii_guardrail.check_pii_logging_guardrail() == 8

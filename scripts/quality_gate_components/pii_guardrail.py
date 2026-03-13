@@ -3,11 +3,39 @@ from __future__ import annotations
 import ast
 import json
 import logging
+import re
 from pathlib import Path
 
 from . import config
 
 _LOGGER = logging.getLogger(__name__)
+
+
+_PATRONES_CLAVE_METADATA_SENSIBLE: tuple[re.Pattern[str], ...] = (
+    re.compile(r"dni|nif|documento", re.IGNORECASE),
+    re.compile(r"email|correo|mail", re.IGNORECASE),
+    re.compile(r"telefono|teléfono|tlf|movil|móvil", re.IGNORECASE),
+    re.compile(r"direccion|dirección", re.IGNORECASE),
+    re.compile(r"alergias|observaciones|nota_override|historia", re.IGNORECASE),
+    re.compile(r"(_enc|_hash)$", re.IGNORECASE),
+)
+
+
+def _clave_metadata_sensible(clave: str) -> bool:
+    lowered = clave.lower()
+    if any(token in lowered for token in config.PII_TOKENS):
+        return True
+    return any(patron.search(clave) for patron in _PATRONES_CLAVE_METADATA_SENSIBLE)
+
+
+def _iter_keys_literal_dict(node: ast.AST) -> list[str]:
+    if not isinstance(node, ast.Dict):
+        return []
+    keys: list[str] = []
+    for key in node.keys:
+        if isinstance(key, ast.Constant) and isinstance(key.value, str):
+            keys.append(key.value)
+    return keys
 
 
 def load_pii_allowlist(allowlist_path: Path) -> dict[str, str]:
@@ -62,6 +90,31 @@ def _check_logging_call(node: ast.Call, rel_path: Path, allowlist: dict[str, str
             key = f"{rel_path}:{node.lineno}:{','.join(matched)}"
             if key not in allowlist:
                 offenders.append(key)
+    for keyword in node.keywords:
+        if keyword.arg != "extra":
+            continue
+        for clave in _iter_keys_literal_dict(keyword.value):
+            if not _clave_metadata_sensible(clave):
+                continue
+            key = f"{rel_path}:{node.lineno}:metadata_key:{clave}"
+            if key not in allowlist:
+                offenders.append(key)
+    return offenders
+
+
+def _check_audit_metadata_call(node: ast.Call, rel_path: Path, allowlist: dict[str, str]) -> list[str]:
+    if not isinstance(node.func, ast.Attribute) or node.func.attr != "registrar":
+        return []
+    offenders: list[str] = []
+    for keyword in node.keywords:
+        if keyword.arg != "metadata":
+            continue
+        for clave in _iter_keys_literal_dict(keyword.value):
+            if not _clave_metadata_sensible(clave):
+                continue
+            key = f"{rel_path}:{node.lineno}:audit_metadata_key:{clave}"
+            if key not in allowlist:
+                offenders.append(key)
     return offenders
 
 
@@ -71,6 +124,7 @@ def _scan_file_for_offenders(file_path: Path, rel_path: Path, allowlist: dict[st
     for node in ast.walk(tree):
         if isinstance(node, ast.Call):
             offenders.extend(_check_logging_call(node, rel_path, allowlist))
+            offenders.extend(_check_audit_metadata_call(node, rel_path, allowlist))
     return offenders
 
 
