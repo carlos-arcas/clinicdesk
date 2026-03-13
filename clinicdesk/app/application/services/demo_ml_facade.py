@@ -12,6 +12,11 @@ from clinicdesk.app.application.features.citas_features import (
 from clinicdesk.app.application.ml.baseline_citas_predictor import BaselineCitasPredictor
 from clinicdesk.app.application.ml.drift import DriftReport
 from clinicdesk.app.application.pipelines.build_citas_dataset import BuildCitasDataset
+from clinicdesk.app.application.seguridad_salida import (
+    serializar_cita_demo_ml,
+    serializar_incidencia_demo_ml,
+    serializar_persona_demo_ml,
+)
 from clinicdesk.app.application.services.feature_store_service import FeatureStoreService
 from clinicdesk.app.application.usecases.drift_citas_features import (
     DriftCitasFeatures,
@@ -126,11 +131,11 @@ class DemoMLFacade:
 
     def list_doctors(self, query: str | None = None, limit: int = 100) -> list[DoctorReadModel]:
         rows = self._read_gateway.list_doctors(query, limit)
-        return [DoctorReadModel(**row) for row in rows]
+        return [DoctorReadModel(**serializar_persona_demo_ml(row, incluir_especialidad=True)) for row in rows]
 
     def list_patients(self, query: str | None = None, limit: int = 100) -> list[PatientReadModel]:
         rows = self._read_gateway.list_patients(query, limit)
-        return [PatientReadModel(**row) for row in rows]
+        return [PatientReadModel(**serializar_persona_demo_ml(row, incluir_especialidad=False)) for row in rows]
 
     def list_appointments(
         self,
@@ -140,11 +145,11 @@ class DemoMLFacade:
         limit: int = 100,
     ) -> list[CitaReadModel]:
         rows = self._read_gateway.list_appointments(query, from_date, to_date, limit)
-        return [CitaReadModel(**row) for row in rows]
+        return [CitaReadModel(**serializar_cita_demo_ml(row)) for row in rows]
 
     def list_incidences(self, query: str | None = None, limit: int = 100) -> list[IncidenceReadModel]:
         rows = self._read_gateway.list_incidences(query, limit)
-        return [IncidenceReadModel(**row) for row in rows]
+        return [IncidenceReadModel(**serializar_incidencia_demo_ml(row)) for row in rows]
 
     def build_features(self, from_date: str, to_date: str, version: str | None = None) -> str:
         desde = datetime.fromisoformat(f"{from_date}T00:00:00")
