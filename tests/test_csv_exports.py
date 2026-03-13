@@ -61,13 +61,19 @@ def test_export_model_metrics_csv_respects_column_order(tmp_path: Path) -> None:
         "model_name",
         "model_version",
         "dataset_version",
+        "predictor_kind",
+        "trained_on_dataset_version",
         "train_accuracy",
         "test_accuracy",
         "train_precision",
         "test_precision",
         "train_recall",
         "test_recall",
+        "test_calibrated_accuracy",
+        "test_calibrated_precision",
+        "test_calibrated_recall",
         "calibrated_threshold",
+        "test_row_count",
         "created_at",
     ]
 
@@ -142,7 +148,11 @@ def test_cli_export_smoke_creates_csv_in_tmp_path(tmp_path: Path) -> None:
         )
         == 0
     )
-    assert (tmp_path / "exports" / "model_metrics_export.csv").exists()
+    exported = tmp_path / "exports" / "model_metrics_export.csv"
+    assert exported.exists()
+    loaded = _read_csv(exported)
+    assert loaded[1][3] == "trained"
+    assert loaded[1][4] == "v_demo"
 
 
 def _read_csv(path: Path) -> list[list[str]]:

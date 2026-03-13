@@ -7,6 +7,7 @@ from datetime import datetime, timedelta
 from clinicdesk.app.application.ml.evaluation import EvalMetrics
 from clinicdesk.app.application.ports.citas_read_port import CitaReadModel, CitasReadPort
 from clinicdesk.app.application.usecases.export_csv import ModelMetricsExportData
+from clinicdesk.app.application.usecases.export_evaluation_summary import EvaluationSummaryData
 from clinicdesk.app.application.usecases.train_citas_model import TrainCitasModelResponse
 from clinicdesk.app.bootstrap import bootstrap_database
 from clinicdesk.app.infrastructure.sqlite.citas_read_adapter import SqliteCitasReadAdapter
@@ -101,20 +102,48 @@ def metrics_from_dict(values: dict) -> EvalMetrics:
     )
 
 
+def build_evaluation_summary_data(args: argparse.Namespace, metadata: dict) -> EvaluationSummaryData:
+    train_metrics = metrics_from_dict(metadata.get("train_metrics", {}))
+    test_metrics = metrics_from_dict(metadata.get("test_metrics", {}))
+    calibrated_payload = metadata.get("test_metrics_at_calibrated_threshold", metadata.get("test_metrics", {}))
+    calibrated_metrics = metrics_from_dict(calibrated_payload)
+    return EvaluationSummaryData(
+        model_name=args.model_name,
+        model_version=args.model_version,
+        dataset_version=args.dataset_version,
+        predictor_kind=str(metadata.get("predictor_kind", "trained")),
+        trained_on_dataset_version=str(metadata.get("trained_on_dataset_version", args.dataset_version)),
+        created_at=str(metadata.get("created_at", "")),
+        calibrated_threshold=float(metadata.get("calibrated_threshold", 0.5)),
+        train_metrics=train_metrics,
+        test_metrics=test_metrics,
+        calibrated_test_metrics=calibrated_metrics,
+        test_row_count=int(metadata.get("test_row_count", 0)),
+        evaluation_note=str(metadata.get("evaluation_note", "Evaluación offline sin notas adicionales.")),
+    )
+
+
 def build_metrics_export_data(args: argparse.Namespace, metadata: dict) -> ModelMetricsExportData:
     train_metrics = metadata.get("train_metrics", {})
     test_metrics = metadata.get("test_metrics", {})
+    calibrated_metrics = metadata.get("test_metrics_at_calibrated_threshold", {})
     return ModelMetricsExportData(
         model_name=args.model_name,
         model_version=args.model_version,
         dataset_version=args.dataset_version,
+        predictor_kind=str(metadata.get("predictor_kind", "trained")),
+        trained_on_dataset_version=str(metadata.get("trained_on_dataset_version", args.dataset_version)),
         train_accuracy=float(train_metrics.get("accuracy", 0.0)),
         test_accuracy=float(test_metrics.get("accuracy", 0.0)),
         train_precision=float(train_metrics.get("precision", 0.0)),
         test_precision=float(test_metrics.get("precision", 0.0)),
         train_recall=float(train_metrics.get("recall", 0.0)),
         test_recall=float(test_metrics.get("recall", 0.0)),
+        test_calibrated_accuracy=float(calibrated_metrics.get("accuracy", test_metrics.get("accuracy", 0.0))),
+        test_calibrated_precision=float(calibrated_metrics.get("precision", test_metrics.get("precision", 0.0))),
+        test_calibrated_recall=float(calibrated_metrics.get("recall", test_metrics.get("recall", 0.0))),
         calibrated_threshold=float(metadata.get("calibrated_threshold", 0.5)),
+        test_row_count=int(metadata.get("test_row_count", 0)),
         created_at=str(metadata.get("created_at", "")),
     )
 
@@ -139,6 +168,13 @@ def add_export_parser(
     metrics_parser.add_argument("--dataset-version", required=True)
     metrics_parser.add_argument("--output", required=True)
     metrics_parser.add_argument("--model-store-path", default=default_model_store_path)
+
+    summary_parser = export_subparsers.add_parser("summary", help="Exporta model card ligera + summary JSON")
+    summary_parser.add_argument("--model-name", default=default_model_name)
+    summary_parser.add_argument("--model-version", required=True)
+    summary_parser.add_argument("--dataset-version", required=True)
+    summary_parser.add_argument("--output", required=True)
+    summary_parser.add_argument("--model-store-path", default=default_model_store_path)
 
     scoring_parser = export_subparsers.add_parser("scoring", help="Exporta scoring")
     scoring_parser.add_argument("--dataset-version", required=True)
