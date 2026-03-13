@@ -38,3 +38,17 @@ def test_estado_pantalla_widget_muestra_vista_por_estado(qtbot) -> None:
     widget.set_content(contenido)
     assert widget.estado_actual == "content"
     assert stack.currentWidget() is contenido
+
+
+@pytest.mark.ui
+@pytest.mark.uiqt
+def test_estado_pantalla_widget_set_processing_y_focus_retry(qtbot) -> None:
+    widget = EstadoPantallaWidget(I18nManager("es"))
+    qtbot.addWidget(widget)
+
+    widget.set_processing("ux_states.processing.default")
+    assert widget.estado_actual == "processing"
+
+    widget.set_error("ux_states.pacientes.error", on_retry=lambda: None)
+    assert widget.estado_actual == "error"
+    assert widget.focusWidget() is not None

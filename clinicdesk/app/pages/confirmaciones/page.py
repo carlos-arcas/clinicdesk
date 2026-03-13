@@ -108,6 +108,7 @@ class PageConfirmaciones(QWidget):
             self._restaurar_preferencias()
             self._preferencias_restauradas = True
         self._load_data(reset=True)
+        self._ui.txt_buscar.setFocus()
 
     def _retranslate(self) -> None:
         t = self._i18n.t
@@ -220,6 +221,8 @@ class PageConfirmaciones(QWidget):
             self._vm.seleccionar(self._cita_focus_pendiente)
             self._cita_focus_pendiente = None
         self._vm.resolver_carga_ok(rows=result.items, emitir_toast=True)
+        if result.items:
+            self._ui.table.setFocus()
 
     def _on_carga_error(self, error_type: str, token: int) -> None:
         if token != self._token_carga:

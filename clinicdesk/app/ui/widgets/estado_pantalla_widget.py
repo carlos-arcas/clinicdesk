@@ -7,6 +7,7 @@ from PySide6.QtWidgets import (
     QPushButton,
     QStackedWidget,
     QVBoxLayout,
+    QProgressBar,
     QWidget,
 )
 
@@ -26,6 +27,7 @@ class EstadoPantallaWidget(QWidget):
         self._cta_text_key: str | None = None
         self._mensaje_error: str | None = None
         self._detalle_tecnico: str | None = None
+        self._mensaje_processing: str | None = None
         self._estado_actual = "loading"
 
         self._stack = QStackedWidget(self)
@@ -52,9 +54,17 @@ class EstadoPantallaWidget(QWidget):
         self._vista_error.layout().addWidget(self._lbl_error_detalle)
         self._vista_error.layout().addWidget(self._btn_retry)
 
+        self._vista_processing = self._crear_vista_estado()
+        self._lbl_processing = QLabel("", self._vista_processing)
+        self._progress_processing = QProgressBar(self._vista_processing)
+        self._progress_processing.setRange(0, 0)
+        self._vista_processing.layout().addWidget(self._lbl_processing)
+        self._vista_processing.layout().addWidget(self._progress_processing)
+
         self._stack.addWidget(self._vista_loading)
         self._stack.addWidget(self._vista_empty)
         self._stack.addWidget(self._vista_error)
+        self._stack.addWidget(self._vista_processing)
 
         root = QVBoxLayout(self)
         root.addWidget(self._stack)
@@ -68,6 +78,7 @@ class EstadoPantallaWidget(QWidget):
         self._mensaje_loading = mensaje_key
         self._estado_actual = "loading"
         self._lbl_loading.setText(self._i18n.t(mensaje_key))
+        self._lbl_loading.setAccessibleName(self._i18n.t(mensaje_key))
         self._stack.setCurrentWidget(self._vista_loading)
 
     def set_empty(
@@ -81,9 +92,11 @@ class EstadoPantallaWidget(QWidget):
         self._cta_handler = on_cta
         self._estado_actual = "empty"
         self._lbl_empty.setText(self._i18n.t(mensaje_key))
+        self._lbl_empty.setAccessibleName(self._i18n.t(mensaje_key))
         self._btn_empty_cta.setVisible(cta_text_key is not None)
         if cta_text_key:
             self._btn_empty_cta.setText(self._i18n.t(cta_text_key))
+            self._btn_empty_cta.setFocus()
         self._stack.setCurrentWidget(self._vista_empty)
 
     def set_error(
@@ -97,12 +110,24 @@ class EstadoPantallaWidget(QWidget):
         self._retry_handler = on_retry
         self._estado_actual = "error"
         self._lbl_error.setText(self._i18n.t(mensaje_key))
+        self._lbl_error.setAccessibleName(self._i18n.t(mensaje_key))
         self._lbl_error_detalle.setVisible(detalle_tecnico is not None)
         self._lbl_error_detalle.setText(detalle_tecnico or "")
         self._btn_retry.setVisible(on_retry is not None)
         if on_retry is not None:
             self._btn_retry.setText(self._i18n.t("ux_states.retry"))
+            self._btn_retry.setFocus()
         self._stack.setCurrentWidget(self._vista_error)
+
+    def set_processing(self, mensaje_key: str) -> None:
+        self._mensaje_processing = mensaje_key
+        self._estado_actual = "processing"
+        self._lbl_processing.setText(self._i18n.t(mensaje_key))
+        self._lbl_processing.setAccessibleName(self._i18n.t(mensaje_key))
+        self._stack.setCurrentWidget(self._vista_processing)
+
+    def set_ready(self, widget: QWidget) -> None:
+        self.set_content(widget)
 
     def set_content(self, widget: QWidget) -> None:
         if self._contenido is not widget:
@@ -130,6 +155,8 @@ class EstadoPantallaWidget(QWidget):
             self._btn_empty_cta.setText(self._i18n.t(self._cta_text_key))
         if self._mensaje_error:
             self._lbl_error.setText(self._i18n.t(self._mensaje_error))
+        if self._mensaje_processing:
+            self._lbl_processing.setText(self._i18n.t(self._mensaje_processing))
         self._btn_retry.setText(self._i18n.t("ux_states.retry"))
 
     @staticmethod

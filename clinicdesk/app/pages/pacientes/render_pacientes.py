@@ -5,6 +5,7 @@ from typing import Callable
 from clinicdesk.app.pages.pacientes.contratos_ui import PacientesUIRefs
 from clinicdesk.app.pages.shared.table_utils import apply_row_style, set_item
 from clinicdesk.app.queries.pacientes_queries import PacienteRow
+from clinicdesk.app.ui.ux.estados_listado import ConfigEstadoListado, aplicar_estado_listado
 from clinicdesk.app.ui.viewmodels.contratos import EstadoListado, EstadoPantalla
 
 
@@ -17,24 +18,22 @@ def render_estado(
     apply_selected_id: Callable[[int], None],
     update_buttons: Callable[[], None],
 ) -> None:
-    if estado.estado_pantalla is EstadoPantalla.LOADING:
-        ui.estado_pantalla.set_loading("ux_states.pacientes.loading")
-        return
-    if estado.estado_pantalla is EstadoPantalla.ERROR:
-        ui.estado_pantalla.set_error(estado.error_key or "ux_states.pacientes.error", on_retry=on_retry)
-        return
-    render_rows(estado.items)
-    if estado.seleccion_id is not None:
+    aplicar_estado_listado(
+        estado_widget=ui.estado_pantalla,
+        estado=estado,
+        contenido=ui.contenido_tabla,
+        config=ConfigEstadoListado(
+            loading_key="ux_states.pacientes.loading",
+            empty_key="ux_states.pacientes.empty",
+            empty_cta_key="ux_states.pacientes.cta_refresh",
+            error_key="ux_states.pacientes.error",
+        ),
+        on_retry=on_retry,
+        render_rows=render_rows,
+    )
+    if estado.estado_pantalla is EstadoPantalla.CONTENT and estado.seleccion_id is not None:
         apply_selected_id(estado.seleccion_id)
     update_buttons()
-    if estado.estado_pantalla is EstadoPantalla.EMPTY:
-        ui.estado_pantalla.set_empty(
-            "ux_states.pacientes.empty",
-            cta_text_key="ux_states.pacientes.cta_refresh",
-            on_cta=on_retry,
-        )
-        return
-    ui.estado_pantalla.set_content(ui.contenido_tabla)
 
 
 def render_tabla(
