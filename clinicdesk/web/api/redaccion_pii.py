@@ -1,27 +1,11 @@
 from __future__ import annotations
 
+from clinicdesk.app.application.seguridad_salida import (
+    redactar_email_visible as redactar_email,
+)
+from clinicdesk.app.application.seguridad_salida import (
+    redactar_telefono_visible as redactar_telefono,
+)
+from clinicdesk.app.application.seguridad_salida import redactar_texto_visible as redactar_texto
 
-def redactar_texto(valor: str) -> str:
-    limpio = (valor or "").strip()
-    if not limpio:
-        return ""
-    if len(limpio) <= 2:
-        return "**"
-    return f"{limpio[:2]}***{limpio[-1:]}"
-
-
-def redactar_email(valor: str) -> str:
-    limpio = (valor or "").strip()
-    if "@" not in limpio:
-        return redactar_texto(limpio)
-    local, dominio = limpio.split("@", 1)
-    return f"{redactar_texto(local)}@{dominio}"
-
-
-def redactar_telefono(valor: str) -> str:
-    digitos = "".join(ch for ch in (valor or "") if ch.isdigit())
-    if not digitos:
-        return ""
-    if len(digitos) <= 3:
-        return "***"
-    return f"***{digitos[-3:]}"
+__all__ = ["redactar_texto", "redactar_email", "redactar_telefono"]

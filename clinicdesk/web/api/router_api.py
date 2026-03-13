@@ -4,7 +4,7 @@ from datetime import date
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 
-from clinicdesk.web.api.redaccion_pii import redactar_email, redactar_telefono, redactar_texto
+from clinicdesk.app.application.seguridad_salida import serializar_cita_api_demo, serializar_paciente_api_demo
 from clinicdesk.web.api.seguridad import validar_api_key
 from clinicdesk.web.api.servicio_consultas import FiltrosCitasApi, ServicioConsultasApi
 
@@ -26,20 +26,7 @@ def get_citas(
 ) -> list[dict[str, object]]:
     _validar_rango(desde, hasta)
     filas = servicio.listar_citas(FiltrosCitasApi(desde=desde, hasta=hasta, estado=estado, texto=texto))
-    return [
-        {
-            "id": int(fila.get("id", 0)),
-            "fecha": fila.get("fecha", ""),
-            "hora_inicio": fila.get("hora_inicio", ""),
-            "hora_fin": fila.get("hora_fin", ""),
-            "estado": fila.get("estado", ""),
-            "sala": fila.get("sala", ""),
-            "medico": fila.get("medico", ""),
-            "paciente": redactar_texto(str(fila.get("paciente", ""))),
-            "tiene_incidencias": bool(fila.get("tiene_incidencias", False)),
-        }
-        for fila in filas
-    ]
+    return [serializar_cita_api_demo(fila) for fila in filas]
 
 
 @router.get("/pacientes")
@@ -48,19 +35,7 @@ def get_pacientes(
     servicio: ServicioConsultasApi = Depends(get_servicio_api),
 ) -> list[dict[str, object]]:
     filas = servicio.buscar_pacientes(texto)
-    return [
-        {
-            "id": int(fila.get("id", 0)),
-            "nombre": fila.get("nombre", ""),
-            "apellidos": fila.get("apellidos", ""),
-            "nombre_completo": fila.get("nombre_completo", ""),
-            "documento": redactar_texto(str(fila.get("documento", ""))),
-            "telefono": redactar_telefono(str(fila.get("telefono", ""))),
-            "email": redactar_email(str(fila.get("email", ""))),
-            "activo": bool(fila.get("activo", False)),
-        }
-        for fila in filas
-    ]
+    return [serializar_paciente_api_demo(fila) for fila in filas]
 
 
 def _validar_rango(desde: str | None, hasta: str | None) -> None:

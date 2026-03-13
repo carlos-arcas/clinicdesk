@@ -40,6 +40,8 @@ class _ServicioMock(ServicioConsultasApi):
                 "telefono": "+34 600 111 222",
                 "email": "ana@example.com",
                 "activo": 1,
+                "documento_hash": "hash-no-debe-salir",
+                "telefono_enc": "cipher-no-debe-salir",
             }
         ]
 
@@ -84,4 +86,17 @@ def test_api_key_correcta_devuelve_200_y_redacta_pii(monkeypatch):
     assert citas.json()[0]["paciente"] != "Ana López"
     assert pacientes.json()[0]["documento"] != "12345678A"
     assert pacientes.json()[0]["telefono"] != "+34 600 111 222"
+    body_paciente = pacientes.json()[0]
     assert pacientes.json()[0]["email"] != "ana@example.com"
+    assert set(body_paciente.keys()) == {
+        "id",
+        "nombre",
+        "apellidos",
+        "nombre_completo",
+        "documento",
+        "telefono",
+        "email",
+        "activo",
+    }
+    assert "documento_hash" not in body_paciente
+    assert "telefono_enc" not in body_paciente
