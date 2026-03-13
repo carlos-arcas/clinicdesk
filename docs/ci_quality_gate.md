@@ -172,6 +172,18 @@ Archivos generados en `./exports/`:
 - `scoring_export.csv`
 - `drift_export.csv`
 
+### Contratos y trazabilidad endurecidos (ML)
+
+- `train` valida metadata del dataset (`row_count` y `content_hash`) antes de entrenar.
+- `train` persiste metadatos de trazabilidad mínimos (`pipeline_stage`, `predictor_kind`, `traceability.dataset_version`, `schema_hash`).
+- `score` rechaza datasets vacíos y, en modo `trained`, rechaza scoring contra `dataset_version` distinto al usado en entrenamiento.
+- `drift` requiere versiones distintas y datasets no vacíos por versión.
+- `export scoring` valida `predictor_kind` y tokens obligatorios (`dataset_version`, `model_version`).
+- `export drift` falla si `from_version == to_version` para evitar reportes inválidos.
+- `export kpis` valida consistencia `dataset_version` entre request y `score_response`.
+
+Esto blinda regresiones silenciosas y mantiene contrato estable para BI sin introducir dependencias nuevas.
+
 
 ## Demo dataset reproducible (SQLite real, sin demo-fake)
 Flujo recomendado para demos ML + Power BI con datos coherentes:
