@@ -40,5 +40,4 @@
 
 ## Allowlist / deuda controlada
 
-- `clinicdesk/app/infrastructure/sqlite/demo_data_seeder.py` -> overrides: max_cc=None, max_function_loc=80, max_class_loc=None, max_file_loc=450, max_avg_cc_per_file=None; reason: Deuda temporal aceptada: seeding demo concentrado en un módulo legado
-- `clinicdesk/app/infrastructure/sqlite/repos_pacientes.py` -> overrides: max_cc=None, max_function_loc=None, max_class_loc=300, max_file_loc=None, max_avg_cc_per_file=None; reason: Deuda temporal aceptada: repositorio legacy mientras se completa partición por mixins
+- Sin excepciones activas en `scripts/quality_thresholds.json`.

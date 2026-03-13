@@ -12,17 +12,5 @@
     "migrations/**",
     "sql/**"
   ],
-  "allowlist": [
-    {
-      "path": "clinicdesk/app/infrastructure/sqlite/demo_data_seeder.py",
-      "max_file_loc": 450,
-      "max_function_loc": 80,
-      "reason": "Deuda temporal aceptada: seeding demo concentrado en un módulo legado"
-    },
-    {
-      "path": "clinicdesk/app/infrastructure/sqlite/repos_pacientes.py",
-      "max_class_loc": 300,
-      "reason": "Deuda temporal aceptada: repositorio legacy mientras se completa partición por mixins"
-    }
-  ]
+  "allowlist": []
 }
