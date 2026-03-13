@@ -1,7 +1,12 @@
 from __future__ import annotations
 
-from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QTableWidget, QTableWidgetItem
+import pytest
+
+try:
+    from PySide6.QtCore import Qt
+    from PySide6.QtWidgets import QTableWidget, QTableWidgetItem
+except ImportError as exc:  # pragma: no cover
+    pytest.skip(f"PySide6 no disponible: {exc}", allow_module_level=True)
 
 from clinicdesk.app.pages.shared.contexto_tabla import capturar_contexto_tabla, restaurar_contexto_tabla
 
