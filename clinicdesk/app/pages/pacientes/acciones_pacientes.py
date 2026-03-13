@@ -140,9 +140,9 @@ def open_context_menu(
     if row >= 0:
         table.setCurrentCell(row, 0)
     menu = QMenu(parent)
-    action_new = menu.addAction("Nuevo")
-    action_edit = menu.addAction("Editar")
-    action_delete = menu.addAction("Desactivar")
+    action_new = menu.addAction(i18n.t("pacientes.accion.nuevo"))
+    action_edit = menu.addAction(i18n.t("pacientes.accion.editar"))
+    action_delete = menu.addAction(i18n.t("pacientes.accion.desactivar"))
     action_historial = menu.addAction(i18n.t("pacientes.historial.boton"))
     action_edit.setEnabled(has_selection)
     action_delete.setEnabled(has_selection)

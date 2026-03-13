@@ -36,6 +36,7 @@ def build_confirmaciones_ui(parent: QWidget, i18n: I18nManager) -> Confirmacione
     cmb_riesgo = QComboBox()
     cmb_recordatorio = QComboBox()
     txt_buscar = QLineEdit()
+    txt_buscar.setPlaceholderText(i18n.t("quick_search.placeholder.confirmaciones"))
     btn_actualizar = QPushButton()
     filtros = QHBoxLayout()
     for widget in (cmb_rango, desde, hasta, cmb_riesgo, cmb_recordatorio, txt_buscar, btn_actualizar):
@@ -71,6 +72,21 @@ def build_confirmaciones_ui(parent: QWidget, i18n: I18nManager) -> Confirmacione
     estado_pantalla = EstadoPantallaWidget(i18n, parent)
     estado_pantalla.set_content(contenido_tabla)
     root.addWidget(estado_pantalla)
+
+    lbl_title.setAccessibleName("confirmaciones_titulo")
+    txt_buscar.setAccessibleName("confirmaciones_busqueda")
+    btn_actualizar.setAccessibleName("confirmaciones_actualizar")
+    QWidget.setTabOrder(btn_ir_prediccion, cmb_rango)
+    QWidget.setTabOrder(cmb_rango, desde)
+    QWidget.setTabOrder(desde, hasta)
+    QWidget.setTabOrder(hasta, cmb_riesgo)
+    QWidget.setTabOrder(cmb_riesgo, cmb_recordatorio)
+    QWidget.setTabOrder(cmb_recordatorio, txt_buscar)
+    QWidget.setTabOrder(txt_buscar, btn_actualizar)
+    QWidget.setTabOrder(btn_actualizar, chk_todo_visible)
+    QWidget.setTabOrder(chk_todo_visible, table)
+    QWidget.setTabOrder(table, btn_prev)
+    QWidget.setTabOrder(btn_prev, btn_next)
     return ConfirmacionesUIRefs(
         lbl_title=lbl_title,
         banner=banner,

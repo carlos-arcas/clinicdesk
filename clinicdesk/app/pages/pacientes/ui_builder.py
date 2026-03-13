@@ -20,6 +20,12 @@ def build_pacientes_ui(parent: QWidget, i18n: I18nManager, *, can_write: bool, h
     root.addWidget(filtros)
     root.addLayout(acciones[0])
     root.addWidget(estado_pantalla)
+    QWidget.setTabOrder(filtros.txt_busqueda, acciones[1])
+    QWidget.setTabOrder(acciones[1], acciones[2])
+    QWidget.setTabOrder(acciones[2], acciones[3])
+    QWidget.setTabOrder(acciones[3], acciones[4])
+    QWidget.setTabOrder(acciones[4], acciones[5])
+    QWidget.setTabOrder(acciones[5], tabla)
     return PacientesUIRefs(
         filtros=filtros,
         btn_nuevo=acciones[1],
@@ -37,9 +43,9 @@ def _build_acciones(
     i18n: I18nManager, *, can_write: bool
 ) -> tuple[QHBoxLayout, QPushButton, QPushButton, QPushButton, QPushButton, QPushButton]:
     actions = QHBoxLayout()
-    btn_nuevo = QPushButton("Nuevo")
-    btn_editar = QPushButton("Editar")
-    btn_desactivar = QPushButton("Desactivar")
+    btn_nuevo = QPushButton(i18n.t("pacientes.accion.nuevo"))
+    btn_editar = QPushButton(i18n.t("pacientes.accion.editar"))
+    btn_desactivar = QPushButton(i18n.t("pacientes.accion.desactivar"))
     btn_historial = QPushButton(i18n.t("pacientes.historial.boton"))
     btn_csv = QPushButton(i18n.t("menu.csv"))
 
@@ -54,6 +60,11 @@ def _build_acciones(
     actions.addWidget(btn_historial)
     actions.addWidget(btn_csv)
     actions.addStretch(1)
+    btn_nuevo.setAccessibleName(i18n.t("pacientes.accion.nuevo"))
+    btn_editar.setAccessibleName(i18n.t("pacientes.accion.editar"))
+    btn_desactivar.setAccessibleName(i18n.t("pacientes.accion.desactivar"))
+    btn_historial.setAccessibleName(i18n.t("pacientes.historial.boton"))
+    btn_csv.setAccessibleName(i18n.t("menu.csv"))
     return actions, btn_nuevo, btn_editar, btn_desactivar, btn_historial, btn_csv
 
 

@@ -106,6 +106,7 @@ class PagePacientes(QWidget):
         self._vm.subscribe(self._on_estado_vm)
         self._vm.subscribe_eventos(self._on_evento_vm)
         self._refresh()
+        self.filtros.txt_busqueda.setFocus()
 
     def _connect_signals(self) -> None:
         self.filtros.filtros_cambiados.connect(self._refresh)
@@ -201,6 +202,8 @@ class PagePacientes(QWidget):
         self.filtros.set_contador(len(rows), total_base)
         self._vm.seleccionar(selected_id)
         self._vm.resolver_carga_ok(rows=rows, emitir_toast=True)
+        if rows:
+            self.table.setFocus()
 
     def _on_carga_error(self, error_type: str, token: int) -> None:
         if token != self._token_carga:
