@@ -31,6 +31,21 @@ class RepositorioComercialSeguro(Protocol):
 
     def listar_renovaciones_pendientes(self) -> tuple[RenovacionSeguro, ...]: ...
 
+    def listar_oportunidades(self, filtro: "FiltroCarteraSeguro") -> tuple[OportunidadSeguro, ...]: ...
+
+    def listar_seguimientos_recientes(self, limite: int = 20) -> tuple[SeguimientoOportunidadSeguro, ...]: ...
+
+    def listar_historial_oportunidad(self, id_oportunidad: str) -> tuple[SeguimientoOportunidadSeguro, ...]: ...
+
+
+@dataclass(frozen=True, slots=True)
+class FiltroCarteraSeguro:
+    estado: EstadoOportunidadSeguro | None = None
+    plan_destino_id: str | None = None
+    clasificacion_migracion: str | None = None
+    fecha_desde: date | None = None
+    solo_renovacion_pendiente: bool = False
+
 
 @dataclass(frozen=True, slots=True)
 class SolicitudNuevaOportunidadSeguro:
@@ -134,6 +149,18 @@ class GestionComercialSeguroService:
 
     def listar_renovaciones_pendientes(self) -> tuple[RenovacionSeguro, ...]:
         return self._repositorio.listar_renovaciones_pendientes()
+
+    def listar_cartera(self, filtro: FiltroCarteraSeguro | None = None) -> tuple[OportunidadSeguro, ...]:
+        return self._repositorio.listar_oportunidades(filtro or FiltroCarteraSeguro())
+
+    def listar_oportunidades_por_estado(self, estado: EstadoOportunidadSeguro) -> tuple[OportunidadSeguro, ...]:
+        return self._repositorio.listar_oportunidades(FiltroCarteraSeguro(estado=estado))
+
+    def listar_seguimiento_reciente(self, limite: int = 20) -> tuple[SeguimientoOportunidadSeguro, ...]:
+        return self._repositorio.listar_seguimientos_recientes(limite)
+
+    def recuperar_historial(self, id_oportunidad: str) -> tuple[SeguimientoOportunidadSeguro, ...]:
+        return self._repositorio.listar_historial_oportunidad(id_oportunidad)
 
     def registrar_resultado_renovacion(self, id_oportunidad: str, renovada: bool) -> None:
         estado = ResultadoRenovacionSeguro.RENOVADA if renovada else ResultadoRenovacionSeguro.NO_RENOVADA

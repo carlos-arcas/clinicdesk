@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+from clinicdesk.app.application.seguros.comercial import FiltroCarteraSeguro
 from clinicdesk.app.domain.seguros.comercial import (
     OfertaSeguro,
     OportunidadSeguro,
     RenovacionSeguro,
     ResultadoRenovacionSeguro,
+    SeguimientoOportunidadSeguro,
 )
 
 
@@ -36,3 +38,26 @@ class RepositorioComercialSeguroMemoria:
             if item.revision_pendiente and item.resultado is ResultadoRenovacionSeguro.PENDIENTE
         ]
         return tuple(sorted(pendientes, key=lambda item: item.fecha_renovacion))
+
+    def listar_oportunidades(self, filtro: FiltroCarteraSeguro) -> tuple[OportunidadSeguro, ...]:
+        items = list(self._oportunidades.values())
+        if filtro.estado:
+            items = [item for item in items if item.estado_actual is filtro.estado]
+        if filtro.plan_destino_id:
+            items = [item for item in items if item.plan_destino_id == filtro.plan_destino_id]
+        if filtro.clasificacion_migracion:
+            items = [item for item in items if item.clasificacion_motor == filtro.clasificacion_migracion]
+        if filtro.solo_renovacion_pendiente:
+            ids = {item.id_oportunidad for item in self.listar_renovaciones_pendientes()}
+            items = [item for item in items if item.id_oportunidad in ids]
+        return tuple(items)
+
+    def listar_seguimientos_recientes(self, limite: int = 20) -> tuple[SeguimientoOportunidadSeguro, ...]:
+        todos: list[SeguimientoOportunidadSeguro] = []
+        for oportunidad in self._oportunidades.values():
+            todos.extend(oportunidad.seguimientos)
+        todos.sort(key=lambda item: item.fecha_registro, reverse=True)
+        return tuple(todos[:limite])
+
+    def listar_historial_oportunidad(self, id_oportunidad: str) -> tuple[SeguimientoOportunidadSeguro, ...]:
+        return self._oportunidades[id_oportunidad].seguimientos

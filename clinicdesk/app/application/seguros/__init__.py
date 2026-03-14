@@ -1,5 +1,9 @@
 from clinicdesk.app.application.seguros.catalogo_planes import CatalogoPlanesSeguro
-from clinicdesk.app.application.seguros.comercial import GestionComercialSeguroService, SolicitudNuevaOportunidadSeguro
+from clinicdesk.app.application.seguros.comercial import (
+    FiltroCarteraSeguro,
+    GestionComercialSeguroService,
+    SolicitudNuevaOportunidadSeguro,
+)
 from clinicdesk.app.application.seguros.usecases import (
     AnalizarMigracionSeguroUseCase,
     RespuestaAnalisisMigracionSeguro,
@@ -13,4 +17,5 @@ __all__ = [
     "RespuestaAnalisisMigracionSeguro",
     "GestionComercialSeguroService",
     "SolicitudNuevaOportunidadSeguro",
+    "FiltroCarteraSeguro",
 ]
