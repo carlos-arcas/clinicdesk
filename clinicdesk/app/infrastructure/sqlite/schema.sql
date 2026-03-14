@@ -276,6 +276,21 @@ CREATE TABLE IF NOT EXISTS predicciones_ausencias_log (
 CREATE INDEX IF NOT EXISTS idx_predicciones_ausencias_log_modelo_fecha ON predicciones_ausencias_log(modelo_fecha_utc);
 CREATE INDEX IF NOT EXISTS idx_predicciones_ausencias_log_cita_id ON predicciones_ausencias_log(cita_id);
 
+CREATE TABLE IF NOT EXISTS ml_acciones_operativas (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    cita_id TEXT NOT NULL,
+    prioridad_ml TEXT NOT NULL,
+    accion_sugerida_ml TEXT NOT NULL,
+    accion_humana TEXT NOT NULL,
+    estado TEXT NOT NULL,
+    nota_corta TEXT NOT NULL DEFAULT '',
+    timestamp_utc TEXT NOT NULL,
+    actor TEXT NOT NULL DEFAULT 'operador'
+);
+CREATE INDEX IF NOT EXISTS idx_ml_acciones_operativas_cita ON ml_acciones_operativas(cita_id, id);
+CREATE INDEX IF NOT EXISTS idx_ml_acciones_operativas_estado ON ml_acciones_operativas(estado);
+
+
 -- ============================================================
 -- INVENTARIO (tablas separadas)
 -- ============================================================

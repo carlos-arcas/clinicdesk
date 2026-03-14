@@ -32,6 +32,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from clinicdesk.app.application.citas.navigation_intent import CitasNavigationIntentDTO
 from clinicdesk.app.application.ml.drift_explain import explain_drift
 from clinicdesk.app.application.ml.interpretacion_ml_humana import (
     interpretar_drift,
@@ -52,9 +53,15 @@ from clinicdesk.app.application.services.analytics_workflow_service import (
 )
 from clinicdesk.app.application.services.demo_ml_facade import DemoMLFacade
 from clinicdesk.app.application.services.priorizacion_operativa_ml_service import (
+    ItemPriorizacionCitaML,
     ListaTrabajoML,
     NivelPrioridadML,
     PriorizacionOperativaMLService,
+)
+from clinicdesk.app.application.services.seguimiento_operativo_ml_service import (
+    AccionHumanaItemML,
+    AccionTomadaML,
+    EstadoSeguimientoItemML,
 )
 from clinicdesk.app.application.services.ml_centro_guiado_service import CentroMLGuiadoService
 from clinicdesk.app.application.services.ml_playbook_ejecucion_service import (
@@ -165,6 +172,7 @@ class PageDemoML(QWidget):
         self._accion_playbook_actual: AccionPlaybookEjecutable | None = None
         self._ultimo_resultado_playbook: ResultadoPasoPlaybook | None = None
         self._lista_trabajo_ml: ListaTrabajoML | None = None
+        self._items_visibles_ml: list[ItemPriorizacionCitaML] = []
         self._build_ui()
 
     def _t(self, key: str) -> str:
@@ -374,11 +382,35 @@ class PageDemoML(QWidget):
                 self._t("demo_ml.priorizacion.columna.accion"),
                 self._t("demo_ml.priorizacion.columna.motivo"),
                 self._t("demo_ml.priorizacion.columna.cautela"),
+                self._t("demo_ml.priorizacion.columna.estado_operativo"),
+                self._t("demo_ml.priorizacion.columna.accion_humana"),
             ]
         )
+        self.tbl_priorizacion_ml.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
+        self.tbl_priorizacion_ml.setSelectionMode(QTableWidget.SelectionMode.SingleSelection)
+        self.tbl_priorizacion_ml.itemSelectionChanged.connect(self._on_item_ml_seleccionado)
+        self.txt_accion_ml_nota = QLineEdit()
+        self.txt_accion_ml_nota.setPlaceholderText(self._t("demo_ml.priorizacion.nota.placeholder"))
+        self.lbl_accion_ml_historial = QLabel(self._t("demo_ml.priorizacion.historial.vacio"))
+        self.lbl_accion_ml_historial.setWordWrap(True)
+        acciones_row = QHBoxLayout()
+        self.btn_ml_abrir_cita = QPushButton(self._t("demo_ml.priorizacion.accion.abrir_cita"))
+        self.btn_ml_abrir_cita.clicked.connect(self._on_ml_abrir_cita)
+        self.btn_ml_revisado = QPushButton(self._t("demo_ml.priorizacion.accion.marcar_revisado"))
+        self.btn_ml_revisado.clicked.connect(self._on_ml_marcar_revisado)
+        self.btn_ml_posponer = QPushButton(self._t("demo_ml.priorizacion.accion.posponer"))
+        self.btn_ml_posponer.clicked.connect(self._on_ml_posponer)
+        self.btn_ml_descartar = QPushButton(self._t("demo_ml.priorizacion.accion.descartar"))
+        self.btn_ml_descartar.clicked.connect(self._on_ml_descartar)
+        for boton in (self.btn_ml_abrir_cita, self.btn_ml_revisado, self.btn_ml_posponer, self.btn_ml_descartar):
+            acciones_row.addWidget(boton)
+        self._set_acciones_ml_habilitadas(False)
         form.addRow(self._t("demo_ml.priorizacion.panel.resumen"), self.lbl_priorizacion_resumen)
         form.addRow(self._t("demo_ml.priorizacion.panel.filtro"), self.cmb_priorizacion_filtro)
         form.addRow(self.tbl_priorizacion_ml)
+        form.addRow(self._t("demo_ml.priorizacion.panel.nota"), self.txt_accion_ml_nota)
+        form.addRow(self._t("demo_ml.priorizacion.panel.historial"), self.lbl_accion_ml_historial)
+        form.addRow(acciones_row)
         return box
 
     def _build_resumen_ejecutivo_panel(self) -> QWidget:
@@ -702,6 +734,8 @@ class PageDemoML(QWidget):
         if self._lista_trabajo_ml is None:
             self.lbl_priorizacion_resumen.setText(self._t("demo_ml.priorizacion.panel.vacio"))
             self.tbl_priorizacion_ml.setRowCount(0)
+            self._items_visibles_ml = []
+            self._set_acciones_ml_habilitadas(False)
             return
         resumen = self._lista_trabajo_ml.resumen
         self.lbl_priorizacion_resumen.setText(
@@ -714,11 +748,19 @@ class PageDemoML(QWidget):
             )
         )
         filtro = self.cmb_priorizacion_filtro.currentData()
+        self._items_visibles_ml = []
         filas = []
         for item in self._lista_trabajo_ml.items:
             if filtro != "todos" and item.prioridad.value != filtro:
                 continue
+            self._items_visibles_ml.append(item)
             paciente = item.paciente or self._t("demo_ml.priorizacion.valor_no_disponible")
+            resultado = self._facade.obtener_resultado_operativo_ml(item.cita_id)
+            estado = self._t("demo_ml.priorizacion.estado.pendiente")
+            accion_humana = self._t("demo_ml.priorizacion.accion_humana.sin_accion")
+            if resultado is not None:
+                estado = self._t(f"demo_ml.priorizacion.estado.{resultado.estado_actual.value}")
+                accion_humana = self._t(f"demo_ml.priorizacion.accion_humana.{resultado.accion_humana_actual.value}")
             filas.append(
                 {
                     "cita": f"{item.cita_id} · {paciente}",
@@ -726,9 +768,77 @@ class PageDemoML(QWidget):
                     "accion": self._t(item.accion_sugerida.descripcion_i18n_key),
                     "motivo": self._t(item.motivo.resumen_i18n_key),
                     "cautela": self._t(item.cautela_i18n_key),
+                    "estado": estado,
+                    "accion_humana": accion_humana,
                 }
             )
         self._fill_table(self.tbl_priorizacion_ml, filas)
+        self._on_item_ml_seleccionado()
+
+    def _on_item_ml_seleccionado(self) -> None:
+        item = self._item_ml_seleccionado()
+        self._set_acciones_ml_habilitadas(item is not None)
+        if item is None:
+            self.lbl_accion_ml_historial.setText(self._t("demo_ml.priorizacion.historial.vacio"))
+            return
+        resultado = self._facade.obtener_resultado_operativo_ml(item.cita_id)
+        if resultado is None:
+            self.lbl_accion_ml_historial.setText(self._t("demo_ml.priorizacion.historial.vacio"))
+            return
+        self.lbl_accion_ml_historial.setText(
+            self._t("demo_ml.priorizacion.historial.ultimo").format(
+                estado=self._t(f"demo_ml.priorizacion.estado.{resultado.estado_actual.value}"),
+                accion=self._t(f"demo_ml.priorizacion.accion_humana.{resultado.accion_humana_actual.value}"),
+                timestamp=resultado.timestamp_utc,
+            )
+        )
+
+    def _set_acciones_ml_habilitadas(self, habilitado: bool) -> None:
+        for boton in (self.btn_ml_abrir_cita, self.btn_ml_revisado, self.btn_ml_posponer, self.btn_ml_descartar):
+            boton.setEnabled(habilitado)
+
+    def _item_ml_seleccionado(self) -> ItemPriorizacionCitaML | None:
+        fila = self.tbl_priorizacion_ml.currentRow()
+        if fila < 0 or fila >= len(self._items_visibles_ml):
+            return None
+        return self._items_visibles_ml[fila]
+
+    def _registrar_accion_humana_ml(self, estado: EstadoSeguimientoItemML, accion_humana: AccionHumanaItemML) -> None:
+        item = self._item_ml_seleccionado()
+        if item is None:
+            return
+        self._facade.registrar_accion_operativa_ml(
+            AccionTomadaML(
+                cita_id=item.cita_id,
+                prioridad_ml=item.prioridad.value,
+                accion_sugerida_ml=item.accion_sugerida.codigo,
+                accion_humana=accion_humana,
+                estado=estado,
+                nota_corta=self.txt_accion_ml_nota.text(),
+            )
+        )
+        self._render_lista_trabajo_ml()
+
+    def _on_ml_abrir_cita(self) -> None:
+        item = self._item_ml_seleccionado()
+        if item is None:
+            return
+        window = self.window()
+        if hasattr(window, "navigate"):
+            window.navigate(
+                "citas",
+                CitasNavigationIntentDTO(cita_id_destino=int(item.cita_id), accion="ABRIR_DETALLE"),
+            )
+        self._registrar_accion_humana_ml(EstadoSeguimientoItemML.REVISADO, AccionHumanaItemML.ABRIR_CITA)
+
+    def _on_ml_marcar_revisado(self) -> None:
+        self._registrar_accion_humana_ml(EstadoSeguimientoItemML.REVISADO, AccionHumanaItemML.REVISAR_MANUAL)
+
+    def _on_ml_posponer(self) -> None:
+        self._registrar_accion_humana_ml(EstadoSeguimientoItemML.POSPUESTO, AccionHumanaItemML.SIN_ACCION)
+
+    def _on_ml_descartar(self) -> None:
+        self._registrar_accion_humana_ml(EstadoSeguimientoItemML.DESCARTADO, AccionHumanaItemML.SIN_ACCION)
 
     def _persist_last_run(self, result: AnalyticsWorkflowResult) -> None:
         self._settings.setValue("last_run_ts", datetime.now().isoformat(timespec="seconds"))
