@@ -4,6 +4,8 @@ from dataclasses import dataclass, replace
 from datetime import date, datetime
 from enum import Enum
 
+from clinicdesk.app.domain.seguros.segmentacion import EvaluacionFitComercialSeguro, PerfilComercialSeguro
+
 
 class EstadoOportunidadSeguro(str, Enum):
     DETECTADA = "DETECTADA"
@@ -79,6 +81,8 @@ class OportunidadSeguro:
     plan_destino_id: str
     estado_actual: EstadoOportunidadSeguro
     clasificacion_motor: str
+    perfil_comercial: PerfilComercialSeguro | None
+    evaluacion_fit: EvaluacionFitComercialSeguro | None
     seguimientos: tuple[SeguimientoOportunidadSeguro, ...]
     resultado_comercial: ResultadoComercialSeguro | None
 

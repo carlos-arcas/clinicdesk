@@ -39,6 +39,8 @@ def test_roundtrip_oportunidad_con_historial() -> None:
         plan_destino_id="clinica_esencial",
         estado_actual=EstadoOportunidadSeguro.OFERTA_ENVIADA,
         clasificacion_motor="ALTA",
+        perfil_comercial=None,
+        evaluacion_fit=None,
         seguimientos=(seguimiento,),
         resultado_comercial=None,
     )
@@ -59,6 +61,8 @@ def test_queries_cartera_y_renovaciones() -> None:
         plan_destino_id="clinica_integral",
         estado_actual=EstadoOportunidadSeguro.PENDIENTE_RENOVACION,
         clasificacion_motor="MEDIA",
+        perfil_comercial=None,
+        evaluacion_fit=None,
         seguimientos=(),
         resultado_comercial=ResultadoComercialSeguro.CONVERTIDO,
     )
@@ -93,6 +97,7 @@ def test_queries_cartera_y_renovaciones() -> None:
     assert len(cartera_renovacion) == 1
     assert repo.obtener_oferta_por_oportunidad("opp-2") is not None
     assert len(repo.listar_renovaciones_pendientes()) == 1
+    assert repo.listar_oportunidades_por_fit()
 
 
 def test_dataset_ml_comercial_preparado() -> None:
@@ -105,6 +110,8 @@ def test_dataset_ml_comercial_preparado() -> None:
             plan_destino_id="clinica_integral",
             estado_actual=EstadoOportunidadSeguro.RECHAZADA,
             clasificacion_motor="BAJA",
+            perfil_comercial=None,
+            evaluacion_fit=None,
             seguimientos=(),
             resultado_comercial=ResultadoComercialSeguro.RECHAZADO,
         )
