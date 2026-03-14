@@ -45,6 +45,12 @@ from clinicdesk.app.application.services.analytics_workflow_service import (
 )
 from clinicdesk.app.application.services.demo_ml_facade import DemoMLFacade
 from clinicdesk.app.application.services.ml_centro_guiado_service import CentroMLGuiadoService
+from clinicdesk.app.application.services.ml_playbook_ejecucion_service import (
+    AccionPlaybookEjecutable,
+    ContextoEjecucionPlaybook,
+    PlaybookEjecucionService,
+    ResultadoPasoPlaybook,
+)
 from clinicdesk.app.application.services.demo_run_service import CancelToken
 from clinicdesk.app.application.usecases.seed_demo_data import SeedDemoDataRequest
 from clinicdesk.app.bootstrap_logging import get_logger, set_run_context
@@ -132,6 +138,7 @@ class PageDemoML(QWidget):
         self._i18n = i18n
         self._workflow = AnalyticsWorkflowService(facade)
         self._centro_service = CentroMLGuiadoService(facade)
+        self._playbook_ejecucion = PlaybookEjecucionService(facade)
         self._settings = QSettings("clinicdesk", "analytics_demo")
         self._thread: QThread | None = None
         self._workflow_worker: _WorkflowWorker | None = None
@@ -142,6 +149,8 @@ class PageDemoML(QWidget):
         self._last_score: Any | None = None
         self._last_drift: Any | None = None
         self._playbook_seleccionado = ""
+        self._accion_playbook_actual: AccionPlaybookEjecutable | None = None
+        self._ultimo_resultado_playbook: ResultadoPasoPlaybook | None = None
         self._build_ui()
 
     def _t(self, key: str) -> str:
@@ -292,9 +301,18 @@ class PageDemoML(QWidget):
         self.lbl_playbook_pasos.setWordWrap(True)
         self.lbl_playbook_siguiente = QLabel(self._t("demo_ml.playbook.panel.vacio"))
         self.lbl_playbook_siguiente.setWordWrap(True)
+        self.lbl_playbook_progreso = QLabel(self._t("demo_ml.playbook.panel.vacio"))
+        self.lbl_playbook_progreso.setWordWrap(True)
+        self.lbl_playbook_resultado = QLabel(self._t("demo_ml.playbook.panel.vacio"))
+        self.lbl_playbook_resultado.setWordWrap(True)
+        self.btn_playbook_cta = QPushButton(self._t("demo_ml.playbook.ejecucion.cta.sin_accion"))
+        self.btn_playbook_cta.clicked.connect(self._run_playbook_action)
         form.addRow(self._t("demo_ml.playbook.panel.objetivo"), self.cmb_playbook)
         form.addRow(self._t("demo_ml.playbook.panel.resumen"), self.lbl_playbook_resumen)
         form.addRow(self._t("demo_ml.playbook.panel.siguiente"), self.lbl_playbook_siguiente)
+        form.addRow(self._t("demo_ml.playbook.panel.progreso"), self.lbl_playbook_progreso)
+        form.addRow(self._t("demo_ml.playbook.panel.ultimo_resultado"), self.lbl_playbook_resultado)
+        form.addRow(self._t("demo_ml.playbook.panel.accion"), self.btn_playbook_cta)
         form.addRow(self._t("demo_ml.playbook.panel.pasos"), self.lbl_playbook_pasos)
         return box
 
@@ -373,6 +391,27 @@ class PageDemoML(QWidget):
         from_version = self.adv_prev_dataset.text().strip() or self.adv_dataset.text().strip()
         fn = lambda: self._workflow.drift(from_version, self.adv_dataset.text().strip())
         self._run_background("Detectar cambios en comportamiento", fn, self._on_drift_done)
+
+    def _run_playbook_action(self) -> None:
+        if self._accion_playbook_actual is None:
+            return
+        accion = self._accion_playbook_actual
+        if accion.requiere_confirmacion:
+            confirmar = QMessageBox.question(
+                self,
+                self._t("demo_ml.playbook.ejecucion.confirmacion.titulo"),
+                self._t("demo_ml.playbook.ejecucion.confirmacion.mensaje"),
+            )
+            if confirmar != QMessageBox.StandardButton.Yes:
+                return
+        contexto = ContextoEjecucionPlaybook(
+            from_date=self._from(),
+            to_date=self._to(),
+            score_limit=self.score_limit.value(),
+            export_dir=self.export_dir.text().strip() or "./exports",
+        )
+        fn = lambda: self._playbook_ejecucion.ejecutar_accion(accion, contexto)
+        self._run_background(self._t(accion.cta_key), fn, self._on_playbook_action_done)
 
     def _run_full_workflow(self) -> None:
         if self._is_running():
@@ -511,6 +550,12 @@ class PageDemoML(QWidget):
         texto = interpretar_drift(response)
         self._log(f"{texto.titulo}: {texto.significado}")
         self._log(f"Acción recomendada: {texto.recomendacion}")
+        self._refresh_guided_state()
+
+    def _on_playbook_action_done(self, resultado: ResultadoPasoPlaybook) -> None:
+        self._ultimo_resultado_playbook = resultado
+        detalle = resultado.detalle_humano or self._t(resultado.resumen_key)
+        self._log(f"Playbook {resultado.accion_clave}: {detalle}")
         self._refresh_guided_state()
 
     def _on_workflow_done(self, result: AnalyticsWorkflowResult) -> None:
@@ -677,6 +722,9 @@ class PageDemoML(QWidget):
             self.lbl_playbook_resumen.setText(texto)
             self.lbl_playbook_pasos.setText(texto)
             self.lbl_playbook_siguiente.setText(texto)
+            self.lbl_playbook_progreso.setText(texto)
+            self.lbl_playbook_resultado.setText(texto)
+            self.btn_playbook_cta.setEnabled(False)
             return
         if self.cmb_playbook.count() != len(playbooks):
             self.cmb_playbook.blockSignals(True)
@@ -705,6 +753,28 @@ class PageDemoML(QWidget):
         )
         self.lbl_playbook_resumen.setText(resumen)
         self.lbl_playbook_siguiente.setText(self._render_siguiente_paso(playbook.siguiente_paso_clave))
+        estado_ejecucion = self._playbook_ejecucion.construir_estado(playbook)
+        progreso = estado_ejecucion.progreso
+        self.lbl_playbook_progreso.setText(
+            self._t("demo_ml.playbook.panel.progreso_texto").format(
+                completados=progreso.completados,
+                total=progreso.total_pasos,
+                bloqueados=progreso.bloqueados,
+            )
+        )
+        self._accion_playbook_actual = estado_ejecucion.accion_siguiente
+        self.btn_playbook_cta.setText(self._t(self._accion_playbook_actual.cta_key))
+        self.btn_playbook_cta.setEnabled(self._accion_playbook_actual.permiso != "bloqueada")
+        if self._ultimo_resultado_playbook is None:
+            self.lbl_playbook_resultado.setText(self._t("demo_ml.playbook.panel.vacio"))
+        else:
+            self.lbl_playbook_resultado.setText(
+                self._t("demo_ml.playbook.panel.resultado_texto").format(
+                    estado=self._estado_playbook_text(self._ultimo_resultado_playbook.estado),
+                    detalle=self._ultimo_resultado_playbook.detalle_humano or self._t(self._ultimo_resultado_playbook.resumen_key),
+                    siguiente=self._render_siguiente_paso(self._ultimo_resultado_playbook.siguiente_paso_clave),
+                )
+            )
         texto_pasos = "\n\n".join(self._render_paso_playbook(paso) for paso in playbook.pasos)
         self.lbl_playbook_pasos.setText(texto_pasos)
 
