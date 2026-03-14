@@ -62,3 +62,36 @@ Al volver a la pantalla, el sistema vuelve a inferir el estado desde `feature_st
 - En esta fase la ejecución directa está habilitada para `prepare/train/score/drift`.
 - `export` se mantiene guiado por estado y guardrails, pero sin ejecución directa unificada desde el CTA.
 - El sistema guía y bloquea incoherencias básicas, pero no sustituye criterio experto.
+
+## Lecturas operativas ML (nuevo en Fase 5)
+
+Se añadió una capa reusable de interpretación operativa (`lecturas_operativas_ml`) para transformar lecturas técnicas en decisiones accionables.
+
+### Qué lecturas cubre
+
+- **Scoring**: traduce proporción de riesgo alto en priorización operativa, con límites explícitos.
+- **Drift**: convierte PSI en señal de mantenimiento (sin asumir reentreno automático).
+- **Métricas de evaluación**: conecta accuracy/precision/recall con nivel de confianza de uso.
+- **Exportación**: explica valor operativo de compartir artefactos y qué no implica.
+
+### Estructura estándar por lectura
+
+Cada lectura expone contrato estable con:
+
+- lectura origen,
+- resumen humano,
+- utilidad práctica,
+- nivel de confianza,
+- semáforo (verde/amarillo/rojo),
+- riesgo principal,
+- acción sugerida,
+- cuándo mirar,
+- cuándo no concluir fuerte,
+- qué no significa.
+
+### Mini guía de uso en demo / operación
+
+- **Si quieres saber si el scoring sirve hoy**: mira semáforo + acción sugerida de `scoring`.
+- **Si quieres decidir si revisar drift**: mira `drift`; rojo implica investigar, no reentrenar en automático.
+- **Si quieres estimar confianza de uso**: mira `métricas`; muestra pequeña o métricas débiles => cautela.
+- **Si quieres compartir evidencia a BI**: mira `exportación`; disponible != modelo validado.
