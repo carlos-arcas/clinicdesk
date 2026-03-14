@@ -1,6 +1,6 @@
-# Centro ML guiado (Fase 3 — Playbooks operativos por objetivo)
+# Centro ML guiado (Fase 4 — Playbooks ejecutables, guardrails y reanudación)
 
-El **Centro ML guiado** ahora combina estado del pipeline + recomendaciones + **playbooks por objetivo real**.
+El **Centro ML guiado** combina estado del pipeline + recomendaciones + **playbooks por objetivo real** y ahora añade ejecución asistida.
 
 ## Objetivos disponibles
 
@@ -24,25 +24,41 @@ Para cada paso (prepare/train/score/drift/export), la UI muestra:
 - CTA sugerida,
 - estado contextual: completado / recomendado / disponible / bloqueado / innecesario.
 
-## Decisiones por objetivo (no solo por estado global)
+## Playbooks ejecutables (nuevo)
 
-Los playbooks reutilizan el estado real del pipeline y añaden reglas de objetivo:
+El panel de playbook incorpora:
 
-- **Puntuar con seguridad** bloquea score si dataset/modelo no son compatibles.
-- **Exportar para BI** marca bloqueo si todavía no hay scoring útil.
-- **Revisar drift y reentrenar** marca drift como innecesario cuando no hay dos datasets para comparar.
-- Cada playbook recomienda el siguiente paso dentro de su propio contexto.
+- **CTA del siguiente paso** con preset seguro (prepare/train/score/drift),
+- **progreso operativo** (completados, bloqueados, total),
+- **último resultado ejecutado** con siguiente paso recomendado,
+- **guardrail de confirmación** al repetir un paso ya completado.
 
-## Guía rápida de uso
+La ejecución usa estado real de artefactos y no dispara acciones bloqueadas.
 
-- Si empiezas desde cero: usa **Preparar demo ML completa**.
-- Si ya tienes datos pero no modelo: usa **Entrenar un modelo nuevo**.
-- Si ya tienes modelo y quieres evitar errores: usa **Puntuar con seguridad**.
-- Si sospechas cambio de comportamiento: usa **Revisar drift y decidir reentrenamiento**.
-- Si necesitas material para BI/portfolio: usa **Exportar resultados para BI**.
+## Guardrails aplicados
+
+- No se ejecuta train sin dataset disponible.
+- No se ejecuta score sin dataset + modelo vigente.
+- No se ejecuta drift sin dos versiones de dataset.
+- Los pasos completados pasan a modo **requiere confirmación** para evitar repeticiones inútiles.
+
+## Reanudación y continuidad
+
+Al volver a la pantalla, el sistema vuelve a inferir el estado desde `feature_store`, `model_store` y exports. El usuario ve:
+
+- qué pasos siguen pendientes,
+- cuál es la siguiente acción recomendada,
+- qué pasó en el último paso lanzado desde el playbook.
+
+## Guía rápida
+
+- **Quiero demo completa sin liarme**: selecciona `demo_completa` y pulsa la CTA sugerida en cada iteración.
+- **Quiero entrenar y luego puntuar**: usa `entrenar_modelo_nuevo`, ejecuta train y después score.
+- **Quiero revisar si debo reentrenar**: usa `revisar_drift_reentrenar` y ejecuta drift con dos datasets.
+- **Quiero exportar sin equivocarme**: usa `exportar_bi`; si el paso está bloqueado, primero completa scoring.
 
 ## Limitaciones honestas
 
-- Los playbooks dependen de artefactos locales (`feature_store`, `model_store`, exports).
+- En esta fase la ejecución directa está habilitada para `prepare/train/score/drift`.
+- `export` se mantiene guiado por estado y guardrails, pero sin ejecución directa unificada desde el CTA.
 - El sistema guía y bloquea incoherencias básicas, pero no sustituye criterio experto.
-- Drift no aplica si no existe comparación entre versiones de dataset.
