@@ -1,77 +1,48 @@
-# Centro ML guiado (Fase 2 — Asistente de decisiones)
+# Centro ML guiado (Fase 3 — Playbooks operativos por objetivo)
 
-El **Centro ML guiado** ahora incluye un asistente operativo que no solo muestra estado, también recomienda **qué hacer ahora**, **por qué**, **beneficio**, **riesgo de no actuar** y **cuándo no conviene ejecutar un paso**.
+El **Centro ML guiado** ahora combina estado del pipeline + recomendaciones + **playbooks por objetivo real**.
 
-## Flujo guiado base
+## Objetivos disponibles
 
-1. Preparar datos
-2. Entrenar modelo
-3. Puntuar citas
-4. Revisar drift
-5. Exportar artefactos
-6. Revisar resumen y decidir
+1. **Preparar demo ML completa**
+2. **Entrenar un modelo nuevo**
+3. **Puntuar datos con seguridad**
+4. **Revisar drift y decidir reentrenamiento**
+5. **Exportar resultados para BI**
 
-## Qué añade el asistente de decisiones ML
+Cada objetivo muestra: descripción, cuándo usarlo, prerequisitos, criterio de cierre y pasos guiados.
 
-- Recomendaciones accionables priorizadas por estado real del pipeline.
-- Distinción explícita entre acción **posible**, **recomendada**, **bloqueada** e **innecesaria**.
-- Bloqueo explícito de scoring trained cuando dataset/modelo no son compatibles.
-- Advertencias útiles (por ejemplo, drift pendiente o resultados débiles).
-- Resumen ejecutivo corto para lectura rápida no técnica.
+## Qué incluye cada paso guiado
 
-## Cómo se generan las recomendaciones
+Para cada paso (prepare/train/score/drift/export), la UI muestra:
 
-El motor de recomendaciones evalúa:
+- qué hace,
+- por qué importa,
+- qué necesitas antes,
+- qué resultado produce,
+- qué mirar después,
+- CTA sugerida,
+- estado contextual: completado / recomendado / disponible / bloqueado / innecesario.
 
-- existencia y calidad mínima de dataset,
-- disponibilidad de modelo,
-- compatibilidad dataset/modelo (`trained_on_dataset_version`),
-- disponibilidad de score,
-- necesidad de drift,
-- estado de exportaciones,
-- señales de calidad de evaluación (`test_metrics`).
+## Decisiones por objetivo (no solo por estado global)
 
-No inventa recomendaciones cuando faltan evidencias en metadata.
+Los playbooks reutilizan el estado real del pipeline y añaden reglas de objetivo:
 
-## Resumen ejecutivo ML
+- **Puntuar con seguridad** bloquea score si dataset/modelo no son compatibles.
+- **Exportar para BI** marca bloqueo si todavía no hay scoring útil.
+- **Revisar drift y reentrenar** marca drift como innecesario cuando no hay dos datasets para comparar.
+- Cada playbook recomienda el siguiente paso dentro de su propio contexto.
 
-El resumen responde en 5 líneas:
+## Guía rápida de uso
 
-- estado actual,
-- qué falta,
-- siguiente paso,
-- riesgo principal,
-- utilidad inmediata.
-
-Está diseñado para demo de portfolio y uso operativo diario.
-
-## Mini guía rápida
-
-### Si no hay dataset
-
-1. Preparar datos.
-2. Validar volumen mínimo.
-3. Recién entonces entrenar.
-
-### Si el modelo no es compatible
-
-1. No usar scoring trained.
-2. Reentrenar con dataset actual.
-3. Volver a puntuar.
-
-### Cuándo mirar drift
-
-- Siempre que haya dos o más versiones de dataset.
-- Antes de decisiones de operación sensibles.
-
-### Para qué exportar
-
-- Compartir resultados con operación/gestión.
-- Trazabilidad para auditoría.
-- Integración con reporting externo (CSV contractuales).
+- Si empiezas desde cero: usa **Preparar demo ML completa**.
+- Si ya tienes datos pero no modelo: usa **Entrenar un modelo nuevo**.
+- Si ya tienes modelo y quieres evitar errores: usa **Puntuar con seguridad**.
+- Si sospechas cambio de comportamiento: usa **Revisar drift y decidir reentrenamiento**.
+- Si necesitas material para BI/portfolio: usa **Exportar resultados para BI**.
 
 ## Limitaciones honestas
 
-- El asistente orienta; no reemplaza criterio clínico u operativo humano.
-- Las métricas offline ayudan a decidir, pero no garantizan rendimiento futuro.
-- El estado depende de artefactos locales (`feature_store`, `model_store`, carpeta de export).
+- Los playbooks dependen de artefactos locales (`feature_store`, `model_store`, exports).
+- El sistema guía y bloquea incoherencias básicas, pero no sustituye criterio experto.
+- Drift no aplica si no existe comparación entre versiones de dataset.

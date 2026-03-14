@@ -13,6 +13,7 @@ from typing import Any, Callable
 from PySide6.QtCore import QDate, QObject, QSettings, QThread, Signal
 from PySide6.QtWidgets import (
     QCheckBox,
+    QComboBox,
     QDateEdit,
     QFormLayout,
     QGroupBox,
@@ -140,6 +141,7 @@ class PageDemoML(QWidget):
         self._last_train: Any | None = None
         self._last_score: Any | None = None
         self._last_drift: Any | None = None
+        self._playbook_seleccionado = ""
         self._build_ui()
 
     def _t(self, key: str) -> str:
@@ -170,6 +172,7 @@ class PageDemoML(QWidget):
         layout.addWidget(self._build_kpi_panel())
         layout.addWidget(self._build_workflow_panel())
         layout.addWidget(self._build_recomendaciones_panel())
+        layout.addWidget(self._build_playbook_panel())
         layout.addWidget(self._build_resumen_ejecutivo_panel())
         layout.addWidget(self._build_advanced_panel())
         layout.addWidget(QLabel("Resumen de actividad"))
@@ -275,6 +278,24 @@ class PageDemoML(QWidget):
         form.addRow(self._t("demo_ml.asistente.panel.principal"), self.lbl_reco_principal)
         form.addRow(self._t("demo_ml.asistente.panel.secundarias"), self.lbl_reco_secundarias)
         form.addRow(self._t("demo_ml.asistente.panel.advertencias"), self.lbl_reco_advertencias)
+        return box
+
+
+    def _build_playbook_panel(self) -> QWidget:
+        box = QGroupBox(self._t("demo_ml.playbook.panel.titulo"))
+        form = QFormLayout(box)
+        self.cmb_playbook = QComboBox()
+        self.cmb_playbook.currentIndexChanged.connect(self._on_playbook_changed)
+        self.lbl_playbook_resumen = QLabel(self._t("demo_ml.playbook.panel.vacio"))
+        self.lbl_playbook_resumen.setWordWrap(True)
+        self.lbl_playbook_pasos = QLabel(self._t("demo_ml.playbook.panel.vacio"))
+        self.lbl_playbook_pasos.setWordWrap(True)
+        self.lbl_playbook_siguiente = QLabel(self._t("demo_ml.playbook.panel.vacio"))
+        self.lbl_playbook_siguiente.setWordWrap(True)
+        form.addRow(self._t("demo_ml.playbook.panel.objetivo"), self.cmb_playbook)
+        form.addRow(self._t("demo_ml.playbook.panel.resumen"), self.lbl_playbook_resumen)
+        form.addRow(self._t("demo_ml.playbook.panel.siguiente"), self.lbl_playbook_siguiente)
+        form.addRow(self._t("demo_ml.playbook.panel.pasos"), self.lbl_playbook_pasos)
         return box
 
     def _build_resumen_ejecutivo_panel(self) -> QWidget:
@@ -588,6 +609,7 @@ class PageDemoML(QWidget):
         self.lbl_recomendado.setText(self._render_siguiente_paso(estado.siguiente_accion))
         self._render_recomendaciones(estado.recomendaciones)
         self._render_resumen_ejecutivo(estado.resumen_ejecutivo)
+        self._render_playbooks(estado)
         self._refresh_export_files({name: name for name in estado.archivos_exportados}) if estado.archivos_exportados else None
 
     def _render_recomendaciones(self, recomendaciones) -> None:
@@ -642,6 +664,64 @@ class PageDemoML(QWidget):
             "summary": self._t("demo_ml.estado.siguiente.summary"),
         }
         return mapa.get(siguiente, self._t("demo_ml.estado.siguiente.summary"))
+
+
+    def _on_playbook_changed(self, _: int) -> None:
+        self._playbook_seleccionado = self.cmb_playbook.currentData() or ""
+        self._refresh_guided_state()
+
+    def _render_playbooks(self, estado) -> None:
+        playbooks = {item.codigo: item for item in estado.playbooks}
+        if not playbooks:
+            texto = self._t("demo_ml.playbook.panel.vacio")
+            self.lbl_playbook_resumen.setText(texto)
+            self.lbl_playbook_pasos.setText(texto)
+            self.lbl_playbook_siguiente.setText(texto)
+            return
+        if self.cmb_playbook.count() != len(playbooks):
+            self.cmb_playbook.blockSignals(True)
+            self.cmb_playbook.clear()
+            for codigo, playbook in playbooks.items():
+                self.cmb_playbook.addItem(self._t(playbook.titulo_key), codigo)
+            self.cmb_playbook.blockSignals(False)
+        seleccionado = self._playbook_seleccionado or estado.playbook_sugerido
+        index = self.cmb_playbook.findData(seleccionado)
+        if index >= 0 and self.cmb_playbook.currentIndex() != index:
+            self.cmb_playbook.blockSignals(True)
+            self.cmb_playbook.setCurrentIndex(index)
+            self.cmb_playbook.blockSignals(False)
+        self._playbook_seleccionado = self.cmb_playbook.currentData() or estado.playbook_sugerido
+        playbook = playbooks.get(self._playbook_seleccionado)
+        if playbook is None:
+            return
+        prerequisitos = "\n".join(f"• {self._t(key)}" for key in playbook.prerequisitos_keys)
+        resumen = (
+            f"{self._t(playbook.descripcion_key)}\n"
+            f"{self._t(playbook.para_que_key)}\n"
+            f"{self._t(playbook.cuando_usar_key)}\n"
+            f"{self._t('demo_ml.playbook.panel.prerequisitos')}:\n{prerequisitos}\n"
+            f"{self._t(playbook.criterio_finalizacion_key)}\n"
+            f"{self._t('demo_ml.playbook.panel.estado')}: {self._estado_playbook_text(playbook.estado_general)}"
+        )
+        self.lbl_playbook_resumen.setText(resumen)
+        self.lbl_playbook_siguiente.setText(self._render_siguiente_paso(playbook.siguiente_paso_clave))
+        texto_pasos = "\n\n".join(self._render_paso_playbook(paso) for paso in playbook.pasos)
+        self.lbl_playbook_pasos.setText(texto_pasos)
+
+    def _render_paso_playbook(self, paso) -> str:
+        return (
+            f"• {self._t(paso.nombre_key)} [{self._estado_playbook_text(paso.estado)}]\n"
+            f"{self._t(paso.que_hace_key)}\n"
+            f"{self._t(paso.por_que_importa_key)}\n"
+            f"{self._t(paso.necesitas_key)}\n"
+            f"{self._t(paso.resultado_key)}\n"
+            f"{self._t(paso.mirar_despues_key)}\n"
+            f"{self._t('demo_ml.playbook.panel.cta')}: {self._t(paso.cta_key)}\n"
+            f"{self._t(paso.motivo_estado_key)}"
+        )
+
+    def _estado_playbook_text(self, estado: str) -> str:
+        return self._t(f"demo_ml.playbook.estado.{estado}")
 
     def _is_running(self) -> bool:
         if self._thread is not None and self._thread.isRunning():
