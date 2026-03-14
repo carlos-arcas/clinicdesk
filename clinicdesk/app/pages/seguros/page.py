@@ -17,6 +17,7 @@ from clinicdesk.app.application.seguros import (
     CatalogoPlanesSeguro,
     FiltroCarteraSeguro,
     GestionComercialSeguroService,
+    ScoringComercialSeguroService,
     SolicitudAnalisisMigracionSeguro,
     SolicitudNuevaOportunidadSeguro,
 )
@@ -43,7 +44,9 @@ class PageSeguros(QWidget):
         self._catalogo = CatalogoPlanesSeguro()
         self._use_case = AnalizarMigracionSeguroUseCase(self._catalogo)
         self._conexion = obtener_conexion()
-        self._gestion = GestionComercialSeguroService(self._use_case, RepositorioComercialSeguroSqlite(self._conexion))
+        self._repositorio = RepositorioComercialSeguroSqlite(self._conexion)
+        self._gestion = GestionComercialSeguroService(self._use_case, self._repositorio)
+        self._scoring = ScoringComercialSeguroService(self._repositorio)
         self._id_oportunidad_activa: str | None = None
         self._build_ui()
         self._popular_planes()
@@ -264,11 +267,18 @@ class PageSeguros(QWidget):
         seguimiento_reciente = self._gestion.listar_seguimiento_reciente(3)
         pendientes = self._gestion.listar_cartera(FiltroCarteraSeguro(solo_renovacion_pendiente=True))
         ultimo = seguimiento_reciente[0].accion_comercial if seguimiento_reciente else "-"
+        cartera = self._scoring.priorizar_cartera(abiertas)
+        caliente = cartera.oportunidad_mas_caliente.id_oportunidad if cartera.oportunidad_mas_caliente else "-"
+        vigilar = ", ".join(item.id_oportunidad for item in cartera.oportunidades_vigilar[:3]) or "-"
+        no_prioritarias = ", ".join(item.id_oportunidad for item in cartera.oportunidades_no_prioritarias[:3]) or "-"
         self.lbl_cartera.setText(
-            self._i18n.t("seguros.cartera.resumen").format(
+            self._i18n.t("seguros.cartera.resumen_ml").format(
                 total=len(abiertas),
                 pendientes=len(pendientes),
                 convertidas=len(convertidas),
                 ultimo=ultimo,
+                caliente=caliente,
+                vigilar=vigilar,
+                no_prioritarias=no_prioritarias,
             )
         )
