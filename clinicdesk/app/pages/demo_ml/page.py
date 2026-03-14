@@ -51,6 +51,11 @@ from clinicdesk.app.application.services.analytics_workflow_service import (
     AnalyticsWorkflowService,
 )
 from clinicdesk.app.application.services.demo_ml_facade import DemoMLFacade
+from clinicdesk.app.application.services.priorizacion_operativa_ml_service import (
+    ListaTrabajoML,
+    NivelPrioridadML,
+    PriorizacionOperativaMLService,
+)
 from clinicdesk.app.application.services.ml_centro_guiado_service import CentroMLGuiadoService
 from clinicdesk.app.application.services.ml_playbook_ejecucion_service import (
     AccionPlaybookEjecutable,
@@ -146,6 +151,7 @@ class PageDemoML(QWidget):
         self._workflow = AnalyticsWorkflowService(facade)
         self._centro_service = CentroMLGuiadoService(facade)
         self._playbook_ejecucion = PlaybookEjecucionService(facade)
+        self._priorizacion_service = PriorizacionOperativaMLService()
         self._settings = QSettings("clinicdesk", "analytics_demo")
         self._thread: QThread | None = None
         self._workflow_worker: _WorkflowWorker | None = None
@@ -158,6 +164,7 @@ class PageDemoML(QWidget):
         self._playbook_seleccionado = ""
         self._accion_playbook_actual: AccionPlaybookEjecutable | None = None
         self._ultimo_resultado_playbook: ResultadoPasoPlaybook | None = None
+        self._lista_trabajo_ml: ListaTrabajoML | None = None
         self._build_ui()
 
     def _t(self, key: str) -> str:
@@ -189,6 +196,7 @@ class PageDemoML(QWidget):
         layout.addWidget(self._build_workflow_panel())
         layout.addWidget(self._build_recomendaciones_panel())
         layout.addWidget(self._build_lectura_operativa_panel())
+        layout.addWidget(self._build_lista_trabajo_panel())
         layout.addWidget(self._build_playbook_panel())
         layout.addWidget(self._build_resumen_ejecutivo_panel())
         layout.addWidget(self._build_advanced_panel())
@@ -346,6 +354,31 @@ class PageDemoML(QWidget):
         form.addRow(self._t("demo_ml.playbook.panel.ultimo_resultado"), self.lbl_playbook_resultado)
         form.addRow(self._t("demo_ml.playbook.panel.accion"), self.btn_playbook_cta)
         form.addRow(self._t("demo_ml.playbook.panel.pasos"), self.lbl_playbook_pasos)
+        return box
+
+    def _build_lista_trabajo_panel(self) -> QWidget:
+        box = QGroupBox(self._t("demo_ml.priorizacion.panel.titulo"))
+        form = QFormLayout(box)
+        self.lbl_priorizacion_resumen = QLabel(self._t("demo_ml.priorizacion.panel.vacio"))
+        self.lbl_priorizacion_resumen.setWordWrap(True)
+        self.cmb_priorizacion_filtro = QComboBox()
+        self.cmb_priorizacion_filtro.currentIndexChanged.connect(self._render_lista_trabajo_ml)
+        self.cmb_priorizacion_filtro.addItem(self._t("demo_ml.priorizacion.filtro.todos"), "todos")
+        self.cmb_priorizacion_filtro.addItem(self._t("demo_ml.priorizacion.filtro.alta"), NivelPrioridadML.ALTA.value)
+        self.cmb_priorizacion_filtro.addItem(self._t("demo_ml.priorizacion.filtro.media"), NivelPrioridadML.MEDIA.value)
+        self.cmb_priorizacion_filtro.addItem(self._t("demo_ml.priorizacion.filtro.baja"), NivelPrioridadML.BAJA.value)
+        self.tbl_priorizacion_ml = self._mk_table(
+            [
+                self._t("demo_ml.priorizacion.columna.cita"),
+                self._t("demo_ml.priorizacion.columna.prioridad"),
+                self._t("demo_ml.priorizacion.columna.accion"),
+                self._t("demo_ml.priorizacion.columna.motivo"),
+                self._t("demo_ml.priorizacion.columna.cautela"),
+            ]
+        )
+        form.addRow(self._t("demo_ml.priorizacion.panel.resumen"), self.lbl_priorizacion_resumen)
+        form.addRow(self._t("demo_ml.priorizacion.panel.filtro"), self.cmb_priorizacion_filtro)
+        form.addRow(self.tbl_priorizacion_ml)
         return box
 
     def _build_resumen_ejecutivo_panel(self) -> QWidget:
@@ -576,6 +609,8 @@ class PageDemoML(QWidget):
     def _on_score_done(self, response: Any) -> None:
         self._last_score = response
         self._update_score_cards(response)
+        self._lista_trabajo_ml = self._construir_lista_trabajo_ml(response)
+        self._render_lista_trabajo_ml()
         self._log(f"Análisis de riesgo completado: {response.total} citas")
         riesgo_alto = sum(1 for item in response.items if item.label == "risk")
         texto = interpretar_scoring(response.total, riesgo_alto)
@@ -658,6 +693,42 @@ class PageDemoML(QWidget):
             table.insertRow(idx)
             for col, value in enumerate(row.values()):
                 table.setItem(idx, col, QTableWidgetItem(str(value)))
+
+    def _construir_lista_trabajo_ml(self, score_response: Any) -> ListaTrabajoML:
+        citas = self._facade.list_appointments(limit=500)
+        return self._priorizacion_service.construir_lista_trabajo(score_response, citas)
+
+    def _render_lista_trabajo_ml(self) -> None:
+        if self._lista_trabajo_ml is None:
+            self.lbl_priorizacion_resumen.setText(self._t("demo_ml.priorizacion.panel.vacio"))
+            self.tbl_priorizacion_ml.setRowCount(0)
+            return
+        resumen = self._lista_trabajo_ml.resumen
+        self.lbl_priorizacion_resumen.setText(
+            self._t("demo_ml.priorizacion.panel.resumen_valor").format(
+                total=resumen.total_items,
+                alta=resumen.prioridad_alta,
+                media=resumen.prioridad_media,
+                baja=resumen.prioridad_baja,
+                accion_fuerte=resumen.accion_fuerte_habilitada,
+            )
+        )
+        filtro = self.cmb_priorizacion_filtro.currentData()
+        filas = []
+        for item in self._lista_trabajo_ml.items:
+            if filtro != "todos" and item.prioridad.value != filtro:
+                continue
+            paciente = item.paciente or self._t("demo_ml.priorizacion.valor_no_disponible")
+            filas.append(
+                {
+                    "cita": f"{item.cita_id} · {paciente}",
+                    "prioridad": self._t(f"demo_ml.priorizacion.nivel.{item.prioridad.value}"),
+                    "accion": self._t(item.accion_sugerida.descripcion_i18n_key),
+                    "motivo": self._t(item.motivo.resumen_i18n_key),
+                    "cautela": self._t(item.cautela_i18n_key),
+                }
+            )
+        self._fill_table(self.tbl_priorizacion_ml, filas)
 
     def _persist_last_run(self, result: AnalyticsWorkflowResult) -> None:
         self._settings.setValue("last_run_ts", datetime.now().isoformat(timespec="seconds"))
