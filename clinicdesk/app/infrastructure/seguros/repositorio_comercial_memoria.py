@@ -61,3 +61,33 @@ class RepositorioComercialSeguroMemoria:
 
     def listar_historial_oportunidad(self, id_oportunidad: str) -> tuple[SeguimientoOportunidadSeguro, ...]:
         return self._oportunidades[id_oportunidad].seguimientos
+
+    def construir_dataset_ml_comercial(self) -> list[dict[str, object]]:
+        resultado: list[dict[str, object]] = []
+        for oportunidad in self._oportunidades.values():
+            perfil = oportunidad.perfil_comercial
+            evaluacion = oportunidad.evaluacion_fit
+            resultado.append(
+                {
+                    "id_oportunidad": oportunidad.id_oportunidad,
+                    "plan_origen_id": oportunidad.plan_origen_id,
+                    "plan_destino_id": oportunidad.plan_destino_id,
+                    "clasificacion_motor": oportunidad.clasificacion_motor,
+                    "estado_actual": oportunidad.estado_actual.value,
+                    "segmento_cliente": perfil.segmento_cliente.value if perfil else None,
+                    "origen_cliente": perfil.origen_cliente.value if perfil else None,
+                    "necesidad_principal": perfil.necesidad_principal.value if perfil else None,
+                    "objecion_principal": perfil.objecion_principal.value if perfil else None,
+                    "sensibilidad_precio": perfil.sensibilidad_precio.value if perfil else None,
+                    "friccion_migracion": perfil.friccion_migracion.value if perfil else None,
+                    "fit_comercial": evaluacion.encaje_plan.value if evaluacion else None,
+                    "fit_motivo": evaluacion.motivo_principal if evaluacion else None,
+                    "resultado_comercial": oportunidad.resultado_comercial.value
+                    if oportunidad.resultado_comercial
+                    else None,
+                    "dias_ciclo": len(oportunidad.seguimientos),
+                    "total_seguimientos": len(oportunidad.seguimientos),
+                    "renovada": False,
+                }
+            )
+        return resultado

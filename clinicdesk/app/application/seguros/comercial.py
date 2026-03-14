@@ -48,6 +48,8 @@ class RepositorioComercialSeguro(Protocol):
 
     def listar_historial_oportunidad(self, id_oportunidad: str) -> tuple[SeguimientoOportunidadSeguro, ...]: ...
 
+    def construir_dataset_ml_comercial(self) -> list[dict[str, object]]: ...
+
 
 @dataclass(frozen=True, slots=True)
 class FiltroCarteraSeguro:
