@@ -5,6 +5,7 @@ from pathlib import Path
 
 from clinicdesk.app.application.ml_artifacts.feature_artifacts import FeatureArtifactMetadata
 from clinicdesk.app.application.services.demo_ml_facade import DemoMLFacade
+from clinicdesk.app.application.services.ml_playbooks_service import PlaybookML, PlaybooksMLService
 
 ARCHIVOS_EXPORTACION = (
     "features_export.csv",
@@ -37,6 +38,8 @@ class EstadoCentroML:
     pasos: tuple[PasoCentroML, ...]
     recomendaciones: tuple[RecomendacionML, ...]
     resumen_ejecutivo: ResumenEjecutivoML
+    playbooks: tuple[PlaybookML, ...]
+    playbook_sugerido: str
 
 
 @dataclass(frozen=True, slots=True)
@@ -66,6 +69,7 @@ class ResumenEjecutivoML:
 class CentroMLGuiadoService:
     def __init__(self, facade: DemoMLFacade) -> None:
         self._facade = facade
+        self._playbooks = PlaybooksMLService()
 
     def construir_estado(self, export_dir: str) -> EstadoCentroML:
         dataset_versions = self._facade.list_dataset_versions()
@@ -90,6 +94,22 @@ class CentroMLGuiadoService:
             model_meta=model_meta,
         )
         resumen = self._build_resumen_ejecutivo(recomendaciones)
+        estado_base = EstadoCentroML(
+            dataset_version=dataset_version,
+            model_version=model_version,
+            dataset_modelo_compatible=compatible,
+            score_disponible=score_disponible,
+            drift_disponible=drift_disponible,
+            export_disponible=export_disponible,
+            archivos_exportados=archivos,
+            siguiente_accion=self._resolver_siguiente_accion(pasos),
+            pasos=pasos,
+            recomendaciones=recomendaciones,
+            resumen_ejecutivo=resumen,
+            playbooks=(),
+            playbook_sugerido="demo_completa",
+        )
+        playbooks = self._playbooks.construir_playbooks(estado_base)
         return EstadoCentroML(
             dataset_version=dataset_version,
             model_version=model_version,
@@ -102,6 +122,8 @@ class CentroMLGuiadoService:
             pasos=pasos,
             recomendaciones=recomendaciones,
             resumen_ejecutivo=resumen,
+            playbooks=playbooks,
+            playbook_sugerido=self._playbooks.sugerir_playbook(playbooks),
         )
 
     def _resolver_recomendaciones(
