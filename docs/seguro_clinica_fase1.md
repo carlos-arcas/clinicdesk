@@ -25,3 +25,5 @@ Esta fase introduce un núcleo determinista para:
 
 - Usa **comparativa** para análisis técnico de diferencias de producto.
 - Usa **migración** cuando necesitas una recomendación ejecutiva para conversación comercial.
+
+> Continuación comercial: ver `docs/seguro_clinica_fase2.md`.

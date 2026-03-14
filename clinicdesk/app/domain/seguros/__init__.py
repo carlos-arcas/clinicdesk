@@ -1,3 +1,15 @@
+from clinicdesk.app.domain.seguros.comercial import (
+    CandidatoSeguro,
+    EstadoOportunidadSeguro,
+    OfertaSeguro,
+    OportunidadSeguro,
+    RenovacionSeguro,
+    ResultadoComercialSeguro,
+    ResultadoRenovacionSeguro,
+    SeguimientoOportunidadSeguro,
+    validar_transicion_estado,
+)
+
 from clinicdesk.app.domain.seguros.modelos import (
     CarenciaSeguro,
     CoberturaSeguro,
@@ -26,4 +38,13 @@ __all__ = [
     "ProductoExternoComparable",
     "PerfilCandidatoSeguro",
     "ResultadoElegibilidadSeguro",
+    "CandidatoSeguro",
+    "EstadoOportunidadSeguro",
+    "OfertaSeguro",
+    "OportunidadSeguro",
+    "SeguimientoOportunidadSeguro",
+    "RenovacionSeguro",
+    "ResultadoComercialSeguro",
+    "ResultadoRenovacionSeguro",
+    "validar_transicion_estado",
 ]
