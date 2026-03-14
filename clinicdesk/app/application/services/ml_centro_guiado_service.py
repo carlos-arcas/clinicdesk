@@ -35,6 +35,32 @@ class EstadoCentroML:
     archivos_exportados: tuple[str, ...]
     siguiente_accion: str
     pasos: tuple[PasoCentroML, ...]
+    recomendaciones: tuple[RecomendacionML, ...]
+    resumen_ejecutivo: ResumenEjecutivoML
+
+
+@dataclass(frozen=True, slots=True)
+class RecomendacionML:
+    codigo: str
+    prioridad: int
+    tipo: str
+    estado_accion: str
+    titulo_key: str
+    explicacion_key: str
+    motivo_key: str
+    beneficio_key: str
+    accion_key: str
+    cta_key: str
+    condicion_aplicabilidad: str
+
+
+@dataclass(frozen=True, slots=True)
+class ResumenEjecutivoML:
+    estado_actual_key: str
+    que_falta_key: str
+    siguiente_paso_key: str
+    riesgo_principal_key: str
+    utilidad_inmediata_key: str
 
 
 class CentroMLGuiadoService:
@@ -42,16 +68,28 @@ class CentroMLGuiadoService:
         self._facade = facade
 
     def construir_estado(self, export_dir: str) -> EstadoCentroML:
-        dataset_version = self._latest(self._facade.list_dataset_versions())
+        dataset_versions = self._facade.list_dataset_versions()
+        dataset_version = self._latest(dataset_versions)
         model_version = self._latest(self._facade.list_model_versions())
         dataset_meta = self._facade.load_dataset_metadata(dataset_version) if dataset_version else None
         model_meta = self._facade.load_model_metadata(model_version) if model_version else None
         compatible = self._is_compatible(dataset_version, model_meta)
         score_disponible = bool(dataset_version and model_version and compatible)
-        drift_disponible = bool(dataset_version and len(self._facade.list_dataset_versions()) > 1)
+        drift_disponible = bool(dataset_version and len(dataset_versions) > 1)
         archivos = self._listar_archivos_exportados(export_dir)
         export_disponible = score_disponible and bool(archivos)
         pasos = self._build_pasos(dataset_meta, score_disponible, drift_disponible, export_disponible)
+        recomendaciones = self._resolver_recomendaciones(
+            dataset_ok=dataset_meta is not None and dataset_meta.row_count > 0,
+            model_version=model_version,
+            compatible=compatible,
+            score_disponible=score_disponible,
+            drift_disponible=drift_disponible,
+            export_disponible=export_disponible,
+            archivos=archivos,
+            model_meta=model_meta,
+        )
+        resumen = self._build_resumen_ejecutivo(recomendaciones)
         return EstadoCentroML(
             dataset_version=dataset_version,
             model_version=model_version,
@@ -62,6 +100,86 @@ class CentroMLGuiadoService:
             archivos_exportados=archivos,
             siguiente_accion=self._resolver_siguiente_accion(pasos),
             pasos=pasos,
+            recomendaciones=recomendaciones,
+            resumen_ejecutivo=resumen,
+        )
+
+    def _resolver_recomendaciones(
+        self,
+        dataset_ok: bool,
+        model_version: str | None,
+        compatible: bool,
+        score_disponible: bool,
+        drift_disponible: bool,
+        export_disponible: bool,
+        archivos: tuple[str, ...],
+        model_meta: dict[str, object] | None,
+    ) -> tuple[RecomendacionML, ...]:
+        recomendaciones: list[RecomendacionML] = []
+        if not dataset_ok:
+            recomendaciones.append(self._recomendacion("dataset_faltante", 100, "bloqueo", "bloqueada"))
+            recomendaciones.append(self._recomendacion("seed_demo", 90, "recomendacion", "recomendada"))
+            return tuple(recomendaciones)
+        if model_version is None:
+            recomendaciones.append(self._recomendacion("entrenar_modelo", 95, "recomendacion", "recomendada"))
+            recomendaciones.append(self._recomendacion("baseline_referencia", 50, "informacion", "posible"))
+            return tuple(sorted(recomendaciones, key=lambda item: item.prioridad, reverse=True))
+        if not compatible:
+            recomendaciones.append(self._recomendacion("modelo_incompatible", 100, "bloqueo", "bloqueada"))
+            recomendaciones.append(self._recomendacion("reentrenar_compatible", 92, "recomendacion", "recomendada"))
+            return tuple(sorted(recomendaciones, key=lambda item: item.prioridad, reverse=True))
+        if score_disponible:
+            recomendaciones.append(self._recomendacion("ejecutar_scoring", 88, "recomendacion", "recomendada"))
+            recomendaciones.append(self._evaluar_calidad_modelo(model_meta))
+        if drift_disponible and "drift_export.csv" not in archivos:
+            recomendaciones.append(self._recomendacion("drift_pendiente", 76, "advertencia", "recomendada"))
+        elif not drift_disponible:
+            recomendaciones.append(self._recomendacion("drift_no_necesario", 35, "informacion", "innecesaria"))
+        if not export_disponible:
+            recomendaciones.append(self._recomendacion("exportar_resultados", 70, "recomendacion", "posible"))
+        else:
+            recomendaciones.append(self._recomendacion("export_ok", 40, "informacion", "innecesaria"))
+        return tuple(sorted(recomendaciones, key=lambda item: item.prioridad, reverse=True))
+
+    def _evaluar_calidad_modelo(self, model_meta: dict[str, object] | None) -> RecomendacionML:
+        if model_meta is None:
+            return self._recomendacion("evaluacion_pendiente", 65, "advertencia", "posible")
+        test_metrics = model_meta.get("test_metrics")
+        if not isinstance(test_metrics, dict):
+            return self._recomendacion("evaluacion_pendiente", 65, "advertencia", "posible")
+        accuracy = float(test_metrics.get("accuracy", 0.0))
+        precision = float(test_metrics.get("precision", 0.0))
+        recall = float(test_metrics.get("recall", 0.0))
+        if min(accuracy, precision, recall) < 0.55:
+            return self._recomendacion("resultados_debiles", 84, "advertencia", "recomendada")
+        return self._recomendacion("evaluacion_disponible", 58, "informacion", "posible")
+
+    def _recomendacion(self, codigo: str, prioridad: int, tipo: str, estado_accion: str) -> RecomendacionML:
+        base = f"demo_ml.asistente.{codigo}"
+        return RecomendacionML(
+            codigo=codigo,
+            prioridad=prioridad,
+            tipo=tipo,
+            estado_accion=estado_accion,
+            titulo_key=f"{base}.titulo",
+            explicacion_key=f"{base}.explicacion",
+            motivo_key=f"{base}.motivo",
+            beneficio_key=f"{base}.beneficio",
+            accion_key=f"{base}.accion",
+            cta_key=f"{base}.cta",
+            condicion_aplicabilidad=f"{base}.condicion",
+        )
+
+    def _build_resumen_ejecutivo(self, recomendaciones: tuple[RecomendacionML, ...]) -> ResumenEjecutivoML:
+        principal = recomendaciones[0] if recomendaciones else None
+        codigo = principal.codigo if principal else "sin_accion"
+        base = f"demo_ml.resumen.{codigo}"
+        return ResumenEjecutivoML(
+            estado_actual_key=f"{base}.estado_actual",
+            que_falta_key=f"{base}.que_falta",
+            siguiente_paso_key=f"{base}.siguiente_paso",
+            riesgo_principal_key=f"{base}.riesgo",
+            utilidad_inmediata_key=f"{base}.utilidad",
         )
 
     def _build_pasos(

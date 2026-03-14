@@ -169,6 +169,8 @@ class PageDemoML(QWidget):
         layout = QVBoxLayout(panel)
         layout.addWidget(self._build_kpi_panel())
         layout.addWidget(self._build_workflow_panel())
+        layout.addWidget(self._build_recomendaciones_panel())
+        layout.addWidget(self._build_resumen_ejecutivo_panel())
         layout.addWidget(self._build_advanced_panel())
         layout.addWidget(QLabel("Resumen de actividad"))
         self.txt_logs = QTextEdit()
@@ -259,6 +261,43 @@ class PageDemoML(QWidget):
         form.addRow(self.lbl_estado)
         form.addRow(self.lbl_recomendado)
         form.addRow(self.lbl_last)
+        return box
+
+    def _build_recomendaciones_panel(self) -> QWidget:
+        box = QGroupBox(self._t("demo_ml.asistente.panel.titulo"))
+        form = QFormLayout(box)
+        self.lbl_reco_principal = QLabel(self._t("demo_ml.asistente.panel.vacio"))
+        self.lbl_reco_principal.setWordWrap(True)
+        self.lbl_reco_secundarias = QLabel(self._t("demo_ml.asistente.panel.vacio"))
+        self.lbl_reco_secundarias.setWordWrap(True)
+        self.lbl_reco_advertencias = QLabel(self._t("demo_ml.asistente.panel.vacio"))
+        self.lbl_reco_advertencias.setWordWrap(True)
+        form.addRow(self._t("demo_ml.asistente.panel.principal"), self.lbl_reco_principal)
+        form.addRow(self._t("demo_ml.asistente.panel.secundarias"), self.lbl_reco_secundarias)
+        form.addRow(self._t("demo_ml.asistente.panel.advertencias"), self.lbl_reco_advertencias)
+        return box
+
+    def _build_resumen_ejecutivo_panel(self) -> QWidget:
+        box = QGroupBox(self._t("demo_ml.resumen.panel.titulo"))
+        form = QFormLayout(box)
+        self.lbl_resumen_estado = QLabel()
+        self.lbl_resumen_falta = QLabel()
+        self.lbl_resumen_paso = QLabel()
+        self.lbl_resumen_riesgo = QLabel()
+        self.lbl_resumen_utilidad = QLabel()
+        for lbl in [
+            self.lbl_resumen_estado,
+            self.lbl_resumen_falta,
+            self.lbl_resumen_paso,
+            self.lbl_resumen_riesgo,
+            self.lbl_resumen_utilidad,
+        ]:
+            lbl.setWordWrap(True)
+        form.addRow(self._t("demo_ml.resumen.estado_actual"), self.lbl_resumen_estado)
+        form.addRow(self._t("demo_ml.resumen.que_falta"), self.lbl_resumen_falta)
+        form.addRow(self._t("demo_ml.resumen.siguiente_paso"), self.lbl_resumen_paso)
+        form.addRow(self._t("demo_ml.resumen.riesgo"), self.lbl_resumen_riesgo)
+        form.addRow(self._t("demo_ml.resumen.utilidad"), self.lbl_resumen_utilidad)
         return box
 
     def _build_advanced_panel(self) -> QWidget:
@@ -547,7 +586,39 @@ class PageDemoML(QWidget):
         self.btn_open_export.setEnabled(bool(estado.archivos_exportados))
         self.lbl_estado.setText(self._render_estado(estado))
         self.lbl_recomendado.setText(self._render_siguiente_paso(estado.siguiente_accion))
+        self._render_recomendaciones(estado.recomendaciones)
+        self._render_resumen_ejecutivo(estado.resumen_ejecutivo)
         self._refresh_export_files({name: name for name in estado.archivos_exportados}) if estado.archivos_exportados else None
+
+    def _render_recomendaciones(self, recomendaciones) -> None:
+        if not recomendaciones:
+            texto_vacio = self._t("demo_ml.asistente.panel.vacio")
+            self.lbl_reco_principal.setText(texto_vacio)
+            self.lbl_reco_secundarias.setText(texto_vacio)
+            self.lbl_reco_advertencias.setText(texto_vacio)
+            return
+        principal = recomendaciones[0]
+        secundarios = [rec for rec in recomendaciones[1:] if rec.tipo != "bloqueo"]
+        advertencias = [rec for rec in recomendaciones if rec.tipo in {"bloqueo", "advertencia"}]
+        self.lbl_reco_principal.setText(self._texto_recomendacion(principal))
+        self.lbl_reco_secundarias.setText("\n".join(self._texto_recomendacion(rec) for rec in secundarios[:3]))
+        self.lbl_reco_advertencias.setText("\n".join(self._texto_recomendacion(rec) for rec in advertencias[:3]))
+
+    def _texto_recomendacion(self, recomendacion) -> str:
+        return (
+            f"• {self._t(recomendacion.titulo_key)}\n"
+            f"{self._t(recomendacion.explicacion_key)}\n"
+            f"{self._t(recomendacion.motivo_key)}\n"
+            f"{self._t(recomendacion.beneficio_key)}\n"
+            f"{self._t(recomendacion.accion_key)} · {self._t(recomendacion.cta_key)}"
+        )
+
+    def _render_resumen_ejecutivo(self, resumen) -> None:
+        self.lbl_resumen_estado.setText(self._t(resumen.estado_actual_key))
+        self.lbl_resumen_falta.setText(self._t(resumen.que_falta_key))
+        self.lbl_resumen_paso.setText(self._t(resumen.siguiente_paso_key))
+        self.lbl_resumen_riesgo.setText(self._t(resumen.riesgo_principal_key))
+        self.lbl_resumen_utilidad.setText(self._t(resumen.utilidad_inmediata_key))
 
     def _paso_habilitado(self, estado, clave: str) -> bool:
         for paso in estado.pasos:
