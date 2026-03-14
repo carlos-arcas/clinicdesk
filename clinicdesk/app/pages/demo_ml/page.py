@@ -38,6 +38,13 @@ from clinicdesk.app.application.ml.interpretacion_ml_humana import (
     interpretar_entrenamiento,
     interpretar_scoring,
 )
+from clinicdesk.app.application.ml.lecturas_operativas_ml import (
+    LecturaOperativaML,
+    construir_lectura_operativa_drift,
+    construir_lectura_operativa_exportacion,
+    construir_lectura_operativa_metricas,
+    construir_lectura_operativa_scoring,
+)
 from clinicdesk.app.application.services.analytics_workflow_service import (
     AnalyticsWorkflowConfig,
     AnalyticsWorkflowResult,
@@ -181,6 +188,7 @@ class PageDemoML(QWidget):
         layout.addWidget(self._build_kpi_panel())
         layout.addWidget(self._build_workflow_panel())
         layout.addWidget(self._build_recomendaciones_panel())
+        layout.addWidget(self._build_lectura_operativa_panel())
         layout.addWidget(self._build_playbook_panel())
         layout.addWidget(self._build_resumen_ejecutivo_panel())
         layout.addWidget(self._build_advanced_panel())
@@ -289,6 +297,30 @@ class PageDemoML(QWidget):
         form.addRow(self._t("demo_ml.asistente.panel.advertencias"), self.lbl_reco_advertencias)
         return box
 
+
+
+    def _build_lectura_operativa_panel(self) -> QWidget:
+        box = QGroupBox(self._t("demo_ml.operativa.panel.titulo"))
+        form = QFormLayout(box)
+        self.lbl_operativa_semaforo = QLabel(self._t("demo_ml.operativa.panel.vacio"))
+        self.lbl_operativa_significado = QLabel(self._t("demo_ml.operativa.panel.vacio"))
+        self.lbl_operativa_utilidad = QLabel(self._t("demo_ml.operativa.panel.vacio"))
+        self.lbl_operativa_accion = QLabel(self._t("demo_ml.operativa.panel.vacio"))
+        self.lbl_operativa_no_concluir = QLabel(self._t("demo_ml.operativa.panel.vacio"))
+        for widget in (
+            self.lbl_operativa_semaforo,
+            self.lbl_operativa_significado,
+            self.lbl_operativa_utilidad,
+            self.lbl_operativa_accion,
+            self.lbl_operativa_no_concluir,
+        ):
+            widget.setWordWrap(True)
+        form.addRow(self._t("demo_ml.operativa.panel.semaforo"), self.lbl_operativa_semaforo)
+        form.addRow(self._t("demo_ml.operativa.panel.que_dice"), self.lbl_operativa_significado)
+        form.addRow(self._t("demo_ml.operativa.panel.para_que"), self.lbl_operativa_utilidad)
+        form.addRow(self._t("demo_ml.operativa.panel.que_haria"), self.lbl_operativa_accion)
+        form.addRow(self._t("demo_ml.operativa.panel.que_no_concluir"), self.lbl_operativa_no_concluir)
+        return box
 
     def _build_playbook_panel(self) -> QWidget:
         box = QGroupBox(self._t("demo_ml.playbook.panel.titulo"))
@@ -531,6 +563,14 @@ class PageDemoML(QWidget):
         )
         self._log(f"{texto.titulo}: {texto.significado}")
         self._log(f"Siguiente paso: {texto.recomendacion}")
+        self._render_lectura_operativa(
+            construir_lectura_operativa_metricas(
+                train_response.test_metrics.accuracy,
+                train_response.test_metrics.precision,
+                train_response.test_metrics.recall,
+                train_response.test_row_count,
+            )
+        )
         self._refresh_guided_state()
 
     def _on_score_done(self, response: Any) -> None:
@@ -541,6 +581,7 @@ class PageDemoML(QWidget):
         texto = interpretar_scoring(response.total, riesgo_alto)
         self._log(f"{texto.titulo}: {texto.significado}")
         self._log(f"Qué hacer ahora: {texto.recomendacion}")
+        self._render_lectura_operativa(construir_lectura_operativa_scoring(response.total, riesgo_alto))
         self._refresh_guided_state()
 
     def _on_drift_done(self, response: Any) -> None:
@@ -550,6 +591,7 @@ class PageDemoML(QWidget):
         texto = interpretar_drift(response)
         self._log(f"{texto.titulo}: {texto.significado}")
         self._log(f"Acción recomendada: {texto.recomendacion}")
+        self._render_lectura_operativa(construir_lectura_operativa_drift(response))
         self._refresh_guided_state()
 
     def _on_playbook_action_done(self, resultado: ResultadoPasoPlaybook) -> None:
@@ -573,6 +615,7 @@ class PageDemoML(QWidget):
             for index, step in enumerate(self._STEPS):
                 dialog.update(index, "done", step)
         self._log(result.summary_text)
+        self._render_lectura_operativa(construir_lectura_operativa_exportacion(len(result.export_paths)))
         self._refresh_guided_state()
 
     def _on_task_error(self, message: str) -> None:
@@ -807,6 +850,28 @@ class PageDemoML(QWidget):
         self.card_risk.set_data("—", "Pendiente", "neutral")
         self.card_threshold.set_data("—", "Disponible tras crear modelo", "neutral")
         self.card_drift.set_data("—", "Ejecute detección de cambios", "neutral")
+        self._reset_lectura_operativa_panel()
+
+    def _reset_lectura_operativa_panel(self) -> None:
+        texto = self._t("demo_ml.operativa.panel.vacio")
+        self.lbl_operativa_semaforo.setText(texto)
+        self.lbl_operativa_significado.setText(texto)
+        self.lbl_operativa_utilidad.setText(texto)
+        self.lbl_operativa_accion.setText(texto)
+        self.lbl_operativa_no_concluir.setText(texto)
+
+    def _render_lectura_operativa(self, lectura: LecturaOperativaML) -> None:
+        semaforo = self._t(f"demo_ml.operativa.semaforo.{lectura.semaforo.value}")
+        self.lbl_operativa_semaforo.setText(
+            self._t("demo_ml.operativa.panel.semaforo_valor").format(
+                semaforo=semaforo,
+                confianza=lectura.nivel_confianza,
+            )
+        )
+        self.lbl_operativa_significado.setText(self._t(lectura.resumen_humano.clave).format(**lectura.resumen_humano.params))
+        self.lbl_operativa_utilidad.setText(self._t(lectura.utilidad.descripcion.clave))
+        self.lbl_operativa_accion.setText(self._t(lectura.accion_sugerida.descripcion.clave))
+        self.lbl_operativa_no_concluir.setText(self._t(lectura.cuando_no_concluir_fuerte.clave))
 
     def _update_score_cards(self, response: Any) -> None:
         labels = Counter(item.label for item in response.items)

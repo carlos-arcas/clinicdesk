@@ -3,6 +3,7 @@ from __future__ import annotations
 from clinicdesk.app.i18n_catalogos.core import I18N_CATALOGO_CORE
 from clinicdesk.app.i18n_catalogos.pred import I18N_CATALOGO_PREDICCION
 from clinicdesk.app.i18n_catalogos.ux import I18N_CATALOGO_UX
+from clinicdesk.app.i18n_ml_operativa_catalog import ML_OPERATIVA_TRANSLATIONS
 from clinicdesk.app.i18n_prediccion_recordatorio_catalog import PREDICCION_RECORDATORIO_TRANSLATIONS
 from clinicdesk.app.i18n_prediccion_resultados_catalog import PREDICCION_RESULTADOS_TRANSLATIONS
 from clinicdesk.app.i18n_recordatorio_catalog import RECORDATORIO_TRANSLATIONS
@@ -27,4 +28,5 @@ _TRANSLATIONS = _merge_catalogos_sin_duplicados(
     PREDICCION_RESULTADOS_TRANSLATIONS,
     RECORDATORIO_TRANSLATIONS,
     PREDICCION_RECORDATORIO_TRANSLATIONS,
+    ML_OPERATIVA_TRANSLATIONS,
 )
