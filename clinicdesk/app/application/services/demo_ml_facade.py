@@ -18,6 +18,11 @@ from clinicdesk.app.application.seguridad_salida import (
     serializar_persona_demo_ml,
 )
 from clinicdesk.app.application.services.feature_store_service import FeatureStoreService
+from clinicdesk.app.application.services.seguimiento_operativo_ml_service import (
+    AccionTomadaML,
+    ResultadoGestionItemML,
+    SeguimientoOperativoMLService,
+)
 from clinicdesk.app.application.ports.model_store_port import ModelStorePort
 from clinicdesk.app.application.usecases.drift_citas_features import (
     DriftCitasFeatures,
@@ -114,6 +119,7 @@ class DemoMLFacade:
         score_uc: ScoreCitas,
         drift_uc: DriftCitasFeatures,
         model_store: ModelStorePort | None = None,
+        seguimiento_operativo_service: SeguimientoOperativoMLService | None = None,
     ) -> None:
         self._read_gateway = read_gateway
         self._seed_demo_uc = seed_demo_uc
@@ -123,6 +129,7 @@ class DemoMLFacade:
         self._score_uc = score_uc
         self._drift_uc = drift_uc
         self._model_store = model_store
+        self._seguimiento_operativo_service = seguimiento_operativo_service
         self._export_features = ExportFeaturesCSV()
         self._export_metrics = ExportModelMetricsCSV()
         self._export_scoring = ExportScoringCSV()
@@ -183,6 +190,16 @@ class DemoMLFacade:
 
     def drift(self, from_version: str, to_version: str) -> DriftReport:
         return self._drift_uc.execute(DriftCitasFeaturesRequest(from_version=from_version, to_version=to_version))
+
+    def registrar_accion_operativa_ml(self, request: AccionTomadaML) -> ResultadoGestionItemML | None:
+        if self._seguimiento_operativo_service is None:
+            return None
+        return self._seguimiento_operativo_service.registrar_accion(request)
+
+    def obtener_resultado_operativo_ml(self, cita_id: str) -> ResultadoGestionItemML | None:
+        if self._seguimiento_operativo_service is None:
+            return None
+        return self._seguimiento_operativo_service.obtener_resultado(cita_id)
 
     def export_features(self, dataset_version: str, output_path: str | Path) -> str:
         features = self._feature_store_service.load_citas_features(dataset_version)

@@ -9,6 +9,7 @@ from clinicdesk.app.application.pipelines.build_citas_dataset import BuildCitasD
 from clinicdesk.app.application.security import AutorizadorAcciones, UserContext
 from clinicdesk.app.application.services.demo_ml_facade import DemoMLFacade
 from clinicdesk.app.application.services.feature_store_service import FeatureStoreService
+from clinicdesk.app.application.services.seguimiento_operativo_ml_service import SeguimientoOperativoMLService
 from clinicdesk.app.application.usecases.drift_citas_features import DriftCitasFeatures
 from clinicdesk.app.application.usecases.score_citas import ScoreCitas
 from clinicdesk.app.application.usecases.seed_demo_data import SeedDemoData
@@ -22,6 +23,7 @@ from clinicdesk.app.infrastructure.sqlite.demo_ml_read_gateway import SqliteDemo
 from clinicdesk.app.infrastructure.sqlite.repos_citas import CitasRepository
 from clinicdesk.app.infrastructure.sqlite.repos_auditoria_eventos import RepositorioAuditoriaEventosSqlite
 from clinicdesk.app.infrastructure.sqlite.repos_incidencias import IncidenciasRepository
+from clinicdesk.app.infrastructure.sqlite.repos_seguimiento_operativo_ml import RepositorioSeguimientoOperativoMLSqlite
 
 
 def build_demo_ml_facade(
@@ -38,6 +40,7 @@ def build_demo_ml_facade(
     feature_service = FeatureStoreService(LocalJsonFeatureStore(feature_store_path))
     model_store = LocalJsonModelStore(model_store_path)
     dataset_uc = BuildCitasDataset(SqliteCitasReadAdapter(citas_repo, incidencias_repo))
+    seguimiento_operativo = SeguimientoOperativoMLService(RepositorioSeguimientoOperativoMLSqlite(connection))
     return DemoMLFacade(
         read_gateway=SqliteDemoMLReadGateway(connection),
         seed_demo_uc=SeedDemoData(
@@ -52,6 +55,7 @@ def build_demo_ml_facade(
         score_uc=ScoreCitas(feature_service, BaselineCitasPredictor(), model_store=model_store),
         drift_uc=DriftCitasFeatures(feature_service),
         model_store=model_store,
+        seguimiento_operativo_service=seguimiento_operativo,
     )
 
 
