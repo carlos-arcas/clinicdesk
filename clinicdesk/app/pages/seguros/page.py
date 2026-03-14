@@ -20,7 +20,17 @@ from clinicdesk.app.application.seguros import (
     SolicitudAnalisisMigracionSeguro,
     SolicitudNuevaOportunidadSeguro,
 )
-from clinicdesk.app.domain.seguros import EstadoOportunidadSeguro, ResultadoComercialSeguro
+from clinicdesk.app.domain.seguros import (
+    EstadoOportunidadSeguro,
+    FriccionMigracionSeguro,
+    MotivacionCompraSeguro,
+    NecesidadPrincipalSeguro,
+    ObjecionComercialSeguro,
+    OrigenClienteSeguro,
+    ResultadoComercialSeguro,
+    SegmentoClienteSeguro,
+    SensibilidadPrecioSeguro,
+)
 from clinicdesk.app.i18n import I18nManager
 from clinicdesk.app.infrastructure.seguros.repositorio_comercial_sqlite import RepositorioComercialSeguroSqlite
 from clinicdesk.app.infrastructure.sqlite_db import obtener_conexion
@@ -182,7 +192,13 @@ class PageSeguros(QWidget):
                 id_oportunidad=id_oportunidad,
                 id_candidato=f"cand-{id_oportunidad}",
                 id_paciente="paciente-demo",
-                segmento="migracion",
+                segmento_cliente=SegmentoClienteSeguro.ASEGURADO_EXTERNO_MIGRAR,
+                origen_cliente=OrigenClienteSeguro.MOSTRADOR_CLINICA,
+                necesidad_principal=NecesidadPrincipalSeguro.AHORRO_COSTE,
+                motivaciones=(MotivacionCompraSeguro.MEJOR_RELACION_CALIDAD_PRECIO,),
+                objecion_principal=ObjecionComercialSeguro.PRECIO_PERCIBIDO_ALTO,
+                sensibilidad_precio=SensibilidadPrecioSeguro.MEDIA,
+                friccion_migracion=FriccionMigracionSeguro.MEDIA,
                 plan_origen_id=str(self.cmb_origen.currentData()),
                 plan_destino_id=str(self.cmb_destino.currentData()),
             )
@@ -192,6 +208,7 @@ class PageSeguros(QWidget):
             self._i18n.t("seguros.comercial.estado").format(
                 estado=oportunidad.estado_actual.value,
                 motor=oportunidad.clasificacion_motor,
+                fit=oportunidad.evaluacion_fit.encaje_plan.value if oportunidad.evaluacion_fit else "-",
             )
         )
 
@@ -221,6 +238,7 @@ class PageSeguros(QWidget):
             self._i18n.t("seguros.comercial.estado").format(
                 estado=oportunidad.estado_actual.value,
                 motor=oportunidad.clasificacion_motor,
+                fit=oportunidad.evaluacion_fit.encaje_plan.value if oportunidad.evaluacion_fit else "-",
             )
         )
 

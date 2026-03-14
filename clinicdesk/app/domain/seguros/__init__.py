@@ -10,6 +10,19 @@ from clinicdesk.app.domain.seguros.comercial import (
     validar_transicion_estado,
 )
 
+from clinicdesk.app.domain.seguros.segmentacion import (
+    EncajePlanSeguro,
+    EvaluacionFitComercialSeguro,
+    FriccionMigracionSeguro,
+    MotivacionCompraSeguro,
+    NecesidadPrincipalSeguro,
+    ObjecionComercialSeguro,
+    OrigenClienteSeguro,
+    PerfilComercialSeguro,
+    SegmentoClienteSeguro,
+    SensibilidadPrecioSeguro,
+)
+
 from clinicdesk.app.domain.seguros.modelos import (
     CarenciaSeguro,
     CoberturaSeguro,
@@ -47,4 +60,14 @@ __all__ = [
     "ResultadoComercialSeguro",
     "ResultadoRenovacionSeguro",
     "validar_transicion_estado",
+    "SegmentoClienteSeguro",
+    "OrigenClienteSeguro",
+    "NecesidadPrincipalSeguro",
+    "MotivacionCompraSeguro",
+    "ObjecionComercialSeguro",
+    "SensibilidadPrecioSeguro",
+    "FriccionMigracionSeguro",
+    "EncajePlanSeguro",
+    "PerfilComercialSeguro",
+    "EvaluacionFitComercialSeguro",
 ]

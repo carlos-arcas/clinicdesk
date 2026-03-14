@@ -15,6 +15,19 @@ def inicializar_schema_comercial_seguro(connection: sqlite3.Connection) -> None:
             plan_destino_id TEXT NOT NULL,
             estado_actual TEXT NOT NULL,
             clasificacion_motor TEXT NOT NULL,
+            segmento_cliente TEXT,
+            origen_cliente TEXT,
+            necesidad_principal TEXT,
+            motivaciones_json TEXT,
+            objecion_principal TEXT,
+            sensibilidad_precio TEXT,
+            friccion_migracion TEXT,
+            fit_comercial TEXT,
+            fit_motivo TEXT,
+            fit_riesgos_json TEXT,
+            fit_argumentos_json TEXT,
+            fit_conviene_insistir INTEGER,
+            fit_revision_humana INTEGER,
             resultado_comercial TEXT,
             creado_en TEXT NOT NULL,
             actualizado_en TEXT NOT NULL
@@ -59,6 +72,10 @@ def inicializar_schema_comercial_seguro(connection: sqlite3.Connection) -> None:
         CREATE INDEX IF NOT EXISTS idx_seguro_oportunidades_estado ON seguro_oportunidades (estado_actual);
         CREATE INDEX IF NOT EXISTS idx_seguro_oportunidades_plan_destino ON seguro_oportunidades (plan_destino_id);
         CREATE INDEX IF NOT EXISTS idx_seguro_oportunidades_clasificacion ON seguro_oportunidades (clasificacion_motor);
+        CREATE INDEX IF NOT EXISTS idx_seguro_oportunidades_segmento ON seguro_oportunidades (segmento_cliente);
+        CREATE INDEX IF NOT EXISTS idx_seguro_oportunidades_fit ON seguro_oportunidades (fit_comercial);
+        CREATE INDEX IF NOT EXISTS idx_seguro_oportunidades_objecion ON seguro_oportunidades (objecion_principal);
+        CREATE INDEX IF NOT EXISTS idx_seguro_oportunidades_sensibilidad ON seguro_oportunidades (sensibilidad_precio);
         CREATE INDEX IF NOT EXISTS idx_seguro_oportunidades_actualizado ON seguro_oportunidades (actualizado_en);
         CREATE INDEX IF NOT EXISTS idx_seguro_seguimientos_oportunidad_fecha
             ON seguro_seguimientos (id_oportunidad, fecha_registro DESC);

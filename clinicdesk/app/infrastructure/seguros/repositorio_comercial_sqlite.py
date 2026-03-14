@@ -34,9 +34,11 @@ class RepositorioComercialSeguroSqlite:
             """
             INSERT INTO seguro_oportunidades (
                 id_oportunidad, id_candidato, id_paciente, segmento, plan_origen_id,
-                plan_destino_id, estado_actual, clasificacion_motor, resultado_comercial,
-                creado_en, actualizado_en
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                plan_destino_id, estado_actual, clasificacion_motor, segmento_cliente, origen_cliente,
+                necesidad_principal, motivaciones_json, objecion_principal, sensibilidad_precio, friccion_migracion,
+                fit_comercial, fit_motivo, fit_riesgos_json, fit_argumentos_json, fit_conviene_insistir,
+                fit_revision_humana, resultado_comercial, creado_en, actualizado_en
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(id_oportunidad) DO UPDATE SET
                 id_candidato = excluded.id_candidato,
                 id_paciente = excluded.id_paciente,
@@ -45,6 +47,19 @@ class RepositorioComercialSeguroSqlite:
                 plan_destino_id = excluded.plan_destino_id,
                 estado_actual = excluded.estado_actual,
                 clasificacion_motor = excluded.clasificacion_motor,
+                segmento_cliente = excluded.segmento_cliente,
+                origen_cliente = excluded.origen_cliente,
+                necesidad_principal = excluded.necesidad_principal,
+                motivaciones_json = excluded.motivaciones_json,
+                objecion_principal = excluded.objecion_principal,
+                sensibilidad_precio = excluded.sensibilidad_precio,
+                friccion_migracion = excluded.friccion_migracion,
+                fit_comercial = excluded.fit_comercial,
+                fit_motivo = excluded.fit_motivo,
+                fit_riesgos_json = excluded.fit_riesgos_json,
+                fit_argumentos_json = excluded.fit_argumentos_json,
+                fit_conviene_insistir = excluded.fit_conviene_insistir,
+                fit_revision_humana = excluded.fit_revision_humana,
                 resultado_comercial = excluded.resultado_comercial,
                 actualizado_en = excluded.actualizado_en
             """,
@@ -57,6 +72,21 @@ class RepositorioComercialSeguroSqlite:
                 oportunidad.plan_destino_id,
                 oportunidad.estado_actual.value,
                 oportunidad.clasificacion_motor,
+                oportunidad.perfil_comercial.segmento_cliente.value if oportunidad.perfil_comercial else None,
+                oportunidad.perfil_comercial.origen_cliente.value if oportunidad.perfil_comercial else None,
+                oportunidad.perfil_comercial.necesidad_principal.value if oportunidad.perfil_comercial else None,
+                json.dumps([item.value for item in oportunidad.perfil_comercial.motivaciones])
+                if oportunidad.perfil_comercial
+                else None,
+                oportunidad.perfil_comercial.objecion_principal.value if oportunidad.perfil_comercial else None,
+                oportunidad.perfil_comercial.sensibilidad_precio.value if oportunidad.perfil_comercial else None,
+                oportunidad.perfil_comercial.friccion_migracion.value if oportunidad.perfil_comercial else None,
+                oportunidad.evaluacion_fit.encaje_plan.value if oportunidad.evaluacion_fit else None,
+                oportunidad.evaluacion_fit.motivo_principal if oportunidad.evaluacion_fit else None,
+                json.dumps(oportunidad.evaluacion_fit.riesgos_friccion) if oportunidad.evaluacion_fit else None,
+                json.dumps(oportunidad.evaluacion_fit.argumentos_valor) if oportunidad.evaluacion_fit else None,
+                int(oportunidad.evaluacion_fit.conviene_insistir) if oportunidad.evaluacion_fit else None,
+                int(oportunidad.evaluacion_fit.revision_humana_recomendada) if oportunidad.evaluacion_fit else None,
                 oportunidad.resultado_comercial.value if oportunidad.resultado_comercial else None,
                 creado_en,
                 now_iso,
@@ -173,6 +203,8 @@ class RepositorioComercialSeguroSqlite:
         rows = self._connection.execute(
             """
             SELECT o.id_oportunidad, o.plan_origen_id, o.plan_destino_id, o.clasificacion_motor, o.estado_actual,
+                   o.segmento_cliente, o.origen_cliente, o.necesidad_principal, o.objecion_principal,
+                   o.sensibilidad_precio, o.friccion_migracion, o.fit_comercial, o.fit_motivo,
                    o.resultado_comercial, o.creado_en, o.actualizado_en,
                    CAST((julianday(o.actualizado_en) - julianday(o.creado_en)) AS INTEGER) AS dias_ciclo,
                    (SELECT COUNT(*) FROM seguro_seguimientos s WHERE s.id_oportunidad = o.id_oportunidad) AS total_seguimientos,
@@ -184,6 +216,45 @@ class RepositorioComercialSeguroSqlite:
             (ResultadoRenovacionSeguro.RENOVADA.value,),
         ).fetchall()
         return [dict(row) for row in rows]
+
+    def listar_oportunidades_por_segmento(self) -> list[dict[str, object]]:
+        rows = self._connection.execute(
+            """
+            SELECT COALESCE(segmento_cliente, 'SIN_SEGMENTO') AS segmento_cliente, COUNT(*) AS total
+            FROM seguro_oportunidades
+            GROUP BY COALESCE(segmento_cliente, 'SIN_SEGMENTO')
+            ORDER BY total DESC
+            """
+        ).fetchall()
+        return [dict(row) for row in rows]
+
+    def listar_oportunidades_por_fit(self) -> list[dict[str, object]]:
+        rows = self._connection.execute(
+            """
+            SELECT COALESCE(fit_comercial, 'SIN_FIT') AS fit_comercial, COUNT(*) AS total
+            FROM seguro_oportunidades
+            GROUP BY COALESCE(fit_comercial, 'SIN_FIT')
+            ORDER BY total DESC
+            """
+        ).fetchall()
+        return [dict(row) for row in rows]
+
+    def listar_oportunidades_por_objecion(self) -> list[dict[str, object]]:
+        rows = self._connection.execute(
+            """
+            SELECT COALESCE(objecion_principal, 'SIN_OBJECION') AS objecion_principal, COUNT(*) AS total
+            FROM seguro_oportunidades
+            GROUP BY COALESCE(objecion_principal, 'SIN_OBJECION')
+            ORDER BY total DESC
+            """
+        ).fetchall()
+        return [dict(row) for row in rows]
+
+    def listar_oportunidades_sensibles_precio(self) -> tuple[OportunidadSeguro, ...]:
+        rows = self._connection.execute(
+            "SELECT * FROM seguro_oportunidades WHERE sensibilidad_precio = 'ALTA' ORDER BY actualizado_en DESC"
+        ).fetchall()
+        return tuple(row_a_oportunidad(row, self.listar_historial_oportunidad(row["id_oportunidad"])) for row in rows)
 
     def _reemplazar_seguimientos(self, oportunidad: OportunidadSeguro) -> None:
         self._connection.execute(

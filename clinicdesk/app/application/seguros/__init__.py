@@ -1,3 +1,4 @@
+from clinicdesk.app.application.seguros.fit_comercial import MotorFitComercialSeguro, SolicitudFitComercialSeguro
 from clinicdesk.app.application.seguros.catalogo_planes import CatalogoPlanesSeguro
 from clinicdesk.app.application.seguros.comercial import (
     FiltroCarteraSeguro,
@@ -18,4 +19,6 @@ __all__ = [
     "GestionComercialSeguroService",
     "SolicitudNuevaOportunidadSeguro",
     "FiltroCarteraSeguro",
+    "MotorFitComercialSeguro",
+    "SolicitudFitComercialSeguro",
 ]

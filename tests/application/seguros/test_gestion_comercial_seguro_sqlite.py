@@ -9,7 +9,17 @@ from clinicdesk.app.application.seguros import (
     GestionComercialSeguroService,
     SolicitudNuevaOportunidadSeguro,
 )
-from clinicdesk.app.domain.seguros import EstadoOportunidadSeguro, ResultadoComercialSeguro
+from clinicdesk.app.domain.seguros import (
+    EstadoOportunidadSeguro,
+    FriccionMigracionSeguro,
+    MotivacionCompraSeguro,
+    NecesidadPrincipalSeguro,
+    ObjecionComercialSeguro,
+    OrigenClienteSeguro,
+    ResultadoComercialSeguro,
+    SegmentoClienteSeguro,
+    SensibilidadPrecioSeguro,
+)
 from clinicdesk.app.infrastructure.seguros.repositorio_comercial_sqlite import RepositorioComercialSeguroSqlite
 
 
@@ -24,7 +34,18 @@ def test_flujo_sqlite_cierre_y_cartera_filtrada() -> None:
     servicio = _servicio()
     servicio.abrir_oportunidad(
         SolicitudNuevaOportunidadSeguro(
-            "opp-sql", "cand-sql", "pac-sql", "migracion", "externo_plus", "clinica_integral"
+            "opp-sql",
+            "cand-sql",
+            "pac-sql",
+            SegmentoClienteSeguro.ASEGURADO_EXTERNO_MIGRAR,
+            OrigenClienteSeguro.CALL_CENTER,
+            NecesidadPrincipalSeguro.AHORRO_COSTE,
+            (MotivacionCompraSeguro.MEJOR_RELACION_CALIDAD_PRECIO,),
+            ObjecionComercialSeguro.PRECIO_PERCIBIDO_ALTO,
+            SensibilidadPrecioSeguro.ALTA,
+            FriccionMigracionSeguro.MEDIA,
+            "externo_plus",
+            "clinica_integral",
         )
     )
     servicio.preparar_oferta("opp-sql", ("seguimiento semanal",))
