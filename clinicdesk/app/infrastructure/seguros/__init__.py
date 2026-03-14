@@ -1,3 +1,4 @@
 from clinicdesk.app.infrastructure.seguros.repositorio_comercial_memoria import RepositorioComercialSeguroMemoria
+from clinicdesk.app.infrastructure.seguros.repositorio_comercial_sqlite import RepositorioComercialSeguroSqlite
 
-__all__ = ["RepositorioComercialSeguroMemoria"]
+__all__ = ["RepositorioComercialSeguroMemoria", "RepositorioComercialSeguroSqlite"]

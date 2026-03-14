@@ -15,13 +15,15 @@ from PySide6.QtWidgets import (
 from clinicdesk.app.application.seguros import (
     AnalizarMigracionSeguroUseCase,
     CatalogoPlanesSeguro,
+    FiltroCarteraSeguro,
     GestionComercialSeguroService,
     SolicitudAnalisisMigracionSeguro,
     SolicitudNuevaOportunidadSeguro,
 )
 from clinicdesk.app.domain.seguros import EstadoOportunidadSeguro, ResultadoComercialSeguro
 from clinicdesk.app.i18n import I18nManager
-from clinicdesk.app.infrastructure.seguros.repositorio_comercial_memoria import RepositorioComercialSeguroMemoria
+from clinicdesk.app.infrastructure.seguros.repositorio_comercial_sqlite import RepositorioComercialSeguroSqlite
+from clinicdesk.app.infrastructure.sqlite_db import obtener_conexion
 
 
 class PageSeguros(QWidget):
@@ -30,7 +32,8 @@ class PageSeguros(QWidget):
         self._i18n = i18n
         self._catalogo = CatalogoPlanesSeguro()
         self._use_case = AnalizarMigracionSeguroUseCase(self._catalogo)
-        self._gestion = GestionComercialSeguroService(self._use_case, RepositorioComercialSeguroMemoria())
+        self._conexion = obtener_conexion()
+        self._gestion = GestionComercialSeguroService(self._use_case, RepositorioComercialSeguroSqlite(self._conexion))
         self._id_oportunidad_activa: str | None = None
         self._build_ui()
         self._popular_planes()
@@ -89,6 +92,10 @@ class PageSeguros(QWidget):
 
         self.lbl_renovaciones = QLabel("-")
         self.lbl_renovaciones.setWordWrap(True)
+        self.btn_refrescar_cartera = QPushButton()
+        self.btn_refrescar_cartera.clicked.connect(self._refrescar_cartera)
+        self.lbl_cartera = QLabel("-")
+        self.lbl_cartera.setWordWrap(True)
 
         layout.addWidget(self.box_filtros)
         layout.addLayout(acciones)
@@ -97,6 +104,8 @@ class PageSeguros(QWidget):
         layout.addWidget(self.lbl_estado_comercial)
         layout.addWidget(self.box_seguimiento)
         layout.addWidget(self.lbl_renovaciones)
+        layout.addWidget(self.btn_refrescar_cartera)
+        layout.addWidget(self.lbl_cartera)
         layout.addStretch(1)
 
     def _popular_planes(self) -> None:
@@ -137,6 +146,7 @@ class PageSeguros(QWidget):
         form_seg.labelForField(self.cmb_cierre).setText(self._i18n.t("seguros.seguimiento.cierre"))
         self.btn_registrar_seguimiento.setText(self._i18n.t("seguros.accion.registrar_seguimiento"))
         self.btn_cerrar.setText(self._i18n.t("seguros.accion.cerrar_oportunidad"))
+        self.btn_refrescar_cartera.setText(self._i18n.t("seguros.accion.refrescar_cartera"))
         self._popular_opciones_impagos()
         self._popular_seguimiento()
 
@@ -227,4 +237,20 @@ class PageSeguros(QWidget):
         )
         self.lbl_renovaciones.setText(
             self._i18n.t("seguros.comercial.renovaciones_pendientes").format(cantidad=len(renovaciones))
+        )
+        self._refrescar_cartera()
+
+    def _refrescar_cartera(self) -> None:
+        abiertas = self._gestion.listar_cartera()
+        convertidas = self._gestion.listar_oportunidades_por_estado(EstadoOportunidadSeguro.PENDIENTE_RENOVACION)
+        seguimiento_reciente = self._gestion.listar_seguimiento_reciente(3)
+        pendientes = self._gestion.listar_cartera(FiltroCarteraSeguro(solo_renovacion_pendiente=True))
+        ultimo = seguimiento_reciente[0].accion_comercial if seguimiento_reciente else "-"
+        self.lbl_cartera.setText(
+            self._i18n.t("seguros.cartera.resumen").format(
+                total=len(abiertas),
+                pendientes=len(pendientes),
+                convertidas=len(convertidas),
+                ultimo=ultimo,
+            )
         )
