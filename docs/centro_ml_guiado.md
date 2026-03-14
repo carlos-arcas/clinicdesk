@@ -95,3 +95,39 @@ Cada lectura expone contrato estable con:
 - **Si quieres decidir si revisar drift**: mira `drift`; rojo implica investigar, no reentrenar en automático.
 - **Si quieres estimar confianza de uso**: mira `métricas`; muestra pequeña o métricas débiles => cautela.
 - **Si quieres compartir evidencia a BI**: mira `exportación`; disponible != modelo validado.
+
+## Lista de trabajo ML accionable (Fase 6)
+
+Se añadió una capa de **priorización operativa de citas** que transforma el scoring existente en una bandeja de trabajo real para recepción/coordinación.
+
+### Cómo se genera
+
+1. Se toma el `ScoreCitasResponse` del pipeline (score + label + reasons por cita).
+2. Se cruza con el read model de citas visibles.
+3. Se construye una lista tipada (`ListaTrabajoML`) con:
+   - prioridad (`alta/media/baja`),
+   - motivo de priorización,
+   - acción sugerida,
+   - cautela explícita,
+   - trazabilidad mínima del score origen.
+
+### Qué decisiones ayuda a tomar
+
+- **Qué revisar primero hoy** (items de prioridad alta arriba).
+- **Qué requiere validación manual** (prioridad media).
+- **Dónde no conviene sobreactuar** (prioridad baja / evidencia débil).
+- **Cuándo usar acciones fuertes** (solo en casos con señal consistente).
+
+### Guardrails incluidos
+
+- El score **no** se presenta como verdad absoluta.
+- Si la evidencia es débil o incompleta, se propone acción no concluyente.
+- Las acciones son operativas (confirmación/revisión), **no** decisiones clínicas automáticas.
+- Se muestra cautela por item para evitar sobreinterpretación.
+
+### Mini guía de uso sin engañarte
+
+- Empieza por filtro **Prioridad alta** y confirma contexto antes de ejecutar acción intensa.
+- Usa **Prioridad media** como cola de validación manual breve.
+- En **Prioridad baja**, evita escalar sin nueva evidencia operativa.
+- Si aparece cautela por metadata incompleta, úsalo como señal inicial y no como cierre de decisión.
