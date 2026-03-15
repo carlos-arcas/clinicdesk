@@ -92,7 +92,7 @@ class DashboardGestionQueries:
         return tuple(OpcionFiltroDTO(valor=int(row["id"]), etiqueta=str(row["etiqueta"])) for row in rows)
 
     def listar_salas_filtro(self) -> tuple[OpcionFiltroDTO, ...]:
-        rows = self._con().execute("SELECT id, nombre AS etiqueta FROM salas WHERE activo = 1 ORDER BY nombre")
+        rows = self._con().execute("SELECT id, nombre AS etiqueta FROM salas WHERE activa = 1 ORDER BY nombre")
         return tuple(OpcionFiltroDTO(valor=int(row["id"]), etiqueta=str(row["etiqueta"])) for row in rows)
 
     def obtener_resumen_centro_salud(

@@ -51,6 +51,6 @@ class ListadoViewModelBase(Generic[ItemT]):
         self._estado.estado_pantalla = EstadoPantalla.EMPTY if not items else EstadoPantalla.CONTENT
         self._emit()
 
-    def normalizar_filtro(self, texto: str, *, to_lower: bool = True) -> str:
-        normalizado = texto.strip()
+    def normalizar_filtro(self, texto: str | None, *, to_lower: bool = True) -> str:
+        normalizado = (texto or "").strip()
         return normalizado.lower() if to_lower else normalizado
