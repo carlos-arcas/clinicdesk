@@ -54,6 +54,7 @@ def retranslate_page(page) -> None:
     form_ejecutivo.labelForField(page.cmb_campanias).setText(page._i18n.t("seguros.ejecutivo.campanias_label"))
     form_ejecutivo.labelForField(page.lbl_campania).setText(page._i18n.t("seguros.ejecutivo.campania_detalle_label"))
     form_ejecutivo.labelForField(page.lbl_aprendizaje).setText(page._i18n.t("seguros.aprendizaje.label"))
+    form_ejecutivo.labelForField(page.lbl_valor_economico).setText(page._i18n.t("seguros.ejecutivo.valor_label"))
     page.btn_aplicar_campania.setText(page._i18n.t("seguros.ejecutivo.campania_aplicar"))
 
     page.btn_crear_campania.setText(page._i18n.t("seguros.campania.crear_desde_sugerencia"))

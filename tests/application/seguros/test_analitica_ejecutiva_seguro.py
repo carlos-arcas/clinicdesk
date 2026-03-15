@@ -7,6 +7,7 @@ from clinicdesk.app.application.seguros import (
     AnaliticaEjecutivaSegurosService,
     AnalizarMigracionSeguroUseCase,
     CatalogoPlanesSeguro,
+    EconomiaValorSeguroService,
     GestionComercialSeguroService,
     SolicitudNuevaOportunidadSeguro,
 )
@@ -22,6 +23,8 @@ from clinicdesk.app.domain.seguros import (
     SensibilidadPrecioSeguro,
 )
 from clinicdesk.app.infrastructure.seguros.repositorio_comercial_memoria import RepositorioComercialSeguroMemoria
+from clinicdesk.app.application.seguros.recomendacion_producto import RecomendadorProductoSeguroService
+from clinicdesk.app.application.seguros.scoring_comercial import ScoringComercialSeguroService
 
 
 @dataclass
@@ -83,7 +86,12 @@ def test_construye_resumen_ejecutivo_con_cohortes_y_campanias() -> None:
     )
     servicio.cerrar_oportunidad("opp-3", ResultadoComercialSeguro.CONVERTIDO)
 
-    analitica = AnaliticaEjecutivaSegurosService(servicio, proveedor_fecha=_FechaFija(date(2026, 3, 15)))
+    scoring = ScoringComercialSeguroService(_, minimo_muestras=3)
+    recomendador = RecomendadorProductoSeguroService(CatalogoPlanesSeguro(), scoring)
+    economia = EconomiaValorSeguroService(CatalogoPlanesSeguro(), scoring, recomendador)
+    analitica = AnaliticaEjecutivaSegurosService(
+        servicio, economia_valor=economia, proveedor_fecha=_FechaFija(date(2026, 3, 15))
+    )
     resumen = analitica.construir_resumen()
 
     assert resumen.total_oportunidades == 3
@@ -91,6 +99,8 @@ def test_construye_resumen_ejecutivo_con_cohortes_y_campanias() -> None:
     assert resumen.ratio_conversion_global == 0.3333
     assert any(item.dimension == "objecion" for item in resumen.cohortes)
     assert any(item.id_campania == "campania_precio_argumento" for item in resumen.campanias)
+    assert resumen.prioridades_valor
+    assert resumen.campanias_rentables
 
 
 def test_guardrail_ratio_nulo_cuando_muestra_insuficiente() -> None:

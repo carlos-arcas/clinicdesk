@@ -51,6 +51,19 @@ from clinicdesk.app.application.seguros.analitica_ejecutiva import (
     ResumenEjecutivoSeguros,
 )
 from clinicdesk.app.application.seguros.aprendizaje_comercial import AprendizajeComercialSegurosService
+from clinicdesk.app.application.seguros.economia_valor import (
+    CampaniaRentableSeguro,
+    CategoriaValorEsperadoSeguro,
+    EconomiaValorSeguroService,
+    InsightRentabilidadSeguro,
+    MargenEsperadoPlanSeguro,
+    NivelCautelaEconomicaSeguro,
+    PanelValorEconomicoSeguro,
+    PrioridadValorSeguro,
+    RiesgoEconomicoSeguro,
+    SegmentoRentableSeguro,
+    ValorEsperadoOportunidadSeguro,
+)
 from clinicdesk.app.application.seguros.aprendizaje_contratos import (
     EfectividadCampaniaSeguro,
     InsightArgumentoSeguro,
@@ -111,4 +124,15 @@ __all__ = [
     "PlaybookComercialSeguro",
     "RecomendacionCampaniaSeguro",
     "MetricaAprendizajeComercialSeguro",
+    "EconomiaValorSeguroService",
+    "PanelValorEconomicoSeguro",
+    "ValorEsperadoOportunidadSeguro",
+    "MargenEsperadoPlanSeguro",
+    "RiesgoEconomicoSeguro",
+    "PrioridadValorSeguro",
+    "InsightRentabilidadSeguro",
+    "CampaniaRentableSeguro",
+    "SegmentoRentableSeguro",
+    "CategoriaValorEsperadoSeguro",
+    "NivelCautelaEconomicaSeguro",
 ]
