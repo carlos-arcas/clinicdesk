@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from clinicdesk.app.application.seguros import PlanSemanalSeguro
+from clinicdesk.app.application.seguros import PlanSemanalSeguro, ResumenSemanaSeguro
 from clinicdesk.app.i18n import I18nManager
 
 
@@ -57,3 +57,43 @@ def construir_texto_acciones_rapidas(i18n: I18nManager, plan: PlanSemanalSeguro)
     for accion in plan.acciones_rapidas[:4]:
         lineas.append(i18n.t("seguros.agenda.accion_item").format(accion=accion))
     return "\n".join(lineas)
+
+
+def construir_texto_cierre_semanal(i18n: I18nManager, resumen: ResumenSemanaSeguro) -> str:
+    cumplimiento = resumen.cumplimiento.porcentaje_cumplimiento
+    lineas = [
+        i18n.t("seguros.cierre.titulo"),
+        i18n.t("seguros.cierre.resumen").format(
+            inicio=resumen.cierre.periodo.fecha_inicio.isoformat(),
+            fin=resumen.cierre.periodo.fecha_fin.isoformat(),
+            cumplimiento=f"{cumplimiento:.1f}",
+            ejecutadas=len(resumen.cierre.tareas_ejecutadas),
+            previstas=len(resumen.cierre.tareas_previstas),
+            pendientes=len(resumen.cierre.tareas_pendientes),
+            vencidas=len(resumen.cierre.tareas_vencidas),
+        ),
+    ]
+    for patron in resumen.cierre.patrones[:3]:
+        lineas.append(i18n.t("seguros.cierre.patron_item").format(texto=patron))
+    if not resumen.cierre.patrones:
+        lineas.append(i18n.t("seguros.cierre.sin_patrones"))
+    return "\n".join(lineas)
+
+
+def construir_texto_bloqueos(i18n: I18nManager, resumen: ResumenSemanaSeguro) -> str:
+    if not resumen.bloqueos:
+        return i18n.t("seguros.cierre.sin_bloqueos")
+    lineas = [i18n.t("seguros.cierre.bloqueos_titulo")]
+    for bloqueo in resumen.bloqueos[:4]:
+        lineas.append(
+            i18n.t("seguros.cierre.bloqueo_item").format(
+                codigo=bloqueo.codigo,
+                descripcion=bloqueo.descripcion,
+                accion=bloqueo.accion_desbloqueo,
+            )
+        )
+    return "\n".join(lineas)
+
+
+def construir_texto_recomendacion_cierre(i18n: I18nManager, resumen: ResumenSemanaSeguro) -> str:
+    return i18n.t("seguros.cierre.recomendacion").format(texto=resumen.cierre.recomendacion_semana_siguiente)
