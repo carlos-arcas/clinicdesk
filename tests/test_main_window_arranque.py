@@ -45,3 +45,17 @@ def test_arranque_restaura_ultima_pagina_solo_con_preferencia_explicita() -> Non
         )
         for node in metodo.body
     )
+
+
+def test_arranque_no_fuerza_confirmaciones_como_default() -> None:
+    metodo = _obtener_metodo_restaurar_pagina_ultima()
+
+    assert not any(
+        isinstance(node, ast.Assign)
+        and len(node.targets) == 1
+        and isinstance(node.targets[0], ast.Name)
+        and node.targets[0].id == "key"
+        and isinstance(node.value, ast.Constant)
+        and node.value.value == "confirmaciones"
+        for node in metodo.body
+    )
