@@ -6,6 +6,14 @@ from datetime import UTC, date, datetime
 from typing import Protocol
 
 from clinicdesk.app.application.seguros.comercial import GestionComercialSeguroService
+from clinicdesk.app.application.seguros.economia_valor import (
+    CampaniaRentableSeguro,
+    EconomiaValorSeguroService,
+    InsightRentabilidadSeguro,
+    PanelValorEconomicoSeguro,
+    PrioridadValorSeguro,
+    SegmentoRentableSeguro,
+)
 from clinicdesk.app.domain.seguros import (
     EstadoOportunidadSeguro,
     OportunidadSeguro,
@@ -92,6 +100,10 @@ class ResumenEjecutivoSeguros:
     grupos_renovacion: tuple[GrupoRenovacionSeguro, ...]
     campanias: tuple[CampaniaAccionableSeguro, ...]
     insights: tuple[InsightComercialSeguro, ...]
+    prioridades_valor: tuple[PrioridadValorSeguro, ...]
+    campanias_rentables: tuple[CampaniaRentableSeguro, ...]
+    segmentos_rentables: tuple[SegmentoRentableSeguro, ...]
+    insights_rentabilidad: tuple[InsightRentabilidadSeguro, ...]
 
 
 class AnaliticaEjecutivaSegurosService:
@@ -100,9 +112,11 @@ class AnaliticaEjecutivaSegurosService:
     def __init__(
         self,
         gestion: GestionComercialSeguroService,
+        economia_valor: EconomiaValorSeguroService | None = None,
         proveedor_fecha: ProveedorFecha | None = None,
     ) -> None:
         self._gestion = gestion
+        self._economia_valor = economia_valor
         self._proveedor_fecha = proveedor_fecha or ProveedorFechaSistema()
 
     def construir_resumen(self) -> ResumenEjecutivoSeguros:
@@ -113,6 +127,7 @@ class AnaliticaEjecutivaSegurosService:
         grupos_renovacion = self._construir_grupos_renovacion(renovaciones)
         campanias = self._construir_campanias(oportunidades, renovaciones)
         metricas = self._construir_metricas_funnel(oportunidades, renovaciones)
+        panel_valor = self._construir_panel_valor(oportunidades, renovaciones)
         ratio_global = _calcular_ratio(_contar_convertidas(oportunidades), len(oportunidades), self._MIN_MUESTRA)
         return ResumenEjecutivoSeguros(
             fecha_corte=self._proveedor_fecha.hoy(),
@@ -130,6 +145,10 @@ class AnaliticaEjecutivaSegurosService:
             grupos_renovacion=grupos_renovacion,
             campanias=campanias,
             insights=_construir_insights(metricas, cohortes),
+            prioridades_valor=panel_valor.prioridades,
+            campanias_rentables=panel_valor.campanias_rentables,
+            segmentos_rentables=panel_valor.segmentos_rentables,
+            insights_rentabilidad=panel_valor.insights,
         )
 
     def ids_oportunidad_por_campania(self, id_campania: str) -> tuple[str, ...]:
@@ -279,6 +298,15 @@ class AnaliticaEjecutivaSegurosService:
             _campania_renovacion_en_riesgo(oportunidades, renovaciones, self._proveedor_fecha.hoy()),
             _campania_fit_alto_estancadas(oportunidades),
         )
+
+    def _construir_panel_valor(
+        self,
+        oportunidades: tuple[OportunidadSeguro, ...],
+        renovaciones: tuple[RenovacionSeguro, ...],
+    ) -> PanelValorEconomicoSeguro:
+        if self._economia_valor is None:
+            return PanelValorEconomicoSeguro((), (), (), ())
+        return self._economia_valor.construir_panel(oportunidades, renovaciones)
 
 
 def _metrica(clave: str, valor: int, ratio: float | None, riesgo: str, accion: str) -> MetricaFunnelSeguro:

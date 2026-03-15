@@ -16,6 +16,7 @@ from clinicdesk.app.application.seguros import (
     CatalogoPlanesSeguro,
     ColaTrabajoSeguroService,
     AnaliticaEjecutivaSegurosService,
+    EconomiaValorSeguroService,
     AprendizajeComercialSegurosService,
     GestionComercialSeguroService,
     GestionCampaniasSeguroService,
@@ -42,6 +43,7 @@ from clinicdesk.app.pages.seguros.analitica_ui_support import (
     construir_texto_metricas_funnel,
     construir_texto_resumen_ejecutivo,
     construir_texto_aprendizaje,
+    construir_texto_valor_economico,
     poblar_selector_campanias,
 )
 from clinicdesk.app.pages.seguros.page_ui_support import retranslate_page
@@ -64,7 +66,8 @@ class PageSeguros(QWidget):
         self._scoring = ScoringComercialSeguroService(self._repositorio)
         self._recomendador = RecomendadorProductoSeguroService(self._catalogo, self._scoring)
         self._cola = ColaTrabajoSeguroService(self._repositorio, self._scoring, self._recomendador)
-        self._analitica = AnaliticaEjecutivaSegurosService(self._gestion)
+        self._economia_valor = EconomiaValorSeguroService(self._catalogo, self._scoring, self._recomendador)
+        self._analitica = AnaliticaEjecutivaSegurosService(self._gestion, economia_valor=self._economia_valor)
         self._repo_campanias = RepositorioCampaniasSeguroSqlite(self._conexion)
         self._campanias = GestionCampaniasSeguroService(self._repo_campanias)
         self._aprendizaje = AprendizajeComercialSegurosService(self._gestion, self._campanias)
@@ -165,6 +168,8 @@ class PageSeguros(QWidget):
         self.lbl_campania.setWordWrap(True)
         self.lbl_aprendizaje = QLabel("-")
         self.lbl_aprendizaje.setWordWrap(True)
+        self.lbl_valor_economico = QLabel("-")
+        self.lbl_valor_economico.setWordWrap(True)
         panel_ejecutivo.addRow(QLabel(), self.lbl_resumen_ejecutivo)
         panel_ejecutivo.addRow(QLabel(), self.lbl_metricas_funnel)
         panel_ejecutivo.addRow(QLabel(), self.lbl_cohortes)
@@ -172,6 +177,7 @@ class PageSeguros(QWidget):
         panel_ejecutivo.addRow(self.btn_aplicar_campania)
         panel_ejecutivo.addRow(QLabel(), self.lbl_campania)
         panel_ejecutivo.addRow(QLabel(), self.lbl_aprendizaje)
+        panel_ejecutivo.addRow(QLabel(), self.lbl_valor_economico)
 
         self.btn_crear_campania = QPushButton()
         self.btn_crear_campania.clicked.connect(self._crear_campania_desde_sugerencia)
@@ -300,6 +306,7 @@ class PageSeguros(QWidget):
         self.lbl_cohortes.setText(construir_texto_cohortes(self._i18n, resumen_ejecutivo))
         panel_aprendizaje = self._aprendizaje.construir_panel()
         self.lbl_aprendizaje.setText(construir_texto_aprendizaje(self._i18n, panel_aprendizaje))
+        self.lbl_valor_economico.setText(construir_texto_valor_economico(self._i18n, resumen_ejecutivo))
         poblar_selector_campanias(self._i18n, self.cmb_campanias, resumen_ejecutivo)
         self._actualizar_detalle_campania(resumen_ejecutivo)
         self._refrescar_campanias_ejecutables()

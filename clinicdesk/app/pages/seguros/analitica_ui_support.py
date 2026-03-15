@@ -163,3 +163,46 @@ def _render_ratio(i18n: I18nManager, ratio: float | None) -> str:
     if ratio is None:
         return i18n.t("seguros.ejecutivo.ratio_insuficiente")
     return f"{round(ratio * 100, 1)}%"
+
+
+def construir_texto_valor_economico(i18n: I18nManager, resumen: ResumenEjecutivoSeguros) -> str:
+    lineas = [i18n.t("seguros.ejecutivo.valor_titulo")]
+    for item in resumen.prioridades_valor[:4]:
+        lineas.append(
+            i18n.t("seguros.ejecutivo.valor_prioridad_item").format(
+                id_oportunidad=item.id_oportunidad,
+                score=round(item.score_impacto * 100, 1),
+                categoria=item.categoria_valor.value,
+                accion=item.accion_sugerida,
+            )
+        )
+    for campania in resumen.campanias_rentables[:2]:
+        lineas.append(
+            i18n.t("seguros.ejecutivo.valor_campania_item").format(
+                nombre=campania.nombre,
+                valor=campania.valor_total_estimado,
+                categoria=campania.categoria.value,
+                accion=campania.accion_sugerida,
+            )
+        )
+    for segmento in resumen.segmentos_rentables[:2]:
+        lineas.append(
+            i18n.t("seguros.ejecutivo.valor_segmento_item").format(
+                segmento=segmento.segmento,
+                valor=segmento.valor_total_estimado,
+                conversion=_render_ratio(i18n, segmento.conversion_aproximada),
+                accion=segmento.accion_sugerida,
+            )
+        )
+    for insight in resumen.insights_rentabilidad[:2]:
+        lineas.append(
+            i18n.t("seguros.ejecutivo.valor_insight_item").format(
+                titulo=insight.titulo,
+                valor=insight.valor_estimado,
+                cautela=insight.nivel_cautela.value,
+                accion=insight.accion_sugerida,
+            )
+        )
+    if len(lineas) == 1:
+        lineas.append(i18n.t("seguros.ejecutivo.valor_sin_dato"))
+    return "\n".join(lineas)
