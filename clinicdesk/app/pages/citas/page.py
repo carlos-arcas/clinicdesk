@@ -60,6 +60,7 @@ from clinicdesk.app.pages.citas.riesgo_ausencia_ui import (
 )
 from clinicdesk.app.pages.citas.widgets.dialogo_selector_columnas_citas import DialogoSelectorColumnasCitas
 from clinicdesk.app.pages.citas.intent_helpers import buscar_indice_por_cita_id
+from clinicdesk.app.pages.citas.logging_payloads import payload_log_error_calendario
 from clinicdesk.app.pages.citas.widgets.panel_filtros_citas_widget import PanelFiltrosCitasWidget
 from clinicdesk.app.pages.citas.widgets.persistencia_citas_settings import (
     EstadoPersistidoFiltrosCitas,
@@ -424,9 +425,13 @@ class PageCitas(QWidget):
         try:
             items = self._buscar_calendario_uc.ejecutar(filtros, CLAVES_TOOLTIP_POR_DEFECTO)
         except Exception as exc:  # noqa: BLE001
-            LOGGER.warning(
+            LOGGER.exception(
                 "citas_calendario_error",
-                extra={"action": "citas_calendario_error", "error": exc.__class__.__name__, "contexto": "CALENDARIO"},
+                extra=payload_log_error_calendario(
+                    filtros,
+                    fecha_calendario=self.calendar.selectedDate().toString("yyyy-MM-dd"),
+                    exc=exc,
+                ),
             )
             self.table.setRowCount(0)
             return

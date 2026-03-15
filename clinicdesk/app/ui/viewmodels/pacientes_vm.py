@@ -37,7 +37,7 @@ class PacientesViewModel(ListadoViewModelBase[PacienteRow]):
             return
         self.set_items(items)
 
-    def aplicar_filtro(self, texto: str) -> None:
+    def aplicar_filtro(self, texto: str | None) -> None:
         filtro = self.normalizar_filtro(texto, to_lower=False)
         self.estado.filtro_texto = filtro
         self.estado.last_search_safe = sanitize_search_text(filtro)
@@ -58,7 +58,7 @@ class PacientesViewModel(ListadoViewModelBase[PacienteRow]):
         self.estado.seleccion_id = paciente_id
         self._emit()
 
-    def actualizar_contexto(self, *, activo: bool, texto: str, seleccion_id: int | None) -> None:
+    def actualizar_contexto(self, *, activo: bool, texto: str | None, seleccion_id: int | None) -> None:
         self._activo = activo
         self.estado.filtro_texto = self.normalizar_filtro(texto, to_lower=False)
         self.estado.last_search_safe = sanitize_search_text(self.estado.filtro_texto)

@@ -82,3 +82,23 @@ def test_refrescar_emite_toast_ok_y_error() -> None:
     vm_fail.refrescar()
 
     assert "toast.refresh_fail" in eventos_fail
+
+
+def test_aplicar_filtro_acepta_none_y_no_rompe() -> None:
+    vm = PacientesViewModel(lambda _activo, texto: [PacienteRowFake(id=10, nombre=texto)])
+
+    vm.aplicar_filtro(None)
+
+    assert vm.estado.filtro_texto == ""
+    assert vm.estado.last_search_safe is None
+    assert vm.estado.items[0].nombre == ""
+
+
+def test_actualizar_contexto_normaliza_none_sin_excepcion() -> None:
+    vm = PacientesViewModel(lambda _activo, _texto: [])
+
+    vm.actualizar_contexto(activo=True, texto=None, seleccion_id=5)
+
+    assert vm.estado.filtro_texto == ""
+    assert vm.estado.last_search_safe is None
+    assert vm.estado.seleccion_id == 5
