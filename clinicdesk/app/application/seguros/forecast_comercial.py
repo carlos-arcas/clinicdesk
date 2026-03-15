@@ -28,6 +28,7 @@ from clinicdesk.app.application.seguros.forecast_contratos import (
     ProyeccionCohorteSeguro,
     RecomendacionEstrategicaSeguro,
 )
+from clinicdesk.app.application.seguros.seguridad_observabilidad import construir_evento_log_seguro
 from clinicdesk.app.domain.seguros import OportunidadSeguro, RenovacionSeguro
 
 LOGGER = logging.getLogger(__name__)
@@ -65,7 +66,16 @@ class ForecastComercialSeguroService:
         )
         LOGGER.info(
             "forecast_seguro_generado",
-            extra={"volumen": volumen, "conversiones_esperadas": forecast.conversiones_esperadas},
+            extra=construir_evento_log_seguro(
+                "logging_tecnico_seguro",
+                "forecast_seguro_generado",
+                {
+                    "horizonte": horizonte.value,
+                    "volumen": volumen,
+                    "renovaciones": len(renovaciones),
+                    "conversiones_esperadas": forecast.conversiones_esperadas,
+                },
+            ),
         )
         return forecast
 
