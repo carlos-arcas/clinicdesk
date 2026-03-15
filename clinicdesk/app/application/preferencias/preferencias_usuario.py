@@ -19,6 +19,7 @@ ValorColumna = int | str
 @dataclass(slots=True)
 class PreferenciasUsuario:
     pagina_ultima: str | None = None
+    restaurar_pagina_ultima_en_arranque: bool = False
     filtros_pacientes: dict[str, ValorFiltro] = field(default_factory=dict)
     filtros_confirmaciones: dict[str, ValorFiltro] = field(default_factory=dict)
     last_search_by_context: dict[str, str] = field(default_factory=dict)

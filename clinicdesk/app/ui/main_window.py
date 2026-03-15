@@ -541,7 +541,10 @@ class MainWindow(QMainWindow):
 
     def _restaurar_pagina_ultima(self) -> None:
         preferencias = self.container.preferencias_service.get()
-        key = preferencias.pagina_ultima or "home"
+        key = "pacientes"
+        if preferencias.restaurar_pagina_ultima_en_arranque and preferencias.pagina_ultima:
+            if preferencias.pagina_ultima in self._factory_by_key:
+                key = preferencias.pagina_ultima
         if key not in self._factory_by_key:
             key = "home"
         self.navigate(key)
