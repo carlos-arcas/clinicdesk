@@ -21,6 +21,7 @@ from clinicdesk.app.application.seguros.analitica_ejecutiva import (
     ResumenEjecutivoSeguros,
 )
 from clinicdesk.app.application.seguros.campanias import GestionCampaniasSeguroService
+from clinicdesk.app.application.seguros.seguridad_observabilidad import construir_evento_log_seguro
 from clinicdesk.app.application.seguros.cola_trabajo import ColaTrabajoSeguroService
 from clinicdesk.app.domain.seguros import EstadoCampaniaSeguro, EstadoOperativoSeguro, PrioridadTrabajoSeguro
 
@@ -73,12 +74,16 @@ class AgendaAlertasSeguroService:
         acciones = _acciones_rapidas(agenda, alertas, riesgos)
         LOGGER.info(
             "plan_semanal_seguro_generado",
-            extra={
-                "evento": "plan_semanal_seguro_generado",
-                "fecha_corte": fecha_corte.isoformat(),
-                "alertas": len(alertas),
-                "tareas": len(tareas),
-            },
+            extra=construir_evento_log_seguro(
+                "logging_tecnico_seguro",
+                "plan_semanal_seguro_generado",
+                {
+                    "correlation_id": fecha_corte.isoformat(),
+                    "alertas": len(alertas),
+                    "tareas": len(tareas),
+                    "outcome": "ok",
+                },
+            ),
         )
         return PlanSemanalSeguro(
             agenda=agenda, alertas_activas=alertas, riesgos_objetivo=riesgos, acciones_rapidas=acciones

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from clinicdesk.app.application.seguros import PanelAprendizajeComercialSeguro, ResumenEjecutivoSeguros
+from clinicdesk.app.application.seguros.seguridad_observabilidad import snapshot_campania_ejecutiva_segura
 from clinicdesk.app.i18n import I18nManager
 
 
@@ -54,14 +55,15 @@ def construir_texto_campania_activa(i18n: I18nManager, resumen: ResumenEjecutivo
     campania = next((item for item in resumen.campanias if item.id_campania == id_campania), None)
     if campania is None:
         return i18n.t("seguros.ejecutivo.campania_sin_dato")
+    snapshot = snapshot_campania_ejecutiva_segura(campania)
     return i18n.t("seguros.ejecutivo.campania_detalle").format(
-        titulo=campania.titulo,
-        criterio=campania.criterio,
-        tamano=campania.tamano_estimado,
-        motivo=campania.motivo,
-        accion=campania.accion_recomendada,
-        cautela=campania.cautela,
-        ids=", ".join(campania.ids_oportunidad) or "-",
+        titulo=snapshot["titulo"],
+        criterio=snapshot["criterio"],
+        tamano=snapshot["tamano_estimado"],
+        motivo=snapshot["motivo"],
+        accion=snapshot["accion_recomendada"],
+        cautela=snapshot["cautela"],
+        ids=snapshot["ids_resumen"],
     )
 
 
