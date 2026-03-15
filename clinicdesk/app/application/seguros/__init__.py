@@ -103,6 +103,17 @@ from clinicdesk.app.application.seguros.agenda_alertas_contratos import (
 )
 from clinicdesk.app.application.seguros.cierre_semanal import CierreSemanalSeguroService
 
+from clinicdesk.app.application.seguros.economia_poliza import (
+    FiltroCarteraEconomicaPolizaSeguro,
+    GestionEconomicaPolizaSeguroService,
+    SolicitudEmitirCuotaPolizaSeguro,
+    SolicitudRegistrarImpagoSeguro,
+    SolicitudRegistrarPagoCuotaSeguro,
+    SolicitudRegistrarReactivacionPolizaSeguro,
+    SolicitudRegistrarSuspensionPolizaSeguro,
+    construir_resumen_economico_poliza,
+)
+
 from clinicdesk.app.application.seguros.postventa import (
     FiltroCarteraPolizaSeguro,
     GestionPostventaPolizaSeguroService,
@@ -213,4 +224,13 @@ __all__ = [
     "SolicitudAltaPolizaDesdeConversion",
     "SolicitudRegistrarIncidenciaPoliza",
     "FiltroCarteraPolizaSeguro",
+
+    "GestionEconomicaPolizaSeguroService",
+    "SolicitudEmitirCuotaPolizaSeguro",
+    "SolicitudRegistrarPagoCuotaSeguro",
+    "SolicitudRegistrarImpagoSeguro",
+    "SolicitudRegistrarSuspensionPolizaSeguro",
+    "SolicitudRegistrarReactivacionPolizaSeguro",
+    "FiltroCarteraEconomicaPolizaSeguro",
+    "construir_resumen_economico_poliza",
 ]
