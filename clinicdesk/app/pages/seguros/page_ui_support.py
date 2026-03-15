@@ -21,6 +21,7 @@ def popular_seguimiento(page) -> None:
 
 
 def retranslate_page(page) -> None:
+    page.selector_seccion.setPlaceholderText(page._i18n.t("seguros.workspace.selector"))
     page.box_filtros.setTitle(page._i18n.t("seguros.filtros.titulo"))
     form = page.box_filtros.layout()
     form.labelForField(page.cmb_origen).setText(page._i18n.t("seguros.filtros.plan_origen"))
@@ -29,6 +30,7 @@ def retranslate_page(page) -> None:
     page.btn_analizar.setText(page._i18n.t("seguros.accion.analizar"))
     page.btn_abrir_oportunidad.setText(page._i18n.t("seguros.accion.abrir_oportunidad"))
     page.btn_preparar_oferta.setText(page._i18n.t("seguros.accion.preparar_oferta"))
+
     page.box_seguimiento.setTitle(page._i18n.t("seguros.seguimiento.titulo"))
     form_seg = page.box_seguimiento.layout()
     form_seg.labelForField(page.input_accion).setText(page._i18n.t("seguros.seguimiento.accion"))
@@ -39,6 +41,7 @@ def retranslate_page(page) -> None:
     page.btn_registrar_seguimiento.setText(page._i18n.t("seguros.accion.registrar_seguimiento"))
     page.btn_cerrar.setText(page._i18n.t("seguros.accion.cerrar_oportunidad"))
     page.btn_refrescar_cartera.setText(page._i18n.t("seguros.accion.refrescar_cartera"))
+
     page.box_cola.setTitle(page._i18n.t("seguros.cola.titulo"))
     form_cola = page.box_cola.layout()
     form_cola.labelForField(page.cmb_filtro_cola).setText(page._i18n.t("seguros.cola.filtro"))
@@ -46,6 +49,7 @@ def retranslate_page(page) -> None:
     form_cola.labelForField(page.input_nota_cola).setText(page._i18n.t("seguros.cola.nota"))
     form_cola.labelForField(page.input_siguiente_cola).setText(page._i18n.t("seguros.cola.siguiente"))
     page.btn_registrar_accion_cola.setText(page._i18n.t("seguros.cola.registrar"))
+
     page.box_agenda.setTitle(page._i18n.t("seguros.agenda.titulo"))
     form_agenda = page.box_agenda.layout()
     form_agenda.labelForField(page.lbl_alertas_activas).setText(page._i18n.t("seguros.agenda.alertas_label"))
@@ -55,6 +59,7 @@ def retranslate_page(page) -> None:
     form_agenda.labelForField(page.lbl_cierre_semanal).setText(page._i18n.t("seguros.cierre.resumen_label"))
     form_agenda.labelForField(page.lbl_bloqueos_recurrentes).setText(page._i18n.t("seguros.cierre.bloqueos_label"))
     form_agenda.labelForField(page.lbl_recomendacion_cierre).setText(page._i18n.t("seguros.cierre.recomendacion_label"))
+
     page.box_ejecutivo.setTitle(page._i18n.t("seguros.ejecutivo.titulo"))
     form_ejecutivo = page.box_ejecutivo.layout()
     form_ejecutivo.labelForField(page.lbl_resumen_ejecutivo).setText(page._i18n.t("seguros.ejecutivo.resumen_label"))
@@ -66,8 +71,8 @@ def retranslate_page(page) -> None:
     form_ejecutivo.labelForField(page.lbl_valor_economico).setText(page._i18n.t("seguros.ejecutivo.valor_label"))
     form_ejecutivo.labelForField(page.lbl_forecast).setText(page._i18n.t("seguros.ejecutivo.forecast_label"))
     page.btn_aplicar_campania.setText(page._i18n.t("seguros.ejecutivo.campania_aplicar"))
-
     page.btn_crear_campania.setText(page._i18n.t("seguros.campania.crear_desde_sugerencia"))
+
     page.box_campanias.setTitle(page._i18n.t("seguros.campania.titulo"))
     form_camp = page.box_campanias.layout()
     form_camp.labelForField(page.cmb_campanias_ejecutables).setText(page._i18n.t("seguros.campania.selector_label"))
@@ -78,35 +83,35 @@ def retranslate_page(page) -> None:
     form_camp.labelForField(page.input_nota_item_campania).setText(page._i18n.t("seguros.campania.nota_item"))
     form_camp.labelForField(page.lbl_resultado_campania).setText(page._i18n.t("seguros.campania.resumen_label"))
     page.btn_registrar_item_campania.setText(page._i18n.t("seguros.campania.registrar_item"))
+
     page.box_postventa.setTitle(page._i18n.t("seguros.postventa.titulo"))
     form_postventa = page.box_postventa.layout()
     form_postventa.labelForField(page.input_nombre_titular).setText(page._i18n.t("seguros.postventa.titular"))
     form_postventa.labelForField(page.input_doc_titular).setText(page._i18n.t("seguros.postventa.documento"))
     form_postventa.labelForField(page.input_nombre_beneficiario).setText(page._i18n.t("seguros.postventa.beneficiario"))
     form_postventa.labelForField(page.cmb_tipo_incidencia).setText(page._i18n.t("seguros.postventa.tipo_incidencia"))
-    form_postventa.labelForField(page.input_periodo_cuota).setText(page._i18n.t("seguros.postventa.economia.periodo"))
-    form_postventa.labelForField(page.input_importe_cuota).setText(page._i18n.t("seguros.postventa.economia.importe"))
-    form_postventa.labelForField(page.cmb_estado_pago_filtro).setText(page._i18n.t("seguros.postventa.economia.filtro_estado"))
     form_postventa.labelForField(page.lbl_postventa).setText(page._i18n.t("seguros.postventa.cartera"))
-    form_postventa.labelForField(page.lbl_postventa_economia).setText(page._i18n.t("seguros.postventa.economia.cartera"))
     page.btn_materializar_poliza.setText(page._i18n.t("seguros.postventa.materializar"))
     page.btn_registrar_incidencia_poliza.setText(page._i18n.t("seguros.postventa.registrar_incidencia"))
+
+    page.box_estado_economia.setTitle(page._i18n.t("seguros.postventa.economia.titulo"))
+    form_economia = page.box_estado_economia.layout()
+    form_economia.labelForField(page.input_periodo_cuota).setText(page._i18n.t("seguros.postventa.economia.periodo"))
+    form_economia.labelForField(page.input_importe_cuota).setText(page._i18n.t("seguros.postventa.economia.importe"))
+    form_economia.labelForField(page.cmb_estado_pago_filtro).setText(
+        page._i18n.t("seguros.postventa.economia.filtro_estado")
+    )
+    form_economia.labelForField(page.lbl_postventa_economia).setText(page._i18n.t("seguros.postventa.economia.cartera"))
     page.btn_emitir_cuota.setText(page._i18n.t("seguros.postventa.economia.emitir_cuota"))
     page.btn_registrar_pago_cuota.setText(page._i18n.t("seguros.postventa.economia.registrar_pago"))
     page.btn_registrar_impago.setText(page._i18n.t("seguros.postventa.economia.registrar_impago"))
     page.btn_suspender_poliza.setText(page._i18n.t("seguros.postventa.economia.suspender"))
     page.btn_reactivar_poliza.setText(page._i18n.t("seguros.postventa.economia.reactivar"))
+
     popular_opciones_impagos(page)
     popular_seguimiento(page)
     page.cmb_estado_pago_filtro.clear()
     page.cmb_estado_pago_filtro.addItem(page._i18n.t("seguros.postventa.economia.filtro_todos"), None)
-    for valor in (
-        "AL_DIA",
-        "PROXIMA_A_VENCER",
-        "VENCIDA",
-        "IMPAGADA",
-        "SUSPENDIDA",
-        "REACTIVABLE",
-    ):
+    for valor in ("AL_DIA", "PROXIMA_A_VENCER", "VENCIDA", "IMPAGADA", "SUSPENDIDA", "REACTIVABLE"):
         page.cmb_estado_pago_filtro.addItem(valor, valor)
     popular_filtros_y_acciones(page._i18n, page.cmb_filtro_cola, page.cmb_accion_cola)
