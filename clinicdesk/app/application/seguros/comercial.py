@@ -17,6 +17,7 @@ from clinicdesk.app.domain.seguros.comercial import (
     ResultadoRenovacionSeguro,
     SeguimientoOportunidadSeguro,
 )
+from clinicdesk.app.domain.seguros.cola_operativa import GestionOperativaColaSeguro
 from clinicdesk.app.domain.seguros.segmentacion import (
     FriccionMigracionSeguro,
     MotivacionCompraSeguro,
@@ -47,6 +48,16 @@ class RepositorioComercialSeguro(Protocol):
     def listar_seguimientos_recientes(self, limite: int = 20) -> tuple[SeguimientoOportunidadSeguro, ...]: ...
 
     def listar_historial_oportunidad(self, id_oportunidad: str) -> tuple[SeguimientoOportunidadSeguro, ...]: ...
+
+    def listar_oportunidades_por_gestion_operativa(self) -> tuple[OportunidadSeguro, ...]: ...
+
+    def guardar_gestion_operativa(self, gestion: GestionOperativaColaSeguro) -> None: ...
+
+    def obtener_ultima_gestion_operativa(self, id_oportunidad: str) -> GestionOperativaColaSeguro | None: ...
+
+    def listar_gestiones_operativas(
+        self, id_oportunidad: str, limite: int = 5
+    ) -> tuple[GestionOperativaColaSeguro, ...]: ...
 
     def construir_dataset_ml_comercial(self) -> list[dict[str, object]]: ...
 

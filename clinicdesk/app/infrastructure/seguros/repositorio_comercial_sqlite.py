@@ -12,6 +12,7 @@ from clinicdesk.app.domain.seguros.comercial import (
     ResultadoRenovacionSeguro,
     SeguimientoOportunidadSeguro,
 )
+from clinicdesk.app.domain.seguros.cola_operativa import GestionOperativaColaSeguro
 from clinicdesk.app.infrastructure.seguros.schema_sqlite import inicializar_schema_comercial_seguro
 from clinicdesk.app.infrastructure.seguros.serializacion_sqlite import (
     row_a_oferta,
@@ -199,6 +200,59 @@ class RepositorioComercialSeguroSqlite:
         ).fetchall()
         return tuple(row_a_seguimiento(row) for row in rows)
 
+    def listar_oportunidades_por_gestion_operativa(self) -> tuple[OportunidadSeguro, ...]:
+        estados = (
+            "DETECTADA",
+            "ANALIZADA",
+            "ELEGIBLE",
+            "OFERTA_PREPARADA",
+            "OFERTA_ENVIADA",
+            "EN_SEGUIMIENTO",
+            "CONVERTIDA",
+            "POSPUESTA",
+            "PENDIENTE_RENOVACION",
+        )
+        placeholders = ",".join("?" for _ in estados)
+        rows = self._connection.execute(
+            f"SELECT * FROM seguro_oportunidades WHERE estado_actual IN ({placeholders}) ORDER BY actualizado_en DESC",
+            estados,
+        ).fetchall()
+        return tuple(row_a_oportunidad(row, self.listar_historial_oportunidad(row["id_oportunidad"])) for row in rows)
+
+    def guardar_gestion_operativa(self, gestion: GestionOperativaColaSeguro) -> None:
+        self._connection.execute(
+            """
+            INSERT INTO seguro_gestiones_operativas (
+                id_oportunidad, accion, estado_resultante, nota_corta, siguiente_paso, timestamp
+            ) VALUES (?, ?, ?, ?, ?, ?)
+            """,
+            (
+                gestion.id_oportunidad,
+                gestion.accion.value,
+                gestion.estado_resultante.value,
+                gestion.nota_corta,
+                gestion.siguiente_paso,
+                gestion.timestamp.isoformat(),
+            ),
+        )
+        self._connection.commit()
+
+    def obtener_ultima_gestion_operativa(self, id_oportunidad: str) -> GestionOperativaColaSeguro | None:
+        row = self._connection.execute(
+            "SELECT * FROM seguro_gestiones_operativas WHERE id_oportunidad = ? ORDER BY timestamp DESC LIMIT 1",
+            (id_oportunidad,),
+        ).fetchone()
+        return _row_a_gestion_operativa(row) if row else None
+
+    def listar_gestiones_operativas(
+        self, id_oportunidad: str, limite: int = 5
+    ) -> tuple[GestionOperativaColaSeguro, ...]:
+        rows = self._connection.execute(
+            "SELECT * FROM seguro_gestiones_operativas WHERE id_oportunidad = ? ORDER BY timestamp DESC LIMIT ?",
+            (id_oportunidad, limite),
+        ).fetchall()
+        return tuple(_row_a_gestion_operativa(row) for row in rows)
+
     def construir_dataset_ml_comercial(self) -> list[dict[str, object]]:
         rows = self._connection.execute(
             """
@@ -307,3 +361,16 @@ def _construir_where_cartera(filtro: FiltroCarteraSeguro) -> tuple[str, tuple[ob
         )
         params.append(ResultadoRenovacionSeguro.PENDIENTE.value)
     return (f"WHERE {' AND '.join(where)}" if where else "", tuple(params))
+
+
+def _row_a_gestion_operativa(row: sqlite3.Row) -> GestionOperativaColaSeguro:
+    from clinicdesk.app.domain.seguros.cola_operativa import AccionPendienteSeguro, EstadoOperativoSeguro
+
+    return GestionOperativaColaSeguro(
+        id_oportunidad=str(row["id_oportunidad"]),
+        accion=AccionPendienteSeguro(str(row["accion"])),
+        estado_resultante=EstadoOperativoSeguro(str(row["estado_resultante"])),
+        nota_corta=str(row["nota_corta"]),
+        siguiente_paso=str(row["siguiente_paso"]),
+        timestamp=datetime.fromisoformat(str(row["timestamp"])),
+    )
