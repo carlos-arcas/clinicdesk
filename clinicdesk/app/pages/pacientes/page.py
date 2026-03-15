@@ -5,7 +5,7 @@ from time import perf_counter
 
 import logging
 
-from PySide6.QtCore import QThread
+from PySide6.QtCore import QThread, QTimer
 from PySide6.QtGui import QKeySequence, QShortcut
 from PySide6.QtWidgets import QWidget
 
@@ -47,13 +47,17 @@ from clinicdesk.app.ui.ux.error_feedback import presentar_error_recuperable
 from clinicdesk.app.pages.pacientes.window_feedback import set_busy, toast_error, toast_success
 from clinicdesk.app.pages.pacientes.workers_pacientes import arrancar_busqueda_rapida, arrancar_carga
 from clinicdesk.app.pages.pacientes.ui_builder import build_pacientes_ui
-from clinicdesk.app.pages.shared.contexto_tabla import ContextoTablaListado, capturar_contexto_tabla, restaurar_contexto_tabla
+from clinicdesk.app.pages.shared.contexto_tabla import (
+    ContextoTablaListado,
+    capturar_contexto_tabla,
+    restaurar_contexto_tabla,
+)
 from clinicdesk.app.pages.shared.crud_page_helpers import set_buttons_enabled
 from clinicdesk.app.queries.historial_paciente_queries import HistorialPacienteQueries
 from clinicdesk.app.queries.historial_listados_queries import HistorialListadosQueries
 from clinicdesk.app.queries.pacientes_queries import PacienteRow, PacientesQueries
 from clinicdesk.app.queries.recetas_queries import RecetasQueries
-from clinicdesk.app.ui.viewmodels.contratos import EstadoListado, EventoUI
+from clinicdesk.app.ui.viewmodels.contratos import EstadoListado, EstadoPantalla, EventoUI
 from clinicdesk.app.ui.viewmodels.pacientes_vm import PacientesViewModel
 from clinicdesk.app.infrastructure.sqlite.db_path import resolver_db_path_desde_conexion
 from clinicdesk.app.ui.workers.listado_async_workers import CargaPacientesWorker
@@ -93,6 +97,10 @@ class PagePacientes(QWidget):
         self._inicio_cargas: dict[int, float] = {}
         self._thread_busqueda_rapida: QThread | None = None
         self._preferencias_restauradas = False
+        self._refresh_diferido_pendiente = False
+        self._token_on_show = 0
+        self._token_refresh_programado = 0
+        self._pagina_visible = False
         self._contexto_tabla_pendiente = ContextoTablaListado(fila_id=None, scroll_vertical=0, mantener_foco=False)
         self._vm = PacientesViewModel(listar_pacientes=self._listar_pacientes_sync)
 
@@ -113,9 +121,6 @@ class PagePacientes(QWidget):
         self._build_shortcuts()
         self._vm.subscribe(self._on_estado_vm)
         self._vm.subscribe_eventos(self._on_evento_vm)
-        self._refresh()
-        self.filtros.txt_busqueda.setFocus()
-
 
     def _build_shortcuts(self) -> None:
         self._shortcut_focus_busqueda = QShortcut(QKeySequence("Ctrl+F"), self)
@@ -139,9 +144,46 @@ class PagePacientes(QWidget):
         self.btn_csv.clicked.connect(self._open_csv_dialog)
 
     def on_show(self) -> None:
+        self._pagina_visible = True
+        self._token_on_show += 1
         if not self._preferencias_restauradas:
             self._restaurar_preferencias()
             self._preferencias_restauradas = True
+            self.filtros.txt_busqueda.setFocus()
+        self._programar_refresh_on_show(self._token_on_show)
+
+    def on_hide(self) -> None:
+        self._pagina_visible = False
+
+    def _programar_refresh_on_show(self, token_on_show: int) -> None:
+        self._token_refresh_programado = token_on_show
+        if self._refresh_diferido_pendiente:
+            return
+        self._refresh_diferido_pendiente = True
+        QTimer.singleShot(0, self._ejecutar_refresh_diferido)
+
+    def _ejecutar_refresh_diferido(self) -> None:
+        self._refresh_diferido_pendiente = False
+        if self._token_refresh_programado != self._token_on_show:
+            LOGGER.info(
+                "pacientes_refresh_omitido",
+                extra={
+                    "action": "pacientes_refresh_omitido",
+                    "reason": "on_show_obsoleto",
+                    "token_on_show": self._token_on_show,
+                },
+            )
+            return
+        if not self._pagina_visible:
+            LOGGER.info(
+                "pacientes_refresh_omitido",
+                extra={
+                    "action": "pacientes_refresh_omitido",
+                    "reason": "pagina_no_visible",
+                    "token_on_show": self._token_on_show,
+                },
+            )
+            return
         self._refresh()
 
     def _refresh(self) -> None:
@@ -153,7 +195,8 @@ class PagePacientes(QWidget):
         activo = self.filtros.activo()
         texto = normalize_search_text(self.filtros.texto())
         self._vm.actualizar_contexto(activo=activo, texto=texto, seleccion_id=selected_id)
-        self._vm.set_loading()
+        if self._vm.estado.estado_pantalla is not EstadoPantalla.LOADING:
+            self._vm.set_loading()
         set_busy(self, True, "busy.loading_pacientes")
         solicitud = SolicitudCargaPacientes(token=token, seleccion_id=selected_id, activo=activo, texto=texto)
         if self._coordinador_carga.registrar(solicitud):
@@ -233,7 +276,22 @@ class PagePacientes(QWidget):
         self._arrancar_worker_carga(siguiente)
 
     def _on_carga_ok(self, payload: object, token: int, selected_id: int | None) -> None:
-        if token != self._token_carga or not isinstance(payload, dict) or not self._coordinador_carga.es_token_activo(token):
+        if (
+            token != self._token_carga
+            or not isinstance(payload, dict)
+            or not self._coordinador_carga.es_token_activo(token)
+        ):
+            return
+        if not self._pagina_visible:
+            LOGGER.info(
+                "pacientes_carga_omitida",
+                extra={
+                    "action": "pacientes_carga_omitida",
+                    "reason": "pagina_no_visible",
+                    "token": token,
+                    "fase": "ok",
+                },
+            )
             return
         set_busy(self, False, "busy.loading_pacientes")
         rows = payload.get("rows", [])
@@ -260,6 +318,18 @@ class PagePacientes(QWidget):
     def _on_carga_error(self, error_type: str, token: int) -> None:
         if token != self._token_carga or not self._coordinador_carga.es_token_activo(token):
             return
+        if not self._pagina_visible:
+            LOGGER.info(
+                "pacientes_carga_omitida",
+                extra={
+                    "action": "pacientes_carga_omitida",
+                    "reason": "pagina_no_visible",
+                    "token": token,
+                    "fase": "error",
+                    "error": error_type,
+                },
+            )
+            return
         set_busy(self, False, "busy.loading_pacientes")
         inicio = self._inicio_cargas.pop(token, None)
         duracion_ms = int((perf_counter() - inicio) * 1000) if inicio else None
@@ -285,6 +355,17 @@ class PagePacientes(QWidget):
         )
 
     def _on_estado_vm(self, estado: EstadoListado[PacienteRow]) -> None:
+        if not self._pagina_visible:
+            LOGGER.info(
+                "pacientes_estado_omitido",
+                extra={
+                    "action": "pacientes_estado_omitido",
+                    "token": self._token_carga,
+                    "fase": estado.estado_pantalla.name,
+                    "visible": self._pagina_visible,
+                },
+            )
+            return
         render_estado(
             self._ui,
             estado,

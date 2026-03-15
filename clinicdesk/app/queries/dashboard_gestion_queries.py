@@ -115,14 +115,25 @@ class DashboardGestionQueries:
                 SUM(CASE WHEN c.estado IN ('CANCELADA', 'NO_PRESENTADO') THEN 1 ELSE 0 END) AS total_canceladas,
                 SUM(CASE WHEN c.estado = 'NO_PRESENTADO' THEN 1 ELSE 0 END) AS total_no_presentadas,
                 AVG(
-                    CASE c.riesgo_ausencia
+                    CASE pal.riesgo
                         WHEN 'ALTO' THEN 100.0
                         WHEN 'MEDIO' THEN 50.0
                         WHEN 'BAJO' THEN 0.0
                     END
                 ) AS riesgo_medio_pct,
-                SUM(CASE WHEN c.riesgo_ausencia = 'ALTO' THEN 1 ELSE 0 END) AS total_riesgo_alto
+                SUM(CASE WHEN pal.riesgo = 'ALTO' THEN 1 ELSE 0 END) AS total_riesgo_alto
             FROM citas c
+            LEFT JOIN (
+                SELECT p1.cita_id, p1.riesgo
+                FROM predicciones_ausencias_log p1
+                JOIN (
+                    SELECT cita_id, MAX(modelo_fecha_utc) AS modelo_fecha_utc
+                    FROM predicciones_ausencias_log
+                    GROUP BY cita_id
+                ) ult
+                    ON ult.cita_id = p1.cita_id
+                   AND ult.modelo_fecha_utc = p1.modelo_fecha_utc
+            ) pal ON pal.cita_id = c.id
             {where}
             """,
                 params,
