@@ -143,7 +143,13 @@ class ContextLoggerAdapter(logging.LoggerAdapter):
 def configure_logging(app_name: str, log_dir: Path, level: str = "INFO", json: bool = True) -> None:
     log_dir.mkdir(parents=True, exist_ok=True)
     root_logger = logging.getLogger()
-    root_logger.handlers.clear()
+    for handler in list(root_logger.handlers):
+        root_logger.removeHandler(handler)
+        handler.close()
+
+    for log_name in ("app.log", "crash_soft.log", "crash_fatal.log"):
+        (log_dir / log_name).write_text("", encoding="utf-8")
+
     root_logger.setLevel(getattr(logging, level.upper(), logging.INFO))
 
     formatter = _StructuredFormatter(json_mode=json)

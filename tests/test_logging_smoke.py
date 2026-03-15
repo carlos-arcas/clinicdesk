@@ -6,6 +6,32 @@ from clinicdesk.app.bootstrap_logging import configure_logging, get_logger, log_
 from clinicdesk.app.crash_handler import fatal_exception_handler
 
 
+def _assert_log_file_is_overwritten(tmp_path: Path, file_name: str, action: str) -> None:
+    log_path = tmp_path / file_name
+    log_path.write_text("legacy-content\n", encoding="utf-8")
+
+    configure_logging("test-app", tmp_path, json=False)
+    set_run_context("run-overwrite")
+    logger = get_logger("tests.logging")
+
+    if action == "operational":
+        logger.info("new-operational-entry")
+    elif action == "soft":
+        try:
+            raise ValueError("soft-overwrite")
+        except ValueError as exc:
+            log_soft_exception(logger, exc, {"step": "overwrite"})
+    elif action == "fatal":
+        handler = fatal_exception_handler(logger)
+        try:
+            raise RuntimeError("fatal-overwrite")
+        except RuntimeError as exc:
+            handler(type(exc), exc, exc.__traceback__)
+
+    content = log_path.read_text(encoding="utf-8")
+    assert "legacy-content" not in content
+
+
 def test_configure_logging_creates_operational_log(tmp_path: Path) -> None:
     configure_logging("test-app", tmp_path, json=False)
     set_run_context("run-test")
@@ -16,6 +42,18 @@ def test_configure_logging_creates_operational_log(tmp_path: Path) -> None:
     content = (tmp_path / "app.log").read_text(encoding="utf-8")
     assert "hello operational" in content
     assert "run_id=run-test" in content
+
+
+def test_app_log_is_overwritten_on_reconfigure(tmp_path: Path) -> None:
+    _assert_log_file_is_overwritten(tmp_path, "app.log", "operational")
+
+
+def test_crash_soft_log_is_overwritten_on_reconfigure(tmp_path: Path) -> None:
+    _assert_log_file_is_overwritten(tmp_path, "crash_soft.log", "soft")
+
+
+def test_crash_fatal_log_is_overwritten_on_reconfigure(tmp_path: Path) -> None:
+    _assert_log_file_is_overwritten(tmp_path, "crash_fatal.log", "fatal")
 
 
 def test_log_soft_exception_writes_soft_file(tmp_path: Path) -> None:
