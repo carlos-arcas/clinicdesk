@@ -26,6 +26,7 @@ from clinicdesk.app.application.seguros import (
     ScoringComercialSeguroService,
     SolicitudGestionItemColaSeguro,
     AgendaAlertasSeguroService,
+    CierreSemanalSeguroService,
 )
 from clinicdesk.app.i18n import I18nManager
 from clinicdesk.app.domain.seguros import EstadoItemCampaniaSeguro, ResultadoItemCampaniaSeguro
@@ -59,6 +60,9 @@ from clinicdesk.app.pages.seguros.agenda_ui_support import (
     construir_texto_alertas_activas,
     construir_texto_plan_semanal,
     construir_texto_tareas_vencidas,
+    construir_texto_bloqueos,
+    construir_texto_cierre_semanal,
+    construir_texto_recomendacion_cierre,
 )
 
 
@@ -80,6 +84,9 @@ class PageSeguros(QWidget):
         self._campanias = GestionCampaniasSeguroService(self._repo_campanias)
         self._aprendizaje = AprendizajeComercialSegurosService(self._gestion, self._campanias)
         self._agenda = AgendaAlertasSeguroService(self._cola, self._analitica, self._campanias)
+        self._cierre_semanal = CierreSemanalSeguroService(
+            self._agenda, self._cola, self._analitica, self._campanias, self._repositorio
+        )
         self._id_oportunidad_activa: str | None = None
         self._build_ui()
         self._popular_planes()
@@ -176,6 +183,15 @@ class PageSeguros(QWidget):
         panel_agenda.addRow(QLabel(), self.lbl_plan_semanal)
         panel_agenda.addRow(QLabel(), self.lbl_tareas_vencidas)
         panel_agenda.addRow(QLabel(), self.lbl_acciones_rapidas)
+        self.lbl_cierre_semanal = QLabel("-")
+        self.lbl_cierre_semanal.setWordWrap(True)
+        self.lbl_bloqueos_recurrentes = QLabel("-")
+        self.lbl_bloqueos_recurrentes.setWordWrap(True)
+        self.lbl_recomendacion_cierre = QLabel("-")
+        self.lbl_recomendacion_cierre.setWordWrap(True)
+        panel_agenda.addRow(QLabel(), self.lbl_cierre_semanal)
+        panel_agenda.addRow(QLabel(), self.lbl_bloqueos_recurrentes)
+        panel_agenda.addRow(QLabel(), self.lbl_recomendacion_cierre)
 
         self.box_ejecutivo = QGroupBox()
         panel_ejecutivo = QFormLayout(self.box_ejecutivo)
@@ -333,6 +349,10 @@ class PageSeguros(QWidget):
         self.lbl_plan_semanal.setText(construir_texto_plan_semanal(self._i18n, plan))
         self.lbl_tareas_vencidas.setText(construir_texto_tareas_vencidas(self._i18n, plan))
         self.lbl_acciones_rapidas.setText(construir_texto_acciones_rapidas(self._i18n, plan))
+        resumen_semana = self._cierre_semanal.construir_resumen_semana()
+        self.lbl_cierre_semanal.setText(construir_texto_cierre_semanal(self._i18n, resumen_semana))
+        self.lbl_bloqueos_recurrentes.setText(construir_texto_bloqueos(self._i18n, resumen_semana))
+        self.lbl_recomendacion_cierre.setText(construir_texto_recomendacion_cierre(self._i18n, resumen_semana))
         resumen_ejecutivo = self._analitica.construir_resumen()
         self.lbl_resumen_ejecutivo.setText(construir_texto_resumen_ejecutivo(self._i18n, resumen_ejecutivo))
         self.lbl_metricas_funnel.setText(construir_texto_metricas_funnel(self._i18n, resumen_ejecutivo))

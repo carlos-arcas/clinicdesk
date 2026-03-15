@@ -101,6 +101,16 @@ from clinicdesk.app.application.seguros.agenda_alertas_contratos import (
     TipoAlertaComercialSeguro,
     TrazaResolucionTareaSeguro,
 )
+from clinicdesk.app.application.seguros.cierre_semanal import CierreSemanalSeguroService
+from clinicdesk.app.application.seguros.cierre_semanal_contratos import (
+    AprendizajeEjecucionSeguro,
+    BloqueoOperativoSeguro,
+    CierreSemanalSeguro,
+    CumplimientoPlanSeguro,
+    DesvioEjecucionSeguro,
+    PeriodoSemanaSeguro,
+    ResumenSemanaSeguro,
+)
 
 __all__ = [
     "CatalogoPlanesSeguro",
@@ -184,4 +194,12 @@ __all__ = [
     "TareaComercialSeguro",
     "TipoAlertaComercialSeguro",
     "TrazaResolucionTareaSeguro",
+    "CierreSemanalSeguroService",
+    "PeriodoSemanaSeguro",
+    "CumplimientoPlanSeguro",
+    "DesvioEjecucionSeguro",
+    "BloqueoOperativoSeguro",
+    "AprendizajeEjecucionSeguro",
+    "CierreSemanalSeguro",
+    "ResumenSemanaSeguro",
 ]
