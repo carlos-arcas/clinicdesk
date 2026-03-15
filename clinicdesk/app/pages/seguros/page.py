@@ -15,12 +15,12 @@ from clinicdesk.app.application.seguros import (
     AnalizarMigracionSeguroUseCase,
     CatalogoPlanesSeguro,
     ColaTrabajoSeguroService,
+    AnaliticaEjecutivaSegurosService,
     GestionComercialSeguroService,
     RecomendadorProductoSeguroService,
     ScoringComercialSeguroService,
     SolicitudGestionItemColaSeguro,
 )
-from clinicdesk.app.domain.seguros import EstadoOportunidadSeguro, ResultadoComercialSeguro
 from clinicdesk.app.i18n import I18nManager
 from clinicdesk.app.infrastructure.seguros.repositorio_comercial_sqlite import RepositorioComercialSeguroSqlite
 from clinicdesk.app.infrastructure.sqlite_db import obtener_conexion
@@ -30,7 +30,14 @@ from clinicdesk.app.pages.seguros.operaciones_comerciales import (
     analizar_actual,
     preparar_oferta_actual,
 )
-from clinicdesk.app.pages.seguros.cola_ui_support import popular_filtros_y_acciones
+from clinicdesk.app.pages.seguros.analitica_ui_support import (
+    construir_texto_campania_activa,
+    construir_texto_cohortes,
+    construir_texto_metricas_funnel,
+    construir_texto_resumen_ejecutivo,
+    poblar_selector_campanias,
+)
+from clinicdesk.app.pages.seguros.page_ui_support import retranslate_page
 
 
 class PageSeguros(QWidget):
@@ -45,10 +52,10 @@ class PageSeguros(QWidget):
         self._scoring = ScoringComercialSeguroService(self._repositorio)
         self._recomendador = RecomendadorProductoSeguroService(self._catalogo, self._scoring)
         self._cola = ColaTrabajoSeguroService(self._repositorio, self._scoring, self._recomendador)
+        self._analitica = AnaliticaEjecutivaSegurosService(self._gestion)
         self._id_oportunidad_activa: str | None = None
         self._build_ui()
         self._popular_planes()
-        self._popular_opciones_impagos()
         self._i18n.subscribe(self._retranslate)
         self._retranslate()
 
@@ -128,6 +135,26 @@ class PageSeguros(QWidget):
         self.lbl_historial_operativo = QLabel("-")
         self.lbl_historial_operativo.setWordWrap(True)
 
+        self.box_ejecutivo = QGroupBox()
+        panel_ejecutivo = QFormLayout(self.box_ejecutivo)
+        self.lbl_resumen_ejecutivo = QLabel("-")
+        self.lbl_resumen_ejecutivo.setWordWrap(True)
+        self.lbl_metricas_funnel = QLabel("-")
+        self.lbl_metricas_funnel.setWordWrap(True)
+        self.lbl_cohortes = QLabel("-")
+        self.lbl_cohortes.setWordWrap(True)
+        self.cmb_campanias = QComboBox()
+        self.btn_aplicar_campania = QPushButton()
+        self.btn_aplicar_campania.clicked.connect(self._aplicar_campania)
+        self.lbl_campania = QLabel("-")
+        self.lbl_campania.setWordWrap(True)
+        panel_ejecutivo.addRow(QLabel(), self.lbl_resumen_ejecutivo)
+        panel_ejecutivo.addRow(QLabel(), self.lbl_metricas_funnel)
+        panel_ejecutivo.addRow(QLabel(), self.lbl_cohortes)
+        panel_ejecutivo.addRow(QLabel(), self.cmb_campanias)
+        panel_ejecutivo.addRow(self.btn_aplicar_campania)
+        panel_ejecutivo.addRow(QLabel(), self.lbl_campania)
+
         layout.addWidget(self.box_filtros)
         layout.addLayout(acciones)
         layout.addWidget(self.lbl_resumen)
@@ -141,6 +168,7 @@ class PageSeguros(QWidget):
         layout.addWidget(self.box_cola)
         layout.addWidget(self.lbl_cola_operativa)
         layout.addWidget(self.lbl_historial_operativo)
+        layout.addWidget(self.box_ejecutivo)
         layout.addStretch(1)
 
     def _popular_planes(self) -> None:
@@ -149,49 +177,8 @@ class PageSeguros(QWidget):
         for plan in self._catalogo.listar_planes_clinica():
             self.cmb_destino.addItem(plan.nombre, plan.id_plan)
 
-    def _popular_opciones_impagos(self) -> None:
-        self.cmb_impagos.clear()
-        self.cmb_impagos.addItem(self._i18n.t("seguros.filtros.impagos.sin_dato"), None)
-        self.cmb_impagos.addItem(self._i18n.t("comun.no"), False)
-        self.cmb_impagos.addItem(self._i18n.t("comun.si"), True)
-
-    def _popular_seguimiento(self) -> None:
-        self.cmb_estado_seguimiento.clear()
-        for estado in (EstadoOportunidadSeguro.OFERTA_ENVIADA, EstadoOportunidadSeguro.EN_SEGUIMIENTO):
-            self.cmb_estado_seguimiento.addItem(estado.value, estado)
-        self.cmb_cierre.clear()
-        for resultado in ResultadoComercialSeguro:
-            self.cmb_cierre.addItem(resultado.value, resultado)
-
     def _retranslate(self) -> None:
-        self.box_filtros.setTitle(self._i18n.t("seguros.filtros.titulo"))
-        form = self.box_filtros.layout()
-        form.labelForField(self.cmb_origen).setText(self._i18n.t("seguros.filtros.plan_origen"))
-        form.labelForField(self.cmb_destino).setText(self._i18n.t("seguros.filtros.plan_destino"))
-        form.labelForField(self.cmb_impagos).setText(self._i18n.t("seguros.filtros.impagos"))
-        self.btn_analizar.setText(self._i18n.t("seguros.accion.analizar"))
-        self.btn_abrir_oportunidad.setText(self._i18n.t("seguros.accion.abrir_oportunidad"))
-        self.btn_preparar_oferta.setText(self._i18n.t("seguros.accion.preparar_oferta"))
-        self.box_seguimiento.setTitle(self._i18n.t("seguros.seguimiento.titulo"))
-        form_seg = self.box_seguimiento.layout()
-        form_seg.labelForField(self.input_accion).setText(self._i18n.t("seguros.seguimiento.accion"))
-        form_seg.labelForField(self.input_nota).setText(self._i18n.t("seguros.seguimiento.nota"))
-        form_seg.labelForField(self.input_siguiente).setText(self._i18n.t("seguros.seguimiento.siguiente_paso"))
-        form_seg.labelForField(self.cmb_estado_seguimiento).setText(self._i18n.t("seguros.seguimiento.estado"))
-        form_seg.labelForField(self.cmb_cierre).setText(self._i18n.t("seguros.seguimiento.cierre"))
-        self.btn_registrar_seguimiento.setText(self._i18n.t("seguros.accion.registrar_seguimiento"))
-        self.btn_cerrar.setText(self._i18n.t("seguros.accion.cerrar_oportunidad"))
-        self.btn_refrescar_cartera.setText(self._i18n.t("seguros.accion.refrescar_cartera"))
-        self.box_cola.setTitle(self._i18n.t("seguros.cola.titulo"))
-        form_cola = self.box_cola.layout()
-        form_cola.labelForField(self.cmb_filtro_cola).setText(self._i18n.t("seguros.cola.filtro"))
-        form_cola.labelForField(self.cmb_accion_cola).setText(self._i18n.t("seguros.cola.accion"))
-        form_cola.labelForField(self.input_nota_cola).setText(self._i18n.t("seguros.cola.nota"))
-        form_cola.labelForField(self.input_siguiente_cola).setText(self._i18n.t("seguros.cola.siguiente"))
-        self.btn_registrar_accion_cola.setText(self._i18n.t("seguros.cola.registrar"))
-        self._popular_opciones_impagos()
-        self._popular_seguimiento()
-        popular_filtros_y_acciones(self._i18n, self.cmb_filtro_cola, self.cmb_accion_cola)
+        retranslate_page(self)
 
     def _analizar(self) -> None:
         analizar_actual(self)
@@ -263,6 +250,29 @@ class PageSeguros(QWidget):
         self.lbl_cola_operativa.setText(cola_txt)
         self.lbl_historial_operativo.setText(historial_txt)
         self._id_oportunidad_activa = activa
+        resumen_ejecutivo = self._analitica.construir_resumen()
+        self.lbl_resumen_ejecutivo.setText(construir_texto_resumen_ejecutivo(self._i18n, resumen_ejecutivo))
+        self.lbl_metricas_funnel.setText(construir_texto_metricas_funnel(self._i18n, resumen_ejecutivo))
+        self.lbl_cohortes.setText(construir_texto_cohortes(self._i18n, resumen_ejecutivo))
+        poblar_selector_campanias(self._i18n, self.cmb_campanias, resumen_ejecutivo)
+        self._actualizar_detalle_campania(resumen_ejecutivo)
+
+    def _actualizar_detalle_campania(self, resumen_ejecutivo) -> None:
+        id_campania = self.cmb_campanias.currentData()
+        if not id_campania and resumen_ejecutivo.campanias:
+            id_campania = resumen_ejecutivo.campanias[0].id_campania
+        self.lbl_campania.setText(
+            construir_texto_campania_activa(self._i18n, resumen_ejecutivo, str(id_campania or ""))
+        )
+
+    def _aplicar_campania(self) -> None:
+        id_campania = self.cmb_campanias.currentData()
+        if not id_campania:
+            return
+        ids = self._analitica.ids_oportunidad_por_campania(str(id_campania))
+        if ids:
+            self._id_oportunidad_activa = ids[0]
+        self._refrescar_cartera()
 
     def _registrar_accion_cola(self) -> None:
         if not self._id_oportunidad_activa:
