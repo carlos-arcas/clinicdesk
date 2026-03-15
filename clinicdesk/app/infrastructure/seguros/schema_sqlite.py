@@ -103,6 +103,45 @@ def inicializar_schema_comercial_seguro(connection: sqlite3.Connection) -> None:
             FOREIGN KEY (id_campania) REFERENCES seguro_campanias(id_campania) ON DELETE CASCADE,
             FOREIGN KEY (id_oportunidad) REFERENCES seguro_oportunidades(id_oportunidad) ON DELETE CASCADE
         );
+        CREATE TABLE IF NOT EXISTS seguro_polizas (
+            id_poliza TEXT PRIMARY KEY,
+            id_oportunidad_origen TEXT NOT NULL,
+            id_paciente TEXT NOT NULL,
+            id_plan TEXT NOT NULL,
+            estado_poliza TEXT NOT NULL,
+            titular_id_asegurado TEXT NOT NULL,
+            titular_nombre TEXT NOT NULL,
+            titular_documento TEXT NOT NULL,
+            titular_estado TEXT NOT NULL,
+            vigencia_inicio TEXT NOT NULL,
+            vigencia_fin TEXT NOT NULL,
+            renovacion_fecha TEXT NOT NULL,
+            renovacion_estado TEXT NOT NULL,
+            coberturas_json TEXT NOT NULL,
+            actualizado_en TEXT NOT NULL,
+            FOREIGN KEY (id_oportunidad_origen) REFERENCES seguro_oportunidades(id_oportunidad) ON DELETE RESTRICT
+        );
+
+        CREATE TABLE IF NOT EXISTS seguro_poliza_beneficiarios (
+            id_beneficiario TEXT PRIMARY KEY,
+            id_poliza TEXT NOT NULL,
+            nombre TEXT NOT NULL,
+            parentesco TEXT NOT NULL,
+            estado TEXT NOT NULL,
+            FOREIGN KEY (id_poliza) REFERENCES seguro_polizas(id_poliza) ON DELETE CASCADE
+        );
+
+        CREATE TABLE IF NOT EXISTS seguro_poliza_incidencias (
+            id_incidencia TEXT PRIMARY KEY,
+            id_poliza TEXT NOT NULL,
+            tipo TEXT NOT NULL,
+            descripcion TEXT NOT NULL,
+            estado TEXT NOT NULL,
+            fecha_apertura TEXT NOT NULL,
+            FOREIGN KEY (id_poliza) REFERENCES seguro_polizas(id_poliza) ON DELETE CASCADE
+        );
+
+
         CREATE TABLE IF NOT EXISTS seguro_gestiones_operativas (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             id_oportunidad TEXT NOT NULL,
@@ -126,6 +165,15 @@ def inicializar_schema_comercial_seguro(connection: sqlite3.Connection) -> None:
             ON seguro_seguimientos (id_oportunidad, fecha_registro DESC);
         CREATE INDEX IF NOT EXISTS idx_seguro_gestiones_operativas_oportunidad_fecha
             ON seguro_gestiones_operativas (id_oportunidad, timestamp DESC);
+
+        CREATE INDEX IF NOT EXISTS idx_seguro_polizas_estado ON seguro_polizas (estado_poliza);
+        CREATE INDEX IF NOT EXISTS idx_seguro_polizas_plan ON seguro_polizas (id_plan);
+        CREATE INDEX IF NOT EXISTS idx_seguro_polizas_vigencia_fin ON seguro_polizas (vigencia_fin);
+        CREATE INDEX IF NOT EXISTS idx_seguro_polizas_renovacion ON seguro_polizas (renovacion_estado);
+        CREATE INDEX IF NOT EXISTS idx_seguro_poliza_beneficiarios_poliza ON seguro_poliza_beneficiarios (id_poliza);
+        CREATE INDEX IF NOT EXISTS idx_seguro_poliza_incidencias_poliza_fecha
+            ON seguro_poliza_incidencias (id_poliza, fecha_apertura DESC);
+
 
         CREATE INDEX IF NOT EXISTS idx_seguro_campanias_estado ON seguro_campanias (estado);
         CREATE INDEX IF NOT EXISTS idx_seguro_campania_items_campania ON seguro_campania_items (id_campania, timestamp DESC);

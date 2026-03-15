@@ -1,4 +1,6 @@
 from __future__ import annotations
+
+from datetime import date
 from PySide6.QtWidgets import (
     QComboBox,
     QFormLayout,
@@ -27,11 +29,21 @@ from clinicdesk.app.application.seguros import (
     SolicitudGestionItemColaSeguro,
     AgendaAlertasSeguroService,
     CierreSemanalSeguroService,
+    FiltroCarteraPolizaSeguro,
+    GestionPostventaPolizaSeguroService,
+    SolicitudAltaPolizaDesdeConversion,
+    SolicitudRegistrarIncidenciaPoliza,
 )
 from clinicdesk.app.i18n import I18nManager
 from clinicdesk.app.domain.seguros import EstadoItemCampaniaSeguro, ResultadoItemCampaniaSeguro
+from clinicdesk.app.domain.seguros.postventa import (
+    BeneficiarioSeguro,
+    EstadoAseguradoSeguro,
+    TipoIncidenciaPolizaSeguro,
+)
 from clinicdesk.app.infrastructure.seguros.repositorio_comercial_sqlite import RepositorioComercialSeguroSqlite
 from clinicdesk.app.infrastructure.seguros.repositorio_campanias_sqlite import RepositorioCampaniasSeguroSqlite
+from clinicdesk.app.infrastructure.seguros.repositorio_poliza_sqlite import RepositorioPolizaSeguroSqlite
 from clinicdesk.app.infrastructure.sqlite_db import obtener_conexion
 from clinicdesk.app.pages.seguros.cola_operaciones import construir_panel_operativo, construir_resumen_cartera
 from clinicdesk.app.pages.seguros.operaciones_comerciales import (
@@ -50,6 +62,7 @@ from clinicdesk.app.pages.seguros.analitica_ui_support import (
     poblar_selector_campanias,
 )
 from clinicdesk.app.pages.seguros.page_ui_support import retranslate_page
+from clinicdesk.app.pages.seguros.postventa_ui_support import construir_texto_cartera_postventa
 from clinicdesk.app.pages.seguros.campanias_ui_support import (
     construir_texto_resultado_campania,
     poblar_selector_campanias_ejecutables,
@@ -74,7 +87,9 @@ class PageSeguros(QWidget):
         self._use_case = AnalizarMigracionSeguroUseCase(self._catalogo)
         self._conexion = obtener_conexion()
         self._repositorio = RepositorioComercialSeguroSqlite(self._conexion)
+        self._repositorio_poliza = RepositorioPolizaSeguroSqlite(self._conexion)
         self._gestion = GestionComercialSeguroService(self._use_case, self._repositorio)
+        self._postventa = GestionPostventaPolizaSeguroService(self._repositorio_poliza, self._repositorio)
         self._scoring = ScoringComercialSeguroService(self._repositorio)
         self._recomendador = RecomendadorProductoSeguroService(self._catalogo, self._scoring)
         self._cola = ColaTrabajoSeguroService(self._repositorio, self._scoring, self._recomendador)
@@ -247,6 +262,26 @@ class PageSeguros(QWidget):
         panel_campanias.addRow(self.btn_registrar_item_campania)
         panel_campanias.addRow(QLabel(), self.lbl_resultado_campania)
 
+        self.box_postventa = QGroupBox()
+        panel_postventa = QFormLayout(self.box_postventa)
+        self.input_nombre_titular = QLineEdit()
+        self.input_doc_titular = QLineEdit()
+        self.input_nombre_beneficiario = QLineEdit()
+        self.cmb_tipo_incidencia = QComboBox()
+        self.btn_materializar_poliza = QPushButton()
+        self.btn_materializar_poliza.clicked.connect(self._materializar_poliza)
+        self.btn_registrar_incidencia_poliza = QPushButton()
+        self.btn_registrar_incidencia_poliza.clicked.connect(self._registrar_incidencia_poliza)
+        self.lbl_postventa = QLabel("-")
+        self.lbl_postventa.setWordWrap(True)
+        panel_postventa.addRow(QLabel(), self.input_nombre_titular)
+        panel_postventa.addRow(QLabel(), self.input_doc_titular)
+        panel_postventa.addRow(QLabel(), self.input_nombre_beneficiario)
+        panel_postventa.addRow(QLabel(), self.cmb_tipo_incidencia)
+        panel_postventa.addRow(self.btn_materializar_poliza)
+        panel_postventa.addRow(self.btn_registrar_incidencia_poliza)
+        panel_postventa.addRow(QLabel(), self.lbl_postventa)
+
         layout.addWidget(self.box_filtros)
         layout.addLayout(acciones)
         layout.addWidget(self.lbl_resumen)
@@ -263,6 +298,7 @@ class PageSeguros(QWidget):
         layout.addWidget(self.box_agenda)
         layout.addWidget(self.box_ejecutivo)
         layout.addWidget(self.box_campanias)
+        layout.addWidget(self.box_postventa)
         layout.addStretch(1)
 
     def _popular_planes(self) -> None:
@@ -364,6 +400,7 @@ class PageSeguros(QWidget):
         poblar_selector_campanias(self._i18n, self.cmb_campanias, resumen_ejecutivo)
         self._actualizar_detalle_campania(resumen_ejecutivo)
         self._refrescar_campanias_ejecutables()
+        self._refrescar_postventa()
 
     def _actualizar_detalle_campania(self, resumen_ejecutivo) -> None:
         id_campania = self.cmb_campanias.currentData()
@@ -444,6 +481,53 @@ class PageSeguros(QWidget):
         )
         self._refrescar_campanias_ejecutables()
 
+    def _materializar_poliza(self) -> None:
+        if not self._id_oportunidad_activa:
+            return
+        nombre_titular = self.input_nombre_titular.text().strip() or self._i18n.t("seguros.postventa.titular_default")
+        documento = self.input_doc_titular.text().strip() or self._i18n.t("seguros.postventa.documento_default")
+        nombre_beneficiario = self.input_nombre_beneficiario.text().strip()
+        beneficiarios = ()
+        if nombre_beneficiario:
+            beneficiarios = (
+                BeneficiarioSeguro(
+                    id_beneficiario=f"ben-{self._id_oportunidad_activa}",
+                    nombre=nombre_beneficiario,
+                    parentesco="familiar",
+                    estado=EstadoAseguradoSeguro.ACTIVO,
+                ),
+            )
+        self._postventa.materializar_poliza_desde_conversion(
+            SolicitudAltaPolizaDesdeConversion(
+                id_oportunidad=self._id_oportunidad_activa,
+                id_poliza=f"pol-{self._id_oportunidad_activa}",
+                nombre_titular=nombre_titular,
+                documento_titular=documento,
+                fecha_inicio=date.today(),
+                beneficiarios=beneficiarios,
+            )
+        )
+        self._refrescar_postventa()
+
+    def _registrar_incidencia_poliza(self) -> None:
+        if not self._id_oportunidad_activa:
+            return
+        id_poliza = f"pol-{self._id_oportunidad_activa}"
+        self._postventa.registrar_incidencia(
+            SolicitudRegistrarIncidenciaPoliza(
+                id_poliza=id_poliza,
+                id_incidencia=f"inc-{id_poliza}",
+                tipo=self.cmb_tipo_incidencia.currentData(),
+                descripcion=self._i18n.t("seguros.postventa.incidencia_default"),
+                fecha_apertura=date.today(),
+            )
+        )
+        self._refrescar_postventa()
+
+    def _refrescar_postventa(self) -> None:
+        polizas = self._postventa.listar_cartera(FiltroCarteraPolizaSeguro())
+        self.lbl_postventa.setText(construir_texto_cartera_postventa(self._i18n, polizas))
+
     def _poblar_estados_items_campania(self) -> None:
         self.cmb_estado_item_campania.clear()
         for estado in EstadoItemCampaniaSeguro:
@@ -451,3 +535,6 @@ class PageSeguros(QWidget):
         self.cmb_resultado_item_campania.clear()
         for resultado in ResultadoItemCampaniaSeguro:
             self.cmb_resultado_item_campania.addItem(resultado.value, resultado)
+        self.cmb_tipo_incidencia.clear()
+        for tipo in TipoIncidenciaPolizaSeguro:
+            self.cmb_tipo_incidencia.addItem(tipo.value, tipo)

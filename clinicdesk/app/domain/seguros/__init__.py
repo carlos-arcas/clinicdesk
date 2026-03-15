@@ -48,6 +48,22 @@ from clinicdesk.app.domain.seguros.modelos import (
     ResultadoElegibilidadSeguro,
     TipoPlanSeguro,
 )
+
+from clinicdesk.app.domain.seguros.postventa import (
+    AseguradoPrincipalSeguro,
+    BeneficiarioSeguro,
+    CoberturaActivaPolizaSeguro,
+    EstadoAseguradoSeguro,
+    EstadoIncidenciaPolizaSeguro,
+    EstadoPolizaSeguro,
+    EstadoRenovacionPolizaSeguro,
+    IncidenciaPolizaSeguro,
+    PolizaSeguro,
+    RenovacionPolizaSeguro,
+    TipoIncidenciaPolizaSeguro,
+    VigenciaPolizaSeguro,
+)
+
 from clinicdesk.app.domain.seguros.campanias import (
     CampaniaSeguro,
     CriterioCampaniaSeguro,
@@ -115,4 +131,16 @@ __all__ = [
     "crear_resultado_vacio",
     "reconstruir_resultado",
     "nuevo_item_campania",
+    "PolizaSeguro",
+    "EstadoPolizaSeguro",
+    "AseguradoPrincipalSeguro",
+    "BeneficiarioSeguro",
+    "EstadoAseguradoSeguro",
+    "VigenciaPolizaSeguro",
+    "RenovacionPolizaSeguro",
+    "EstadoRenovacionPolizaSeguro",
+    "CoberturaActivaPolizaSeguro",
+    "IncidenciaPolizaSeguro",
+    "TipoIncidenciaPolizaSeguro",
+    "EstadoIncidenciaPolizaSeguro",
 ]

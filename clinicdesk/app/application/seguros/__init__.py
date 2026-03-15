@@ -102,6 +102,13 @@ from clinicdesk.app.application.seguros.agenda_alertas_contratos import (
     TrazaResolucionTareaSeguro,
 )
 from clinicdesk.app.application.seguros.cierre_semanal import CierreSemanalSeguroService
+
+from clinicdesk.app.application.seguros.postventa import (
+    FiltroCarteraPolizaSeguro,
+    GestionPostventaPolizaSeguroService,
+    SolicitudAltaPolizaDesdeConversion,
+    SolicitudRegistrarIncidenciaPoliza,
+)
 from clinicdesk.app.application.seguros.cierre_semanal_contratos import (
     AprendizajeEjecucionSeguro,
     BloqueoOperativoSeguro,
@@ -202,4 +209,8 @@ __all__ = [
     "AprendizajeEjecucionSeguro",
     "CierreSemanalSeguro",
     "ResumenSemanaSeguro",
+    "GestionPostventaPolizaSeguroService",
+    "SolicitudAltaPolizaDesdeConversion",
+    "SolicitudRegistrarIncidenciaPoliza",
+    "FiltroCarteraPolizaSeguro",
 ]
