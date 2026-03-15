@@ -28,6 +28,13 @@ from clinicdesk.app.application.seguros import (
     ScoringComercialSeguroService,
     SolicitudGestionItemColaSeguro,
     AgendaAlertasSeguroService,
+    FiltroCarteraEconomicaPolizaSeguro,
+    GestionEconomicaPolizaSeguroService,
+    SolicitudEmitirCuotaPolizaSeguro,
+    SolicitudRegistrarImpagoSeguro,
+    SolicitudRegistrarPagoCuotaSeguro,
+    SolicitudRegistrarReactivacionPolizaSeguro,
+    SolicitudRegistrarSuspensionPolizaSeguro,
     CierreSemanalSeguroService,
     FiltroCarteraPolizaSeguro,
     GestionPostventaPolizaSeguroService,
@@ -44,6 +51,9 @@ from clinicdesk.app.domain.seguros.postventa import (
 from clinicdesk.app.infrastructure.seguros.repositorio_comercial_sqlite import RepositorioComercialSeguroSqlite
 from clinicdesk.app.infrastructure.seguros.repositorio_campanias_sqlite import RepositorioCampaniasSeguroSqlite
 from clinicdesk.app.infrastructure.seguros.repositorio_poliza_sqlite import RepositorioPolizaSeguroSqlite
+from clinicdesk.app.infrastructure.seguros.repositorio_economia_poliza_sqlite import (
+    RepositorioEconomiaPolizaSeguroSqlite,
+)
 from clinicdesk.app.infrastructure.sqlite_db import obtener_conexion
 from clinicdesk.app.pages.seguros.cola_operaciones import construir_panel_operativo, construir_resumen_cartera
 from clinicdesk.app.pages.seguros.operaciones_comerciales import (
@@ -62,7 +72,11 @@ from clinicdesk.app.pages.seguros.analitica_ui_support import (
     poblar_selector_campanias,
 )
 from clinicdesk.app.pages.seguros.page_ui_support import retranslate_page
-from clinicdesk.app.pages.seguros.postventa_ui_support import construir_texto_cartera_postventa
+from clinicdesk.app.pages.seguros.postventa_ui_support import (
+    construir_texto_cartera_economica,
+    construir_texto_cartera_postventa,
+    estado_pago_desde_selector,
+)
 from clinicdesk.app.pages.seguros.campanias_ui_support import (
     construir_texto_resultado_campania,
     poblar_selector_campanias_ejecutables,
@@ -90,6 +104,8 @@ class PageSeguros(QWidget):
         self._repositorio_poliza = RepositorioPolizaSeguroSqlite(self._conexion)
         self._gestion = GestionComercialSeguroService(self._use_case, self._repositorio)
         self._postventa = GestionPostventaPolizaSeguroService(self._repositorio_poliza, self._repositorio)
+        self._repo_economia_poliza = RepositorioEconomiaPolizaSeguroSqlite(self._conexion)
+        self._economia_poliza = GestionEconomicaPolizaSeguroService(self._repo_economia_poliza)
         self._scoring = ScoringComercialSeguroService(self._repositorio)
         self._recomendador = RecomendadorProductoSeguroService(self._catalogo, self._scoring)
         self._cola = ColaTrabajoSeguroService(self._repositorio, self._scoring, self._recomendador)
@@ -268,19 +284,43 @@ class PageSeguros(QWidget):
         self.input_doc_titular = QLineEdit()
         self.input_nombre_beneficiario = QLineEdit()
         self.cmb_tipo_incidencia = QComboBox()
+        self.input_periodo_cuota = QLineEdit()
+        self.input_importe_cuota = QLineEdit()
+        self.cmb_estado_pago_filtro = QComboBox()
+        self.btn_emitir_cuota = QPushButton()
+        self.btn_emitir_cuota.clicked.connect(self._emitir_cuota_postventa)
+        self.btn_registrar_pago_cuota = QPushButton()
+        self.btn_registrar_pago_cuota.clicked.connect(self._registrar_pago_cuota_postventa)
+        self.btn_registrar_impago = QPushButton()
+        self.btn_registrar_impago.clicked.connect(self._registrar_impago_postventa)
+        self.btn_suspender_poliza = QPushButton()
+        self.btn_suspender_poliza.clicked.connect(self._suspender_poliza_postventa)
+        self.btn_reactivar_poliza = QPushButton()
+        self.btn_reactivar_poliza.clicked.connect(self._reactivar_poliza_postventa)
         self.btn_materializar_poliza = QPushButton()
         self.btn_materializar_poliza.clicked.connect(self._materializar_poliza)
         self.btn_registrar_incidencia_poliza = QPushButton()
         self.btn_registrar_incidencia_poliza.clicked.connect(self._registrar_incidencia_poliza)
         self.lbl_postventa = QLabel("-")
         self.lbl_postventa.setWordWrap(True)
+        self.lbl_postventa_economia = QLabel("-")
+        self.lbl_postventa_economia.setWordWrap(True)
         panel_postventa.addRow(QLabel(), self.input_nombre_titular)
         panel_postventa.addRow(QLabel(), self.input_doc_titular)
         panel_postventa.addRow(QLabel(), self.input_nombre_beneficiario)
         panel_postventa.addRow(QLabel(), self.cmb_tipo_incidencia)
+        panel_postventa.addRow(QLabel(), self.input_periodo_cuota)
+        panel_postventa.addRow(QLabel(), self.input_importe_cuota)
+        panel_postventa.addRow(QLabel(), self.cmb_estado_pago_filtro)
         panel_postventa.addRow(self.btn_materializar_poliza)
         panel_postventa.addRow(self.btn_registrar_incidencia_poliza)
+        panel_postventa.addRow(self.btn_emitir_cuota)
+        panel_postventa.addRow(self.btn_registrar_pago_cuota)
+        panel_postventa.addRow(self.btn_registrar_impago)
+        panel_postventa.addRow(self.btn_suspender_poliza)
+        panel_postventa.addRow(self.btn_reactivar_poliza)
         panel_postventa.addRow(QLabel(), self.lbl_postventa)
+        panel_postventa.addRow(QLabel(), self.lbl_postventa_economia)
 
         layout.addWidget(self.box_filtros)
         layout.addLayout(acciones)
@@ -524,9 +564,93 @@ class PageSeguros(QWidget):
         )
         self._refrescar_postventa()
 
+
+    def _emitir_cuota_postventa(self) -> None:
+        if not self._id_oportunidad_activa:
+            return
+        id_poliza = f"pol-{self._id_oportunidad_activa}"
+        periodo = self.input_periodo_cuota.text().strip() or date.today().strftime("%Y-%m")
+        importe_txt = self.input_importe_cuota.text().strip()
+        importe = float(importe_txt) if importe_txt else 120.0
+        self._economia_poliza.emitir_cuota(
+            SolicitudEmitirCuotaPolizaSeguro(
+                id_cuota=f"cuota-{id_poliza}-{periodo}",
+                id_poliza=id_poliza,
+                periodo=periodo,
+                fecha_emision=date.today(),
+                fecha_vencimiento=date.today(),
+                importe=importe,
+            )
+        )
+        self._refrescar_postventa()
+
+    def _registrar_pago_cuota_postventa(self) -> None:
+        if not self._id_oportunidad_activa:
+            return
+        id_poliza = f"pol-{self._id_oportunidad_activa}"
+        cuotas = self._repo_economia_poliza.listar_cuotas_poliza(id_poliza)
+        if not cuotas:
+            return
+        self._economia_poliza.registrar_pago_cuota(
+            SolicitudRegistrarPagoCuotaSeguro(id_cuota=cuotas[-1].id_cuota, fecha_pago=date.today())
+        )
+        self._refrescar_postventa()
+
+    def _registrar_impago_postventa(self) -> None:
+        if not self._id_oportunidad_activa:
+            return
+        id_poliza = f"pol-{self._id_oportunidad_activa}"
+        cuotas = self._repo_economia_poliza.listar_cuotas_poliza(id_poliza)
+        if not cuotas:
+            return
+        cuota = cuotas[-1]
+        self._economia_poliza.registrar_impago(
+            SolicitudRegistrarImpagoSeguro(
+                id_evento=f"imp-{cuota.id_cuota}",
+                id_poliza=id_poliza,
+                id_cuota=cuota.id_cuota,
+                fecha_evento=date.today(),
+                motivo="Impago operativo registrado por backoffice",
+            )
+        )
+        self._refrescar_postventa()
+
+    def _suspender_poliza_postventa(self) -> None:
+        if not self._id_oportunidad_activa:
+            return
+        id_poliza = f"pol-{self._id_oportunidad_activa}"
+        self._economia_poliza.registrar_suspension(
+            SolicitudRegistrarSuspensionPolizaSeguro(
+                id_evento=f"sus-{id_poliza}",
+                id_poliza=id_poliza,
+                fecha_evento=date.today(),
+                motivo="Suspension operativa por riesgo economico alto",
+            )
+        )
+        self._refrescar_postventa()
+
+    def _reactivar_poliza_postventa(self) -> None:
+        if not self._id_oportunidad_activa:
+            return
+        id_poliza = f"pol-{self._id_oportunidad_activa}"
+        self._economia_poliza.registrar_reactivacion(
+            SolicitudRegistrarReactivacionPolizaSeguro(
+                id_evento=f"rea-{id_poliza}",
+                id_poliza=id_poliza,
+                fecha_evento=date.today(),
+                motivo="Reactivacion por regularizacion economica",
+            )
+        )
+        self._refrescar_postventa()
+
     def _refrescar_postventa(self) -> None:
         polizas = self._postventa.listar_cartera(FiltroCarteraPolizaSeguro())
         self.lbl_postventa.setText(construir_texto_cartera_postventa(self._i18n, polizas))
+        estado_pago = estado_pago_desde_selector(self.cmb_estado_pago_filtro.currentData())
+        cartera = self._economia_poliza.listar_cartera_economica(
+            FiltroCarteraEconomicaPolizaSeguro(estado_pago=estado_pago) if estado_pago else None
+        )
+        self.lbl_postventa_economia.setText(construir_texto_cartera_economica(self._i18n, cartera))
 
     def _poblar_estados_items_campania(self) -> None:
         self.cmb_estado_item_campania.clear()

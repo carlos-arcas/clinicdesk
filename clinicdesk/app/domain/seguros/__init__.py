@@ -63,6 +63,18 @@ from clinicdesk.app.domain.seguros.postventa import (
     TipoIncidenciaPolizaSeguro,
     VigenciaPolizaSeguro,
 )
+from clinicdesk.app.domain.seguros.economia_poliza import (
+    CarteraEconomicaPolizaSeguro,
+    CuotaPolizaSeguro,
+    EstadoCuotaPolizaSeguro,
+    EstadoPagoPolizaSeguro,
+    ImpagoPolizaSeguro,
+    NivelRiesgoEconomicoPolizaSeguro,
+    ReactivacionPolizaSeguro,
+    ResumenEconomicoPolizaSeguro,
+    SuspensionPolizaSeguro,
+    VencimientoPolizaSeguro,
+)
 
 from clinicdesk.app.domain.seguros.campanias import (
     CampaniaSeguro,
@@ -143,4 +155,14 @@ __all__ = [
     "IncidenciaPolizaSeguro",
     "TipoIncidenciaPolizaSeguro",
     "EstadoIncidenciaPolizaSeguro",
+    "EstadoPagoPolizaSeguro",
+    "EstadoCuotaPolizaSeguro",
+    "NivelRiesgoEconomicoPolizaSeguro",
+    "CuotaPolizaSeguro",
+    "VencimientoPolizaSeguro",
+    "ImpagoPolizaSeguro",
+    "SuspensionPolizaSeguro",
+    "ReactivacionPolizaSeguro",
+    "ResumenEconomicoPolizaSeguro",
+    "CarteraEconomicaPolizaSeguro",
 ]

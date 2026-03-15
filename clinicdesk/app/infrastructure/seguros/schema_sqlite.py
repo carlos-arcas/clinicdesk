@@ -142,6 +142,47 @@ def inicializar_schema_comercial_seguro(connection: sqlite3.Connection) -> None:
         );
 
 
+
+        CREATE TABLE IF NOT EXISTS seguro_poliza_cuotas (
+            id_cuota TEXT PRIMARY KEY,
+            id_poliza TEXT NOT NULL,
+            periodo TEXT NOT NULL,
+            fecha_emision TEXT NOT NULL,
+            fecha_vencimiento TEXT NOT NULL,
+            importe REAL NOT NULL,
+            estado_cuota TEXT NOT NULL,
+            fecha_pago TEXT,
+            actualizado_en TEXT NOT NULL,
+            FOREIGN KEY (id_poliza) REFERENCES seguro_polizas(id_poliza) ON DELETE CASCADE
+        );
+
+        CREATE TABLE IF NOT EXISTS seguro_poliza_impagos (
+            id_evento TEXT PRIMARY KEY,
+            id_poliza TEXT NOT NULL,
+            id_cuota TEXT NOT NULL,
+            fecha_evento TEXT NOT NULL,
+            motivo TEXT NOT NULL,
+            FOREIGN KEY (id_poliza) REFERENCES seguro_polizas(id_poliza) ON DELETE CASCADE,
+            FOREIGN KEY (id_cuota) REFERENCES seguro_poliza_cuotas(id_cuota) ON DELETE CASCADE
+        );
+
+        CREATE TABLE IF NOT EXISTS seguro_poliza_suspensiones (
+            id_evento TEXT PRIMARY KEY,
+            id_poliza TEXT NOT NULL,
+            fecha_evento TEXT NOT NULL,
+            motivo TEXT NOT NULL,
+            automatica INTEGER NOT NULL,
+            FOREIGN KEY (id_poliza) REFERENCES seguro_polizas(id_poliza) ON DELETE CASCADE
+        );
+
+        CREATE TABLE IF NOT EXISTS seguro_poliza_reactivaciones (
+            id_evento TEXT PRIMARY KEY,
+            id_poliza TEXT NOT NULL,
+            fecha_evento TEXT NOT NULL,
+            motivo TEXT NOT NULL,
+            FOREIGN KEY (id_poliza) REFERENCES seguro_polizas(id_poliza) ON DELETE CASCADE
+        );
+
         CREATE TABLE IF NOT EXISTS seguro_gestiones_operativas (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             id_oportunidad TEXT NOT NULL,
@@ -173,6 +214,17 @@ def inicializar_schema_comercial_seguro(connection: sqlite3.Connection) -> None:
         CREATE INDEX IF NOT EXISTS idx_seguro_poliza_beneficiarios_poliza ON seguro_poliza_beneficiarios (id_poliza);
         CREATE INDEX IF NOT EXISTS idx_seguro_poliza_incidencias_poliza_fecha
             ON seguro_poliza_incidencias (id_poliza, fecha_apertura DESC);
+
+        CREATE INDEX IF NOT EXISTS idx_seguro_poliza_cuotas_poliza_vencimiento
+            ON seguro_poliza_cuotas (id_poliza, fecha_vencimiento ASC);
+        CREATE INDEX IF NOT EXISTS idx_seguro_poliza_cuotas_estado
+            ON seguro_poliza_cuotas (estado_cuota);
+        CREATE INDEX IF NOT EXISTS idx_seguro_poliza_impagos_poliza_fecha
+            ON seguro_poliza_impagos (id_poliza, fecha_evento DESC);
+        CREATE INDEX IF NOT EXISTS idx_seguro_poliza_suspensiones_poliza_fecha
+            ON seguro_poliza_suspensiones (id_poliza, fecha_evento DESC);
+        CREATE INDEX IF NOT EXISTS idx_seguro_poliza_reactivaciones_poliza_fecha
+            ON seguro_poliza_reactivaciones (id_poliza, fecha_evento DESC);
 
 
         CREATE INDEX IF NOT EXISTS idx_seguro_campanias_estado ON seguro_campanias (estado);

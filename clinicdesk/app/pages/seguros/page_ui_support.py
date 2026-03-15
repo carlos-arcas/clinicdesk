@@ -84,9 +84,29 @@ def retranslate_page(page) -> None:
     form_postventa.labelForField(page.input_doc_titular).setText(page._i18n.t("seguros.postventa.documento"))
     form_postventa.labelForField(page.input_nombre_beneficiario).setText(page._i18n.t("seguros.postventa.beneficiario"))
     form_postventa.labelForField(page.cmb_tipo_incidencia).setText(page._i18n.t("seguros.postventa.tipo_incidencia"))
+    form_postventa.labelForField(page.input_periodo_cuota).setText(page._i18n.t("seguros.postventa.economia.periodo"))
+    form_postventa.labelForField(page.input_importe_cuota).setText(page._i18n.t("seguros.postventa.economia.importe"))
+    form_postventa.labelForField(page.cmb_estado_pago_filtro).setText(page._i18n.t("seguros.postventa.economia.filtro_estado"))
     form_postventa.labelForField(page.lbl_postventa).setText(page._i18n.t("seguros.postventa.cartera"))
+    form_postventa.labelForField(page.lbl_postventa_economia).setText(page._i18n.t("seguros.postventa.economia.cartera"))
     page.btn_materializar_poliza.setText(page._i18n.t("seguros.postventa.materializar"))
     page.btn_registrar_incidencia_poliza.setText(page._i18n.t("seguros.postventa.registrar_incidencia"))
+    page.btn_emitir_cuota.setText(page._i18n.t("seguros.postventa.economia.emitir_cuota"))
+    page.btn_registrar_pago_cuota.setText(page._i18n.t("seguros.postventa.economia.registrar_pago"))
+    page.btn_registrar_impago.setText(page._i18n.t("seguros.postventa.economia.registrar_impago"))
+    page.btn_suspender_poliza.setText(page._i18n.t("seguros.postventa.economia.suspender"))
+    page.btn_reactivar_poliza.setText(page._i18n.t("seguros.postventa.economia.reactivar"))
     popular_opciones_impagos(page)
     popular_seguimiento(page)
+    page.cmb_estado_pago_filtro.clear()
+    page.cmb_estado_pago_filtro.addItem(page._i18n.t("seguros.postventa.economia.filtro_todos"), None)
+    for valor in (
+        "AL_DIA",
+        "PROXIMA_A_VENCER",
+        "VENCIDA",
+        "IMPAGADA",
+        "SUSPENDIDA",
+        "REACTIVABLE",
+    ):
+        page.cmb_estado_pago_filtro.addItem(valor, valor)
     popular_filtros_y_acciones(page._i18n, page.cmb_filtro_cola, page.cmb_accion_cola)
