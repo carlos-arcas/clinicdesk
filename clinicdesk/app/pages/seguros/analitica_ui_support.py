@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from clinicdesk.app.application.seguros import ResumenEjecutivoSeguros
+from clinicdesk.app.application.seguros import PanelAprendizajeComercialSeguro, ResumenEjecutivoSeguros
 from clinicdesk.app.i18n import I18nManager
 
 
@@ -73,6 +73,90 @@ def poblar_selector_campanias(i18n: I18nManager, combo, resumen: ResumenEjecutiv
             tamano=campania.tamano_estimado,
         )
         combo.addItem(texto, campania.id_campania)
+
+
+def construir_texto_aprendizaje(i18n: I18nManager, panel: PanelAprendizajeComercialSeguro) -> str:
+    lineas = [i18n.t("seguros.aprendizaje.titulo")]
+    lineas.extend(_lineas_campanias(i18n, panel))
+    lineas.extend(_lineas_segmentos(i18n, panel))
+    lineas.extend(_lineas_argumentos(i18n, panel))
+    lineas.extend(_lineas_planes(i18n, panel))
+    lineas.extend(_lineas_playbooks(i18n, panel))
+    return "\n".join(lineas)
+
+
+def _lineas_campanias(i18n: I18nManager, panel: PanelAprendizajeComercialSeguro) -> list[str]:
+    lineas = [i18n.t("seguros.aprendizaje.campanias")]
+    for item in panel.efectividad_campanias[:3]:
+        lineas.append(
+            i18n.t("seguros.aprendizaje.campania_item").format(
+                nombre=item.nombre_campania,
+                senal=item.senal_efectividad,
+                metrica=_render_ratio(i18n, item.metrica_principal),
+                muestra=item.tamano_muestra,
+                cautela=item.cautela_muestral,
+            )
+        )
+    return lineas
+
+
+def _lineas_segmentos(i18n: I18nManager, panel: PanelAprendizajeComercialSeguro) -> list[str]:
+    lineas = [i18n.t("seguros.aprendizaje.segmentos")]
+    for item in panel.insights_segmentos[:3]:
+        lineas.append(
+            i18n.t("seguros.aprendizaje.segmento_item").format(
+                eje=item.eje,
+                valor=item.valor,
+                metrica=_render_ratio(i18n, item.metrica_principal),
+                muestra=item.tamano_muestra,
+                cautela=item.cautela_muestral,
+            )
+        )
+    return lineas
+
+
+def _lineas_argumentos(i18n: I18nManager, panel: PanelAprendizajeComercialSeguro) -> list[str]:
+    lineas = [i18n.t("seguros.aprendizaje.argumentos")]
+    for item in panel.insights_argumentos[:3]:
+        lineas.append(
+            i18n.t("seguros.aprendizaje.argumento_item").format(
+                segmento=item.segmento,
+                argumento=item.argumento,
+                metrica=_render_ratio(i18n, item.metrica_principal),
+                muestra=item.tamano_muestra,
+            )
+        )
+    return lineas
+
+
+def _lineas_planes(i18n: I18nManager, panel: PanelAprendizajeComercialSeguro) -> list[str]:
+    lineas = [i18n.t("seguros.aprendizaje.planes")]
+    for item in panel.insights_planes[:3]:
+        lineas.append(
+            i18n.t("seguros.aprendizaje.plan_item").format(
+                segmento=item.segmento,
+                plan=item.plan_propuesto_id,
+                metrica=_render_ratio(i18n, item.metrica_principal),
+                muestra=item.tamano_muestra,
+            )
+        )
+    return lineas
+
+
+def _lineas_playbooks(i18n: I18nManager, panel: PanelAprendizajeComercialSeguro) -> list[str]:
+    lineas = [i18n.t("seguros.aprendizaje.playbooks")]
+    for item in panel.playbooks[:3]:
+        lineas.append(
+            i18n.t("seguros.aprendizaje.playbook_item").format(
+                segmento=item.segmento_objetivo,
+                plan=item.plan_sugerido,
+                argumento=item.argumento_principal,
+                objecion=item.objecion_a_vigilar,
+                accion=item.siguiente_accion_sugerida,
+                cautela=item.cautela_muestral,
+            )
+        )
+    return lineas
 
 
 def _render_ratio(i18n: I18nManager, ratio: float | None) -> str:
