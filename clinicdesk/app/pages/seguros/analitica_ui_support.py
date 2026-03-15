@@ -206,3 +206,49 @@ def construir_texto_valor_economico(i18n: I18nManager, resumen: ResumenEjecutivo
     if len(lineas) == 1:
         lineas.append(i18n.t("seguros.ejecutivo.valor_sin_dato"))
     return "\n".join(lineas)
+
+
+def construir_texto_forecast(i18n: I18nManager, resumen: ResumenEjecutivoSeguros) -> str:
+    forecast = resumen.forecast
+    lineas = [
+        i18n.t("seguros.ejecutivo.forecast_titulo"),
+        i18n.t("seguros.ejecutivo.forecast_resumen").format(
+            horizonte=forecast.horizonte.value,
+            conversiones=forecast.conversiones_esperadas,
+            renovaciones=forecast.renovaciones_salvables_esperadas,
+            valor=forecast.valor_esperado,
+            cautela=forecast.cautela.value,
+            riesgo=forecast.riesgo_principal,
+            accion=forecast.accion_sugerida,
+        ),
+    ]
+    for item in resumen.escenarios[:3]:
+        lineas.append(
+            i18n.t("seguros.ejecutivo.forecast_escenario_item").format(
+                estrategia=item.estrategia,
+                poblacion=item.tamano_poblacion,
+                conversion=_render_ratio(i18n, item.conversion_esperada),
+                valor=item.valor_esperado,
+                riesgo=item.riesgo_principal,
+            )
+        )
+    for desvio in resumen.desvios_objetivo[:3]:
+        lineas.append(
+            i18n.t("seguros.ejecutivo.forecast_desvio_item").format(
+                objetivo=desvio.objetivo.nombre,
+                proyectado=desvio.valor_proyectado,
+                objetivo_valor=desvio.objetivo.valor_objetivo,
+                estado=desvio.estado.value,
+                brecha=desvio.brecha,
+            )
+        )
+    recomendacion = resumen.recomendacion_estrategica
+    lineas.append(
+        i18n.t("seguros.ejecutivo.forecast_recomendacion").format(
+            foco=recomendacion.foco,
+            accion=recomendacion.accion_sugerida,
+            por_que=recomendacion.por_que,
+            cautela=recomendacion.cautela.value,
+        )
+    )
+    return "\n".join(lineas)

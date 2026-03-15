@@ -44,6 +44,7 @@ from clinicdesk.app.pages.seguros.analitica_ui_support import (
     construir_texto_resumen_ejecutivo,
     construir_texto_aprendizaje,
     construir_texto_valor_economico,
+    construir_texto_forecast,
     poblar_selector_campanias,
 )
 from clinicdesk.app.pages.seguros.page_ui_support import retranslate_page
@@ -170,6 +171,8 @@ class PageSeguros(QWidget):
         self.lbl_aprendizaje.setWordWrap(True)
         self.lbl_valor_economico = QLabel("-")
         self.lbl_valor_economico.setWordWrap(True)
+        self.lbl_forecast = QLabel("-")
+        self.lbl_forecast.setWordWrap(True)
         panel_ejecutivo.addRow(QLabel(), self.lbl_resumen_ejecutivo)
         panel_ejecutivo.addRow(QLabel(), self.lbl_metricas_funnel)
         panel_ejecutivo.addRow(QLabel(), self.lbl_cohortes)
@@ -178,6 +181,7 @@ class PageSeguros(QWidget):
         panel_ejecutivo.addRow(QLabel(), self.lbl_campania)
         panel_ejecutivo.addRow(QLabel(), self.lbl_aprendizaje)
         panel_ejecutivo.addRow(QLabel(), self.lbl_valor_economico)
+        panel_ejecutivo.addRow(QLabel(), self.lbl_forecast)
 
         self.btn_crear_campania = QPushButton()
         self.btn_crear_campania.clicked.connect(self._crear_campania_desde_sugerencia)
@@ -307,6 +311,7 @@ class PageSeguros(QWidget):
         panel_aprendizaje = self._aprendizaje.construir_panel()
         self.lbl_aprendizaje.setText(construir_texto_aprendizaje(self._i18n, panel_aprendizaje))
         self.lbl_valor_economico.setText(construir_texto_valor_economico(self._i18n, resumen_ejecutivo))
+        self.lbl_forecast.setText(construir_texto_forecast(self._i18n, resumen_ejecutivo))
         poblar_selector_campanias(self._i18n, self.cmb_campanias, resumen_ejecutivo)
         self._actualizar_detalle_campania(resumen_ejecutivo)
         self._refrescar_campanias_ejecutables()
