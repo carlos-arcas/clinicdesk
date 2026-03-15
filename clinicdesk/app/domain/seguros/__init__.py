@@ -9,7 +9,18 @@ from clinicdesk.app.domain.seguros.comercial import (
     SeguimientoOportunidadSeguro,
     validar_transicion_estado,
 )
-
+from clinicdesk.app.domain.seguros.cola_operativa import (
+    AccionPendienteSeguro,
+    ColaTrabajoSeguro,
+    EstadoOperativoSeguro,
+    GestionOperativaColaSeguro,
+    ItemColaComercialSeguro,
+    PrioridadTrabajoSeguro,
+    RecordatorioSeguimientoSeguro,
+    ResultadoGestionColaSeguro,
+    TipoItemColaSeguro,
+    estado_resultante_por_accion,
+)
 from clinicdesk.app.domain.seguros.segmentacion import (
     EncajePlanSeguro,
     EvaluacionFitComercialSeguro,
@@ -60,6 +71,16 @@ __all__ = [
     "ResultadoComercialSeguro",
     "ResultadoRenovacionSeguro",
     "validar_transicion_estado",
+    "TipoItemColaSeguro",
+    "PrioridadTrabajoSeguro",
+    "EstadoOperativoSeguro",
+    "AccionPendienteSeguro",
+    "RecordatorioSeguimientoSeguro",
+    "GestionOperativaColaSeguro",
+    "ItemColaComercialSeguro",
+    "ColaTrabajoSeguro",
+    "ResultadoGestionColaSeguro",
+    "estado_resultante_por_accion",
     "SegmentoClienteSeguro",
     "OrigenClienteSeguro",
     "NecesidadPrincipalSeguro",

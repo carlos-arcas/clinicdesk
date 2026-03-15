@@ -8,6 +8,7 @@ from clinicdesk.app.domain.seguros.comercial import (
     ResultadoRenovacionSeguro,
     SeguimientoOportunidadSeguro,
 )
+from clinicdesk.app.domain.seguros.cola_operativa import GestionOperativaColaSeguro
 
 
 class RepositorioComercialSeguroMemoria:
@@ -15,6 +16,7 @@ class RepositorioComercialSeguroMemoria:
         self._oportunidades: dict[str, OportunidadSeguro] = {}
         self._ofertas: dict[str, OfertaSeguro] = {}
         self._renovaciones: dict[str, RenovacionSeguro] = {}
+        self._gestiones: dict[str, list[GestionOperativaColaSeguro]] = {}
 
     def guardar_oportunidad(self, oportunidad: OportunidadSeguro) -> None:
         self._oportunidades[oportunidad.id_oportunidad] = oportunidad
@@ -61,6 +63,33 @@ class RepositorioComercialSeguroMemoria:
 
     def listar_historial_oportunidad(self, id_oportunidad: str) -> tuple[SeguimientoOportunidadSeguro, ...]:
         return self._oportunidades[id_oportunidad].seguimientos
+
+    def listar_oportunidades_por_gestion_operativa(self) -> tuple[OportunidadSeguro, ...]:
+        activos = {
+            "DETECTADA",
+            "ANALIZADA",
+            "ELEGIBLE",
+            "OFERTA_PREPARADA",
+            "OFERTA_ENVIADA",
+            "EN_SEGUIMIENTO",
+            "CONVERTIDA",
+            "POSPUESTA",
+            "PENDIENTE_RENOVACION",
+        }
+        return tuple(item for item in self._oportunidades.values() if item.estado_actual.value in activos)
+
+    def guardar_gestion_operativa(self, gestion: GestionOperativaColaSeguro) -> None:
+        self._gestiones.setdefault(gestion.id_oportunidad, []).append(gestion)
+
+    def obtener_ultima_gestion_operativa(self, id_oportunidad: str) -> GestionOperativaColaSeguro | None:
+        historial = self._gestiones.get(id_oportunidad, [])
+        return historial[-1] if historial else None
+
+    def listar_gestiones_operativas(
+        self, id_oportunidad: str, limite: int = 5
+    ) -> tuple[GestionOperativaColaSeguro, ...]:
+        historial = self._gestiones.get(id_oportunidad, [])
+        return tuple(historial[-limite:])
 
     def construir_dataset_ml_comercial(self) -> list[dict[str, object]]:
         resultado: list[dict[str, object]] = []

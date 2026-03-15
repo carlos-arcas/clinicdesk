@@ -20,6 +20,10 @@ from clinicdesk.app.application.seguros.recomendacion_producto import (
     RiesgoRenovacionSeguro,
     SemaforoRenovacionSeguro,
 )
+from clinicdesk.app.application.seguros.cola_trabajo import (
+    ColaTrabajoSeguroService,
+    SolicitudGestionItemColaSeguro,
+)
 from clinicdesk.app.application.seguros.comercial import (
     FiltroCarteraSeguro,
     GestionComercialSeguroService,
@@ -39,6 +43,8 @@ __all__ = [
     "GestionComercialSeguroService",
     "SolicitudNuevaOportunidadSeguro",
     "FiltroCarteraSeguro",
+    "ColaTrabajoSeguroService",
+    "SolicitudGestionItemColaSeguro",
     "MotorFitComercialSeguro",
     "SolicitudFitComercialSeguro",
     "ScoringComercialSeguroService",

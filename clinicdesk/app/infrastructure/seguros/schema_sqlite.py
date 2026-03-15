@@ -69,6 +69,17 @@ def inicializar_schema_comercial_seguro(connection: sqlite3.Connection) -> None:
             FOREIGN KEY (id_oportunidad) REFERENCES seguro_oportunidades(id_oportunidad) ON DELETE CASCADE
         );
 
+        CREATE TABLE IF NOT EXISTS seguro_gestiones_operativas (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id_oportunidad TEXT NOT NULL,
+            accion TEXT NOT NULL,
+            estado_resultante TEXT NOT NULL,
+            nota_corta TEXT NOT NULL,
+            siguiente_paso TEXT NOT NULL,
+            timestamp TEXT NOT NULL,
+            FOREIGN KEY (id_oportunidad) REFERENCES seguro_oportunidades(id_oportunidad) ON DELETE CASCADE
+        );
+
         CREATE INDEX IF NOT EXISTS idx_seguro_oportunidades_estado ON seguro_oportunidades (estado_actual);
         CREATE INDEX IF NOT EXISTS idx_seguro_oportunidades_plan_destino ON seguro_oportunidades (plan_destino_id);
         CREATE INDEX IF NOT EXISTS idx_seguro_oportunidades_clasificacion ON seguro_oportunidades (clasificacion_motor);
@@ -79,6 +90,8 @@ def inicializar_schema_comercial_seguro(connection: sqlite3.Connection) -> None:
         CREATE INDEX IF NOT EXISTS idx_seguro_oportunidades_actualizado ON seguro_oportunidades (actualizado_en);
         CREATE INDEX IF NOT EXISTS idx_seguro_seguimientos_oportunidad_fecha
             ON seguro_seguimientos (id_oportunidad, fecha_registro DESC);
+        CREATE INDEX IF NOT EXISTS idx_seguro_gestiones_operativas_oportunidad_fecha
+            ON seguro_gestiones_operativas (id_oportunidad, timestamp DESC);
         """
     )
     connection.commit()

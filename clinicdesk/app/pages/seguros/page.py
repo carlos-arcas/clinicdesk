@@ -14,27 +14,23 @@ from PySide6.QtWidgets import (
 from clinicdesk.app.application.seguros import (
     AnalizarMigracionSeguroUseCase,
     CatalogoPlanesSeguro,
-    FiltroCarteraSeguro,
+    ColaTrabajoSeguroService,
     GestionComercialSeguroService,
     RecomendadorProductoSeguroService,
     ScoringComercialSeguroService,
-    SolicitudAnalisisMigracionSeguro,
-    SolicitudNuevaOportunidadSeguro,
+    SolicitudGestionItemColaSeguro,
 )
-from clinicdesk.app.domain.seguros import (
-    EstadoOportunidadSeguro,
-    FriccionMigracionSeguro,
-    MotivacionCompraSeguro,
-    NecesidadPrincipalSeguro,
-    ObjecionComercialSeguro,
-    OrigenClienteSeguro,
-    ResultadoComercialSeguro,
-    SegmentoClienteSeguro,
-    SensibilidadPrecioSeguro,
-)
+from clinicdesk.app.domain.seguros import EstadoOportunidadSeguro, ResultadoComercialSeguro
 from clinicdesk.app.i18n import I18nManager
 from clinicdesk.app.infrastructure.seguros.repositorio_comercial_sqlite import RepositorioComercialSeguroSqlite
 from clinicdesk.app.infrastructure.sqlite_db import obtener_conexion
+from clinicdesk.app.pages.seguros.cola_operaciones import construir_panel_operativo, construir_resumen_cartera
+from clinicdesk.app.pages.seguros.operaciones_comerciales import (
+    abrir_oportunidad_actual,
+    analizar_actual,
+    preparar_oferta_actual,
+)
+from clinicdesk.app.pages.seguros.cola_ui_support import popular_filtros_y_acciones
 
 
 class PageSeguros(QWidget):
@@ -48,6 +44,7 @@ class PageSeguros(QWidget):
         self._gestion = GestionComercialSeguroService(self._use_case, self._repositorio)
         self._scoring = ScoringComercialSeguroService(self._repositorio)
         self._recomendador = RecomendadorProductoSeguroService(self._catalogo, self._scoring)
+        self._cola = ColaTrabajoSeguroService(self._repositorio, self._scoring, self._recomendador)
         self._id_oportunidad_activa: str | None = None
         self._build_ui()
         self._popular_planes()
@@ -113,6 +110,24 @@ class PageSeguros(QWidget):
         self.lbl_recomendacion = QLabel("-")
         self.lbl_recomendacion.setWordWrap(True)
 
+        self.box_cola = QGroupBox()
+        cola_form = QFormLayout(self.box_cola)
+        self.cmb_filtro_cola = QComboBox()
+        self.cmb_accion_cola = QComboBox()
+        self.input_nota_cola = QLineEdit()
+        self.input_siguiente_cola = QLineEdit()
+        self.btn_registrar_accion_cola = QPushButton()
+        self.btn_registrar_accion_cola.clicked.connect(self._registrar_accion_cola)
+        cola_form.addRow(QLabel(), self.cmb_filtro_cola)
+        cola_form.addRow(QLabel(), self.cmb_accion_cola)
+        cola_form.addRow(QLabel(), self.input_nota_cola)
+        cola_form.addRow(QLabel(), self.input_siguiente_cola)
+        cola_form.addRow(self.btn_registrar_accion_cola)
+        self.lbl_cola_operativa = QLabel("-")
+        self.lbl_cola_operativa.setWordWrap(True)
+        self.lbl_historial_operativo = QLabel("-")
+        self.lbl_historial_operativo.setWordWrap(True)
+
         layout.addWidget(self.box_filtros)
         layout.addLayout(acciones)
         layout.addWidget(self.lbl_resumen)
@@ -123,6 +138,9 @@ class PageSeguros(QWidget):
         layout.addWidget(self.btn_refrescar_cartera)
         layout.addWidget(self.lbl_cartera)
         layout.addWidget(self.lbl_recomendacion)
+        layout.addWidget(self.box_cola)
+        layout.addWidget(self.lbl_cola_operativa)
+        layout.addWidget(self.lbl_historial_operativo)
         layout.addStretch(1)
 
     def _popular_planes(self) -> None:
@@ -164,72 +182,25 @@ class PageSeguros(QWidget):
         self.btn_registrar_seguimiento.setText(self._i18n.t("seguros.accion.registrar_seguimiento"))
         self.btn_cerrar.setText(self._i18n.t("seguros.accion.cerrar_oportunidad"))
         self.btn_refrescar_cartera.setText(self._i18n.t("seguros.accion.refrescar_cartera"))
+        self.box_cola.setTitle(self._i18n.t("seguros.cola.titulo"))
+        form_cola = self.box_cola.layout()
+        form_cola.labelForField(self.cmb_filtro_cola).setText(self._i18n.t("seguros.cola.filtro"))
+        form_cola.labelForField(self.cmb_accion_cola).setText(self._i18n.t("seguros.cola.accion"))
+        form_cola.labelForField(self.input_nota_cola).setText(self._i18n.t("seguros.cola.nota"))
+        form_cola.labelForField(self.input_siguiente_cola).setText(self._i18n.t("seguros.cola.siguiente"))
+        self.btn_registrar_accion_cola.setText(self._i18n.t("seguros.cola.registrar"))
         self._popular_opciones_impagos()
         self._popular_seguimiento()
+        popular_filtros_y_acciones(self._i18n, self.cmb_filtro_cola, self.cmb_accion_cola)
 
     def _analizar(self) -> None:
-        solicitud = SolicitudAnalisisMigracionSeguro(
-            plan_origen_id=str(self.cmb_origen.currentData()),
-            plan_destino_id=str(self.cmb_destino.currentData()),
-            edad=34,
-            residencia_pais="ES",
-            historial_impagos=self.cmb_impagos.currentData(),
-            preexistencias_graves=False,
-        )
-        respuesta = self._use_case.execute(solicitud)
-        simulacion = respuesta.simulacion
-        self.lbl_resumen.setText(
-            self._i18n.t("seguros.resultado.resumen").format(
-                clasificacion=simulacion.clasificacion,
-                texto=simulacion.resumen_ejecutivo,
-            )
-        )
-        self.lbl_detalle.setText(
-            self._i18n.t("seguros.resultado.detalle").format(
-                mejoras=", ".join(simulacion.impactos_positivos) or "-",
-                perdidas=", ".join(simulacion.impactos_negativos) or "-",
-                advertencias=", ".join(simulacion.advertencias) or "-",
-            )
-        )
+        analizar_actual(self)
 
     def _abrir_oportunidad(self) -> None:
-        id_oportunidad = f"opp-{self.cmb_origen.currentIndex()}-{self.cmb_destino.currentIndex()}"
-        oportunidad = self._gestion.abrir_oportunidad(
-            SolicitudNuevaOportunidadSeguro(
-                id_oportunidad=id_oportunidad,
-                id_candidato=f"cand-{id_oportunidad}",
-                id_paciente="paciente-demo",
-                segmento_cliente=SegmentoClienteSeguro.ASEGURADO_EXTERNO_MIGRAR,
-                origen_cliente=OrigenClienteSeguro.MOSTRADOR_CLINICA,
-                necesidad_principal=NecesidadPrincipalSeguro.AHORRO_COSTE,
-                motivaciones=(MotivacionCompraSeguro.MEJOR_RELACION_CALIDAD_PRECIO,),
-                objecion_principal=ObjecionComercialSeguro.PRECIO_PERCIBIDO_ALTO,
-                sensibilidad_precio=SensibilidadPrecioSeguro.MEDIA,
-                friccion_migracion=FriccionMigracionSeguro.MEDIA,
-                plan_origen_id=str(self.cmb_origen.currentData()),
-                plan_destino_id=str(self.cmb_destino.currentData()),
-            )
-        )
-        self._id_oportunidad_activa = oportunidad.id_oportunidad
-        self.lbl_estado_comercial.setText(
-            self._i18n.t("seguros.comercial.estado").format(
-                estado=oportunidad.estado_actual.value,
-                motor=oportunidad.clasificacion_motor,
-                fit=oportunidad.evaluacion_fit.encaje_plan.value if oportunidad.evaluacion_fit else "-",
-            )
-        )
+        abrir_oportunidad_actual(self)
 
     def _preparar_oferta(self) -> None:
-        if not self._id_oportunidad_activa:
-            return
-        oferta = self._gestion.preparar_oferta(self._id_oportunidad_activa, ("nota_operativa",))
-        self.lbl_detalle.setText(
-            self._i18n.t("seguros.comercial.oferta").format(
-                plan=oferta.plan_propuesto_id,
-                clasificacion=oferta.clasificacion_migracion,
-                valor=oferta.resumen_valor,
-            )
-        )
+        preparar_oferta_actual(self)
 
     def _registrar_seguimiento(self) -> None:
         if not self._id_oportunidad_activa:
@@ -266,37 +237,42 @@ class PageSeguros(QWidget):
         self._refrescar_cartera()
 
     def _refrescar_cartera(self) -> None:
-        abiertas = self._gestion.listar_cartera()
-        convertidas = self._gestion.listar_oportunidades_por_estado(EstadoOportunidadSeguro.PENDIENTE_RENOVACION)
-        seguimiento_reciente = self._gestion.listar_seguimiento_reciente(3)
-        pendientes = self._gestion.listar_cartera(FiltroCarteraSeguro(solo_renovacion_pendiente=True))
-        ultimo = seguimiento_reciente[0].accion_comercial if seguimiento_reciente else "-"
-        cartera = self._scoring.priorizar_cartera(abiertas)
-        caliente = cartera.oportunidad_mas_caliente.id_oportunidad if cartera.oportunidad_mas_caliente else "-"
-        vigilar = ", ".join(item.id_oportunidad for item in cartera.oportunidades_vigilar[:3]) or "-"
-        no_prioritarias = ", ".join(item.id_oportunidad for item in cartera.oportunidades_no_prioritarias[:3]) or "-"
-        self.lbl_cartera.setText(
-            self._i18n.t("seguros.cartera.resumen_ml").format(
-                total=len(abiertas),
-                pendientes=len(pendientes),
-                convertidas=len(convertidas),
-                ultimo=ultimo,
-                caliente=caliente,
-                vigilar=vigilar,
-                no_prioritarias=no_prioritarias,
-            )
-        )
+        resumen, caliente, abiertas = construir_resumen_cartera(self._i18n, self._gestion, self._scoring)
+        self.lbl_cartera.setText(resumen)
         oportunidad_caliente = next((item for item in abiertas if item.id_oportunidad == caliente), None)
-        if not oportunidad_caliente:
+        if oportunidad_caliente:
+            diagnostico = self._recomendador.evaluar_oportunidad(oportunidad_caliente)
+            self.lbl_recomendacion.setText(
+                self._i18n.t("seguros.recomendacion.resumen").format(
+                    plan=diagnostico.recomendacion_plan.plan_recomendado_id or "-",
+                    riesgo=diagnostico.riesgo_renovacion.semaforo.value,
+                    argumento=diagnostico.argumento_comercial.angulo_principal,
+                    accion=diagnostico.accion_retencion.accion_sugerida,
+                    cautela=diagnostico.recomendacion_plan.cautela,
+                )
+            )
+        else:
             self.lbl_recomendacion.setText(self._i18n.t("seguros.recomendacion.sin_dato"))
+        cola_txt, historial_txt, activa = construir_panel_operativo(
+            self._i18n,
+            self._repositorio,
+            self._cola,
+            self._id_oportunidad_activa,
+            self.cmb_filtro_cola.currentData(),
+        )
+        self.lbl_cola_operativa.setText(cola_txt)
+        self.lbl_historial_operativo.setText(historial_txt)
+        self._id_oportunidad_activa = activa
+
+    def _registrar_accion_cola(self) -> None:
+        if not self._id_oportunidad_activa:
             return
-        diagnostico = self._recomendador.evaluar_oportunidad(oportunidad_caliente)
-        self.lbl_recomendacion.setText(
-            self._i18n.t("seguros.recomendacion.resumen").format(
-                plan=diagnostico.recomendacion_plan.plan_recomendado_id or "-",
-                riesgo=diagnostico.riesgo_renovacion.semaforo.value,
-                argumento=diagnostico.argumento_comercial.angulo_principal,
-                accion=diagnostico.accion_retencion.accion_sugerida,
-                cautela=diagnostico.recomendacion_plan.cautela,
+        self._cola.registrar_gestion(
+            SolicitudGestionItemColaSeguro(
+                id_oportunidad=self._id_oportunidad_activa,
+                accion=self.cmb_accion_cola.currentData(),
+                nota_corta=self.input_nota_cola.text().strip(),
+                siguiente_paso=self.input_siguiente_cola.text().strip(),
             )
         )
+        self._refrescar_cartera()
