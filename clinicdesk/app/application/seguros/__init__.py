@@ -50,6 +50,17 @@ from clinicdesk.app.application.seguros.analitica_ejecutiva import (
     MetricaFunnelSeguro,
     ResumenEjecutivoSeguros,
 )
+from clinicdesk.app.application.seguros.aprendizaje_comercial import AprendizajeComercialSegurosService
+from clinicdesk.app.application.seguros.aprendizaje_contratos import (
+    EfectividadCampaniaSeguro,
+    InsightArgumentoSeguro,
+    InsightPlanSeguro,
+    InsightSegmentoSeguro,
+    MetricaAprendizajeComercialSeguro,
+    PanelAprendizajeComercialSeguro,
+    PlaybookComercialSeguro,
+    RecomendacionCampaniaSeguro,
+)
 
 __all__ = [
     "CatalogoPlanesSeguro",
@@ -91,4 +102,13 @@ __all__ = [
     "SolicitudCrearCampaniaSeguro",
     "SolicitudCrearCampaniaDesdeSugerencia",
     "SolicitudGestionItemCampaniaSeguro",
+    "AprendizajeComercialSegurosService",
+    "PanelAprendizajeComercialSeguro",
+    "EfectividadCampaniaSeguro",
+    "InsightArgumentoSeguro",
+    "InsightPlanSeguro",
+    "InsightSegmentoSeguro",
+    "PlaybookComercialSeguro",
+    "RecomendacionCampaniaSeguro",
+    "MetricaAprendizajeComercialSeguro",
 ]
