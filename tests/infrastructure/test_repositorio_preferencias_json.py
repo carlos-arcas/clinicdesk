@@ -16,6 +16,7 @@ def test_repositorio_json_roundtrip(tmp_path) -> None:
     repo = RepositorioPreferenciasJson(tmp_path / "prefs.json")
     original = PreferenciasUsuario(
         pagina_ultima="confirmaciones",
+        restaurar_pagina_ultima_en_arranque=True,
         filtros_pacientes={"activo": None, "texto": "sin pii"},
         filtros_confirmaciones={"rango": "7D", "texto": "seguimiento"},
         last_search_by_context={"confirmaciones": "recordatorio"},

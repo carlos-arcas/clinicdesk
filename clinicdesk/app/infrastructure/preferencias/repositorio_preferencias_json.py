@@ -24,6 +24,7 @@ class RepositorioPreferenciasJson(PreferenciasRepository):
             return PreferenciasUsuario()
         return PreferenciasUsuario(
             pagina_ultima=self._to_optional_str(raw.get("pagina_ultima")),
+            restaurar_pagina_ultima_en_arranque=self._to_bool(raw.get("restaurar_pagina_ultima_en_arranque")),
             filtros_pacientes=self._to_mapa_filtros(raw.get("filtros_pacientes")),
             filtros_confirmaciones=self._to_mapa_filtros(raw.get("filtros_confirmaciones")),
             last_search_by_context=self._to_mapa_search(raw.get("last_search_by_context")),
@@ -59,6 +60,10 @@ class RepositorioPreferenciasJson(PreferenciasRepository):
         if isinstance(value, str) and value.strip():
             return value
         return None
+
+    @staticmethod
+    def _to_bool(value: object) -> bool:
+        return value is True
 
     @staticmethod
     def _to_mapa_filtros(value: object) -> dict[str, str | int | bool | None]:
