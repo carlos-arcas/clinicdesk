@@ -14,6 +14,13 @@ from clinicdesk.app.application.seguros.economia_valor import (
     PrioridadValorSeguro,
     SegmentoRentableSeguro,
 )
+from clinicdesk.app.application.seguros.forecast_comercial import ForecastComercialSeguroService
+from clinicdesk.app.application.seguros.forecast_contratos import (
+    DesvioObjetivoSeguro,
+    EscenarioComercialSeguro,
+    ForecastComercialSeguro,
+    RecomendacionEstrategicaSeguro,
+)
 from clinicdesk.app.domain.seguros import (
     EstadoOportunidadSeguro,
     OportunidadSeguro,
@@ -104,6 +111,10 @@ class ResumenEjecutivoSeguros:
     campanias_rentables: tuple[CampaniaRentableSeguro, ...]
     segmentos_rentables: tuple[SegmentoRentableSeguro, ...]
     insights_rentabilidad: tuple[InsightRentabilidadSeguro, ...]
+    forecast: ForecastComercialSeguro
+    escenarios: tuple[EscenarioComercialSeguro, ...]
+    desvios_objetivo: tuple[DesvioObjetivoSeguro, ...]
+    recomendacion_estrategica: RecomendacionEstrategicaSeguro
 
 
 class AnaliticaEjecutivaSegurosService:
@@ -113,10 +124,12 @@ class AnaliticaEjecutivaSegurosService:
         self,
         gestion: GestionComercialSeguroService,
         economia_valor: EconomiaValorSeguroService | None = None,
+        forecast: ForecastComercialSeguroService | None = None,
         proveedor_fecha: ProveedorFecha | None = None,
     ) -> None:
         self._gestion = gestion
         self._economia_valor = economia_valor
+        self._forecast = forecast or ForecastComercialSeguroService()
         self._proveedor_fecha = proveedor_fecha or ProveedorFechaSistema()
 
     def construir_resumen(self) -> ResumenEjecutivoSeguros:
@@ -128,6 +141,16 @@ class AnaliticaEjecutivaSegurosService:
         campanias = self._construir_campanias(oportunidades, renovaciones)
         metricas = self._construir_metricas_funnel(oportunidades, renovaciones)
         panel_valor = self._construir_panel_valor(oportunidades, renovaciones)
+        forecast = self._forecast.construir_forecast(
+            oportunidades, renovaciones, campanias, cohortes, panel_valor.prioridades
+        )
+        escenarios = self._forecast.construir_escenarios(
+            forecast, _contar_renovaciones_en_riesgo(renovaciones, self._proveedor_fecha.hoy())
+        )
+        desvios_objetivo = self._forecast.evaluar_objetivos(
+            forecast, self._forecast.objetivos_default(forecast.horizonte)
+        )
+        recomendacion = self._forecast.recomendar_estrategia(escenarios, desvios_objetivo)
         ratio_global = _calcular_ratio(_contar_convertidas(oportunidades), len(oportunidades), self._MIN_MUESTRA)
         return ResumenEjecutivoSeguros(
             fecha_corte=self._proveedor_fecha.hoy(),
@@ -149,6 +172,10 @@ class AnaliticaEjecutivaSegurosService:
             campanias_rentables=panel_valor.campanias_rentables,
             segmentos_rentables=panel_valor.segmentos_rentables,
             insights_rentabilidad=panel_valor.insights,
+            forecast=forecast,
+            escenarios=escenarios,
+            desvios_objetivo=desvios_objetivo,
+            recomendacion_estrategica=recomendacion,
         )
 
     def ids_oportunidad_por_campania(self, id_campania: str) -> tuple[str, ...]:

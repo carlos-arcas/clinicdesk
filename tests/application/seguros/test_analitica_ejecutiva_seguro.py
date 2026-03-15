@@ -101,6 +101,10 @@ def test_construye_resumen_ejecutivo_con_cohortes_y_campanias() -> None:
     assert any(item.id_campania == "campania_precio_argumento" for item in resumen.campanias)
     assert resumen.prioridades_valor
     assert resumen.campanias_rentables
+    assert resumen.forecast.valor_esperado >= 0
+    assert resumen.escenarios
+    assert resumen.desvios_objetivo
+    assert resumen.recomendacion_estrategica.foco
 
 
 def test_guardrail_ratio_nulo_cuando_muestra_insuficiente() -> None:
