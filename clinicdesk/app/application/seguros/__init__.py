@@ -88,6 +88,20 @@ from clinicdesk.app.application.seguros.aprendizaje_contratos import (
     RecomendacionCampaniaSeguro,
 )
 
+from clinicdesk.app.application.seguros.agenda_alertas import AgendaAlertasSeguroService
+from clinicdesk.app.application.seguros.agenda_alertas_contratos import (
+    AgendaComercialSeguro,
+    AlertaComercialSeguro,
+    EstadoTareaSeguro,
+    PlanSemanalSeguro,
+    PrioridadAlertaSeguro,
+    ReglaAlertaSeguro,
+    RiesgoObjetivoSeguro,
+    TareaComercialSeguro,
+    TipoAlertaComercialSeguro,
+    TrazaResolucionTareaSeguro,
+)
+
 __all__ = [
     "CatalogoPlanesSeguro",
     "AnalizarMigracionSeguroUseCase",
@@ -159,4 +173,15 @@ __all__ = [
     "SegmentoRentableSeguro",
     "CategoriaValorEsperadoSeguro",
     "NivelCautelaEconomicaSeguro",
+    "AgendaAlertasSeguroService",
+    "AgendaComercialSeguro",
+    "AlertaComercialSeguro",
+    "EstadoTareaSeguro",
+    "PlanSemanalSeguro",
+    "PrioridadAlertaSeguro",
+    "ReglaAlertaSeguro",
+    "RiesgoObjetivoSeguro",
+    "TareaComercialSeguro",
+    "TipoAlertaComercialSeguro",
+    "TrazaResolucionTareaSeguro",
 ]

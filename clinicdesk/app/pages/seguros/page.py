@@ -25,6 +25,7 @@ from clinicdesk.app.application.seguros import (
     RecomendadorProductoSeguroService,
     ScoringComercialSeguroService,
     SolicitudGestionItemColaSeguro,
+    AgendaAlertasSeguroService,
 )
 from clinicdesk.app.i18n import I18nManager
 from clinicdesk.app.domain.seguros import EstadoItemCampaniaSeguro, ResultadoItemCampaniaSeguro
@@ -53,6 +54,12 @@ from clinicdesk.app.pages.seguros.campanias_ui_support import (
     poblar_selector_campanias_ejecutables,
     poblar_selector_items_campania,
 )
+from clinicdesk.app.pages.seguros.agenda_ui_support import (
+    construir_texto_acciones_rapidas,
+    construir_texto_alertas_activas,
+    construir_texto_plan_semanal,
+    construir_texto_tareas_vencidas,
+)
 
 
 class PageSeguros(QWidget):
@@ -72,6 +79,7 @@ class PageSeguros(QWidget):
         self._repo_campanias = RepositorioCampaniasSeguroSqlite(self._conexion)
         self._campanias = GestionCampaniasSeguroService(self._repo_campanias)
         self._aprendizaje = AprendizajeComercialSegurosService(self._gestion, self._campanias)
+        self._agenda = AgendaAlertasSeguroService(self._cola, self._analitica, self._campanias)
         self._id_oportunidad_activa: str | None = None
         self._build_ui()
         self._popular_planes()
@@ -154,6 +162,21 @@ class PageSeguros(QWidget):
         self.lbl_historial_operativo = QLabel("-")
         self.lbl_historial_operativo.setWordWrap(True)
 
+        self.box_agenda = QGroupBox()
+        panel_agenda = QFormLayout(self.box_agenda)
+        self.lbl_alertas_activas = QLabel("-")
+        self.lbl_alertas_activas.setWordWrap(True)
+        self.lbl_plan_semanal = QLabel("-")
+        self.lbl_plan_semanal.setWordWrap(True)
+        self.lbl_tareas_vencidas = QLabel("-")
+        self.lbl_tareas_vencidas.setWordWrap(True)
+        self.lbl_acciones_rapidas = QLabel("-")
+        self.lbl_acciones_rapidas.setWordWrap(True)
+        panel_agenda.addRow(QLabel(), self.lbl_alertas_activas)
+        panel_agenda.addRow(QLabel(), self.lbl_plan_semanal)
+        panel_agenda.addRow(QLabel(), self.lbl_tareas_vencidas)
+        panel_agenda.addRow(QLabel(), self.lbl_acciones_rapidas)
+
         self.box_ejecutivo = QGroupBox()
         panel_ejecutivo = QFormLayout(self.box_ejecutivo)
         self.lbl_resumen_ejecutivo = QLabel("-")
@@ -221,6 +244,7 @@ class PageSeguros(QWidget):
         layout.addWidget(self.box_cola)
         layout.addWidget(self.lbl_cola_operativa)
         layout.addWidget(self.lbl_historial_operativo)
+        layout.addWidget(self.box_agenda)
         layout.addWidget(self.box_ejecutivo)
         layout.addWidget(self.box_campanias)
         layout.addStretch(1)
@@ -304,6 +328,11 @@ class PageSeguros(QWidget):
         self.lbl_cola_operativa.setText(cola_txt)
         self.lbl_historial_operativo.setText(historial_txt)
         self._id_oportunidad_activa = activa
+        plan = self._agenda.construir_plan_semanal()
+        self.lbl_alertas_activas.setText(construir_texto_alertas_activas(self._i18n, plan))
+        self.lbl_plan_semanal.setText(construir_texto_plan_semanal(self._i18n, plan))
+        self.lbl_tareas_vencidas.setText(construir_texto_tareas_vencidas(self._i18n, plan))
+        self.lbl_acciones_rapidas.setText(construir_texto_acciones_rapidas(self._i18n, plan))
         resumen_ejecutivo = self._analitica.construir_resumen()
         self.lbl_resumen_ejecutivo.setText(construir_texto_resumen_ejecutivo(self._i18n, resumen_ejecutivo))
         self.lbl_metricas_funnel.setText(construir_texto_metricas_funnel(self._i18n, resumen_ejecutivo))
