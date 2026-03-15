@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from typing import Optional
+from time import perf_counter
 
 import logging
 
@@ -33,6 +34,7 @@ from clinicdesk.app.pages.pacientes.acciones_pacientes import (
     open_context_menu,
     open_csv_dialog,
 )
+from clinicdesk.app.pages.pacientes.coordinador_carga import CoordinadorCargaPacientes, SolicitudCargaPacientes
 from clinicdesk.app.pages.pacientes.preferencias_pacientes import guardar_preferencias, restaurar_preferencias
 from clinicdesk.app.pages.pacientes.render_pacientes import (
     apply_selection,
@@ -87,6 +89,8 @@ class PagePacientes(QWidget):
         self._thread_carga: QThread | None = None
         self._worker_carga: CargaPacientesWorker | None = None
         self._token_carga = 0
+        self._coordinador_carga = CoordinadorCargaPacientes()
+        self._inicio_cargas: dict[int, float] = {}
         self._thread_busqueda_rapida: QThread | None = None
         self._preferencias_restauradas = False
         self._contexto_tabla_pendiente = ContextoTablaListado(fila_id=None, scroll_vertical=0, mantener_foco=False)
@@ -151,7 +155,14 @@ class PagePacientes(QWidget):
         self._vm.actualizar_contexto(activo=activo, texto=texto, seleccion_id=selected_id)
         self._vm.set_loading()
         set_busy(self, True, "busy.loading_pacientes")
-        self._arrancar_worker_carga(token=token, selected_id=selected_id, activo=activo, texto=texto)
+        solicitud = SolicitudCargaPacientes(token=token, seleccion_id=selected_id, activo=activo, texto=texto)
+        if self._coordinador_carga.registrar(solicitud):
+            self._arrancar_worker_carga(solicitud)
+            return
+        LOGGER.info(
+            "pacientes_carga_reprogramada",
+            extra={"action": "pacientes_carga_reprogramada", "token": token, "activo": activo, "has_text": bool(texto)},
+        )
 
     def refrescar_desde_atajo(self) -> None:
         self._refresh()
@@ -192,29 +203,53 @@ class PagePacientes(QWidget):
         self._select_by_id(paciente.id)
         self.table.setFocus()
 
-    def _arrancar_worker_carga(self, *, token: int, selected_id: int | None, activo: bool, texto: str) -> None:
-        if self._thread_carga is not None and self._thread_carga.isRunning():
-            return
+    def _arrancar_worker_carga(self, solicitud: SolicitudCargaPacientes) -> None:
+        self._inicio_cargas[solicitud.token] = perf_counter()
+        LOGGER.info(
+            "pacientes_carga_inicio",
+            extra={
+                "action": "pacientes_carga_inicio",
+                "token": solicitud.token,
+                "activo": solicitud.activo,
+                "has_text": bool(solicitud.texto),
+            },
+        )
         self._thread_carga, self._worker_carga = arrancar_carga(
             owner=self,
             db_path=self._db_path,
-            activo=activo,
-            texto=texto,
-            on_ok=lambda payload: self._on_carga_ok(payload, token, selected_id),
-            on_error=lambda error: self._on_carga_error(error, token),
-            on_thread_finished=self._reset_carga_worker,
+            activo=solicitud.activo,
+            texto=solicitud.texto,
+            on_ok=lambda payload: self._on_carga_ok(payload, solicitud.token, solicitud.seleccion_id),
+            on_error=lambda error: self._on_carga_error(error, solicitud.token),
+            on_thread_finished=lambda: self._on_carga_thread_finished(solicitud.token),
         )
 
-    def _reset_carga_worker(self) -> None:
+    def _on_carga_thread_finished(self, token: int) -> None:
         self._thread_carga = None
         self._worker_carga = None
+        siguiente = self._coordinador_carga.finalizar(token)
+        if siguiente is None:
+            return
+        self._arrancar_worker_carga(siguiente)
 
     def _on_carga_ok(self, payload: object, token: int, selected_id: int | None) -> None:
-        if token != self._token_carga or not isinstance(payload, dict):
+        if token != self._token_carga or not isinstance(payload, dict) or not self._coordinador_carga.es_token_activo(token):
             return
         set_busy(self, False, "busy.loading_pacientes")
         rows = payload.get("rows", [])
         total_base = int(payload.get("total_base", len(rows)))
+        inicio = self._inicio_cargas.pop(token, None)
+        duracion_ms = int((perf_counter() - inicio) * 1000) if inicio else None
+        LOGGER.info(
+            "pacientes_carga_ok",
+            extra={
+                "action": "pacientes_carga_ok",
+                "token": token,
+                "rows": len(rows),
+                "total_base": total_base,
+                "duracion_ms": duracion_ms,
+            },
+        )
         self.filtros.set_contador(len(rows), total_base)
         self._vm.seleccionar(selected_id)
         self._vm.resolver_carga_ok(rows=rows, emitir_toast=True)
@@ -223,12 +258,19 @@ class PagePacientes(QWidget):
             self.table.setFocus()
 
     def _on_carga_error(self, error_type: str, token: int) -> None:
-        if token != self._token_carga:
+        if token != self._token_carga or not self._coordinador_carga.es_token_activo(token):
             return
         set_busy(self, False, "busy.loading_pacientes")
+        inicio = self._inicio_cargas.pop(token, None)
+        duracion_ms = int((perf_counter() - inicio) * 1000) if inicio else None
         LOGGER.warning(
             "pacientes_carga_error",
-            extra={"action": "pacientes_carga_error", "error": error_type},
+            extra={
+                "action": "pacientes_carga_error",
+                "token": token,
+                "error": error_type,
+                "duracion_ms": duracion_ms,
+            },
         )
         self._vm.resolver_carga_error(error_key="ux_states.pacientes.error", emitir_toast=False)
         feedback = presentar_error_recuperable(error_type)
