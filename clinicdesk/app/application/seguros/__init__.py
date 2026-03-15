@@ -10,6 +10,16 @@ from clinicdesk.app.application.seguros.scoring_comercial import (
     ScoringComercialSeguroService,
     SemaforoComercialSeguro,
 )
+from clinicdesk.app.application.seguros.recomendacion_producto import (
+    AccionRetencionSeguro,
+    ArgumentoComercialSeguro,
+    DiagnosticoComercialSeguro,
+    MotivoRecomendacionPlan,
+    RecomendacionPlanSeguro,
+    RecomendadorProductoSeguroService,
+    RiesgoRenovacionSeguro,
+    SemaforoRenovacionSeguro,
+)
 from clinicdesk.app.application.seguros.comercial import (
     FiltroCarteraSeguro,
     GestionComercialSeguroService,
@@ -39,4 +49,12 @@ __all__ = [
     "NivelPrioridadComercialSeguro",
     "BandaPropensionSeguro",
     "CarteraPriorizadaSeguro",
+    "RecomendadorProductoSeguroService",
+    "RecomendacionPlanSeguro",
+    "RiesgoRenovacionSeguro",
+    "SemaforoRenovacionSeguro",
+    "MotivoRecomendacionPlan",
+    "ArgumentoComercialSeguro",
+    "AccionRetencionSeguro",
+    "DiagnosticoComercialSeguro",
 ]

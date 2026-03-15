@@ -1,5 +1,4 @@
 from __future__ import annotations
-
 from PySide6.QtWidgets import (
     QComboBox,
     QFormLayout,
@@ -17,6 +16,7 @@ from clinicdesk.app.application.seguros import (
     CatalogoPlanesSeguro,
     FiltroCarteraSeguro,
     GestionComercialSeguroService,
+    RecomendadorProductoSeguroService,
     ScoringComercialSeguroService,
     SolicitudAnalisisMigracionSeguro,
     SolicitudNuevaOportunidadSeguro,
@@ -47,6 +47,7 @@ class PageSeguros(QWidget):
         self._repositorio = RepositorioComercialSeguroSqlite(self._conexion)
         self._gestion = GestionComercialSeguroService(self._use_case, self._repositorio)
         self._scoring = ScoringComercialSeguroService(self._repositorio)
+        self._recomendador = RecomendadorProductoSeguroService(self._catalogo, self._scoring)
         self._id_oportunidad_activa: str | None = None
         self._build_ui()
         self._popular_planes()
@@ -109,6 +110,8 @@ class PageSeguros(QWidget):
         self.btn_refrescar_cartera.clicked.connect(self._refrescar_cartera)
         self.lbl_cartera = QLabel("-")
         self.lbl_cartera.setWordWrap(True)
+        self.lbl_recomendacion = QLabel("-")
+        self.lbl_recomendacion.setWordWrap(True)
 
         layout.addWidget(self.box_filtros)
         layout.addLayout(acciones)
@@ -119,6 +122,7 @@ class PageSeguros(QWidget):
         layout.addWidget(self.lbl_renovaciones)
         layout.addWidget(self.btn_refrescar_cartera)
         layout.addWidget(self.lbl_cartera)
+        layout.addWidget(self.lbl_recomendacion)
         layout.addStretch(1)
 
     def _popular_planes(self) -> None:
@@ -280,5 +284,19 @@ class PageSeguros(QWidget):
                 caliente=caliente,
                 vigilar=vigilar,
                 no_prioritarias=no_prioritarias,
+            )
+        )
+        oportunidad_caliente = next((item for item in abiertas if item.id_oportunidad == caliente), None)
+        if not oportunidad_caliente:
+            self.lbl_recomendacion.setText(self._i18n.t("seguros.recomendacion.sin_dato"))
+            return
+        diagnostico = self._recomendador.evaluar_oportunidad(oportunidad_caliente)
+        self.lbl_recomendacion.setText(
+            self._i18n.t("seguros.recomendacion.resumen").format(
+                plan=diagnostico.recomendacion_plan.plan_recomendado_id or "-",
+                riesgo=diagnostico.riesgo_renovacion.semaforo.value,
+                argumento=diagnostico.argumento_comercial.angulo_principal,
+                accion=diagnostico.accion_retencion.accion_sugerida,
+                cautela=diagnostico.recomendacion_plan.cautela,
             )
         )
