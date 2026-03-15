@@ -158,6 +158,8 @@ I18N_CATALOGO_CORE = {
         "seguros.elegibilidad.residencia": "Residencia fuera del ámbito del plan",
         "seguros.elegibilidad.revision_impagos": "Historial de impagos requiere revisión comercial",
         "seguros.migracion.info_insuficiente": "Falta información para cerrar la valoración",
+        "seguros.recomendacion.sin_dato": "Sin oportunidad caliente para recomendar plan o retención.",
+        "seguros.recomendacion.resumen": "Recomendación: {plan} | Riesgo renovación: {riesgo} | Argumento: {argumento} | Acción: {accion}\nCautela: {cautela}",
         "auditoria.entidad.receta": "RECETA",
     },
     "en": {
@@ -317,6 +319,8 @@ I18N_CATALOGO_CORE = {
         "seguros.elegibilidad.residencia": "Residence is outside plan scope",
         "seguros.elegibilidad.revision_impagos": "Debt history requires commercial review",
         "seguros.migracion.info_insuficiente": "Missing information for final assessment",
+        "seguros.recomendacion.sin_dato": "No hottest opportunity yet for plan/retention recommendation.",
+        "seguros.recomendacion.resumen": "Recommendation: {plan} | Renewal risk: {riesgo} | Argument: {argumento} | Action: {accion}\nCaution: {cautela}",
         "auditoria.entidad.receta": "PRESCRIPTION",
     },
 }
