@@ -34,6 +34,12 @@ from clinicdesk.app.application.seguros.usecases import (
     RespuestaAnalisisMigracionSeguro,
     SolicitudAnalisisMigracionSeguro,
 )
+from clinicdesk.app.application.seguros.campanias import (
+    GestionCampaniasSeguroService,
+    SolicitudCrearCampaniaSeguro,
+    SolicitudCrearCampaniaDesdeSugerencia,
+    SolicitudGestionItemCampaniaSeguro,
+)
 from clinicdesk.app.application.seguros.analitica_ejecutiva import (
     AnaliticaEjecutivaSegurosService,
     CampaniaAccionableSeguro,
@@ -81,4 +87,8 @@ __all__ = [
     "CampaniaAccionableSeguro",
     "GrupoRenovacionSeguro",
     "InsightComercialSeguro",
+    "GestionCampaniasSeguroService",
+    "SolicitudCrearCampaniaSeguro",
+    "SolicitudCrearCampaniaDesdeSugerencia",
+    "SolicitudGestionItemCampaniaSeguro",
 ]

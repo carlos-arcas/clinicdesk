@@ -17,12 +17,17 @@ from clinicdesk.app.application.seguros import (
     ColaTrabajoSeguroService,
     AnaliticaEjecutivaSegurosService,
     GestionComercialSeguroService,
+    GestionCampaniasSeguroService,
+    SolicitudCrearCampaniaDesdeSugerencia,
+    SolicitudGestionItemCampaniaSeguro,
     RecomendadorProductoSeguroService,
     ScoringComercialSeguroService,
     SolicitudGestionItemColaSeguro,
 )
 from clinicdesk.app.i18n import I18nManager
+from clinicdesk.app.domain.seguros import EstadoItemCampaniaSeguro, ResultadoItemCampaniaSeguro
 from clinicdesk.app.infrastructure.seguros.repositorio_comercial_sqlite import RepositorioComercialSeguroSqlite
+from clinicdesk.app.infrastructure.seguros.repositorio_campanias_sqlite import RepositorioCampaniasSeguroSqlite
 from clinicdesk.app.infrastructure.sqlite_db import obtener_conexion
 from clinicdesk.app.pages.seguros.cola_operaciones import construir_panel_operativo, construir_resumen_cartera
 from clinicdesk.app.pages.seguros.operaciones_comerciales import (
@@ -38,6 +43,11 @@ from clinicdesk.app.pages.seguros.analitica_ui_support import (
     poblar_selector_campanias,
 )
 from clinicdesk.app.pages.seguros.page_ui_support import retranslate_page
+from clinicdesk.app.pages.seguros.campanias_ui_support import (
+    construir_texto_resultado_campania,
+    poblar_selector_campanias_ejecutables,
+    poblar_selector_items_campania,
+)
 
 
 class PageSeguros(QWidget):
@@ -53,6 +63,8 @@ class PageSeguros(QWidget):
         self._recomendador = RecomendadorProductoSeguroService(self._catalogo, self._scoring)
         self._cola = ColaTrabajoSeguroService(self._repositorio, self._scoring, self._recomendador)
         self._analitica = AnaliticaEjecutivaSegurosService(self._gestion)
+        self._repo_campanias = RepositorioCampaniasSeguroSqlite(self._conexion)
+        self._campanias = GestionCampaniasSeguroService(self._repo_campanias)
         self._id_oportunidad_activa: str | None = None
         self._build_ui()
         self._popular_planes()
@@ -155,6 +167,31 @@ class PageSeguros(QWidget):
         panel_ejecutivo.addRow(self.btn_aplicar_campania)
         panel_ejecutivo.addRow(QLabel(), self.lbl_campania)
 
+        self.btn_crear_campania = QPushButton()
+        self.btn_crear_campania.clicked.connect(self._crear_campania_desde_sugerencia)
+        panel_ejecutivo.addRow(self.btn_crear_campania)
+
+        self.box_campanias = QGroupBox()
+        panel_campanias = QFormLayout(self.box_campanias)
+        self.cmb_campanias_ejecutables = QComboBox()
+        self.cmb_items_campania = QComboBox()
+        self.cmb_estado_item_campania = QComboBox()
+        self.cmb_resultado_item_campania = QComboBox()
+        self.input_accion_item_campania = QLineEdit()
+        self.input_nota_item_campania = QLineEdit()
+        self.btn_registrar_item_campania = QPushButton()
+        self.btn_registrar_item_campania.clicked.connect(self._registrar_item_campania)
+        self.lbl_resultado_campania = QLabel("-")
+        self.lbl_resultado_campania.setWordWrap(True)
+        panel_campanias.addRow(QLabel(), self.cmb_campanias_ejecutables)
+        panel_campanias.addRow(QLabel(), self.cmb_items_campania)
+        panel_campanias.addRow(QLabel(), self.cmb_estado_item_campania)
+        panel_campanias.addRow(QLabel(), self.cmb_resultado_item_campania)
+        panel_campanias.addRow(QLabel(), self.input_accion_item_campania)
+        panel_campanias.addRow(QLabel(), self.input_nota_item_campania)
+        panel_campanias.addRow(self.btn_registrar_item_campania)
+        panel_campanias.addRow(QLabel(), self.lbl_resultado_campania)
+
         layout.addWidget(self.box_filtros)
         layout.addLayout(acciones)
         layout.addWidget(self.lbl_resumen)
@@ -169,6 +206,7 @@ class PageSeguros(QWidget):
         layout.addWidget(self.lbl_cola_operativa)
         layout.addWidget(self.lbl_historial_operativo)
         layout.addWidget(self.box_ejecutivo)
+        layout.addWidget(self.box_campanias)
         layout.addStretch(1)
 
     def _popular_planes(self) -> None:
@@ -256,6 +294,7 @@ class PageSeguros(QWidget):
         self.lbl_cohortes.setText(construir_texto_cohortes(self._i18n, resumen_ejecutivo))
         poblar_selector_campanias(self._i18n, self.cmb_campanias, resumen_ejecutivo)
         self._actualizar_detalle_campania(resumen_ejecutivo)
+        self._refrescar_campanias_ejecutables()
 
     def _actualizar_detalle_campania(self, resumen_ejecutivo) -> None:
         id_campania = self.cmb_campanias.currentData()
@@ -286,3 +325,60 @@ class PageSeguros(QWidget):
             )
         )
         self._refrescar_cartera()
+
+    def _crear_campania_desde_sugerencia(self) -> None:
+        id_campania = self.cmb_campanias.currentData()
+        if not id_campania:
+            return
+        resumen = self._analitica.construir_resumen()
+        sugerencia = next((c for c in resumen.campanias if c.id_campania == id_campania), None)
+        if sugerencia is None:
+            return
+        nueva = f"exec-{id_campania}-{len(self._campanias.listar_campanias()) + 1}"
+        self._campanias.crear_desde_sugerencia(
+            SolicitudCrearCampaniaDesdeSugerencia(
+                id_campania_nueva=nueva,
+                objetivo_comercial=self._i18n.t("seguros.campania.objetivo_default"),
+                sugerencia=sugerencia,
+            )
+        )
+        self._refrescar_campanias_ejecutables()
+
+    def _refrescar_campanias_ejecutables(self) -> None:
+        campanias = self._campanias.listar_campanias()
+        poblar_selector_campanias_ejecutables(self._i18n, self.cmb_campanias_ejecutables, campanias)
+        self._poblar_estados_items_campania()
+        id_campania = self.cmb_campanias_ejecutables.currentData()
+        if not id_campania and campanias:
+            id_campania = campanias[0].id_campania
+        if not id_campania:
+            self.lbl_resultado_campania.setText(self._i18n.t("seguros.campania.sin_dato"))
+            return
+        campania, items = self._campanias.obtener_detalle(str(id_campania))
+        poblar_selector_items_campania(self._i18n, self.cmb_items_campania, items)
+        self.lbl_resultado_campania.setText(construir_texto_resultado_campania(self._i18n, campania))
+
+    def _registrar_item_campania(self) -> None:
+        id_campania = self.cmb_campanias_ejecutables.currentData()
+        id_item = self.cmb_items_campania.currentData()
+        if not id_campania or not id_item:
+            return
+        self._campanias.registrar_resultado_item(
+            SolicitudGestionItemCampaniaSeguro(
+                id_campania=str(id_campania),
+                id_item=str(id_item),
+                estado_trabajo=self.cmb_estado_item_campania.currentData(),
+                accion_tomada=self.input_accion_item_campania.text().strip(),
+                resultado=self.cmb_resultado_item_campania.currentData(),
+                nota_corta=self.input_nota_item_campania.text().strip(),
+            )
+        )
+        self._refrescar_campanias_ejecutables()
+
+    def _poblar_estados_items_campania(self) -> None:
+        self.cmb_estado_item_campania.clear()
+        for estado in EstadoItemCampaniaSeguro:
+            self.cmb_estado_item_campania.addItem(estado.value, estado)
+        self.cmb_resultado_item_campania.clear()
+        for resultado in ResultadoItemCampaniaSeguro:
+            self.cmb_resultado_item_campania.addItem(resultado.value, resultado)

@@ -69,6 +69,40 @@ def inicializar_schema_comercial_seguro(connection: sqlite3.Connection) -> None:
             FOREIGN KEY (id_oportunidad) REFERENCES seguro_oportunidades(id_oportunidad) ON DELETE CASCADE
         );
 
+
+
+        CREATE TABLE IF NOT EXISTS seguro_campanias (
+            id_campania TEXT PRIMARY KEY,
+            nombre TEXT NOT NULL,
+            objetivo_comercial TEXT NOT NULL,
+            origen TEXT NOT NULL,
+            criterio_descripcion TEXT NOT NULL,
+            criterio_referencia TEXT,
+            creado_en TEXT NOT NULL,
+            tamano_lote INTEGER NOT NULL,
+            estado TEXT NOT NULL,
+            total_items INTEGER NOT NULL,
+            trabajados INTEGER NOT NULL,
+            convertidos INTEGER NOT NULL,
+            rechazados INTEGER NOT NULL,
+            pendientes INTEGER NOT NULL,
+            ratio_conversion REAL NOT NULL,
+            ratio_avance REAL NOT NULL,
+            actualizado_en TEXT NOT NULL
+        );
+
+        CREATE TABLE IF NOT EXISTS seguro_campania_items (
+            id_item TEXT PRIMARY KEY,
+            id_campania TEXT NOT NULL,
+            id_oportunidad TEXT NOT NULL,
+            estado_trabajo TEXT NOT NULL,
+            accion_tomada TEXT NOT NULL,
+            resultado TEXT NOT NULL,
+            nota_corta TEXT NOT NULL,
+            timestamp TEXT NOT NULL,
+            FOREIGN KEY (id_campania) REFERENCES seguro_campanias(id_campania) ON DELETE CASCADE,
+            FOREIGN KEY (id_oportunidad) REFERENCES seguro_oportunidades(id_oportunidad) ON DELETE CASCADE
+        );
         CREATE TABLE IF NOT EXISTS seguro_gestiones_operativas (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             id_oportunidad TEXT NOT NULL,
@@ -92,6 +126,9 @@ def inicializar_schema_comercial_seguro(connection: sqlite3.Connection) -> None:
             ON seguro_seguimientos (id_oportunidad, fecha_registro DESC);
         CREATE INDEX IF NOT EXISTS idx_seguro_gestiones_operativas_oportunidad_fecha
             ON seguro_gestiones_operativas (id_oportunidad, timestamp DESC);
+
+        CREATE INDEX IF NOT EXISTS idx_seguro_campanias_estado ON seguro_campanias (estado);
+        CREATE INDEX IF NOT EXISTS idx_seguro_campania_items_campania ON seguro_campania_items (id_campania, timestamp DESC);
         """
     )
     connection.commit()
