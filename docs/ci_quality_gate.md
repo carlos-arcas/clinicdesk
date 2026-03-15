@@ -204,6 +204,7 @@ Secuencia completa para operación: `seed-demo -> build-features -> train -> exp
   - `logs/app.log` (operacional)
   - `logs/crash_soft.log` (errores esperables capturados)
   - `logs/crash_fatal.log` (excepciones no controladas / critical)
+- Antes de crear handlers, el bootstrap trunca explícitamente `app.log`, `crash_soft.log` y `crash_fatal.log` para sobrescribir contenido previo en cada arranque.
 - Se agregó una validación bloqueante en `scripts/quality_gate.py` para fallar si aparece `print` en archivos Python fuera de allowlist mínima.
 - Todos los scripts CLI deben enrutar salida de consola por `logging` (handler de consola a `stderr`), no por `print`.
 
