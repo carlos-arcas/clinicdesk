@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 
-from PySide6.QtCore import QThread, Qt
+from PySide6.QtCore import QThread, Qt, Slot
 from PySide6.QtGui import QKeySequence, QShortcut
 from PySide6.QtWidgets import QTableWidgetItem, QWidget
 
@@ -42,8 +42,16 @@ from clinicdesk.app.pages.confirmaciones.seleccion_confirmaciones import (
 )
 from clinicdesk.app.pages.confirmaciones.telemetria_confirmaciones import log_carga, registrar_telemetria
 from clinicdesk.app.pages.confirmaciones.ui_builder import build_confirmaciones_ui
-from clinicdesk.app.pages.confirmaciones.workers_confirmaciones import arrancar_busqueda_rapida, arrancar_carga
-from clinicdesk.app.pages.shared.contexto_tabla import ContextoTablaListado, capturar_contexto_tabla, restaurar_contexto_tabla
+from clinicdesk.app.pages.confirmaciones.workers_confirmaciones import (
+    RelayConfirmaciones,
+    arrancar_busqueda_rapida,
+    arrancar_carga,
+)
+from clinicdesk.app.pages.shared.contexto_tabla import (
+    ContextoTablaListado,
+    capturar_contexto_tabla,
+    restaurar_contexto_tabla,
+)
 from clinicdesk.app.queries.confirmaciones_queries import ConfirmacionesQueries
 from clinicdesk.app.ui.ux.error_feedback import presentar_error_recuperable
 from clinicdesk.app.ui.ux.window_feedback import set_busy, toast_error, toast_info, toast_success
@@ -70,8 +78,14 @@ class PageConfirmaciones(QWidget):
         self._worker_rapido: WorkerRecordatoriosLote | None = None
         self._thread_carga: QThread | None = None
         self._worker_carga: CargaConfirmacionesWorker | None = None
+        self._relay_carga: RelayConfirmaciones | None = None
         self._thread_busqueda_rapida: QThread | None = None
+        self._worker_busqueda_rapida: CargaConfirmacionesWorker | None = None
+        self._relay_busqueda_rapida: RelayConfirmaciones | None = None
         self._token_carga = 0
+        self._token_busqueda_rapida = 0
+        self._on_done_busqueda_rapida = None
+        self._pagina_visible = False
         self._cita_focus_pendiente: int | None = None
         self._db_path = resolver_db_path_desde_conexion(container.connection)
         self._preferencias_restauradas = False
@@ -92,7 +106,6 @@ class PageConfirmaciones(QWidget):
         self._vm.subscribe_eventos(self._on_evento_vm)
         self._i18n.subscribe(self._retranslate)
         self._retranslate()
-
 
     def _build_shortcuts(self) -> None:
         self._shortcut_focus_busqueda = QShortcut(QKeySequence("Ctrl+F"), self)
@@ -119,11 +132,15 @@ class PageConfirmaciones(QWidget):
         self._ui.btn_next.clicked.connect(self._next)
 
     def on_show(self) -> None:
+        self._pagina_visible = True
         if not self._preferencias_restauradas:
             self._restaurar_preferencias()
             self._preferencias_restauradas = True
         self._load_data(reset=True)
         self._ui.txt_buscar.setFocus()
+
+    def on_hide(self) -> None:
+        self._pagina_visible = False
 
     def _retranslate(self) -> None:
         t = self._i18n.t
@@ -182,19 +199,32 @@ class PageConfirmaciones(QWidget):
     def buscar_rapido_async(self, texto: str, on_done) -> None:
         if self._thread_busqueda_rapida is not None and self._thread_busqueda_rapida.isRunning():
             return
-        self._thread_busqueda_rapida = arrancar_busqueda_rapida(
-            owner=self,
-            db_path=self._db_path,
-            filtros=self._build_filtros(texto),
-            page_size=_PAGE_SIZE,
-            riesgo_uc=self._container.prediccion_ausencias_facade.obtener_riesgo_agenda_uc,
-            salud_uc=self._container.prediccion_ausencias_facade.obtener_salud_uc,
-            on_payload=lambda result: on_done(result.items),
-            on_thread_finished=self._reset_thread_busqueda_rapida,
+        self._token_busqueda_rapida += 1
+        token = self._token_busqueda_rapida
+        self._on_done_busqueda_rapida = on_done
+        self._thread_busqueda_rapida, self._worker_busqueda_rapida, self._relay_busqueda_rapida = (
+            arrancar_busqueda_rapida(
+                owner=self,
+                db_path=self._db_path,
+                filtros=self._build_filtros(texto),
+                page_size=_PAGE_SIZE,
+                riesgo_uc=self._container.prediccion_ausencias_facade.obtener_riesgo_agenda_uc,
+                salud_uc=self._container.prediccion_ausencias_facade.obtener_salud_uc,
+                token=token,
+                on_payload=self._on_busqueda_rapida_ok,
+                on_error=self._on_busqueda_rapida_error,
+                on_thread_finished=self._on_busqueda_rapida_thread_finished,
+            )
         )
+
+    @Slot(int)
+    def _on_busqueda_rapida_thread_finished(self, _token: int) -> None:
+        self._reset_thread_busqueda_rapida()
 
     def _reset_thread_busqueda_rapida(self) -> None:
         self._thread_busqueda_rapida = None
+        self._worker_busqueda_rapida = None
+        self._relay_busqueda_rapida = None
 
     def seleccionar_cita_desde_busqueda(self, cita_id: int) -> None:
         if apply_selection(self._ui, cita_id):
@@ -207,7 +237,7 @@ class PageConfirmaciones(QWidget):
     def _arrancar_worker_carga(self, *, token: int) -> None:
         if self._thread_carga is not None and self._thread_carga.isRunning():
             return
-        self._thread_carga, self._worker_carga = arrancar_carga(
+        self._thread_carga, self._worker_carga, self._relay_carga = arrancar_carga(
             owner=self,
             db_path=self._db_path,
             filtros=self._build_filtros(),
@@ -215,17 +245,26 @@ class PageConfirmaciones(QWidget):
             offset=self._offset,
             riesgo_uc=self._container.prediccion_ausencias_facade.obtener_riesgo_agenda_uc,
             salud_uc=self._container.prediccion_ausencias_facade.obtener_salud_uc,
-            on_ok=lambda result: self._on_carga_ok(result, token),
-            on_error=lambda error: self._on_carga_error(error, token),
-            on_thread_finished=self._reset_worker_carga,
+            token=token,
+            on_ok=self._on_carga_ok,
+            on_error=self._on_carga_error,
+            on_thread_finished=self._on_carga_thread_finished,
         )
+
+    @Slot(int)
+    def _on_carga_thread_finished(self, _token: int) -> None:
+        self._reset_worker_carga()
 
     def _reset_worker_carga(self) -> None:
         self._thread_carga = None
         self._worker_carga = None
+        self._relay_carga = None
 
+    @Slot(object, int)
     def _on_carga_ok(self, result, token: int) -> None:
         if token != self._token_carga:
+            return
+        if not self._puede_consumir_resultado(token):
             return
         set_busy(self, False, "busy.loading_confirmaciones")
         self._total = result.total
@@ -241,8 +280,11 @@ class PageConfirmaciones(QWidget):
         if result.items:
             self._ui.table.setFocus()
 
+    @Slot(str, int)
     def _on_carga_error(self, error_type: str, token: int) -> None:
         if token != self._token_carga:
+            return
+        if not self._puede_consumir_resultado(token):
             return
         set_busy(self, False, "busy.loading_confirmaciones")
         LOGGER.warning(
@@ -258,6 +300,34 @@ class PageConfirmaciones(QWidget):
             accion_label_key="toast.action.retry",
             accion_callback=self._refresh if hasattr(self, "_refresh") else (lambda: self._load_data(reset=True)),
             persistente=True,
+        )
+
+    def _puede_consumir_resultado(self, token: int) -> bool:
+        if token != self._token_carga:
+            return False
+        if not self._pagina_visible:
+            LOGGER.info(
+                "confirmaciones_carga_omitida",
+                extra={"action": "confirmaciones_carga_omitida", "reason": "pagina_no_visible", "token": token},
+            )
+            return False
+        return True
+
+    @Slot(object, int)
+    def _on_busqueda_rapida_ok(self, result: object, token: int) -> None:
+        if token != self._token_busqueda_rapida or not self._pagina_visible:
+            return
+        on_done = getattr(self, "_on_done_busqueda_rapida", None)
+        if callable(on_done) and hasattr(result, "items"):
+            on_done(result.items)
+
+    @Slot(str, int)
+    def _on_busqueda_rapida_error(self, error_type: str, token: int) -> None:
+        if token != self._token_busqueda_rapida:
+            return
+        LOGGER.warning(
+            "confirmaciones_busqueda_rapida_error",
+            extra={"action": "confirmaciones_busqueda_rapida_error", "error": error_type, "token": token},
         )
 
     def _on_estado_vm(self, estado: EstadoListado[object]) -> None:
