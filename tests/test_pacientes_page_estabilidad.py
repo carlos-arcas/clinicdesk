@@ -41,3 +41,23 @@ def test_on_estado_vm_omite_render_cuando_pagina_no_visible() -> None:
     assert isinstance(primer_if.test.op, ast.Not)
     assert isinstance(primer_if.test.operand, ast.Attribute)
     assert primer_if.test.operand.attr == "_pagina_visible"
+
+
+def test_arrancar_carga_usa_slots_de_clase_sin_lambdas() -> None:
+    metodo = _obtener_metodo("_arrancar_worker_carga")
+    llamadas = [
+        node
+        for node in ast.walk(metodo)
+        if isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Name)
+        and node.func.id == "arrancar_carga"
+    ]
+    assert len(llamadas) == 1
+    llamada = llamadas[0]
+    kwargs = {kw.arg: kw.value for kw in llamada.keywords if kw.arg is not None}
+    assert isinstance(kwargs["on_ok"], ast.Attribute)
+    assert kwargs["on_ok"].attr == "_on_carga_ok"
+    assert isinstance(kwargs["on_error"], ast.Attribute)
+    assert kwargs["on_error"].attr == "_on_carga_error"
+    assert isinstance(kwargs["on_thread_finished"], ast.Attribute)
+    assert kwargs["on_thread_finished"].attr == "_on_carga_thread_finished"

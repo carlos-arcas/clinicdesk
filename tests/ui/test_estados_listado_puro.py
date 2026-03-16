@@ -10,8 +10,10 @@ from clinicdesk.app.ui.viewmodels.contratos import EstadoListado, EstadoPantalla
 class SpyEstadoPantalla:
     estado_actual: str | None = None
     message_key: str | None = None
+    loading_calls: int = 0
 
     def set_loading(self, message_key: str) -> None:
+        self.loading_calls += 1
         self.estado_actual = "loading"
         self.message_key = message_key
 
@@ -99,3 +101,18 @@ def test_aplicar_estado_listado_empty_real_vs_filtrado_y_ready() -> None:
     )
     assert widget.estado_actual == "ready"
     assert items_renderizados == [{"id": 1}]
+
+
+def test_aplicar_estado_listado_no_repite_loading_si_ya_esta_loading() -> None:
+    widget = SpyEstadoPantalla(estado_actual="loading")
+
+    aplicar_estado_listado(
+        estado_widget=widget,
+        estado=EstadoListado(estado_pantalla=EstadoPantalla.LOADING),
+        contenido=object(),
+        config=_config(),
+        on_retry=lambda: None,
+        render_rows=lambda _: None,
+    )
+
+    assert widget.loading_calls == 0
