@@ -47,7 +47,8 @@ def aplicar_estado_listado(
     render_rows: Callable[[list[object]], None],
 ) -> None:
     if estado.estado_pantalla is EstadoPantalla.LOADING:
-        estado_widget.set_loading(config.loading_key)
+        if getattr(estado_widget, "estado_actual", None) != "loading":
+            estado_widget.set_loading(config.loading_key)
         return
     if estado.estado_pantalla is EstadoPantalla.ERROR:
         estado_widget.set_error(estado.error_key or config.error_key, on_retry=on_retry)

@@ -5,7 +5,7 @@ from time import perf_counter
 
 import logging
 
-from PySide6.QtCore import QThread, QTimer
+from PySide6.QtCore import QThread, QTimer, Slot
 from PySide6.QtGui import QKeySequence, QShortcut
 from PySide6.QtWidgets import QWidget
 
@@ -45,7 +45,7 @@ from clinicdesk.app.pages.pacientes.render_pacientes import (
 )
 from clinicdesk.app.ui.ux.error_feedback import presentar_error_recuperable
 from clinicdesk.app.pages.pacientes.window_feedback import set_busy, toast_error, toast_success
-from clinicdesk.app.pages.pacientes.workers_pacientes import arrancar_busqueda_rapida, arrancar_carga
+from clinicdesk.app.pages.pacientes.workers_pacientes import RelayCargaPacientes, arrancar_busqueda_rapida, arrancar_carga
 from clinicdesk.app.pages.pacientes.ui_builder import build_pacientes_ui
 from clinicdesk.app.pages.shared.contexto_tabla import (
     ContextoTablaListado,
@@ -92,6 +92,7 @@ class PagePacientes(QWidget):
         self._uc_auditoria_acceso = RegistrarAuditoriaAcceso(container.auditoria_accesos_repo)
         self._thread_carga: QThread | None = None
         self._worker_carga: CargaPacientesWorker | None = None
+        self._relay_carga: RelayCargaPacientes | None = None
         self._token_carga = 0
         self._coordinador_carga = CoordinadorCargaPacientes()
         self._inicio_cargas: dict[int, float] = {}
@@ -257,25 +258,31 @@ class PagePacientes(QWidget):
                 "has_text": bool(solicitud.texto),
             },
         )
-        self._thread_carga, self._worker_carga = arrancar_carga(
+        self._thread_carga, self._worker_carga, self._relay_carga = arrancar_carga(
             owner=self,
             db_path=self._db_path,
             activo=solicitud.activo,
             texto=solicitud.texto,
-            on_ok=lambda payload: self._on_carga_ok(payload, solicitud.token, solicitud.seleccion_id),
-            on_error=lambda error: self._on_carga_error(error, solicitud.token),
-            on_thread_finished=lambda: self._on_carga_thread_finished(solicitud.token),
+            token=solicitud.token,
+            seleccion_id=solicitud.seleccion_id,
+            on_ok=self._on_carga_ok,
+            on_error=self._on_carga_error,
+            on_thread_finished=self._on_carga_thread_finished,
         )
 
+    @Slot(int)
     def _on_carga_thread_finished(self, token: int) -> None:
         self._thread_carga = None
         self._worker_carga = None
+        self._relay_carga = None
         siguiente = self._coordinador_carga.finalizar(token)
         if siguiente is None:
             return
         self._arrancar_worker_carga(siguiente)
 
-    def _on_carga_ok(self, payload: object, token: int, selected_id: int | None) -> None:
+    @Slot(object, int, object)
+    def _on_carga_ok(self, payload: object, token: int, selected_id: object) -> None:
+        selected_id_int = selected_id if isinstance(selected_id, int) else None
         if (
             token != self._token_carga
             or not isinstance(payload, dict)
@@ -309,12 +316,13 @@ class PagePacientes(QWidget):
             },
         )
         self.filtros.set_contador(len(rows), total_base)
-        self._vm.seleccionar(selected_id)
+        self._vm.seleccionar(selected_id_int)
         self._vm.resolver_carga_ok(rows=rows, emitir_toast=True)
         restaurar_contexto_tabla(self.table, self._contexto_tabla_pendiente, columna_id=0)
         if rows:
             self.table.setFocus()
 
+    @Slot(str, int)
     def _on_carga_error(self, error_type: str, token: int) -> None:
         if token != self._token_carga or not self._coordinador_carga.es_token_activo(token):
             return
@@ -355,6 +363,15 @@ class PagePacientes(QWidget):
         )
 
     def _on_estado_vm(self, estado: EstadoListado[PacienteRow]) -> None:
+        LOGGER.debug(
+            "pacientes_estado_render",
+            extra={
+                "action": "pacientes_estado_render",
+                "token": self._token_carga,
+                "fase": estado.estado_pantalla.name,
+                "visible": self._pagina_visible,
+            },
+        )
         if not self._pagina_visible:
             LOGGER.info(
                 "pacientes_estado_omitido",
