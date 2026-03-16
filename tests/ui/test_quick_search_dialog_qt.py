@@ -86,3 +86,100 @@ def test_quick_search_dialog_open_enter_y_escape(qtbot) -> None:
     assert dialogo.isVisible()
     qtbot.keyClick(dialogo, Qt.Key_Escape)
     qtbot.waitUntil(lambda: not dialogo.isVisible())
+
+
+def _crear_contexto_controlado(selecciones: list[str]):
+    callbacks: list[object] = []
+
+    def _buscar_async(texto: str, resolver) -> None:
+        del texto
+        callbacks.append(resolver)
+
+    contexto = ContextoBusquedaRapida(
+        contexto_id="pacientes",
+        titulo_key="quick_search.pacientes.title",
+        placeholder_key="quick_search.placeholder",
+        empty_key="quick_search.empty",
+        buscar_async=_buscar_async,
+        on_select=selecciones.append,
+        render_item=lambda valor: f"item:{valor}",
+    )
+    return contexto, callbacks
+
+
+def test_quick_search_descarta_resultado_con_token_obsoleto(qtbot) -> None:
+    selecciones: list[str] = []
+    dialogo = _crear_dialogo()
+    qtbot.addWidget(dialogo)
+    contexto, callbacks = _crear_contexto_controlado(selecciones)
+    dialogo.open_for(contexto)
+
+    qtbot.keyClicks(dialogo._input, "ana")
+    qtbot.waitUntil(lambda: len(callbacks) == 1)
+    primer_callback = callbacks[0]
+
+    dialogo._input.clear()
+    qtbot.keyClicks(dialogo._input, "anabel")
+    qtbot.waitUntil(lambda: len(callbacks) == 2)
+
+    primer_callback(["obsoleto"])
+    qtbot.wait(20)
+    assert dialogo._lista.count() == 0
+
+
+def test_quick_search_no_renderiza_si_dialogo_ya_cerro(qtbot) -> None:
+    selecciones: list[str] = []
+    dialogo = _crear_dialogo()
+    qtbot.addWidget(dialogo)
+    contexto, callbacks = _crear_contexto_controlado(selecciones)
+    dialogo.open_for(contexto)
+
+    qtbot.keyClicks(dialogo._input, "ana")
+    qtbot.waitUntil(lambda: len(callbacks) == 1)
+    dialogo.close()
+    qtbot.waitUntil(lambda: not dialogo.isVisible())
+
+    callbacks[0](["paciente_tardio"])
+    qtbot.wait(20)
+    assert dialogo._lista.count() == 0
+
+
+def test_quick_search_respuestas_fuera_de_orden_conserva_ultima_busqueda(qtbot) -> None:
+    selecciones: list[str] = []
+    dialogo = _crear_dialogo()
+    qtbot.addWidget(dialogo)
+    contexto, callbacks = _crear_contexto_controlado(selecciones)
+    dialogo.open_for(contexto)
+
+    qtbot.keyClicks(dialogo._input, "a")
+    qtbot.waitUntil(lambda: len(callbacks) == 1)
+    primero = callbacks[0]
+
+    qtbot.keyClicks(dialogo._input, "na")
+    qtbot.waitUntil(lambda: len(callbacks) == 2)
+    segundo = callbacks[1]
+
+    segundo(["vigente_1", "vigente_2"])
+    qtbot.waitUntil(lambda: dialogo._lista.count() == 2)
+    primero(["obsoleto"])
+    qtbot.wait(20)
+
+    assert dialogo._lista.count() == 2
+    assert dialogo._lista.item(0).text() == "item:vigente_1"
+
+
+def test_quick_search_renderiza_y_selecciona_cuando_respuesta_es_vigente(qtbot) -> None:
+    selecciones: list[str] = []
+    dialogo = _crear_dialogo()
+    qtbot.addWidget(dialogo)
+    contexto, callbacks = _crear_contexto_controlado(selecciones)
+    dialogo.open_for(contexto)
+
+    qtbot.keyClicks(dialogo._input, "ana")
+    qtbot.waitUntil(lambda: len(callbacks) == 1)
+    callbacks[0](["paciente_ok"])
+    qtbot.waitUntil(lambda: dialogo._lista.count() == 1)
+
+    qtbot.keyClick(dialogo._input, Qt.Key_Return)
+    qtbot.waitUntil(lambda: not dialogo.isVisible())
+    assert selecciones == ["paciente_ok"]

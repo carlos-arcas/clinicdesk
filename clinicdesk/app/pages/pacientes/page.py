@@ -45,7 +45,12 @@ from clinicdesk.app.pages.pacientes.render_pacientes import (
 )
 from clinicdesk.app.ui.ux.error_feedback import presentar_error_recuperable
 from clinicdesk.app.pages.pacientes.window_feedback import set_busy, toast_error, toast_success
-from clinicdesk.app.pages.pacientes.workers_pacientes import RelayCargaPacientes, arrancar_busqueda_rapida, arrancar_carga
+from clinicdesk.app.pages.pacientes.workers_pacientes import (
+    RelayBusquedaRapidaPacientes,
+    RelayCargaPacientes,
+    arrancar_busqueda_rapida,
+    arrancar_carga,
+)
 from clinicdesk.app.pages.pacientes.ui_builder import build_pacientes_ui
 from clinicdesk.app.pages.shared.contexto_tabla import (
     ContextoTablaListado,
@@ -97,6 +102,10 @@ class PagePacientes(QWidget):
         self._coordinador_carga = CoordinadorCargaPacientes()
         self._inicio_cargas: dict[int, float] = {}
         self._thread_busqueda_rapida: QThread | None = None
+        self._worker_busqueda_rapida: CargaPacientesWorker | None = None
+        self._relay_busqueda_rapida: RelayBusquedaRapidaPacientes | None = None
+        self._token_busqueda_rapida = 0
+        self._on_done_busqueda_rapida = None
         self._preferencias_restauradas = False
         self._refresh_diferido_pendiente = False
         self._token_on_show = 0
@@ -224,24 +233,52 @@ class PagePacientes(QWidget):
     def buscar_rapido_async(self, texto: str, on_done) -> None:
         if self._thread_busqueda_rapida is not None and self._thread_busqueda_rapida.isRunning():
             return
-        self._thread_busqueda_rapida = arrancar_busqueda_rapida(
-            owner=self,
-            db_path=self._db_path,
-            activo=self.filtros.activo(),
-            texto=normalize_search_text(texto),
-            on_payload=lambda payload: self._on_busqueda_rapida_ok(payload, on_done),
-            on_thread_finished=self._reset_thread_busqueda_rapida,
+        self._token_busqueda_rapida += 1
+        token = self._token_busqueda_rapida
+        self._on_done_busqueda_rapida = on_done
+        self._thread_busqueda_rapida, self._worker_busqueda_rapida, self._relay_busqueda_rapida = (
+            arrancar_busqueda_rapida(
+                owner=self,
+                db_path=self._db_path,
+                activo=self.filtros.activo(),
+                texto=normalize_search_text(texto),
+                token=token,
+                on_payload=self._on_busqueda_rapida_ok,
+                on_error=self._on_busqueda_rapida_error,
+                on_thread_finished=self._on_busqueda_rapida_thread_finished,
+            )
         )
 
-    def _on_busqueda_rapida_ok(self, payload: object, on_done) -> None:
+    @Slot(int)
+    def _on_busqueda_rapida_thread_finished(self, _token: int) -> None:
+        self._reset_thread_busqueda_rapida()
+
+    @Slot(object, int)
+    def _on_busqueda_rapida_ok(self, payload: object, token: int) -> None:
+        if token != self._token_busqueda_rapida or not self._pagina_visible:
+            return
+        on_done = getattr(self, "_on_done_busqueda_rapida", None)
+        if not callable(on_done):
+            return
         if not isinstance(payload, dict):
             on_done([])
             return
         rows = payload.get("rows", [])
         on_done(rows)
 
+    @Slot(str, int)
+    def _on_busqueda_rapida_error(self, error_type: str, token: int) -> None:
+        if token != self._token_busqueda_rapida:
+            return
+        LOGGER.warning(
+            "pacientes_busqueda_rapida_error",
+            extra={"action": "pacientes_busqueda_rapida_error", "error": error_type, "token": token},
+        )
+
     def _reset_thread_busqueda_rapida(self) -> None:
         self._thread_busqueda_rapida = None
+        self._worker_busqueda_rapida = None
+        self._relay_busqueda_rapida = None
 
     def seleccionar_paciente_desde_busqueda(self, paciente: PacienteRow) -> None:
         self._select_by_id(paciente.id)

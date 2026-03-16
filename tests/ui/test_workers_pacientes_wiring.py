@@ -10,7 +10,7 @@ try:
 except ImportError as exc:  # pragma: no cover
     pytest.skip(f"PySide6 no disponible: {exc}", allow_module_level=True)
 
-from clinicdesk.app.pages.pacientes.workers_pacientes import RelayCargaPacientes
+from clinicdesk.app.pages.pacientes.workers_pacientes import RelayBusquedaRapidaPacientes, RelayCargaPacientes
 
 
 @pytest.mark.ui
@@ -34,3 +34,22 @@ def test_relay_carga_pacientes_emite_contexto_tipado_en_hilo_principal() -> None
         ("error", ("RuntimeError", 7)),
         ("fin", 7),
     ]
+
+
+@pytest.mark.ui
+@pytest.mark.uiqt
+def test_relay_busqueda_rapida_pacientes_emite_token() -> None:
+    app = QCoreApplication.instance() or QCoreApplication([])
+    relay = RelayBusquedaRapidaPacientes(token=9)
+    relay.moveToThread(app.thread())
+
+    eventos: list[tuple[str, object]] = []
+    relay.busqueda_ok.connect(lambda payload, token: eventos.append(("ok", (payload, token))))
+    relay.busqueda_error.connect(lambda error, token: eventos.append(("error", (error, token))))
+    relay.hilo_finalizado.connect(lambda token: eventos.append(("fin", token)))
+
+    relay.on_worker_ok({"rows": [1]})
+    relay.on_worker_error("RuntimeError")
+    relay.on_hilo_finalizado()
+
+    assert eventos == [("ok", ({"rows": [1]}, 9)), ("error", ("RuntimeError", 9)), ("fin", 9)]

@@ -30,26 +30,55 @@ class RelayCargaPacientes(QObject):
         self.hilo_finalizado.emit(self._token)
 
 
+class RelayBusquedaRapidaPacientes(QObject):
+    busqueda_ok = Signal(object, int)
+    busqueda_error = Signal(str, int)
+    hilo_finalizado = Signal(int)
+
+    def __init__(self, token: int) -> None:
+        super().__init__()
+        self._token = token
+
+    @Slot(object)
+    def on_worker_ok(self, payload: object) -> None:
+        self.busqueda_ok.emit(payload, self._token)
+
+    @Slot(str)
+    def on_worker_error(self, error_type: str) -> None:
+        self.busqueda_error.emit(error_type, self._token)
+
+    @Slot()
+    def on_hilo_finalizado(self) -> None:
+        self.hilo_finalizado.emit(self._token)
+
+
 def arrancar_busqueda_rapida(
     *,
     owner: QObject,
     db_path: str,
     activo: bool,
     texto: str,
-    on_payload: Callable[[object], None],
-    on_thread_finished: Callable[[], None],
-) -> QThread:
+    token: int,
+    on_payload: Callable[[object, int], None],
+    on_error: Callable[[str, int], None],
+    on_thread_finished: Callable[[int], None],
+) -> tuple[QThread, CargaPacientesWorker, RelayBusquedaRapidaPacientes]:
     thread = QThread(owner)
     worker = CargaPacientesWorker(db_path, activo, texto)
+    relay = RelayBusquedaRapidaPacientes(token=token)
     worker.moveToThread(thread)
     thread.started.connect(worker.run)
-    worker.finished_ok.connect(on_payload)
+    worker.finished_ok.connect(relay.on_worker_ok)
+    worker.finished_error.connect(relay.on_worker_error)
+    relay.busqueda_ok.connect(on_payload)
+    relay.busqueda_error.connect(on_error)
     worker.finished.connect(thread.quit)
     worker.finished.connect(worker.deleteLater)
     thread.finished.connect(thread.deleteLater)
-    thread.finished.connect(on_thread_finished)
+    thread.finished.connect(relay.on_hilo_finalizado)
+    relay.hilo_finalizado.connect(on_thread_finished)
     thread.start()
-    return thread
+    return thread, worker, relay
 
 
 def arrancar_carga(
