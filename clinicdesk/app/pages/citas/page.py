@@ -52,6 +52,8 @@ from clinicdesk.app.controllers.citas_controller import CitasController
 from clinicdesk.app.i18n import I18nManager
 from clinicdesk.app.pages.citas.recordatorio_cita_dialog import RecordatorioCitaDialog
 from clinicdesk.app.pages.citas.riesgo_ausencia_dialog import RiesgoAusenciaDialog
+from clinicdesk.app.pages.citas.coordinadores.coordinador_intents_citas import CoordinadorIntentsCitas
+from clinicdesk.app.pages.citas.coordinadores.coordinador_refresh_citas import CoordinadorRefreshCitas
 from clinicdesk.app.pages.citas.riesgo_ausencia_ui import (
     SETTINGS_KEY_ESTIMACIONES_AGENDA,
     SETTINGS_KEY_RIESGO_AGENDA,
@@ -125,9 +127,7 @@ class PageCitas(QWidget):
         self._columnas_lista: tuple[str, ...] = tuple()
         self._citas_lista_ids: list[int] = []
         self._citas_calendario_ids: list[int] = []
-        self._intent_navegacion_pendiente: CitasNavigationIntentDTO | None = None
-        self._token_intent_navegacion = 0
-        self._token_intent_pendiente: int | None = None
+        self._coordinador_intents = CoordinadorIntentsCitas()
         self._filtros_previos_calidad: FiltrosCitasDTO | None = None
         self._filtro_calidad_activo: str | None = None
         self._citas_seleccionadas: set[int] = set()
@@ -149,8 +149,7 @@ class PageCitas(QWidget):
         self._estimaciones_espera: dict[int, str] = {}
         self._db_path = self._resolver_db_path()
         self._contexto_lista_pendiente = ContextoTablaListado(fila_id=None, scroll_vertical=0, mantener_foco=False)
-        self._token_refresh_vigente = 0
-        self._pagina_visible = True
+        self._coordinador_refresh = CoordinadorRefreshCitas()
 
         self._build_ui()
         self._bind_events()
@@ -278,13 +277,12 @@ class PageCitas(QWidget):
         self.tabs.currentChanged.connect(self._on_tab_changed)
 
     def on_show(self) -> None:
-        self._pagina_visible = True
+        self._coordinador_refresh.activar_pagina()
         self._riesgo_enabled = bool(int(self._settings.value(SETTINGS_KEY_RIESGO_AGENDA, 0)))
         self._estimaciones_enabled = bool(int(self._settings.value(SETTINGS_KEY_ESTIMACIONES_AGENDA, 0)))
         self._refrescar_vistas_principales("on_show")
 
     def on_hide(self) -> None:
-        self._pagina_visible = False
         self._invalidar_refresh_vigente("on_hide")
 
     def aplicar_intent(self, intent: CitasNavigationIntentDTO) -> None:
@@ -292,9 +290,7 @@ class PageCitas(QWidget):
             self._aplicar_intent_calidad(intent)
             return
         self._desactivar_filtro_calidad_temporal()
-        self._token_intent_navegacion += 1
-        self._intent_navegacion_pendiente = intent
-        self._token_intent_pendiente = self._token_intent_navegacion
+        self._coordinador_intents.registrar_intent(intent)
         self._filtros_aplicados = FiltrosCitasDTO(
             rango_preset=intent.preset_rango,
             desde=intent.rango_desde or self._filtros_aplicados.desde,
@@ -326,9 +322,7 @@ class PageCitas(QWidget):
         self._citas_seleccionadas.clear()
         self._filtros_previos_calidad = self._filtros_aplicados
         self._filtro_calidad_activo = intent.filtro_calidad
-        self._intent_navegacion_pendiente = None
-        self._token_intent_navegacion += 1
-        self._token_intent_pendiente = None
+        self._coordinador_intents.invalidar_intents()
         self._filtros_aplicados = FiltrosCitasDTO(
             rango_preset="PERSONALIZADO",
             desde=intent.rango_desde,
@@ -376,40 +370,46 @@ class PageCitas(QWidget):
         return resolver_db_path_desde_conexion(self._container.connection)
 
     def _refrescar_vistas_principales(self, origen: str = "general") -> None:
-        if not self._pagina_visible:
+        if not self._coordinador_refresh.pagina_visible():
             LOGGER.info(
                 "citas_refresh_omitido_pagina_oculta",
                 extra={"action": "citas_refresh_omitido_pagina_oculta", "origen": origen},
             )
             return
         token_refresh = self._nuevo_token_refresh(origen)
+        if token_refresh is None:
+            return
         self._token_refresh_salud += 1
         self._token_aviso_logueado = None
         self._refresh_calendario(token_refresh)
         self._programar_refresco_lista(token_refresh, origen)
 
-    def _nuevo_token_refresh(self, origen: str) -> int:
-        self._token_refresh_vigente += 1
+    def _nuevo_token_refresh(self, origen: str) -> int | None:
+        token_refresh = self._coordinador_refresh.solicitar_token()
+        if token_refresh is None:
+            return None
         LOGGER.info(
             "citas_refresh_solicitado",
             extra={
                 "action": "citas_refresh_solicitado",
                 "origen": origen,
-                "token_refresh": self._token_refresh_vigente,
+                "token_refresh": token_refresh,
             },
         )
-        return self._token_refresh_vigente
+        return token_refresh
 
     def _invalidar_refresh_vigente(self, origen: str) -> None:
-        token_prev = self._token_refresh_vigente
-        self._token_refresh_vigente += 1
+        if origen == "on_hide":
+            token_prev = self._coordinador_refresh.desactivar_pagina()
+        else:
+            token_prev = self._coordinador_refresh.invalidar_vigente()
         LOGGER.info(
             "citas_refresh_invalidado",
             extra={"action": "citas_refresh_invalidado", "origen": origen, "token_prev": token_prev},
         )
 
     def _es_refresh_vigente(self, token_refresh: int, origen: str) -> bool:
-        if not self._pagina_visible:
+        if not self._coordinador_refresh.pagina_visible():
             LOGGER.info(
                 "citas_refresh_descartado_pagina_oculta",
                 extra={
@@ -419,14 +419,15 @@ class PageCitas(QWidget):
                 },
             )
             return False
-        if token_refresh != self._token_refresh_vigente:
+        token_vigente = self._coordinador_refresh.token_vigente()
+        if token_refresh != token_vigente:
             LOGGER.info(
                 "citas_refresh_descartado_token_obsoleto",
                 extra={
                     "action": "citas_refresh_descartado_token_obsoleto",
                     "origen": origen,
                     "token_refresh": token_refresh,
-                    "token_vigente": self._token_refresh_vigente,
+                    "token_vigente": token_vigente,
                 },
             )
             return False
@@ -453,12 +454,14 @@ class PageCitas(QWidget):
 
     def _on_calendario_selection_changed(self) -> None:
         token_refresh = self._nuevo_token_refresh("calendario_selection")
+        if token_refresh is None:
+            return
         self._token_refresh_salud += 1
         self._token_aviso_logueado = None
         self._refresh_calendario(token_refresh)
 
     def _on_tab_changed(self, _index: int) -> None:
-        if not self._pagina_visible:
+        if not self._coordinador_refresh.pagina_visible():
             return
         self._refrescar_vistas_principales("tab_changed")
 
@@ -617,21 +620,23 @@ class PageCitas(QWidget):
     def _resolver_intent_navegacion(self, vista: str, token_refresh: int) -> None:
         if not self._es_refresh_vigente(token_refresh, f"resolver_intent:{vista}"):
             return
-        intent = self._intent_navegacion_pendiente
-        if intent is None or vista != self._contexto_activo():
+        estado_intent = self._coordinador_intents.resolver_para_vista(vista, self._contexto_activo())
+        intent = estado_intent.intent
+        if intent is None and not estado_intent.obsoleto:
             return
-        if self._token_intent_pendiente != self._token_intent_navegacion:
+        if estado_intent.obsoleto:
             LOGGER.info(
                 "citas_intent_descartado_obsoleto",
                 extra={
                     "action": "citas_intent_descartado_obsoleto",
                     "vista": vista,
-                    "token_intent_pendiente": self._token_intent_pendiente,
-                    "token_intent_vigente": self._token_intent_navegacion,
+                    "token_intent_pendiente": estado_intent.token_pendiente,
+                    "token_intent_vigente": estado_intent.token_vigente,
                 },
             )
-            self._intent_navegacion_pendiente = None
-            self._token_intent_pendiente = None
+            self._coordinador_intents.limpiar_pendiente()
+            return
+        if intent is None:
             return
         encontrado, vista_final = self._resolver_seleccion_intent(intent, vista)
         if encontrado and intent.resaltar:
@@ -659,8 +664,7 @@ class PageCitas(QWidget):
             )
         except Exception:
             pass
-        self._intent_navegacion_pendiente = None
-        self._token_intent_pendiente = None
+        self._coordinador_intents.limpiar_pendiente()
 
     def _resolver_seleccion_intent(self, intent: CitasNavigationIntentDTO, vista: str) -> tuple[bool, str]:
         if self._seleccionar_cita_intent(intent, vista):
@@ -709,7 +713,7 @@ class PageCitas(QWidget):
             originales.append(item.background().color())
             item.setBackground(color)
 
-        token_refresh = self._token_refresh_vigente
+        token_refresh = self._coordinador_refresh.token_vigente()
 
         def restaurar() -> None:
             if not self._es_refresh_vigente(token_refresh, "resaltado_restaurar"):
