@@ -255,7 +255,17 @@ class PagePacientes(QWidget):
 
     @Slot(object, int)
     def _on_busqueda_rapida_ok(self, payload: object, token: int) -> None:
-        if token != self._token_busqueda_rapida or not self._pagina_visible:
+        if token != self._token_busqueda_rapida:
+            LOGGER.info(
+                "pacientes_busqueda_rapida_omitida",
+                extra={"action": "pacientes_busqueda_rapida_omitida", "reason": "token_obsoleto", "token": token},
+            )
+            return
+        if not self._pagina_visible:
+            LOGGER.info(
+                "pacientes_busqueda_rapida_omitida",
+                extra={"action": "pacientes_busqueda_rapida_omitida", "reason": "pagina_no_visible", "token": token},
+            )
             return
         on_done = getattr(self, "_on_done_busqueda_rapida", None)
         if not callable(on_done):
@@ -320,11 +330,17 @@ class PagePacientes(QWidget):
     @Slot(object, int, object)
     def _on_carga_ok(self, payload: object, token: int, selected_id: object) -> None:
         selected_id_int = selected_id if isinstance(selected_id, int) else None
-        if (
-            token != self._token_carga
-            or not isinstance(payload, dict)
-            or not self._coordinador_carga.es_token_activo(token)
-        ):
+        if token != self._token_carga or not self._coordinador_carga.es_token_activo(token):
+            LOGGER.info(
+                "pacientes_carga_omitida",
+                extra={"action": "pacientes_carga_omitida", "reason": "token_obsoleto", "token": token},
+            )
+            return
+        if not isinstance(payload, dict):
+            LOGGER.warning(
+                "pacientes_carga_omitida",
+                extra={"action": "pacientes_carga_omitida", "reason": "payload_invalido", "token": token},
+            )
             return
         if not self._pagina_visible:
             LOGGER.info(
@@ -362,6 +378,10 @@ class PagePacientes(QWidget):
     @Slot(str, int)
     def _on_carga_error(self, error_type: str, token: int) -> None:
         if token != self._token_carga or not self._coordinador_carga.es_token_activo(token):
+            LOGGER.info(
+                "pacientes_carga_omitida",
+                extra={"action": "pacientes_carga_omitida", "reason": "token_obsoleto", "token": token},
+            )
             return
         if not self._pagina_visible:
             LOGGER.info(

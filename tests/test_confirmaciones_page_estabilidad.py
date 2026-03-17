@@ -16,6 +16,7 @@ from clinicdesk.app.application.confirmaciones.dtos import ResultadoConfirmacion
 from clinicdesk.app.i18n import I18nManager
 from clinicdesk.app.pages.confirmaciones.page import PageConfirmaciones
 from clinicdesk.app.pages.confirmaciones.workers_confirmaciones import RelayConfirmaciones
+from clinicdesk.app.ui.viewmodels.contratos import EstadoListado, EstadoPantalla
 
 RUTA_PAGE = Path("clinicdesk/app/pages/confirmaciones/page.py")
 
@@ -118,3 +119,19 @@ def test_arrancar_carga_usa_slots_explicitos_sin_lambdas() -> None:
     assert kwargs["on_error"].attr == "_on_carga_error"
     assert isinstance(kwargs["on_thread_finished"], ast.Attribute)
     assert kwargs["on_thread_finished"].attr == "_on_carga_thread_finished"
+
+
+def test_on_estado_vm_no_renderiza_si_pagina_no_visible_runtime(container, monkeypatch: pytest.MonkeyPatch) -> None:
+    _app()
+    page = PageConfirmaciones(container, I18nManager("es"))
+    page._pagina_visible = False
+    llamado = {"render": False}
+
+    monkeypatch.setattr(
+        "clinicdesk.app.pages.confirmaciones.page.render_estado",
+        lambda *args, **kwargs: llamado.__setitem__("render", True),
+    )
+
+    page._on_estado_vm(EstadoListado(estado_pantalla=EstadoPantalla.LOADING))
+
+    assert llamado["render"] is False

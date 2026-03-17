@@ -6,7 +6,7 @@ import pytest
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 try:
-    from PySide6.QtWidgets import QLabel, QStackedWidget
+    from PySide6.QtWidgets import QLabel, QStackedWidget, QWidget
 except ImportError as exc:  # pragma: no cover
     pytest.skip(f"PySide6 no disponible: {exc}", allow_module_level=True)
 
@@ -37,7 +37,8 @@ def test_estado_pantalla_widget_muestra_vista_por_estado(qtbot) -> None:
     contenido = QLabel("contenido", widget)
     widget.set_content(contenido)
     assert widget.estado_actual == "content"
-    assert stack.currentWidget() is contenido
+    assert stack.currentWidget() is not contenido
+    assert isinstance(stack.currentWidget(), QWidget)
 
 
 @pytest.mark.ui
@@ -85,3 +86,16 @@ def test_estado_pantalla_widget_difiere_mutacion_fuera_hilo_gui(qtbot, monkeypat
 
     assert registro == ["ux_states.pacientes.loading"]
     assert widget.estado_actual == "error"
+
+
+def test_estado_pantalla_widget_difiere_y_aplica_en_tick_gui(qtbot, monkeypatch) -> None:
+    widget = EstadoPantallaWidget(I18nManager("es"))
+    qtbot.addWidget(widget)
+    widget.set_error("ux_states.pacientes.error")
+
+    monkeypatch.setattr(widget, "_permitir_mutacion_estado", lambda **_kwargs: False)
+    widget.set_loading("ux_states.pacientes.loading")
+    assert widget.estado_actual == "error"
+
+    qtbot.wait(50)
+    assert widget.estado_actual == "loading"

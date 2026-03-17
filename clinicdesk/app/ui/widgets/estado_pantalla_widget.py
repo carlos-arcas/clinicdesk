@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections.abc import Callable
 import logging
 
-from PySide6.QtCore import QThread, Signal
+from PySide6.QtCore import QThread, Qt, Signal
 
 from PySide6.QtWidgets import (
     QLabel,
@@ -71,16 +71,22 @@ class EstadoPantallaWidget(QWidget):
         self._vista_processing.layout().addWidget(self._lbl_processing)
         self._vista_processing.layout().addWidget(self._progress_processing)
 
+        self._vista_content = self._crear_vista_estado()
+        self._layout_content = QVBoxLayout()
+        self._layout_content.setContentsMargins(0, 0, 0, 0)
+        self._vista_content.layout().addLayout(self._layout_content)
+
         self._stack.addWidget(self._vista_loading)
         self._stack.addWidget(self._vista_empty)
         self._stack.addWidget(self._vista_error)
         self._stack.addWidget(self._vista_processing)
+        self._stack.addWidget(self._vista_content)
 
-        self.solicitar_loading.connect(self._aplicar_loading)
-        self.solicitar_empty.connect(self._aplicar_empty)
-        self.solicitar_error.connect(self._aplicar_error)
-        self.solicitar_processing.connect(self._aplicar_processing)
-        self.solicitar_content.connect(self._aplicar_content)
+        self.solicitar_loading.connect(self._aplicar_loading, Qt.ConnectionType.QueuedConnection)
+        self.solicitar_empty.connect(self._aplicar_empty, Qt.ConnectionType.QueuedConnection)
+        self.solicitar_error.connect(self._aplicar_error, Qt.ConnectionType.QueuedConnection)
+        self.solicitar_processing.connect(self._aplicar_processing, Qt.ConnectionType.QueuedConnection)
+        self.solicitar_content.connect(self._aplicar_content, Qt.ConnectionType.QueuedConnection)
 
         root = QVBoxLayout(self)
         root.addWidget(self._stack)
@@ -195,19 +201,26 @@ class EstadoPantallaWidget(QWidget):
         if widget.thread() is not self.thread():
             self._logger.warning(
                 "estado_pantalla_widget_thread_invalido",
-                extra={"action": "estado_pantalla_widget_thread_invalido", "metodo": "set_content"},
+                extra={
+                    "action": "estado_pantalla_widget_thread_invalido",
+                    "metodo": "set_content",
+                    "thread": "distinto",
+                },
             )
             return
         if self._contenido is not widget:
-            if self._contenido is not None:
-                self._stack.removeWidget(self._contenido)
-                if self._contenido.parent() is self._stack:
-                    self._contenido.setParent(None)
+            self._desacoplar_contenido_anterior()
             self._contenido = widget
-            if self._stack.indexOf(widget) == -1:
-                self._stack.addWidget(widget)
+            self._layout_content.addWidget(widget)
         self._estado_actual = "content"
-        self._stack.setCurrentWidget(widget)
+        self._stack.setCurrentWidget(self._vista_content)
+
+    def _desacoplar_contenido_anterior(self) -> None:
+        if self._contenido is None:
+            return
+        self._layout_content.removeWidget(self._contenido)
+        if self._contenido.parent() is self._vista_content:
+            self._contenido.setParent(None)
 
     def _on_cta_clicked(self) -> None:
         if self._cta_handler is not None:
