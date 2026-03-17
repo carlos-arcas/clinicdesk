@@ -3,7 +3,6 @@ from __future__ import annotations
 import ast
 from pathlib import Path
 
-
 RUTA_PAGE = Path("clinicdesk/app/pages/pacientes/page.py")
 
 
@@ -48,9 +47,7 @@ def test_arrancar_carga_usa_slots_de_clase_sin_lambdas() -> None:
     llamadas = [
         node
         for node in ast.walk(metodo)
-        if isinstance(node, ast.Call)
-        and isinstance(node.func, ast.Name)
-        and node.func.id == "arrancar_carga"
+        if isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id == "arrancar_carga"
     ]
     assert len(llamadas) == 1
     llamada = llamadas[0]

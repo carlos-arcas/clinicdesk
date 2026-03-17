@@ -263,6 +263,10 @@ class PageConfirmaciones(QWidget):
     @Slot(object, int)
     def _on_carga_ok(self, result, token: int) -> None:
         if token != self._token_carga:
+            LOGGER.info(
+                "confirmaciones_carga_omitida",
+                extra={"action": "confirmaciones_carga_omitida", "reason": "token_obsoleto", "token": token},
+            )
             return
         if not self._puede_consumir_resultado(token):
             return
@@ -283,6 +287,10 @@ class PageConfirmaciones(QWidget):
     @Slot(str, int)
     def _on_carga_error(self, error_type: str, token: int) -> None:
         if token != self._token_carga:
+            LOGGER.info(
+                "confirmaciones_carga_omitida",
+                extra={"action": "confirmaciones_carga_omitida", "reason": "token_obsoleto", "token": token},
+            )
             return
         if not self._puede_consumir_resultado(token):
             return
@@ -315,7 +323,21 @@ class PageConfirmaciones(QWidget):
 
     @Slot(object, int)
     def _on_busqueda_rapida_ok(self, result: object, token: int) -> None:
-        if token != self._token_busqueda_rapida or not self._pagina_visible:
+        if token != self._token_busqueda_rapida:
+            LOGGER.info(
+                "confirmaciones_busqueda_rapida_omitida",
+                extra={"action": "confirmaciones_busqueda_rapida_omitida", "reason": "token_obsoleto", "token": token},
+            )
+            return
+        if not self._pagina_visible:
+            LOGGER.info(
+                "confirmaciones_busqueda_rapida_omitida",
+                extra={
+                    "action": "confirmaciones_busqueda_rapida_omitida",
+                    "reason": "pagina_no_visible",
+                    "token": token,
+                },
+            )
             return
         on_done = getattr(self, "_on_done_busqueda_rapida", None)
         if callable(on_done) and hasattr(result, "items"):
