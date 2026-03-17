@@ -52,3 +52,36 @@ def test_estado_pantalla_widget_set_processing_y_focus_retry(qtbot) -> None:
     widget.set_error("ux_states.pacientes.error", on_retry=lambda: None)
     assert widget.estado_actual == "error"
     assert widget.focusWidget() is not None
+
+
+def test_estado_pantalla_widget_no_duplica_ni_huerfana_contenido(qtbot) -> None:
+    widget = EstadoPantallaWidget(I18nManager("es"))
+    qtbot.addWidget(widget)
+    stack = widget.findChild(QStackedWidget)
+    assert stack is not None
+
+    contenido_a = QLabel("a", widget)
+    contenido_b = QLabel("b", widget)
+
+    widget.set_content(contenido_a)
+    assert stack.indexOf(contenido_a) != -1
+
+    widget.set_content(contenido_b)
+    assert stack.indexOf(contenido_a) == -1
+    assert contenido_a.parent() is None
+    assert stack.indexOf(contenido_b) != -1
+
+
+def test_estado_pantalla_widget_difiere_mutacion_fuera_hilo_gui(qtbot, monkeypatch) -> None:
+    widget = EstadoPantallaWidget(I18nManager("es"))
+    qtbot.addWidget(widget)
+    widget.set_error("ux_states.pacientes.error")
+
+    registro: list[str] = []
+    widget.solicitar_loading.connect(lambda key: registro.append(key))
+    monkeypatch.setattr(widget, "_permitir_mutacion_estado", lambda **_kwargs: False)
+
+    widget.set_loading("ux_states.pacientes.loading")
+
+    assert registro == ["ux_states.pacientes.loading"]
+    assert widget.estado_actual == "error"

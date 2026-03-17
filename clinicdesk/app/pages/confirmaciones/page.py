@@ -331,6 +331,17 @@ class PageConfirmaciones(QWidget):
         )
 
     def _on_estado_vm(self, estado: EstadoListado[object]) -> None:
+        if not self._pagina_visible:
+            LOGGER.info(
+                "confirmaciones_estado_omitido",
+                extra={
+                    "action": "confirmaciones_estado_omitido",
+                    "reason": "pagina_no_visible",
+                    "fase": estado.estado_pantalla.name,
+                    "token": self._token_carga,
+                },
+            )
+            return
         render_estado(self._ui, estado, on_retry=lambda: self._load_data(reset=True), render_rows=self._render_rows)
 
     def _on_evento_vm(self, evento: EventoUI) -> None:
