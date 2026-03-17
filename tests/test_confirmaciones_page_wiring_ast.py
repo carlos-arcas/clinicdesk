@@ -45,3 +45,13 @@ def test_busqueda_rapida_usa_slots_explicitos_sin_lambdas() -> None:
     assert kwargs["on_error"].attr == "_on_busqueda_rapida_error"
     assert isinstance(kwargs["on_thread_finished"], ast.Attribute)
     assert kwargs["on_thread_finished"].attr == "_on_busqueda_rapida_thread_finished"
+
+
+def test_on_estado_vm_omite_render_cuando_pagina_no_visible() -> None:
+    metodo = _obtener_metodo("_on_estado_vm")
+    primer_if = next((node for node in metodo.body if isinstance(node, ast.If)), None)
+    assert isinstance(primer_if, ast.If)
+    assert isinstance(primer_if.test, ast.UnaryOp)
+    assert isinstance(primer_if.test.op, ast.Not)
+    assert isinstance(primer_if.test.operand, ast.Attribute)
+    assert primer_if.test.operand.attr == "_pagina_visible"
