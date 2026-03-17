@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Optional
 
-from PySide6.QtCore import QDate, QTimer
+from PySide6.QtCore import QDate, QPointer, QTimer
 from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
@@ -142,7 +142,14 @@ class MedicoFormDialog(QDialog):
 
     def _mark_invalid(self, widget: QWidget) -> None:
         widget.setStyleSheet("border: 1px solid #d9534f;")
-        QTimer.singleShot(2500, lambda: widget.setStyleSheet(""))
+        widget_ref = QPointer(widget)
+
+        def limpiar_estilo() -> None:
+            if widget_ref.isNull():
+                return
+            widget_ref.setStyleSheet("")
+
+        QTimer.singleShot(2500, limpiar_estilo)
 
     def _highlight_for_error(self, exc: Exception) -> None:
         message = str(exc).lower()
