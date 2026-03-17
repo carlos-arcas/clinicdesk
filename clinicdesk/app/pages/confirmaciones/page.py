@@ -25,6 +25,7 @@ from clinicdesk.app.pages.confirmaciones.lote_controller import GestorLoteConfir
 from clinicdesk.app.pages.confirmaciones.lote_worker import WorkerRecordatoriosLote
 from clinicdesk.app.pages.confirmaciones.navegacion_confirmaciones import abrir_riesgo, ir_a_prediccion, render_banner
 from clinicdesk.app.pages.confirmaciones.acciones_rapidas_confirmaciones import (
+    RelayAccionRapidaConfirmaciones,
     on_whatsapp_rapido_fail,
     on_whatsapp_rapido_ok,
     preparar_whatsapp_rapido,
@@ -76,6 +77,9 @@ class PageConfirmaciones(QWidget):
         self._uc_telemetria = RegistrarTelemetria(container.telemetria_eventos_repo)
         self._thread_rapido: QThread | None = None
         self._worker_rapido: WorkerRecordatoriosLote | None = None
+        self._relay_rapido: RelayAccionRapidaConfirmaciones | None = None
+        self._token_whatsapp_rapido = 0
+        self._token_refresh_operativo = 0
         self._thread_carga: QThread | None = None
         self._worker_carga: CargaConfirmacionesWorker | None = None
         self._relay_carga: RelayConfirmaciones | None = None
@@ -97,7 +101,8 @@ class PageConfirmaciones(QWidget):
             self._i18n,
             self._container.recordatorios_citas_facade,
             selected_ids=lambda: tuple(sorted(self._citas_seleccionadas)),
-            on_done=lambda: self._load_data(reset=False),
+            on_done=self._on_lote_done,
+            contexto_vigente=self._es_contexto_operativo_vigente,
         )
         self._ui.contenido_tabla.layout().insertWidget(1, self._lote.barra)
         self._connect_signals()
@@ -141,6 +146,78 @@ class PageConfirmaciones(QWidget):
 
     def on_hide(self) -> None:
         self._pagina_visible = False
+        self._token_whatsapp_rapido += 1
+        self._cita_en_preparacion = None
+        self._lote.invalidar_contexto()
+
+    def _es_contexto_operativo_vigente(self) -> bool:
+        return self._pagina_visible
+
+    def _puede_mostrar_feedback_operativo(self, operation_id: int) -> bool:
+        return self._es_whatsapp_rapido_vigente(operation_id) and self._es_contexto_operativo_vigente()
+
+    def _es_whatsapp_rapido_vigente(self, operation_id: int) -> bool:
+        if operation_id != self._token_whatsapp_rapido:
+            LOGGER.info(
+                "confirmaciones_whatsapp_rapido_omitido",
+                extra={
+                    "action": "confirmaciones_whatsapp_rapido_omitido",
+                    "reason": "token_obsoleto",
+                    "operation_id": operation_id,
+                },
+            )
+            return False
+        if not self._es_contexto_operativo_vigente():
+            LOGGER.info(
+                "confirmaciones_whatsapp_rapido_omitido",
+                extra={
+                    "action": "confirmaciones_whatsapp_rapido_omitido",
+                    "reason": "contexto_no_vigente",
+                    "operation_id": operation_id,
+                },
+            )
+            return False
+        return True
+
+    def _solicitar_refresh_operativo(self, *, origen: str, operation_id: int) -> None:
+        if operation_id != self._token_whatsapp_rapido:
+            LOGGER.info(
+                "confirmaciones_refresh_operativo_omitido",
+                extra={
+                    "action": "confirmaciones_refresh_operativo_omitido",
+                    "reason": "token_obsoleto",
+                    "origen": origen,
+                    "operation_id": operation_id,
+                },
+            )
+            return
+        if not self._es_contexto_operativo_vigente():
+            LOGGER.info(
+                "confirmaciones_refresh_operativo_omitido",
+                extra={
+                    "action": "confirmaciones_refresh_operativo_omitido",
+                    "reason": "contexto_no_vigente",
+                    "origen": origen,
+                    "operation_id": operation_id,
+                },
+            )
+            return
+        self._token_refresh_operativo += 1
+        self._load_data(reset=False)
+
+    @Slot(int)
+    def _on_lote_done(self, operation_id: int) -> None:
+        if not self._es_contexto_operativo_vigente():
+            LOGGER.info(
+                "confirmaciones_lote_refresh_omitido",
+                extra={
+                    "action": "confirmaciones_lote_refresh_omitido",
+                    "reason": "contexto_no_vigente",
+                    "operation_id": operation_id,
+                },
+            )
+            return
+        self._load_data(reset=False)
 
     def _retranslate(self) -> None:
         t = self._i18n.t
@@ -430,11 +507,22 @@ class PageConfirmaciones(QWidget):
     def _preparar_whatsapp_rapido(self, item) -> None:
         preparar_whatsapp_rapido(self, item)
 
-    def _on_whatsapp_rapido_ok(self, _dto) -> None:
-        on_whatsapp_rapido_ok(self)
+    @Slot(object, int)
+    def _on_whatsapp_rapido_ok(self, _dto: object, operation_id: int) -> None:
+        on_whatsapp_rapido_ok(self, operation_id)
 
-    def _on_whatsapp_rapido_fail(self, reason_code: str) -> None:
-        on_whatsapp_rapido_fail(self, reason_code)
+    @Slot(str, int)
+    def _on_whatsapp_rapido_fail(self, reason_code: str, operation_id: int) -> None:
+        on_whatsapp_rapido_fail(self, reason_code, operation_id)
+
+    @Slot(int)
+    def _on_whatsapp_rapido_thread_finished(self, operation_id: int) -> None:
+        self._thread_rapido = None
+        self._worker_rapido = None
+        self._relay_rapido = None
+        if operation_id != self._token_whatsapp_rapido:
+            return
+        self._cita_en_preparacion = None
 
     def _log_carga(self, reset: bool) -> None:
         log_carga(self, reset)
