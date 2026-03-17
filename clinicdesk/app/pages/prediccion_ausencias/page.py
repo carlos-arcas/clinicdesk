@@ -75,6 +75,9 @@ class PagePrediccionAusencias(QWidget):
         self._entrenar_worker: EntrenarPrediccionWorker | None = None
         self._settings_key = "prediccion_ausencias/mostrar_riesgo_agenda"
         self._ventana_resultados_semanas = VENTANA_RESULTADOS_POR_DEFECTO
+        self._token_resultados_diferidos = 0
+        self._token_resultados_vigente = 0
+        self._pagina_visible = False
         self._recordatorio_oculto_sesion = False
         self._ultimo_motivo_recordatorio_log: str | None = None
         self._preferencia_recordatorio = PreferenciaRecordatorioEntrenarDTO(
@@ -87,8 +90,14 @@ class PagePrediccionAusencias(QWidget):
         self._restaurar_preferencia()
 
     def on_show(self) -> None:
+        self._pagina_visible = True
+        self._token_resultados_vigente += 1
         self._comprobar_datos()
         self._cargar_previsualizacion()
+
+    def on_hide(self) -> None:
+        self._pagina_visible = False
+        self._token_resultados_vigente += 1
 
     def _build_ui(self) -> None:
         root = QVBoxLayout(self)
@@ -288,7 +297,39 @@ class PagePrediccionAusencias(QWidget):
         self._ventana_resultados_semanas = int(semanas)
         self._guardar_preferencia_ventana_resultados()
         self.lbl_resultados_estado.setText(self._i18n.t("prediccion_ausencias.resultados.actualizando"))
-        QTimer.singleShot(0, self._actualizar_resultados_recientes)
+        self._programar_actualizacion_resultados_recientes()
+
+    def _programar_actualizacion_resultados_recientes(self) -> None:
+        self._token_resultados_diferidos += 1
+        token = self._token_resultados_diferidos
+        token_contexto = self._token_resultados_vigente
+
+        def ejecutar() -> None:
+            self._actualizar_resultados_recientes_diferido(token, token_contexto)
+
+        QTimer.singleShot(0, ejecutar)
+
+    def _actualizar_resultados_recientes_diferido(self, token: int, token_contexto: int) -> None:
+        if not self._es_actualizacion_resultados_vigente(token, token_contexto):
+            LOGGER.info(
+                "prediccion_resultados_recientes_omitidos",
+                extra={
+                    "action": "prediccion_resultados_recientes_omitidos",
+                    "reason": "contexto_obsoleto",
+                    "token": token,
+                },
+            )
+            return
+        self._actualizar_resultados_recientes()
+
+    def _es_actualizacion_resultados_vigente(self, token: int, token_contexto: int) -> bool:
+        if token != self._token_resultados_diferidos:
+            return False
+        if token_contexto != self._token_resultados_vigente:
+            return False
+        if not self._pagina_visible:
+            return False
+        return self.isVisible()
 
     def _mostrar_ayuda_resultados(self) -> None:
         bullets = [
