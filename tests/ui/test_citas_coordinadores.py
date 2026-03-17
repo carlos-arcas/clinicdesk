@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+from clinicdesk.app.application.citas import FiltrosCitasDTO
 from clinicdesk.app.application.citas.navigation_intent import CitasNavigationIntentDTO
+from clinicdesk.app.pages.citas.coordinadores.coordinador_banners_citas import CoordinadorBannersCitas
 from clinicdesk.app.pages.citas.coordinadores.coordinador_intents_citas import CoordinadorIntentsCitas
 from clinicdesk.app.pages.citas.coordinadores.coordinador_refresh_citas import CoordinadorRefreshCitas
+from clinicdesk.app.pages.citas.coordinadores.coordinador_salud_prediccion_citas import CoordinadorSaludPrediccionCitas
 
 
 def _intent_base() -> CitasNavigationIntentDTO:
@@ -49,3 +52,38 @@ def test_coordinador_intents_omite_vista_inactiva() -> None:
     estado = coordinador.resolver_para_vista("CALENDARIO", "LISTA")
     assert estado.intent is None
     assert not estado.obsoleto
+
+
+def test_coordinador_banners_activa_y_desactiva_estado_auxiliar() -> None:
+    coordinador = CoordinadorBannersCitas()
+    filtros_previos = FiltrosCitasDTO(rango_preset="HOY")
+
+    coordinador.activar_filtro_calidad("SIN_CHECKIN", filtros_previos)
+    assert coordinador.hay_filtro_calidad_activo()
+    assert coordinador.filtro_calidad_activo() == "SIN_CHECKIN"
+    assert coordinador.filtros_previos_o(FiltrosCitasDTO(rango_preset="SEMANA")) == filtros_previos
+
+    coordinador.desactivar_filtro_calidad()
+    assert not coordinador.hay_filtro_calidad_activo()
+    assert coordinador.filtros_previos_o(FiltrosCitasDTO(rango_preset="SEMANA")).rango_preset == "SEMANA"
+
+
+def test_coordinador_salud_prediccion_actualiza_estado_y_logueo_por_token() -> None:
+    coordinador = CoordinadorSaludPrediccionCitas()
+    token = coordinador.registrar_nuevo_refresh()
+    assert token == 1
+
+    duracion, espera = coordinador.actualizar_estimaciones(True, lambda _: ({1: "ALTO"}, {1: "MEDIO"}))
+    assert duracion[1] == "ALTO"
+    assert espera[1] == "MEDIO"
+    assert coordinador.tipos_estimacion_disponibles(1) == ["duracion", "espera"]
+
+    estado = coordinador.estado_aviso_salud(True, "ROJO", "VERDE")
+    assert estado.mostrar
+    assert coordinador.debe_loguear_aviso(estado.mostrar)
+    coordinador.marcar_aviso_logueado()
+    assert not coordinador.debe_loguear_aviso(estado.mostrar)
+
+    coordinador.registrar_nuevo_refresh()
+    assert coordinador.debe_loguear_aviso(True)
+    assert coordinador.nivel_estimacion(999, "duracion") == "NO_DISPONIBLE"

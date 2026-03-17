@@ -42,18 +42,17 @@ from clinicdesk.app.application.citas.navigation_intent import (
 from clinicdesk.app.application.prediccion_ausencias.riesgo_agenda import RIESGO_NO_DISPONIBLE
 from clinicdesk.app.application.usecases.registrar_telemetria import RegistrarTelemetria
 from clinicdesk.app.application.prediccion_ausencias.aviso_salud_prediccion import CacheSaludPrediccionPorRefresh
-from clinicdesk.app.application.prediccion_operativa.ux_estimaciones import (
-    debe_mostrar_aviso_salud_estimacion,
-    mensaje_no_disponible_estimacion,
-)
+from clinicdesk.app.application.prediccion_operativa.ux_estimaciones import mensaje_no_disponible_estimacion
 from clinicdesk.app.bootstrap_logging import get_logger
 from clinicdesk.app.container import AppContainer
 from clinicdesk.app.controllers.citas_controller import CitasController
 from clinicdesk.app.i18n import I18nManager
 from clinicdesk.app.pages.citas.recordatorio_cita_dialog import RecordatorioCitaDialog
 from clinicdesk.app.pages.citas.riesgo_ausencia_dialog import RiesgoAusenciaDialog
+from clinicdesk.app.pages.citas.coordinadores.coordinador_banners_citas import CoordinadorBannersCitas
 from clinicdesk.app.pages.citas.coordinadores.coordinador_intents_citas import CoordinadorIntentsCitas
 from clinicdesk.app.pages.citas.coordinadores.coordinador_refresh_citas import CoordinadorRefreshCitas
+from clinicdesk.app.pages.citas.coordinadores.coordinador_salud_prediccion_citas import CoordinadorSaludPrediccionCitas
 from clinicdesk.app.pages.citas.riesgo_ausencia_ui import (
     SETTINGS_KEY_ESTIMACIONES_AGENDA,
     SETTINGS_KEY_RIESGO_AGENDA,
@@ -128,14 +127,12 @@ class PageCitas(QWidget):
         self._citas_lista_ids: list[int] = []
         self._citas_calendario_ids: list[int] = []
         self._coordinador_intents = CoordinadorIntentsCitas()
-        self._filtros_previos_calidad: FiltrosCitasDTO | None = None
-        self._filtro_calidad_activo: str | None = None
+        self._coordinador_banners = CoordinadorBannersCitas()
         self._citas_seleccionadas: set[int] = set()
         self._actualizando_checks_lote = False
         self._riesgo_enabled = False
         self._estimaciones_enabled = False
-        self._token_refresh_salud = 0
-        self._token_aviso_logueado: int | None = None
+        self._coordinador_salud_prediccion = CoordinadorSaludPrediccionCitas()
         self._cache_salud_duracion = CacheSaludPrediccionPorRefresh(
             self._container.prediccion_operativa_facade.obtener_salud_duracion
         )
@@ -145,8 +142,6 @@ class PageCitas(QWidget):
         self._cache_estimaciones = CacheSaludPrediccionPorRefresh(
             self._container.prediccion_operativa_facade.obtener_estimaciones_agenda
         )
-        self._estimaciones_duracion: dict[int, str] = {}
-        self._estimaciones_espera: dict[int, str] = {}
         self._db_path = self._resolver_db_path()
         self._contexto_lista_pendiente = ContextoTablaListado(fila_id=None, scroll_vertical=0, mantener_foco=False)
         self._coordinador_refresh = CoordinadorRefreshCitas()
@@ -320,8 +315,7 @@ class PageCitas(QWidget):
 
     def _aplicar_intent_calidad(self, intent: CitasNavigationIntentDTO) -> None:
         self._citas_seleccionadas.clear()
-        self._filtros_previos_calidad = self._filtros_aplicados
-        self._filtro_calidad_activo = intent.filtro_calidad
+        self._coordinador_banners.activar_filtro_calidad(intent.filtro_calidad, self._filtros_aplicados)
         self._coordinador_intents.invalidar_intents()
         self._filtros_aplicados = FiltrosCitasDTO(
             rango_preset="PERSONALIZADO",
@@ -341,9 +335,10 @@ class PageCitas(QWidget):
         self._refrescar_vistas_principales("intent_calidad")
 
     def _mostrar_banner_calidad(self) -> None:
-        if not self._filtro_calidad_activo:
+        filtro_activo = self._coordinador_banners.filtro_calidad_activo()
+        if not filtro_activo:
             return
-        tipo = self._i18n.t(f"citas.calidad.tipo.{self._filtro_calidad_activo.lower()}")
+        tipo = self._i18n.t(f"citas.calidad.tipo.{filtro_activo.lower()}")
         self.lbl_banner_calidad.setText(self._i18n.t("citas.calidad.banner", tipo=tipo))
         self.lbl_banner_calidad.setVisible(True)
         self.btn_quitar_filtro_calidad.setVisible(True)
@@ -351,8 +346,7 @@ class PageCitas(QWidget):
 
     def _desactivar_filtro_calidad_temporal(self) -> None:
         self._citas_seleccionadas.clear()
-        self._filtro_calidad_activo = None
-        self._filtros_previos_calidad = None
+        self._coordinador_banners.desactivar_filtro_calidad()
         self.lbl_banner_calidad.setText("")
         self.lbl_banner_calidad.setVisible(False)
         self.btn_quitar_filtro_calidad.setVisible(False)
@@ -360,7 +354,7 @@ class PageCitas(QWidget):
 
     def _quitar_filtro_calidad(self) -> None:
         self.tabs.setCurrentIndex(1)
-        filtros = self._filtros_previos_calidad or FiltrosCitasDTO(rango_preset="SEMANA")
+        filtros = self._coordinador_banners.filtros_previos_o(FiltrosCitasDTO(rango_preset="SEMANA"))
         self._desactivar_filtro_calidad_temporal()
         self._filtros_aplicados = filtros
         self.panel_filtros.set_filtros(self._filtros_aplicados)
@@ -379,8 +373,7 @@ class PageCitas(QWidget):
         token_refresh = self._nuevo_token_refresh(origen)
         if token_refresh is None:
             return
-        self._token_refresh_salud += 1
-        self._token_aviso_logueado = None
+        self._coordinador_salud_prediccion.registrar_nuevo_refresh()
         self._refresh_calendario(token_refresh)
         self._programar_refresco_lista(token_refresh, origen)
 
@@ -456,8 +449,7 @@ class PageCitas(QWidget):
         token_refresh = self._nuevo_token_refresh("calendario_selection")
         if token_refresh is None:
             return
-        self._token_refresh_salud += 1
-        self._token_aviso_logueado = None
+        self._coordinador_salud_prediccion.registrar_nuevo_refresh()
         self._refresh_calendario(token_refresh)
 
     def _on_tab_changed(self, _index: int) -> None:
@@ -557,7 +549,7 @@ class PageCitas(QWidget):
     def _refresh_lista(self, token_refresh: int, origen: str = "refresh_lista") -> None:
         if not self._es_refresh_vigente(token_refresh, origen):
             return
-        if self._filtro_calidad_activo:
+        if self._coordinador_banners.hay_filtro_calidad_activo():
             self._citas_seleccionadas.clear()
         validacion = normalizar_y_validar_filtros_citas(self._filtros_aplicados, datetime.now(), "LISTA")
         if not validacion.validacion.ok:
@@ -590,7 +582,7 @@ class PageCitas(QWidget):
         self.table_lista.setRowCount(0)
         columnas, _ = sanear_columnas_citas(self._columnas_lista)
         visibles = [c for c in columnas if c != "cita_id"]
-        mostrar_lote = bool(self._filtro_calidad_activo)
+        mostrar_lote = self._coordinador_banners.hay_filtro_calidad_activo()
         headers_visibles = [self._i18n.t("citas.hitos.lote.columna_seleccion")] if mostrar_lote else []
         headers = {x.clave: self._i18n.t(x.i18n_key_cabecera) for x in ATRIBUTOS_CITA}
         headers_visibles.extend(headers[c] for c in visibles)
@@ -854,14 +846,10 @@ class PageCitas(QWidget):
         )
 
     def _obtener_estimaciones_agenda(self) -> tuple[dict[int, str], dict[int, str]]:
-        if not self._estimaciones_enabled:
-            self._estimaciones_duracion = {}
-            self._estimaciones_espera = {}
-            return {}, {}
-        duraciones, esperas = self._cache_estimaciones.obtener(self._token_refresh_salud)
-        self._estimaciones_duracion = duraciones
-        self._estimaciones_espera = esperas
-        return duraciones, esperas
+        return self._coordinador_salud_prediccion.actualizar_estimaciones(
+            self._estimaciones_enabled,
+            lambda token: self._cache_estimaciones.obtener(token),
+        )
 
     def _texto_estimacion(self, nivel: str, tipo: str, mostrar_cta: bool = False) -> str:
         if nivel in {"BAJO", "MEDIO", "ALTO"}:
@@ -904,7 +892,11 @@ class PageCitas(QWidget):
         self._abrir_menu_cita(self._cita_id_lista(item.row()), self.table_lista.mapToGlobal(point), "lista")
 
     def _on_lista_item_changed(self, item: QTableWidgetItem) -> None:
-        if self._actualizando_checks_lote or not self._filtro_calidad_activo or item.column() != 0:
+        if (
+            self._actualizando_checks_lote
+            or not self._coordinador_banners.hay_filtro_calidad_activo()
+            or item.column() != 0
+        ):
             return
         cita_id = self._cita_id_lista(item.row())
         if cita_id is None:
@@ -916,7 +908,7 @@ class PageCitas(QWidget):
         self._actualizar_ui_lote_hitos()
 
     def _on_toggle_seleccionar_todo_visible(self, estado: int) -> None:
-        if self._actualizando_checks_lote or not self._filtro_calidad_activo:
+        if self._actualizando_checks_lote or not self._coordinador_banners.hay_filtro_calidad_activo():
             return
         self._actualizando_checks_lote = True
         seleccionado = estado == Qt.Checked
@@ -936,7 +928,7 @@ class PageCitas(QWidget):
         self._actualizar_ui_lote_hitos()
 
     def _actualizar_ui_lote_hitos(self) -> None:
-        filtro_activo = bool(self._filtro_calidad_activo)
+        filtro_activo = self._coordinador_banners.hay_filtro_calidad_activo()
         self.chk_seleccionar_todo.setVisible(filtro_activo and bool(self._citas_lista_ids))
         self._actualizar_check_seleccionar_todo_visible(filtro_activo)
         self._lote_hitos.actualizar_visibilidad(len(self._citas_seleccionadas), filtro_activo)
@@ -996,12 +988,7 @@ class PageCitas(QWidget):
             self._agregar_accion_ver_por_que(menu, cita_id, tipo, True)
 
     def _tipos_estimacion_disponibles(self, cita_id: int) -> list[str]:
-        disponibles: list[str] = []
-        if self._estimaciones_duracion.get(cita_id, "NO_DISPONIBLE") != "NO_DISPONIBLE":
-            disponibles.append("duracion")
-        if self._estimaciones_espera.get(cita_id, "NO_DISPONIBLE") != "NO_DISPONIBLE":
-            disponibles.append("espera")
-        return disponibles
+        return self._coordinador_salud_prediccion.tipos_estimacion_disponibles(cita_id)
 
     def _agregar_accion_ver_por_que(self, menu: QMenu, cita_id: int, tipo: str, incluir_tipo: bool) -> None:
         etiqueta = self._i18n.t("estimaciones.ver_por_que")
@@ -1012,11 +999,7 @@ class PageCitas(QWidget):
         menu.addAction(accion)
 
     def _mostrar_explicacion_estimacion(self, cita_id: int, tipo: str) -> None:
-        nivel = (
-            self._estimaciones_duracion.get(cita_id, "NO_DISPONIBLE")
-            if tipo == "duracion"
-            else self._estimaciones_espera.get(cita_id, "NO_DISPONIBLE")
-        )
+        nivel = self._coordinador_salud_prediccion.nivel_estimacion(cita_id, tipo)
         if nivel == "NO_DISPONIBLE":
             return
         LOGGER.info(
@@ -1063,29 +1046,30 @@ class PageCitas(QWidget):
             self._refrescar_vistas_principales("delete")
 
     def _actualizar_aviso_salud_prediccion(self, page: str) -> None:
-        salud_duracion = self._cache_salud_duracion.obtener(self._token_refresh_salud).estado
-        salud_espera = self._cache_salud_espera.obtener(self._token_refresh_salud).estado
-        mostrar = debe_mostrar_aviso_salud_estimacion(
-            self._estimaciones_enabled, salud_duracion
-        ) or debe_mostrar_aviso_salud_estimacion(self._estimaciones_enabled, salud_espera)
-        texto = self._i18n.t("estimaciones.aviso_salud") if mostrar else ""
+        token_salud = self._coordinador_salud_prediccion.token_refresh_salud()
+        estado = self._coordinador_salud_prediccion.estado_aviso_salud(
+            self._estimaciones_enabled,
+            self._cache_salud_duracion.obtener(token_salud).estado,
+            self._cache_salud_espera.obtener(token_salud).estado,
+        )
+        texto = self._i18n.t("estimaciones.aviso_salud") if estado.mostrar else ""
         self.lbl_aviso_salud_calendario.setText(texto)
         self.lbl_aviso_salud_lista.setText(texto)
-        self.lbl_aviso_salud_calendario.setVisible(mostrar)
-        self.lbl_aviso_salud_lista.setVisible(mostrar)
-        self.btn_ir_prediccion_calendario.setVisible(mostrar)
-        self.btn_ir_prediccion_lista.setVisible(mostrar)
-        if mostrar and self._token_aviso_logueado != self._token_refresh_salud:
+        self.lbl_aviso_salud_calendario.setVisible(estado.mostrar)
+        self.lbl_aviso_salud_lista.setVisible(estado.mostrar)
+        self.btn_ir_prediccion_calendario.setVisible(estado.mostrar)
+        self.btn_ir_prediccion_lista.setVisible(estado.mostrar)
+        if self._coordinador_salud_prediccion.debe_loguear_aviso(estado.mostrar):
             LOGGER.info(
                 "estimaciones_aviso_salud_mostrar",
                 extra={
                     "action": "estimaciones_aviso_salud_mostrar",
                     "page": page,
-                    "duracion": salud_duracion,
-                    "espera": salud_espera,
+                    "duracion": estado.salud_duracion,
+                    "espera": estado.salud_espera,
                 },
             )
-            self._token_aviso_logueado = self._token_refresh_salud
+            self._coordinador_salud_prediccion.marcar_aviso_logueado()
 
     def _ir_a_estimaciones(self, view: str) -> None:
         LOGGER.info(
