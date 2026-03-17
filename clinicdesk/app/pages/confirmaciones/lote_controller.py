@@ -3,13 +3,18 @@ from __future__ import annotations
 import logging
 from collections.abc import Callable
 
-from PySide6.QtCore import QThread
+from PySide6.QtCore import QThread, Slot
 from PySide6.QtWidgets import QHBoxLayout, QLabel, QMessageBox, QPushButton, QWidget
 
 from clinicdesk.app.application.usecases.recordatorios_citas import ResultadoLoteRecordatoriosDTO
 from clinicdesk.app.i18n import I18nManager
 from clinicdesk.app.pages.confirmaciones.lote_resumen import construir_resumen_lote, construir_texto_resumen_lote
-from clinicdesk.app.pages.confirmaciones.lote_worker import AccionLoteDTO, WorkerRecordatoriosLote
+from clinicdesk.app.pages.confirmaciones.lote_worker import (
+    AccionLoteDTO,
+    RelayOperacionLote,
+    WorkerRecordatoriosLote,
+    arrancar_worker_lote,
+)
 
 LOGGER = logging.getLogger(__name__)
 
@@ -22,15 +27,20 @@ class GestorLoteConfirmaciones:
         facade,
         *,
         selected_ids: Callable[[], tuple[int, ...]],
-        on_done: Callable[[], None],
+        on_done: Callable[[int], None],
+        contexto_vigente: Callable[[], bool],
     ) -> None:
         self._parent = parent
         self._i18n = i18n
         self._facade = facade
         self._selected_ids = selected_ids
         self._on_done = on_done
+        self._contexto_vigente = contexto_vigente
         self._thread: QThread | None = None
         self._worker: WorkerRecordatoriosLote | None = None
+        self._relay: RelayOperacionLote | None = None
+        self._operacion_actual = 0
+        self._operaciones_consumidas: set[int] = set()
         self.lbl_estado = QLabel()
         self.btn_whatsapp = QPushButton()
         self.btn_email = QPushButton()
@@ -59,10 +69,24 @@ class GestorLoteConfirmaciones:
         cita_ids = self._selected_ids()
         if not cita_ids:
             return
+        if self._thread is not None and self._thread.isRunning():
+            LOGGER.info(
+                "confirmaciones_lote_omitido",
+                extra={"action": "confirmaciones_lote_omitido", "reason": "operacion_en_curso"},
+            )
+            return
         if tipo == "ENVIAR" and not self._confirmar_enviado(len(cita_ids)):
             return
         self._log_click(tipo, canal, len(cita_ids))
-        self._arrancar_worker(AccionLoteDTO(tipo=tipo, cita_ids=cita_ids, canal=canal))
+        self._operacion_actual += 1
+        self._set_botones_habilitados(False)
+        self._arrancar_worker(AccionLoteDTO(tipo=tipo, cita_ids=cita_ids, canal=canal), self._operacion_actual)
+
+    def invalidar_contexto(self) -> None:
+        self._operacion_actual += 1
+        self._operaciones_consumidas.clear()
+        self.lbl_estado.setText("")
+        self._set_botones_habilitados(True)
 
     def _confirmar_enviado(self, total: int) -> bool:
         return (
@@ -74,29 +98,69 @@ class GestorLoteConfirmaciones:
             == QMessageBox.Yes
         )
 
-    def _arrancar_worker(self, accion: AccionLoteDTO) -> None:
-        self._thread = QThread(self._parent)
-        self._worker = WorkerRecordatoriosLote(self._facade, accion)
-        self._worker.moveToThread(self._thread)
-        self._thread.started.connect(self._worker.run)
-        self._worker.started.connect(self._on_started)
-        self._worker.finished_ok.connect(self._on_ok)
-        self._worker.finished_error.connect(self._on_fail)
-        self._worker.finished.connect(self._thread.quit)
-        self._worker.finished.connect(self._worker.deleteLater)
-        self._thread.finished.connect(self._thread.deleteLater)
-        self._thread.finished.connect(self._on_done)
-        self._thread.start()
+    def _arrancar_worker(self, accion: AccionLoteDTO, operation_id: int) -> None:
+        self._thread, self._worker, self._relay = arrancar_worker_lote(
+            owner=self._parent,
+            facade=self._facade,
+            accion=accion,
+            operation_id=operation_id,
+            on_started=self._on_started,
+            on_ok=self._on_ok,
+            on_error=self._on_fail,
+            on_thread_finished=self._on_thread_finished,
+        )
 
-    def _on_started(self, operacion: str) -> None:
+    def _set_botones_habilitados(self, habilitado: bool) -> None:
         for btn in (self.btn_whatsapp, self.btn_email, self.btn_enviado):
-            btn.setEnabled(False)
+            btn.setEnabled(habilitado)
+
+    def _es_operacion_vigente(self, operation_id: int) -> bool:
+        if operation_id in self._operaciones_consumidas:
+            LOGGER.info(
+                "confirmaciones_lote_omitido",
+                extra={
+                    "action": "confirmaciones_lote_omitido",
+                    "reason": "operacion_ya_consumida",
+                    "operation_id": operation_id,
+                },
+            )
+            return False
+        if operation_id != self._operacion_actual:
+            LOGGER.info(
+                "confirmaciones_lote_omitido",
+                extra={
+                    "action": "confirmaciones_lote_omitido",
+                    "reason": "operacion_obsoleta",
+                    "operation_id": operation_id,
+                },
+            )
+            return False
+        if not self._contexto_vigente():
+            LOGGER.info(
+                "confirmaciones_lote_omitido",
+                extra={
+                    "action": "confirmaciones_lote_omitido",
+                    "reason": "contexto_no_vigente",
+                    "operation_id": operation_id,
+                },
+            )
+            return False
+        return True
+
+    @Slot(str, int)
+    def _on_started(self, operacion: str, operation_id: int) -> None:
+        if operation_id != self._operacion_actual:
+            return
         key = "confirmaciones.lote.preparando" if operacion == "PREPARAR" else "confirmaciones.lote.guardando"
         self.lbl_estado.setText(self._i18n.t(key))
 
-    def _on_ok(self, dto: ResultadoLoteRecordatoriosDTO) -> None:
-        for btn in (self.btn_whatsapp, self.btn_email, self.btn_enviado):
-            btn.setEnabled(True)
+    @Slot(object, int)
+    def _on_ok(self, dto: object, operation_id: int) -> None:
+        if not isinstance(dto, ResultadoLoteRecordatoriosDTO):
+            return
+        if not self._es_operacion_vigente(operation_id):
+            return
+        self._operaciones_consumidas.add(operation_id)
         self.lbl_estado.setText("")
         hechas, omitidas = construir_resumen_lote(dto)
         texto = construir_texto_resumen_lote(hechas, omitidas, self._i18n.t)
@@ -110,17 +174,31 @@ class GestorLoteConfirmaciones:
                 "omitidas_ya_enviado": dto.omitidas_ya_enviado,
             },
         )
+        self._on_done(operation_id)
         QMessageBox.information(self._parent, self._i18n.t("confirmaciones.titulo"), texto)
 
-    def _on_fail(self, reason_code: str) -> None:
-        for btn in (self.btn_whatsapp, self.btn_email, self.btn_enviado):
-            btn.setEnabled(True)
+    @Slot(str, int)
+    def _on_fail(self, reason_code: str, operation_id: int) -> None:
+        if not self._es_operacion_vigente(operation_id):
+            return
+        self._operaciones_consumidas.add(operation_id)
         self.lbl_estado.setText("")
         LOGGER.warning(
             "confirmaciones_lote_fail",
             extra={"action": "confirmaciones_lote_fail", "reason_code": reason_code},
         )
         QMessageBox.warning(self._parent, self._i18n.t("confirmaciones.titulo"), self._i18n.t(reason_code))
+
+    @Slot(int)
+    def _on_thread_finished(self, operation_id: int) -> None:
+        self._set_botones_habilitados(True)
+        self._thread = None
+        self._worker = None
+        self._relay = None
+        if operation_id != self._operacion_actual:
+            return
+        self.lbl_estado.setText("")
+        self._operaciones_consumidas.discard(operation_id)
 
     def _log_click(self, operacion: str, canal: str | None, total_seleccionadas: int) -> None:
         LOGGER.info(
