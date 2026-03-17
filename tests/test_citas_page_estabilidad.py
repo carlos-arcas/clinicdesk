@@ -66,3 +66,13 @@ def test_page_citas_declara_coordinadores_para_refresh_e_intents() -> None:
             valores_por_destino[destino] = valor.func.id
     assert valores_por_destino.get("_coordinador_refresh") == "CoordinadorRefreshCitas"
     assert valores_por_destino.get("_coordinador_intents") == "CoordinadorIntentsCitas"
+    assert valores_por_destino.get("_coordinador_banners") == "CoordinadorBannersCitas"
+    assert valores_por_destino.get("_coordinador_salud_prediccion") == "CoordinadorSaludPrediccionCitas"
+
+
+def test_actualizar_aviso_salud_prediccion_delega_en_coordinador() -> None:
+    metodo = _obtener_metodo("_actualizar_aviso_salud_prediccion")
+    attrs = [n.attr for n in ast.walk(metodo) if isinstance(n, ast.Attribute)]
+    assert "estado_aviso_salud" in attrs
+    assert "debe_loguear_aviso" in attrs
+    assert "marcar_aviso_logueado" in attrs
