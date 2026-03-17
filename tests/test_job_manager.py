@@ -51,6 +51,10 @@ def test_job_manager_progress_and_finish() -> None:
     assert terminado == [True]
     assert eventos[0][1] == 30
     assert eventos[-1][1] == 70
+    _wait_until(lambda: "job-ok" not in manager._threads)
+    assert "job-ok" not in manager._threads
+    assert "job-ok" not in manager._workers
+    assert "job-ok" not in manager._tokens
 
 
 def test_job_manager_cancel_emite_cancelled() -> None:
@@ -73,3 +77,24 @@ def test_job_manager_cancel_emite_cancelled() -> None:
     _wait_until(lambda: bool(cancelado))
 
     assert cancelado == [True]
+
+
+def test_job_manager_failed_no_emite_finished() -> None:
+    _get_app()
+    manager = JobManager()
+    errores: list[str] = []
+    finalizados: list[bool] = []
+    manager.failed.connect(lambda _state, error: errores.append(error))
+    manager.finished.connect(lambda _state, _result: finalizados.append(True))
+
+    def worker_factory():
+        def _worker(_cancel_token, _report_progress):
+            raise RuntimeError("boom")
+
+        return _worker
+
+    manager.run_job("job-fail", "job.export_auditoria.title", worker_factory, cancellable=True)
+    _wait_until(lambda: bool(errores))
+
+    assert errores == ["boom"]
+    assert finalizados == []

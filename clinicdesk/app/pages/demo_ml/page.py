@@ -10,7 +10,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Callable
 
-from PySide6.QtCore import QDate, QObject, QSettings, QThread, Signal
+from PySide6.QtCore import QDate, QObject, QSettings, QThread, Signal, Slot
 from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
@@ -97,6 +97,56 @@ class _TaskWorker(QObject):
             self.failed.emit(str(exc))
 
 
+class _TaskRelay(QObject):
+    finished = Signal(str, str, object)
+    failed = Signal(str, str)
+    thread_finished = Signal(str)
+
+    def __init__(self, run_id: str, accion: str) -> None:
+        super().__init__()
+        self._run_id = run_id
+        self._accion = accion
+
+    @Slot(object)
+    def on_worker_finished(self, payload: object) -> None:
+        self.finished.emit(self._run_id, self._accion, payload)
+
+    @Slot(str)
+    def on_worker_failed(self, message: str) -> None:
+        self.failed.emit(self._run_id, message)
+
+    @Slot()
+    def on_thread_finished(self) -> None:
+        self.thread_finished.emit(self._run_id)
+
+
+class _WorkflowRelay(QObject):
+    progress = Signal(str, int, str)
+    finished = Signal(str, object)
+    error = Signal(str, str)
+    thread_finished = Signal(str)
+
+    def __init__(self, run_id: str) -> None:
+        super().__init__()
+        self._run_id = run_id
+
+    @Slot(int, str)
+    def on_worker_progress(self, percent: int, message: str) -> None:
+        self.progress.emit(self._run_id, percent, message)
+
+    @Slot(object)
+    def on_worker_finished(self, payload: object) -> None:
+        self.finished.emit(self._run_id, payload)
+
+    @Slot(str)
+    def on_worker_error(self, message: str) -> None:
+        self.error.emit(self._run_id, message)
+
+    @Slot()
+    def on_thread_finished(self) -> None:
+        self.thread_finished.emit(self._run_id)
+
+
 class _WorkflowWorker(QObject):
     progress = Signal(int, str)
     finished = Signal(object)
@@ -162,6 +212,8 @@ class PageDemoML(QWidget):
         self._settings = QSettings("clinicdesk", "analytics_demo")
         self._thread: QThread | None = None
         self._workflow_worker: _WorkflowWorker | None = None
+        self._task_relay: _TaskRelay | None = None
+        self._workflow_relay: _WorkflowRelay | None = None
         self._cancel_token: CancelToken | None = None
         self._run_id = ""
         self._last_result: AnalyticsWorkflowResult | None = None
@@ -312,8 +364,6 @@ class PageDemoML(QWidget):
         form.addRow(self._t("demo_ml.asistente.panel.secundarias"), self.lbl_reco_secundarias)
         form.addRow(self._t("demo_ml.asistente.panel.advertencias"), self.lbl_reco_advertencias)
         return box
-
-
 
     def _build_lectura_operativa_panel(self) -> QWidget:
         box = QGroupBox(self._t("demo_ml.operativa.panel.titulo"))
@@ -472,22 +522,22 @@ class PageDemoML(QWidget):
 
     def _run_prepare(self) -> None:
         fn = lambda: self._workflow.prepare_analysis(self._from(), self._to(), self.adv_dataset.text().strip() or None)
-        self._run_background("Preparar datos para análisis", fn, self._on_prepare_done)
+        self._run_background("Preparar datos para análisis", "prepare", fn)
 
     def _run_train(self) -> None:
         fn = lambda: self._workflow.train(self.adv_dataset.text().strip(), self.adv_model.text().strip() or None)
-        self._run_background("Crear modelo de predicción", fn, self._on_train_done)
+        self._run_background("Crear modelo de predicción", "train", fn)
 
     def _run_score(self) -> None:
         fn = lambda: self._workflow.score(
             self.adv_dataset.text().strip(), self.adv_model.text().strip(), self.score_limit.value()
         )
-        self._run_background("Analizar citas y estimar riesgo", fn, self._on_score_done)
+        self._run_background("Analizar citas y estimar riesgo", "score", fn)
 
     def _run_drift(self) -> None:
         from_version = self.adv_prev_dataset.text().strip() or self.adv_dataset.text().strip()
         fn = lambda: self._workflow.drift(from_version, self.adv_dataset.text().strip())
-        self._run_background("Detectar cambios en comportamiento", fn, self._on_drift_done)
+        self._run_background("Detectar cambios en comportamiento", "drift", fn)
 
     def _run_playbook_action(self) -> None:
         if self._accion_playbook_actual is None:
@@ -508,7 +558,7 @@ class PageDemoML(QWidget):
             export_dir=self.export_dir.text().strip() or "./exports",
         )
         fn = lambda: self._playbook_ejecucion.ejecutar_accion(accion, contexto)
-        self._run_background(self._t(accion.cta_key), fn, self._on_playbook_action_done)
+        self._run_background(self._t(accion.cta_key), "playbook", fn)
 
     def _run_full_workflow(self) -> None:
         if self._is_running():
@@ -535,24 +585,30 @@ class PageDemoML(QWidget):
             seed_request=self._seed_request(),
             cancel_token=self._cancel_token,
         )
+        relay = _WorkflowRelay(run_id=self._run_id)
+        self._workflow_relay = relay
         self._workflow_worker.moveToThread(self._thread)
         self._thread.started.connect(self._workflow_worker.run)
-        self._workflow_worker.progress.connect(self._on_workflow_progress)
-        self._workflow_worker.finished.connect(self._on_workflow_done)
+        self._workflow_worker.progress.connect(relay.on_worker_progress)
+        self._workflow_worker.finished.connect(relay.on_worker_finished)
         self._workflow_worker.finished.connect(self._thread.quit)
         self._workflow_worker.finished.connect(self._workflow_worker.deleteLater)
-        self._workflow_worker.error.connect(self._on_task_error)
+        self._workflow_worker.error.connect(relay.on_worker_error)
         self._workflow_worker.error.connect(self._thread.quit)
         self._workflow_worker.error.connect(self._workflow_worker.deleteLater)
-        self._thread.finished.connect(self._on_workflow_thread_finished)
+        relay.progress.connect(self._on_workflow_progress)
+        relay.finished.connect(self._on_workflow_done)
+        relay.error.connect(self._on_task_error)
+        self._thread.finished.connect(relay.on_thread_finished)
+        relay.thread_finished.connect(self._on_workflow_thread_finished)
         self._thread.finished.connect(self._thread.deleteLater)
         self._thread.start()
 
     def _run_background(
         self,
         action_name: str,
+        accion: str,
         fn: Callable[[], Any],
-        on_done: Callable[[Any], None],
         close_dialog: bool = True,
         on_started: Callable[[], None] | None = None,
     ) -> None:
@@ -565,14 +621,20 @@ class PageDemoML(QWidget):
             on_started()
         self._thread = QThread(self)
         worker = _TaskWorker(self._run_id, fn)
+        relay = _TaskRelay(self._run_id, accion)
+        self._task_relay = relay
         worker.moveToThread(self._thread)
         self._thread.started.connect(worker.run)
-        worker.finished.connect(on_done)
+        worker.finished.connect(relay.on_worker_finished)
         worker.finished.connect(self._thread.quit)
         worker.finished.connect(worker.deleteLater)
-        worker.failed.connect(self._on_task_error)
+        worker.failed.connect(relay.on_worker_failed)
         worker.failed.connect(self._thread.quit)
         worker.failed.connect(worker.deleteLater)
+        relay.finished.connect(self._on_background_done)
+        relay.failed.connect(self._on_task_error)
+        self._thread.finished.connect(relay.on_thread_finished)
+        relay.thread_finished.connect(self._on_background_thread_finished)
         self._thread.finished.connect(self._thread.deleteLater)
         if close_dialog:
             self._thread.finished.connect(self._close_progress_dialog)
@@ -595,17 +657,30 @@ class PageDemoML(QWidget):
         if dialog is not None:
             dialog.mark_cancel_requested()
 
-    def _on_workflow_progress(self, percent: int, message: str) -> None:
+    @Slot(str, int, str)
+    def _on_workflow_progress(self, run_id: str, percent: int, message: str) -> None:
+        if not self._run_vigente(run_id, "workflow_progress"):
+            return
         dialog = getattr(self, "progress_dialog", None)
         if dialog is None:
+            LOGGER.info("demo_ml_dialogo_omitido", extra={"run_id": run_id, "razon": "dialogo_cerrado"})
             return
         dialog.set_progress(percent)
         step_index = min(3, max(0, percent // 25))
         dialog.update(step_index, "done" if percent >= 100 else "running", message)
-        LOGGER.info("analytics_progress", extra={"run_id": self._run_id, "progress": percent, "message": message})
+        LOGGER.info("analytics_progress", extra={"run_id": run_id, "progress": percent, "message": message})
 
-    def _on_workflow_thread_finished(self) -> None:
+    @Slot(str)
+    def _on_workflow_thread_finished(self, run_id: str) -> None:
+        LOGGER.info("demo_ml_workflow_cleanup", extra={"run_id": run_id})
         self._workflow_worker = None
+        self._workflow_relay = None
+        self._thread = None
+
+    @Slot(str)
+    def _on_background_thread_finished(self, run_id: str) -> None:
+        LOGGER.info("demo_ml_background_cleanup", extra={"run_id": run_id})
+        self._task_relay = None
         self._thread = None
 
     def _on_prepare_done(self, version: str) -> None:
@@ -667,7 +742,12 @@ class PageDemoML(QWidget):
         self._log(f"Playbook {resultado.accion_clave}: {detalle}")
         self._refresh_guided_state()
 
-    def _on_workflow_done(self, result: AnalyticsWorkflowResult) -> None:
+    @Slot(str, object)
+    def _on_workflow_done(self, run_id: str, result: object) -> None:
+        if not self._run_vigente(run_id, "workflow_done"):
+            return
+        if not isinstance(result, AnalyticsWorkflowResult):
+            return
         self._last_result = result
         self.adv_dataset.setText(result.internal_versions["dataset_version"])
         self.adv_model.setText(result.internal_versions["model_version"])
@@ -685,13 +765,51 @@ class PageDemoML(QWidget):
         self._render_lectura_operativa(construir_lectura_operativa_exportacion(len(result.export_paths)))
         self._refresh_guided_state()
 
-    def _on_task_error(self, message: str) -> None:
-        LOGGER.error("analytics_action_failed", extra={"run_id": self._run_id, "message": message})
+    @Slot(str, str)
+    def _on_task_error(self, run_id: str, message: str) -> None:
+        if not self._run_vigente(run_id, "task_error"):
+            return
+        LOGGER.error("analytics_action_failed", extra={"run_id": run_id, "message": message})
         dialog = getattr(self, "progress_dialog", None)
         if dialog is not None:
             dialog.finish(False, message)
         self._log(f"Error: {message}")
         QMessageBox.warning(self, "Error en Analítica", message)
+
+    @Slot(str, str, object)
+    def _on_background_done(self, run_id: str, accion: str, payload: object) -> None:
+        if not self._run_vigente(run_id, "background_done"):
+            return
+        if accion == "prepare" and isinstance(payload, str):
+            self._on_prepare_done(payload)
+            return
+        if accion == "train" and isinstance(payload, tuple):
+            self._on_train_done(payload)
+            return
+        if accion == "score":
+            self._on_score_done(payload)
+            return
+        if accion == "drift":
+            self._on_drift_done(payload)
+            return
+        if accion == "playbook" and isinstance(payload, ResultadoPasoPlaybook):
+            self._on_playbook_action_done(payload)
+            return
+        LOGGER.warning("demo_ml_resultado_inesperado", extra={"run_id": run_id, "accion": accion})
+
+    def _run_vigente(self, run_id: str, evento: str) -> bool:
+        if run_id != self._run_id:
+            LOGGER.info(
+                "demo_ml_callback_omitido",
+                extra={"run_id": run_id, "run_activa": self._run_id, "evento": evento, "razon": "run_obsoleta"},
+            )
+            return False
+        if not self.isVisible():
+            LOGGER.info(
+                "demo_ml_callback_omitido", extra={"run_id": run_id, "evento": evento, "razon": "pagina_no_visible"}
+            )
+            return False
+        return True
 
     def _seed_request(self) -> SeedDemoDataRequest:
         return SeedDemoDataRequest(
@@ -867,7 +985,6 @@ class PageDemoML(QWidget):
         file_list = " · ".join(sorted(Path(path).name for path in exports.values()))
         self.lbl_export_files.setText(f"Archivos exportados: {file_list}")
 
-
     def _refresh_guided_state(self) -> None:
         estado = self._centro_service.construir_estado(self.export_dir.text().strip() or "./exports")
         self.btn_train.setEnabled(self._paso_habilitado(estado, "train"))
@@ -879,7 +996,9 @@ class PageDemoML(QWidget):
         self._render_recomendaciones(estado.recomendaciones)
         self._render_resumen_ejecutivo(estado.resumen_ejecutivo)
         self._render_playbooks(estado)
-        self._refresh_export_files({name: name for name in estado.archivos_exportados}) if estado.archivos_exportados else None
+        self._refresh_export_files(
+            {name: name for name in estado.archivos_exportados}
+        ) if estado.archivos_exportados else None
 
     def _render_recomendaciones(self, recomendaciones) -> None:
         if not recomendaciones:
@@ -933,7 +1052,6 @@ class PageDemoML(QWidget):
             "summary": self._t("demo_ml.estado.siguiente.summary"),
         }
         return mapa.get(siguiente, self._t("demo_ml.estado.siguiente.summary"))
-
 
     def _on_playbook_changed(self, _: int) -> None:
         self._playbook_seleccionado = self.cmb_playbook.currentData() or ""
@@ -995,7 +1113,8 @@ class PageDemoML(QWidget):
             self.lbl_playbook_resultado.setText(
                 self._t("demo_ml.playbook.panel.resultado_texto").format(
                     estado=self._estado_playbook_text(self._ultimo_resultado_playbook.estado),
-                    detalle=self._ultimo_resultado_playbook.detalle_humano or self._t(self._ultimo_resultado_playbook.resumen_key),
+                    detalle=self._ultimo_resultado_playbook.detalle_humano
+                    or self._t(self._ultimo_resultado_playbook.resumen_key),
                     siguiente=self._render_siguiente_paso(self._ultimo_resultado_playbook.siguiente_paso_clave),
                 )
             )
@@ -1049,7 +1168,9 @@ class PageDemoML(QWidget):
                 confianza=lectura.nivel_confianza,
             )
         )
-        self.lbl_operativa_significado.setText(self._t(lectura.resumen_humano.clave).format(**lectura.resumen_humano.params))
+        self.lbl_operativa_significado.setText(
+            self._t(lectura.resumen_humano.clave).format(**lectura.resumen_humano.params)
+        )
         self.lbl_operativa_utilidad.setText(self._t(lectura.utilidad.descripcion.clave))
         self.lbl_operativa_accion.setText(self._t(lectura.accion_sugerida.descripcion.clave))
         self.lbl_operativa_no_concluir.setText(self._t(lectura.cuando_no_concluir_fuerte.clave))
