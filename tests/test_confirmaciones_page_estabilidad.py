@@ -121,6 +121,48 @@ def test_arrancar_carga_usa_slots_explicitos_sin_lambdas() -> None:
     assert kwargs["on_thread_finished"].attr == "_on_carga_thread_finished"
 
 
+def test_on_hide_invalida_contexto_operativo(container) -> None:
+    _app()
+    page = PageConfirmaciones(container, I18nManager("es"))
+    page._token_whatsapp_rapido = 4
+
+    page.on_hide()
+
+    assert page._pagina_visible is False
+    assert page._token_whatsapp_rapido == 5
+    assert page._cita_en_preparacion is None
+
+
+def test_on_lote_done_refresca_solo_si_contexto_vigente(container, monkeypatch: pytest.MonkeyPatch) -> None:
+    _app()
+    page = PageConfirmaciones(container, I18nManager("es"))
+    refrescos: list[bool] = []
+    monkeypatch.setattr(page, "_load_data", lambda *, reset: refrescos.append(reset))
+
+    page._pagina_visible = True
+    page._on_lote_done(3)
+    page._pagina_visible = False
+    page._on_lote_done(4)
+
+    assert refrescos == [False]
+
+
+def test_refresh_operativo_delega_en_coordinador(container, monkeypatch: pytest.MonkeyPatch) -> None:
+    _app()
+    page = PageConfirmaciones(container, I18nManager("es"))
+    llamadas: list[tuple[str, int]] = []
+
+    monkeypatch.setattr(
+        page._coordinador_refresh,
+        "solicitar_desde_whatsapp",
+        lambda *, origen, operation_id: llamadas.append((origen, operation_id)) or True,
+    )
+
+    page._solicitar_refresh_operativo(origen="whatsapp_rapido_ok", operation_id=9)
+
+    assert llamadas == [("whatsapp_rapido_ok", 9)]
+
+
 def test_on_estado_vm_no_renderiza_si_pagina_no_visible_runtime(container, monkeypatch: pytest.MonkeyPatch) -> None:
     _app()
     page = PageConfirmaciones(container, I18nManager("es"))
