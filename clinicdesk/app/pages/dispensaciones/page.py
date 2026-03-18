@@ -20,7 +20,6 @@ from PySide6.QtWidgets import (
 from clinicdesk.app.container import AppContainer
 from clinicdesk.app.queries.dispensaciones_queries import DispensacionesQueries, DispensacionRow
 from clinicdesk.app.pages.shared.screen_data_log import log_screen_data_loaded
-from clinicdesk.app.application.usecases.seed_demo_data import SeedDemoDataRequest
 
 
 class PageDispensaciones(QWidget):
@@ -79,16 +78,12 @@ class PageDispensaciones(QWidget):
 
         root.addLayout(filters)
         root.addWidget(self.table)
-        self.lbl_empty = QLabel("No hay datos cargados. Pulsa ‘Generar datos demo’.")
-        self.btn_seed_demo = QPushButton("Generar datos demo")
+        self.lbl_empty = QLabel("No hay datos disponibles para los filtros actuales.")
         self.lbl_empty.setVisible(False)
-        self.btn_seed_demo.setVisible(False)
         root.addWidget(self.lbl_empty)
-        root.addWidget(self.btn_seed_demo)
 
     def _connect_signals(self) -> None:
         self.btn_filtrar.clicked.connect(self._refresh)
-        self.btn_seed_demo.clicked.connect(self._on_seed_demo)
 
     def on_show(self) -> None:
         self._refresh()
@@ -106,7 +101,6 @@ class PageDispensaciones(QWidget):
         self._render(rows)
         log_screen_data_loaded(self._container.connection, "dispensaciones", len(rows))
         self.lbl_empty.setVisible(not bool(rows))
-        self.btn_seed_demo.setVisible(not bool(rows))
 
     def _render(self, rows: list[DispensacionRow]) -> None:
         self.table.setRowCount(0)
@@ -121,10 +115,6 @@ class PageDispensaciones(QWidget):
             self.table.setItem(row, 5, QTableWidgetItem(str(d.cantidad)))
             self.table.setItem(row, 6, QTableWidgetItem(str(d.receta_id)))
             self.table.setItem(row, 7, QTableWidgetItem("Sí" if d.incidencia else "No"))
-
-    def _on_seed_demo(self) -> None:
-        self._container.demo_ml_facade.seed_demo(SeedDemoDataRequest())
-        self._refresh()
 
 
 if __name__ == "__main__":

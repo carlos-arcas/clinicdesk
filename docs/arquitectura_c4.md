@@ -47,8 +47,7 @@ flowchart TB
 ```mermaid
 flowchart LR
     subgraph presentacion[Presentación]
-        pageDemo[pages/demo_ml/page.py]
-        pageCitas[pages/citas/page.py]
+                pageCitas[pages/citas/page.py]
     end
 
     subgraph aplicacion[Aplicación]
@@ -69,7 +68,6 @@ flowchart LR
         domPersonas[domain/personas.py]
     end
 
-    pageDemo --> facadeDemo
     pageCitas --> ucCitas
     facadeDemo --> ucCitas
     ucCitas --> domCitas
@@ -80,4 +78,4 @@ flowchart LR
     facadeDemo --> outJson
 ```
 
-> Nota: el diagrama de componentes es intencionalmente breve y orientado a lectura rápida de reclutamiento/entrevista técnica.
+> Nota: el diagrama de componentes es intencionalmente breve y orientado a lectura rápida del producto.

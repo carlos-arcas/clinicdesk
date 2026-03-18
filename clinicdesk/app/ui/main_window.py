@@ -1,11 +1,10 @@
 from __future__ import annotations
 
-from typing import Any, Callable, Dict, Optional
+from typing import Any, Callable, Dict
 
 from PySide6.QtCore import QTimer, Qt
 from PySide6.QtGui import QAction, QKeySequence, QShortcut
 from PySide6.QtWidgets import (
-    QFileDialog,
     QLabel,
     QHBoxLayout,
     QListWidget,
@@ -26,12 +25,10 @@ from clinicdesk.app.container import AppContainer
 from clinicdesk.app.application.citas.navigation_intent import CitasNavigationIntentDTO
 from clinicdesk.app.i18n import I18nManager
 from clinicdesk.app.pages.pages_registry import get_pages
-from clinicdesk.app.ui.vistas.main_window import state_controller, validacion_preventiva
 from clinicdesk.app.ui.navigation_intent_store import IntentConsumible
 from clinicdesk.app.ui.widgets.toast_manager import ToastManager, ToastPayload
-from clinicdesk.app.ui.jobs.job_manager import JobCancelledError, JobManager, JobState
+from clinicdesk.app.ui.jobs.job_manager import JobManager, JobState
 from clinicdesk.app.ui.widgets.quick_search_dialog import ContextoBusquedaRapida, QuickSearchDialog
-from clinicdesk.app.application.usecases.seed_demo_data import SeedDemoDataRequest
 
 
 _PAGE_TITLES_BY_LANG = {
@@ -50,7 +47,6 @@ _PAGE_TITLES_BY_LANG = {
         "turnos": "Turnos",
         "ausencias": "Ausencias",
         "incidencias": "Incidencias",
-        "demo_ml": "Demo ML",
         "auditoria": "Auditoría",
         "gestion": "Gestión",
     },
@@ -69,7 +65,6 @@ _PAGE_TITLES_BY_LANG = {
         "turnos": "Shifts",
         "ausencias": "Absences",
         "incidencias": "Incidents",
-        "demo_ml": "ML Demo",
         "auditoria": "Audit",
         "gestion": "Management",
     },
@@ -211,9 +206,6 @@ class MainWindow(QMainWindow):
         self.action_exit = QAction("", self)
         self.action_exit.triggered.connect(self.close)
 
-        self.action_seed_demo_reset = QAction("", self)
-        self.action_seed_demo_reset.triggered.connect(self._on_seed_demo_reset)
-
         self.menu_language = menu_bar.addMenu("")
         self.action_lang_es = QAction("", self)
         self.action_lang_es.triggered.connect(lambda: self._i18n.set_language("es"))
@@ -222,7 +214,6 @@ class MainWindow(QMainWindow):
 
         self.menu_archivo.addAction(self.action_csv)
         self.menu_archivo.addAction(self.action_logout)
-        self.menu_archivo.addAction(self.action_seed_demo_reset)
         self.menu_archivo.addSeparator()
         self.menu_archivo.addAction(self.action_exit)
 
@@ -285,7 +276,6 @@ class MainWindow(QMainWindow):
         self.menu_archivo.setTitle(self._i18n.t("menu.file"))
         self.action_csv.setText(self._i18n.t("menu.csv"))
         self.action_logout.setText(self._i18n.t("menu.logout"))
-        self.action_seed_demo_reset.setText(self._i18n.t("menu.seed_demo_reset"))
         self.action_exit.setText(self._i18n.t("menu.exit"))
         self.menu_language.setTitle(self._i18n.t("menu.language"))
         self.action_lang_es.setText(self._i18n.t("lang.es"))
@@ -443,183 +433,3 @@ class MainWindow(QMainWindow):
             progress=state.progress,
             message=self._i18n.t(state.message_key),
         )
-
-    def _on_seed_demo_reset(self) -> None:
-        path, _ = QFileDialog.getOpenFileName(self, self._i18n.t("job.seed_demo.pick_db"), "", "SQLite (*.db)")
-        if not path:
-            return
-
-        def worker_factory():
-            def _worker(cancel_token, report_progress):
-                report_progress(10, "job.seed_demo.progress.preflight")
-                if cancel_token.is_cancelled:
-                    raise JobCancelledError()
-                report_progress(40, "job.seed_demo.progress.reset")
-                req = SeedDemoDataRequest(reset_db=True, db_path=path, confirmacion="RESET-DEMO", batch_size=200)
-                response = self.container.demo_ml_facade.seed_demo(req)
-                report_progress(90, "job.seed_demo.progress.batches")
-                if cancel_token.is_cancelled:
-                    raise JobCancelledError()
-                report_progress(100, "job.seed_demo.progress.done")
-                return response
-
-            return _worker
-
-        self.run_premium_job(
-            job_id="seed_demo_reset",
-            title_key="job.rotate_crypto.title",
-            worker_factory=worker_factory,
-            cancellable=True,
-            toast_success_key="job.done",
-            toast_failed_key="job.failed",
-            toast_cancelled_key="job.cancelled",
-        )
-
-    def _on_csv_imported(self, entity: str) -> None:
-        key_by_entity = {
-            "Pacientes": "pacientes",
-            "Médicos": "medicos",
-            "Personal": "personal",
-            "Medicamentos": "medicamentos",
-            "Materiales": "materiales",
-            "Salas": "salas",
-        }
-        key = key_by_entity.get(entity)
-        if not key:
-            return
-        index = self._page_index_by_key.get(key)
-        if index is None:
-            return
-        widget = self.stack.widget(index)
-        if widget is not None and hasattr(widget, "on_show"):
-            widget.on_show()
-
-    def _ensure_page_created(self, key: str) -> Optional[int]:
-        if key in self._page_index_by_key:
-            return self._page_index_by_key[key]
-
-        factory = self._factory_by_key.get(key)
-        if factory is None:
-            return None
-
-        widget = factory()
-        index = self.stack.addWidget(widget)
-        self._page_index_by_key[key] = index
-        return index
-
-    def _call_on_hide_current(self) -> None:
-        w = self.stack.currentWidget()
-        if w is not None and hasattr(w, "on_hide"):
-            w.on_hide()
-
-    def _call_on_show_index(self, index: int) -> None:
-        w = self.stack.widget(index)
-        if w is not None and hasattr(w, "on_show"):
-            w.on_show()
-
-    def navigate(self, key: str, intent: Any | None = None) -> None:
-        self.sidebar.blockSignals(True)
-        try:
-            self._call_on_hide_current()
-
-            index = self._ensure_page_created(key)
-            if index is None:
-                return
-
-            self.stack.setCurrentIndex(index)
-            self._call_on_show_index(index)
-            self._aplicar_intent_navegacion(key, intent)
-            self._guardar_pagina_ultima(key)
-
-            for row in range(self.sidebar.count()):
-                it = self.sidebar.item(row)
-                if it.data(Qt.UserRole) == key:
-                    self.sidebar.setCurrentRow(row)
-                    break
-        finally:
-            self.sidebar.blockSignals(False)
-
-    def _restaurar_pagina_ultima(self) -> None:
-        preferencias = self.container.preferencias_service.get()
-        key = "pacientes"
-        if preferencias.restaurar_pagina_ultima_en_arranque and preferencias.pagina_ultima:
-            if preferencias.pagina_ultima in self._factory_by_key:
-                key = preferencias.pagina_ultima
-        if key not in self._factory_by_key:
-            key = "home"
-        self.navigate(key)
-
-    def _guardar_pagina_ultima(self, key: str) -> None:
-        preferencias = self.container.preferencias_service.get()
-        preferencias.pagina_ultima = key
-        self.container.preferencias_service.set(preferencias)
-
-    def _aplicar_intent_navegacion(self, key: str, intent: Any | None) -> None:
-        if key != "citas":
-            return
-        if isinstance(intent, CitasNavigationIntentDTO):
-            self._intent_citas.guardar(intent)
-        cita_intent = self._intent_citas.consumir()
-        if cita_intent is None:
-            return
-        pagina = self.stack.currentWidget()
-        if pagina is not None and hasattr(pagina, "aplicar_intent"):
-            pagina.aplicar_intent(cita_intent)
-
-    def _on_sidebar_changed(self, row: int) -> None:
-        if row < 0:
-            return
-
-        self._call_on_hide_current()
-
-        item = self.sidebar.item(row)
-        key = item.data(Qt.UserRole)
-
-        index = self._ensure_page_created(key)
-        if index is None:
-            return
-
-        self.stack.setCurrentIndex(index)
-        self._call_on_show_index(index)
-        self._aplicar_intent_navegacion(key, None)
-        self._guardar_pagina_ultima(key)
-
-    def _normalize_input_heights(self) -> None:
-        state_controller._normalize_input_heights(self)
-
-    def _bind_preventive_validation_events(self) -> None:
-        validacion_preventiva._bind_preventive_validation_events(self)
-
-    def _mark_field_touched(self, field_name: str) -> None:
-        validacion_preventiva._mark_field_touched(self, field_name)
-
-    def _schedule_preventive_validation(self) -> None:
-        validacion_preventiva._schedule_preventive_validation(self)
-
-    def _run_preventive_validation(self):
-        return validacion_preventiva._run_preventive_validation(self)
-
-    def _collect_base_preventive_errors(self):
-        return validacion_preventiva._collect_base_preventive_errors(self)
-
-    def _collect_preventive_validation(self):
-        return validacion_preventiva._collect_preventive_validation(self)
-
-    def _collect_preventive_business_rules(self):
-        return validacion_preventiva._collect_preventive_business_rules(self)
-
-    def _collect_pending_duplicates_warning(self):
-        return validacion_preventiva._collect_pending_duplicates_warning(self)
-
-    def _on_go_to_existing_duplicate(self) -> None:
-        validacion_preventiva._on_go_to_existing_duplicate(self)
-
-    def _render_preventive_validation(self, result) -> None:
-        validacion_preventiva._render_preventive_validation(self, result)
-
-    def _run_preconfirm_checks(self) -> bool:
-        return validacion_preventiva._run_preconfirm_checks(self)
-
-    def closeEvent(self, event):
-        self.container.close()
-        event.accept()

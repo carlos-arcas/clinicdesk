@@ -6,18 +6,16 @@ Fuente estructurada (fuente de verdad): `docs/features.json`.
 
 ## Ruta crítica principal del producto
 
-1. **FTR-001** — Se puede lanzar la demo operativa.
-2. **FTR-002** — Se puede consultar healthcheck del servicio web.
-3. **FTR-003** — Se puede autenticar usuario y bloquear tras intentos fallidos.
-4. **FTR-004** — Se puede crear y consultar citas clínicas.
-5. **FTR-005** — Se puede ejecutar pipeline ML de riesgo de citas.
-6. **FTR-006** — Se puede exportar KPIs y resultados en CSV.
+1. **FTR-002** — Se puede consultar healthcheck del servicio web.
+2. **FTR-003** — Se puede autenticar usuario y bloquear tras intentos fallidos.
+3. **FTR-004** — Se puede crear y consultar citas clínicas.
+4. **FTR-005** — Se puede ejecutar pipeline ML de riesgo de citas.
+5. **FTR-006** — Se puede exportar KPIs y resultados en CSV.
 
 ## Inventario funcional (estado global)
 
 | ID | Función | Prioridad | Estado global | Evidencia actual | Observaciones / bloqueos |
 |---|---|---|---|---|---|
-| FTR-001 | Se puede lanzar la demo operativa | Alta | Parcial | `scripts/run_demo.py, tests/test_run_demo.py` | La orquestación y manejo de fallos está probada; no hay evidencia de E2E GUI real pasando en CI para este flujo completo. |
 | FTR-002 | Se puede consultar healthcheck del servicio web | Alta | Verificada | `clinicdesk/web/healthz.py, tests/test_healthz.py` | Cobertura de contrato HTTP básico presente; falta evidencia de hardening adicional (auth/rate-limit) para marcar validaciones como Verificada. |
 | FTR-003 | Se puede autenticar usuario y bloquear tras intentos fallidos | Alta | Verificada | `clinicdesk/app/security/auth.py, tests/test_auth_service.py` | El contrato del servicio de autenticación está cubierto unitariamente; no se confirmó flujo integral con pantalla de login en esta iteración. |
 | FTR-004 | Se puede crear y consultar citas clínicas | Alta | Parcial | `clinicdesk/app/application/usecases/crear_cita.py, tests/test_citas.py, tests/ui/test_pacientes_viewmodel_puro.py` | Hay cobertura robusta de caso de uso y queries; la verificación UI existe en componentes aislados, sin E2E extremo a extremo confirmado para el ciclo completo de agenda. |
