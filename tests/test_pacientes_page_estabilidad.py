@@ -39,7 +39,9 @@ def test_on_estado_vm_omite_render_cuando_pagina_no_visible() -> None:
     assert isinstance(primer_if.test, ast.UnaryOp)
     assert isinstance(primer_if.test.op, ast.Not)
     assert isinstance(primer_if.test.operand, ast.Attribute)
-    assert primer_if.test.operand.attr == "_pagina_visible"
+    assert primer_if.test.operand.attr == "pagina_visible"
+    assert isinstance(primer_if.test.operand.value, ast.Attribute)
+    assert primer_if.test.operand.value.attr == "_coordinador_contexto"
 
 
 def test_arrancar_carga_usa_slots_de_clase_sin_lambdas() -> None:
@@ -58,3 +60,16 @@ def test_arrancar_carga_usa_slots_de_clase_sin_lambdas() -> None:
     assert kwargs["on_error"].attr == "_on_carga_error"
     assert isinstance(kwargs["on_thread_finished"], ast.Attribute)
     assert kwargs["on_thread_finished"].attr == "_on_carga_thread_finished"
+
+
+def test_busqueda_rapida_delega_preparacion_en_coordinador() -> None:
+    metodo = _obtener_metodo("buscar_rapido_async")
+    llamadas = [
+        node
+        for node in ast.walk(metodo)
+        if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute) and node.func.attr == "preparar"
+    ]
+    assert len(llamadas) == 1
+    llamada = llamadas[0]
+    assert isinstance(llamada.func.value, ast.Attribute)
+    assert llamada.func.value.attr == "_coordinador_busqueda_rapida"
