@@ -172,7 +172,7 @@ curl http://localhost:8000/healthz
 
 ## Docker (API opcional)
 
-Esta API REST es **read-only** y no forma parte del flujo principal de escritorio. No expone PII en claro: documento/teléfono/email y nombre de paciente se devuelven redaccionados.
+Esta API REST opcional es **read-only** y no forma parte del flujo principal de escritorio. No expone PII en claro: documento/teléfono/email y nombre de paciente se devuelven redaccionados.
 
 Levantar entorno local con un comando:
 

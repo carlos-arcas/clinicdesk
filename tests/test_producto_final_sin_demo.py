@@ -35,3 +35,23 @@ def test_residuos_demo_eliminados_del_repo() -> None:
 
     assert not (repo_root / "clinicdesk" / "app" / "pages" / "demo_ml").exists()
     assert not (repo_root / "scripts" / "run_demo.py").exists()
+
+
+def test_container_expone_nombre_analitico_y_compatibilidad_legacy(container) -> None:
+    assert hasattr(container, "analitica_ml_facade")
+    assert container.analitica_ml_facade is container.demo_ml_facade
+
+
+def test_docs_principales_no_presentan_api_como_demo() -> None:
+    repo_root = Path(__file__).resolve().parents[1]
+    rutas = [
+        repo_root / "README.md",
+        repo_root / "docs" / "minimizacion_salidas.md",
+        repo_root / "docs" / "features.md",
+        repo_root / "docs" / "features_pendientes.md",
+        repo_root / "docs" / "proyecto_narrativo_features_10_bloqueo.md",
+    ]
+
+    for ruta in rutas:
+        contenido = ruta.read_text(encoding="utf-8")
+        assert "API demo" not in contenido

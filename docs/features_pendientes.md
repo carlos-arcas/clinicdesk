@@ -9,7 +9,7 @@
 - **FTR-008 — Se puede rotar claves criptográficas de campos sensibles**
   - Pendiente principal: Cobertura fuerte de contrato CLI y no exposición de PII; no hay escenario E2E operacional de rotación dentro de despliegue real automatizado.
 - **FTR-009 — WEB_LORE_V1 en Next.js como slice extremo a extremo**
-  - Pendiente principal: Bloqueada en esta rama: no existen rutas frontend/ ni web/apps/lore; el repositorio activo es una app de escritorio Python + API demo, por lo que no se puede implementar el slice solicitado sin cambiar de código base.
+  - Pendiente principal: Bloqueada en esta rama: no existen rutas frontend/ ni web/apps/lore; el repositorio activo es una app de escritorio Python + API read-only opcional, por lo que no se puede implementar el slice solicitado sin cambiar de código base.
 
 ## Funciones con estado "No verificada" por dimensión
 
