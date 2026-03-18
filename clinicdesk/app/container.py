@@ -12,7 +12,7 @@ from clinicdesk.app.application.services.demo_ml_facade import DemoMLFacade
 from clinicdesk.app.application.services.prediccion_ausencias_facade import PrediccionAusenciasFacade
 from clinicdesk.app.application.services.prediccion_operativa_facade import PrediccionOperativaFacade
 from clinicdesk.app.application.services.recordatorios_citas_facade import RecordatoriosCitasFacade
-from clinicdesk.app.composicion.composicion_demo_ml import build_demo_ml_facade
+from clinicdesk.app.composicion.composicion_demo_ml import build_analitica_ml_facade
 from clinicdesk.app.composicion.composicion_prediccion_ausencias import build_prediccion_ausencias_facade
 from clinicdesk.app.composicion.composicion_prediccion_operativa import build_prediccion_operativa_facade
 from clinicdesk.app.composicion.composicion_proveedores import build_proveedor_conexion_sqlite_por_hilo
@@ -32,7 +32,7 @@ class QueriesHub:
 class AppContainer:
     connection: sqlite3.Connection
     queries: QueriesHub
-    demo_ml_facade: DemoMLFacade
+    analitica_ml_facade: DemoMLFacade
     prediccion_ausencias_facade: PrediccionAusenciasFacade
     recordatorios_citas_facade: RecordatoriosCitasFacade
     prediccion_operativa_facade: PrediccionOperativaFacade
@@ -66,6 +66,11 @@ class AppContainer:
     autorizador_acciones: AutorizadorAcciones
     preferencias_service: PreferenciasService
 
+    @property
+    def demo_ml_facade(self) -> DemoMLFacade:
+        """Compatibilidad temporal con naming histórico de analítica ML."""
+        return self.analitica_ml_facade
+
     def close(self) -> None:
         try:
             self.connection.close()
@@ -83,7 +88,7 @@ def build_container(connection: sqlite3.Connection) -> AppContainer:
     return AppContainer(
         connection=connection,
         queries=QueriesHub(farmacia=build_farmacia_queries(connection)),
-        demo_ml_facade=build_demo_ml_facade(
+        analitica_ml_facade=build_analitica_ml_facade(
             connection,
             repos.citas_repo,
             repos.incidencias_repo,

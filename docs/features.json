@@ -158,7 +158,7 @@
       "evidencias": [
         "N/A (estructura Next.js/Django no presente en este repositorio)"
       ],
-      "observaciones": "Bloqueada en esta rama: no existen rutas frontend/ ni web/apps/lore; el repositorio activo es una app de escritorio Python + API demo, por lo que no se puede implementar el slice solicitado sin cambiar de código base."
+      "observaciones": "Bloqueada en esta rama: no existen rutas frontend/ ni web/apps/lore; el repositorio activo es una app de escritorio Python + API read-only opcional, por lo que no se puede implementar el slice solicitado sin cambiar de código base."
     }
   ]
 }

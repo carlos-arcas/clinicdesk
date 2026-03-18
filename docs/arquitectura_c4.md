@@ -51,7 +51,7 @@ flowchart LR
     end
 
     subgraph aplicacion[Aplicación]
-        facadeDemo[services/DemoMLFacade]
+        fachadaAnalitica[services/ML analytics facade]
         ucCitas[application/citas/usecases.py]
         auditService[application/auditoria/audit_service.py]
         prefsService[application/preferencias/preferencias_usuario.py]
@@ -69,13 +69,13 @@ flowchart LR
     end
 
     pageCitas --> ucCitas
-    facadeDemo --> ucCitas
+    fachadaAnalitica --> ucCitas
     ucCitas --> domCitas
     ucCitas --> domPersonas
-    facadeDemo --> repoSqlite
+    fachadaAnalitica --> repoSqlite
     auditService --> repoSqlite
     prefsService --> repoPrefs
-    facadeDemo --> outJson
+    fachadaAnalitica --> outJson
 ```
 
 > Nota: el diagrama de componentes es intencionalmente breve y orientado a lectura rápida del producto.

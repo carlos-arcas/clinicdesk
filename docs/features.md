@@ -23,7 +23,7 @@ Fuente estructurada (fuente de verdad): `docs/features.json`.
 | FTR-006 | Se puede exportar KPIs y resultados en CSV | Alta | Verificada | `clinicdesk/app/application/usecases/export_kpis_csv.py, tests/test_export_kpis_csv.py` | Contrato de exportación probado; pendiente verificar consumo E2E con herramienta externa de reporting en entorno automatizado. |
 | FTR-007 | Se puede exportar auditoría de accesos con controles | Media | Verificada | `clinicdesk/app/application/usecases/exportar_auditoria_csv.py, tests/test_exportar_auditoria_csv_usecase.py` | Reglas de autorización y sanitización están cubiertas; falta test de flujo completo desde punto de acceso final de usuario. |
 | FTR-008 | Se puede rotar claves criptográficas de campos sensibles | Media | Parcial | `scripts/security_cli.py, tests/test_security_cli.py` | Cobertura fuerte de contrato CLI y no exposición de PII; no hay escenario E2E operacional de rotación dentro de despliegue real automatizado. |
-| FTR-009 | WEB_LORE_V1 en Next.js como slice extremo a extremo | Alta | No implementada | `N/A (estructura Next.js/Django no presente en este repositorio)` | Bloqueada en esta rama: no existen rutas frontend/ ni web/apps/lore; el repositorio activo es una app de escritorio Python + API demo, por lo que no se puede implementar el slice solicitado sin cambiar de código base. |
+| FTR-009 | WEB_LORE_V1 en Next.js como slice extremo a extremo | Alta | No implementada | `N/A (estructura Next.js/Django no presente en este repositorio)` | Bloqueada en esta rama: no existen rutas frontend/ ni web/apps/lore; el repositorio activo es una app de escritorio Python + API read-only opcional, por lo que no se puede implementar el slice solicitado sin cambiar de código base. |
 
 ## Estados permitidos
 

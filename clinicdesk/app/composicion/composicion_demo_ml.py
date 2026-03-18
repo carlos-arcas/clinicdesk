@@ -26,7 +26,7 @@ from clinicdesk.app.infrastructure.sqlite.repos_incidencias import IncidenciasRe
 from clinicdesk.app.infrastructure.sqlite.repos_seguimiento_operativo_ml import RepositorioSeguimientoOperativoMLSqlite
 
 
-def build_demo_ml_facade(
+def build_analitica_ml_facade(
     connection: sqlite3.Connection,
     citas_repo: CitasRepository,
     incidencias_repo: IncidenciasRepository,
@@ -56,6 +56,24 @@ def build_demo_ml_facade(
         drift_uc=DriftCitasFeatures(feature_service),
         model_store=model_store,
         seguimiento_operativo_service=seguimiento_operativo,
+    )
+
+
+def build_demo_ml_facade(
+    connection: sqlite3.Connection,
+    citas_repo: CitasRepository,
+    incidencias_repo: IncidenciasRepository,
+    *,
+    user_context: UserContext,
+    autorizador_acciones: AutorizadorAcciones,
+) -> DemoMLFacade:
+    """Alias legacy estable mientras existan imports internos con naming histórico."""
+    return build_analitica_ml_facade(
+        connection,
+        citas_repo,
+        incidencias_repo,
+        user_context=user_context,
+        autorizador_acciones=autorizador_acciones,
     )
 
 

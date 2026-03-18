@@ -19,7 +19,7 @@ Se verificó la ausencia de las rutas solicitadas en el prompt:
 - `web/apps/lore/`
 - `tests/web/test_lore_v1.py`
 
-El repositorio disponible corresponde a una aplicación Python (PySide6) con una API demo, no a un monorepo con Next.js App Router y backend Django para Lore.
+El repositorio disponible corresponde a una aplicación Python (PySide6) con una API read-only opcional, no a un monorepo con Next.js App Router y backend Django para Lore.
 
 ## Acción mínima aplicada
 Se actualizó el inventario funcional para registrar explícitamente la feature `FTR-009` como `No implementada` y bloqueada por incompatibilidad de código base en esta rama.
