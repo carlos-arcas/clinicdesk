@@ -65,8 +65,7 @@ def arrancar_preparacion_whatsapp(
 def preparar_whatsapp_rapido(page, item) -> None:
     if page._cita_en_preparacion is not None:
         return
-    page._token_whatsapp_rapido += 1
-    operation_id = page._token_whatsapp_rapido
+    operation_id = page._coordinador_contexto.nueva_operacion_whatsapp_rapido()
     page._cita_en_preparacion = item.cita_id
     page._solicitar_refresh_operativo(origen="whatsapp_rapido_inicio", operation_id=operation_id)
     page._registrar_telemetria("confirmaciones_whatsapp_rapido", "click", item.cita_id)

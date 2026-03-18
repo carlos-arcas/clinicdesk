@@ -12,6 +12,23 @@ class CoordinadorContextoConfirmaciones:
         self._token_busqueda_rapida = 0
         self._token_whatsapp_rapido = 0
 
+    def sincronizar_para_pruebas(
+        self,
+        *,
+        pagina_visible: bool | None = None,
+        token_carga: int | None = None,
+        token_busqueda_rapida: int | None = None,
+        token_whatsapp_rapido: int | None = None,
+    ) -> None:
+        if pagina_visible is not None:
+            self._pagina_visible = pagina_visible
+        if token_carga is not None:
+            self._token_carga = token_carga
+        if token_busqueda_rapida is not None:
+            self._token_busqueda_rapida = token_busqueda_rapida
+        if token_whatsapp_rapido is not None:
+            self._token_whatsapp_rapido = token_whatsapp_rapido
+
     @property
     def pagina_visible(self) -> bool:
         return self._pagina_visible
