@@ -30,7 +30,6 @@ from clinicdesk.app.application.usecases.dispensar_medicamento import (
     PendingWarningsError,
 )
 from clinicdesk.app.pages.shared.screen_data_log import log_screen_data_loaded
-from clinicdesk.app.application.usecases.seed_demo_data import SeedDemoDataRequest
 
 
 class PageFarmacia(QWidget):
@@ -80,10 +79,8 @@ class PageFarmacia(QWidget):
 
         self.btn_dispensar = QPushButton("Dispensar")
         self.btn_dispensar.setEnabled(False)
-        self.lbl_empty = QLabel("No hay datos cargados. Pulsa ‘Generar datos demo’.")
-        self.btn_seed_demo = QPushButton("Generar datos demo")
+        self.lbl_empty = QLabel("No hay datos disponibles para los filtros actuales.")
         self.lbl_empty.setVisible(False)
-        self.btn_seed_demo.setVisible(False)
 
         root.addLayout(top)
         root.addWidget(QLabel("Recetas"))
@@ -92,7 +89,6 @@ class PageFarmacia(QWidget):
         root.addWidget(self.table_lineas)
         root.addWidget(self.btn_dispensar)
         root.addWidget(self.lbl_empty)
-        root.addWidget(self.btn_seed_demo)
 
     def _connect_signals(self) -> None:
         self.btn_buscar_paciente.clicked.connect(self._select_paciente)
@@ -100,7 +96,6 @@ class PageFarmacia(QWidget):
         self.table_recetas.itemSelectionChanged.connect(self._load_lineas)
         self.table_lineas.itemSelectionChanged.connect(self._on_linea_selected)
         self.btn_dispensar.clicked.connect(self._on_dispensar)
-        self.btn_seed_demo.clicked.connect(self._on_seed_demo)
 
     # ---------------- Actions ----------------
 
@@ -113,7 +108,6 @@ class PageFarmacia(QWidget):
         self._render_recetas(recetas)
         log_screen_data_loaded(self._container.connection, "farmacia", len(recetas))
         self.lbl_empty.setVisible(not bool(recetas))
-        self.btn_seed_demo.setVisible(not bool(recetas))
 
     def _load_lineas(self) -> None:
         receta_id = self._selected_id(self.table_recetas)
@@ -216,8 +210,6 @@ class PageFarmacia(QWidget):
         self.input_paciente.setText(selection.display)
         self._load_recetas()
 
-    def _on_seed_demo(self) -> None:
-        self._container.demo_ml_facade.seed_demo(SeedDemoDataRequest())
         self._load_recetas()
 
 

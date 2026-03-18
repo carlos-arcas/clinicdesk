@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "ultima_actualizacion": "2026-03-10",
+  "ultima_actualizacion": "2026-03-18",
   "estados_permitidos": [
     "Verificada",
     "Parcial",
@@ -8,7 +8,6 @@
     "No implementada"
   ],
   "ruta_critica_principal": [
-    "FTR-001",
     "FTR-002",
     "FTR-003",
     "FTR-004",
@@ -16,24 +15,6 @@
     "FTR-006"
   ],
   "funciones": [
-    {
-      "id": "FTR-001",
-      "nombre": "Se puede lanzar la demo operativa",
-      "descripcion": "Permite sembrar datos demo y abrir la app desde un comando único para arrancar un flujo usable.",
-      "prioridad": "Alta",
-      "estado_global": "Parcial",
-      "desglose": {
-        "logica": "Verificada",
-        "ui": "No verificada",
-        "validaciones_seguridad": "Parcial",
-        "e2e": "No verificada"
-      },
-      "evidencias": [
-        "scripts/run_demo.py",
-        "tests/test_run_demo.py"
-      ],
-      "observaciones": "La orquestación y manejo de fallos está probada; no hay evidencia de E2E GUI real pasando en CI para este flujo completo."
-    },
     {
       "id": "FTR-002",
       "nombre": "Se puede consultar healthcheck del servicio web",

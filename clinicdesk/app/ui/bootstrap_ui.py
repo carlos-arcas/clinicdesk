@@ -43,7 +43,6 @@ def _build_specs_por_defecto() -> tuple[RegistroPaginaSpec, ...]:
         RegistroPaginaSpec("turnos", "clinicdesk.app.pages.turnos.register"),
         RegistroPaginaSpec("ausencias", "clinicdesk.app.pages.ausencias.register"),
         RegistroPaginaSpec("incidencias", "clinicdesk.app.pages.incidencias.register"),
-        RegistroPaginaSpec("demo_ml", "clinicdesk.app.pages.demo_ml.register", requiere_i18n=True),
         RegistroPaginaSpec("auditoria", "clinicdesk.app.pages.auditoria.register"),
         RegistroPaginaSpec(
             "prediccion_ausencias", "clinicdesk.app.pages.prediccion_ausencias.register", requiere_i18n=True

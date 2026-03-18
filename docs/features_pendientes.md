@@ -2,8 +2,6 @@
 
 ## Funciones con trabajo pendiente
 
-- **FTR-001 — Se puede lanzar la demo operativa**
-  - Pendiente principal: La orquestación y manejo de fallos está probada; no hay evidencia de E2E GUI real pasando en CI para este flujo completo.
 - **FTR-004 — Se puede crear y consultar citas clínicas**
   - Pendiente principal: Hay cobertura robusta de caso de uso y queries; la verificación UI existe en componentes aislados, sin E2E extremo a extremo confirmado para el ciclo completo de agenda.
 - **FTR-005 — Se puede ejecutar pipeline ML de riesgo de citas**
@@ -15,7 +13,6 @@
 
 ## Funciones con estado "No verificada" por dimensión
 
-- FTR-001: UI, E2E.
 - FTR-003: UI, E2E.
 - FTR-004: E2E.
 - FTR-005: UI, E2E.

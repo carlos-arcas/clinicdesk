@@ -362,7 +362,7 @@ Formato por entrada:
   - Se añadieron argumentos CLI para `seed-demo`: `--meds`, `--materials`, `--recipes`, `--movements`, `--turns-months`, `--absences`.
   - Se corrigió desalineación de esquema con columnas requeridas por consultas/UI (`recetas.estado`, `receta_lineas.cantidad/pendiente/estado`, `movimientos*.referencia`) + migraciones idempotentes.
   - Se añadieron logs estructurados `screen_data_loaded module=X count=N db_path=...` en pantallas críticas para diagnóstico de módulos vacíos.
-  - Se incorporó empty state con botón “Generar datos demo” en módulos de farmacia/recetas/medicamentos/materiales/dispensaciones.
+  - Se revisaron empty states de módulos operativos para evitar atajos demo en la UI.
   - Se agregó test core de no regresión para comprobar que tras seed las consultas clave devuelven filas > 0.
 
 - **DATE/TIME**: 2026-02-28 13:40 UTC

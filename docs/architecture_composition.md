@@ -13,7 +13,7 @@ La composición de dependencias de la app se concentra en módulos pequeños baj
 - `composicion_repositorios_sqlite.py`: construye repositorios SQLite.
 - `composicion_proveedores.py`: construye proveedores transversales de infraestructura (ej. conexión SQLite por hilo).
 - `composicion_queries.py`: construye queries de lectura.
-- `composicion_demo_ml.py`: construye la fachada de demo ML.
+- `composicion_demo_ml.py`: construye la fachada analítica interna usada por servicios ML de soporte.
 - `composicion_prediccion_ausencias.py`: construye la fachada de predicción de ausencias.
 - `composicion_prediccion_operativa.py`: construye la fachada de predicción operativa.
 - `composicion_recordatorios.py`: construye la fachada de recordatorios.

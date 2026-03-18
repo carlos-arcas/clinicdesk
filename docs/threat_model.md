@@ -47,7 +47,7 @@ Aplicación de escritorio con base SQLite local. Este documento cubre amenazas p
 - Hardening de operaciones sensibles (RBAC, confirmaciones, safe paths). Ver [security_hardening.md](./security_hardening.md).
 - Gestión/rotación operativa de claves de cifrado de campo. Ver [security_keys.md](./security_keys.md).
 - Política de persistencia UX sin PII en preferencias. Ver [ux_preferences.md](./ux_preferences.md).
-- Evidencia de calidad y seguridad para evaluación técnica. Ver [recruiter_kit.md](./recruiter_kit.md).
+- Evidencia de calidad y seguridad para evaluación técnica. Ver documentación principal del producto en `README.md`.
 
 ## Roadmap de seguridad (máximo 3)
 

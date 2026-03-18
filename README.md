@@ -1,4 +1,4 @@
-# ClinicDesk ML Architecture Case Study
+# ClinicDesk
 
 [![Quality Gate](https://github.com/<OWNER>/<REPO>/actions/workflows/quality_gate.yml/badge.svg)](https://github.com/<OWNER>/<REPO>/actions/workflows/quality_gate.yml)
 [![Release](https://github.com/<OWNER>/<REPO>/actions/workflows/release.yml/badge.svg)](https://github.com/<OWNER>/<REPO>/actions/workflows/release.yml)
@@ -6,34 +6,19 @@
 
 Arquitectura ML reproducible para predicción de riesgo en citas clínicas, con gobernanza de artefactos y exportación contractual para Power BI.
 
-📌 **Portfolio one-pager (recruiters):** [PORTFOLIO.md](PORTFOLIO.md)
-
-## Qué es (en 3 bullets)
-- App clínica de escritorio (PySide6) con flujo operativo + analítica de riesgo de citas.
-- Pipeline ML reproducible (`seed → features → train → score → drift → export`) orientado a operación real.
-- Producto "portfolio-ready": Clean Architecture, quality gate estricto y controles de seguridad/privacidad.
+## Qué es
+- App clínica de escritorio (PySide6) orientada a operación diaria.
+- Incluye agenda, confirmaciones, farmacia, auditoría y módulos analíticos operativos integrados.
+- Mantiene Clean Architecture, quality gates estrictos y controles de seguridad/privacidad.
 
 ## Para quién
 - **No técnico**: liderazgo de operación clínica que necesita priorizar citas, reducir fricción y visualizar indicadores.
 - **Técnico**: equipos de ingeniería que buscan separación por capas, puertos/adaptadores y validación fuerte en CI.
 
-## Demo rápida (3 min)
-Guion recomendado para entrevista:
-1. **Setup** (normal o sandbox):
-   - Normal: `./scripts/setup.sh` (Linux/macOS) o `scripts\setup.bat` (Windows) o `python scripts/setup.py`.
-   - Sandbox: `python scripts/setup_sandbox.py`.
-2. **Arranque demo en 1 comando**: `python scripts/run_demo.py` (siembra datos demo + abre la app usando una DB demo en `./data/demo/`).
-   - Si falla la demo, revisa `logs/demo_failure_summary.json` y `logs/demo_*_stderr.log`.
-3. **Run demo**: dentro de la app, ejecutar pipeline completo (`seed -> build-features -> train -> score -> drift -> export`) y mostrar versiones generadas.
-4. **Export/report**: abrir `exports/` y enseñar los CSV contractuales para BI (`features`, `metrics`, `scoring`, `drift`).
-
-Guion extendido para recruiters: [docs/recruiter_kit.md](docs/recruiter_kit.md).
-
-## Ejecutar (1 comando)
+## Ejecutar el producto
 - **Camino normal**
   - Setup: `python scripts/setup.py`
-  - Demo 1 comando: `python scripts/run_demo.py`
-  - (Opcional) Run app sin seed: `python scripts/run_app.py`
+  - App: `python scripts/run_app.py`
 - **Camino sandbox**
   - Setup sandbox: `python scripts/setup_sandbox.py`
   - Gate sandbox (entrypoint): `python -m scripts.gate_sandbox`
@@ -172,7 +157,7 @@ python scripts/setup.py
 python scripts/run_app.py
 ```
 
-### Deploy con Docker (API demo)
+### Deploy con Docker (API opcional)
 
 ```bash
 docker compose up --build
@@ -185,11 +170,11 @@ curl http://localhost:8000/healthz
 ```
 
 
-## Docker (API demo)
+## Docker (API opcional)
 
-Esta API REST es **read-only** y pensada para portfolio. No expone PII en claro: documento/teléfono/email y nombre de paciente se devuelven redaccionados.
+Esta API REST es **read-only** y no forma parte del flujo principal de escritorio. No expone PII en claro: documento/teléfono/email y nombre de paciente se devuelven redaccionados.
 
-Levantar demo local con un comando:
+Levantar entorno local con un comando:
 
 ```bash
 docker compose up --build
@@ -199,14 +184,14 @@ Verificación rápida:
 
 ```bash
 curl http://localhost:8000/healthz
-curl -H "X-API-Key: dev_key_demo" "http://localhost:8000/api/v1/citas?desde=2026-01-01&hasta=2026-01-31&estado=PENDIENTE&texto=control"
+curl -H "X-API-Key: dev_key_local" "http://localhost:8000/api/v1/citas?desde=2026-01-01&hasta=2026-01-31&estado=PENDIENTE&texto=control"
 ```
 
 Variables por defecto en `docker-compose.yml`:
-- `CLINICDESK_API_KEY=dev_key_demo`
-- `CLINICDESK_DB_PATH=/data/clinicdesk_demo.db`
+- `CLINICDESK_API_KEY=dev_key_local`
+- `CLINICDESK_DB_PATH=/data/clinicdesk.sqlite3`
 
-## API demo (opcional)
+## API opcional
 
 También puedes arrancar sin Docker:
 
@@ -216,7 +201,7 @@ También puedes arrancar sin Docker:
 Configura autenticación con `X-API-Key`:
 
 ```bash
-export CLINICDESK_API_KEY=mi_clave_demo
+export CLINICDESK_API_KEY=mi_clave_local
 python -m clinicdesk.web.api.serve
 ```
 
@@ -224,8 +209,8 @@ Ejemplos `curl`:
 
 ```bash
 curl http://localhost:8000/healthz
-curl -H "X-API-Key: mi_clave_demo" "http://localhost:8000/api/v1/citas?desde=2026-01-01&hasta=2026-01-31&estado=PENDIENTE&texto=control"
-curl -H "X-API-Key: mi_clave_demo" "http://localhost:8000/api/v1/pacientes?texto=ana"
+curl -H "X-API-Key: mi_clave_local" "http://localhost:8000/api/v1/citas?desde=2026-01-01&hasta=2026-01-31&estado=PENDIENTE&texto=control"
+curl -H "X-API-Key: mi_clave_local" "http://localhost:8000/api/v1/pacientes?texto=ana"
 ```
 
 Si `CLINICDESK_API_KEY` no está definida, la API arranca pero `/api/*` responderá `503` con mensaje de configuración.
