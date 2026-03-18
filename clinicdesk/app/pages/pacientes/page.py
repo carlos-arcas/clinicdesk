@@ -37,14 +37,9 @@ from clinicdesk.app.pages.pacientes.acciones_pacientes import (
 from clinicdesk.app.pages.pacientes.coordinador_carga import CoordinadorCargaPacientes, SolicitudCargaPacientes
 from clinicdesk.app.pages.pacientes.coordinadores.busqueda_rapida import CoordinadorBusquedaRapidaPacientes
 from clinicdesk.app.pages.pacientes.coordinadores.contexto_operativo import CoordinadorContextoPacientes
+from clinicdesk.app.pages.pacientes.coordinadores.seleccion_acciones import CoordinadorSeleccionAccionesPacientes
 from clinicdesk.app.pages.pacientes.preferencias_pacientes import guardar_preferencias, restaurar_preferencias
-from clinicdesk.app.pages.pacientes.render_pacientes import (
-    apply_selection,
-    render_estado,
-    render_tabla,
-    selected_id as obtener_selected_id,
-    update_action_buttons,
-)
+from clinicdesk.app.pages.pacientes.render_pacientes import render_estado, render_tabla
 from clinicdesk.app.ui.ux.error_feedback import presentar_error_recuperable
 from clinicdesk.app.pages.pacientes.window_feedback import set_busy, toast_error, toast_success
 from clinicdesk.app.pages.pacientes.workers_pacientes import arrancar_busqueda_rapida, arrancar_carga
@@ -115,6 +110,11 @@ class PagePacientes(QWidget):
         self.btn_desactivar = self._ui.btn_desactivar
         self.btn_historial = self._ui.btn_historial
         self.btn_csv = self._ui.btn_csv
+        self._coordinador_seleccion_acciones = CoordinadorSeleccionAccionesPacientes(
+            ui=self._ui,
+            can_write=self._can_write,
+            set_buttons_enabled=set_buttons_enabled,
+        )
         self._connect_signals()
         self._build_shortcuts()
         self._vm.subscribe(self._on_estado_vm)
@@ -165,7 +165,7 @@ class PagePacientes(QWidget):
         self._guardar_preferencias()
         self._contexto_tabla_pendiente = capturar_contexto_tabla(self.table, columna_id=0)
         token = self._coordinador_contexto.nuevo_token_carga()
-        selected_id = obtener_selected_id(self._ui)
+        selected_id = self._selected_id()
         activo = self.filtros.activo()
         texto = normalize_search_text(self.filtros.texto())
         self._vm.actualizar_contexto(activo=activo, texto=texto, seleccion_id=selected_id)
@@ -223,7 +223,7 @@ class PagePacientes(QWidget):
         self._coordinador_busqueda_rapida.registrar_error(error_type, token)
 
     def seleccionar_paciente_desde_busqueda(self, paciente: PacienteRow) -> None:
-        self._select_by_id(paciente.id)
+        self._coordinador_seleccion_acciones.seleccionar_por_id(paciente.id)
         self.table.setFocus()
 
     def _arrancar_worker_carga(self, solicitud: SolicitudCargaPacientes) -> None:
@@ -358,7 +358,7 @@ class PagePacientes(QWidget):
             estado,
             on_retry=self._refresh,
             render_rows=self._render,
-            apply_selected_id=self._select_by_id,
+            apply_selected_id=self._coordinador_seleccion_acciones.seleccionar_por_id,
             update_buttons=self._update_buttons,
         )
 
@@ -401,8 +401,11 @@ class PagePacientes(QWidget):
         estado = self._i18n.t("comun.si") if paciente.activo else self._i18n.t("comun.no")
         return self._i18n.t("pacientes.tooltip.listado").format(documento=documento, telefono=telefono, estado=estado)
 
+    def _selected_id(self) -> int | None:
+        return self._coordinador_seleccion_acciones.estado_actual().selected_id
+
     def _update_buttons(self) -> None:
-        update_action_buttons(self._ui, can_write=self._can_write, set_buttons_enabled=set_buttons_enabled)
+        self._coordinador_seleccion_acciones.actualizar_botones()
 
     def _on_nuevo(self) -> None:
         on_nuevo(parent=self, i18n=self._i18n, uc_crear=self._uc_crear, on_success=self._on_nuevo_ok)
@@ -414,7 +417,7 @@ class PagePacientes(QWidget):
     def _on_editar(self) -> None:
         on_editar(
             parent=self,
-            selected_id=obtener_selected_id(self._ui),
+            selected_id=self._selected_id(),
             obtener_paciente=self._container.pacientes_repo.get_by_id,
             uc_editar=self._uc_editar,
             i18n=self._i18n,
@@ -424,13 +427,10 @@ class PagePacientes(QWidget):
     def _on_desactivar(self) -> None:
         on_desactivar(
             parent=self,
-            selected_id=obtener_selected_id(self._ui),
+            selected_id=self._selected_id(),
             uc_desactivar=self._uc_desactivar,
             on_success=self._refresh,
         )
-
-    def _select_by_id(self, paciente_id: int) -> None:
-        apply_selection(self._ui, paciente_id)
 
     def _open_csv_dialog(self) -> None:
         open_csv_dialog(self)
@@ -442,7 +442,7 @@ class PagePacientes(QWidget):
         on_historial(
             parent=self,
             i18n=self._i18n,
-            selected_id=obtener_selected_id(self._ui),
+            selected_id=self._selected_id(),
             registrar_auditoria=self._uc_auditoria_acceso,
             contexto_usuario=self._container.user_context,
             buscar_citas_uc=self._uc_buscar_historial_citas,
@@ -453,13 +453,14 @@ class PagePacientes(QWidget):
         )
 
     def _open_context_menu(self, pos) -> None:
+        row = self.table.rowAt(pos.y())
+        estado = self._coordinador_seleccion_acciones.preparar_context_menu(row)
         open_context_menu(
             parent=self,
             table=self.table,
             pos=pos,
             i18n=self._i18n,
-            can_write=self._can_write,
-            has_selection=obtener_selected_id(self._ui) is not None,
+            estado=estado,
             on_nuevo_cb=self._on_nuevo,
             on_editar_cb=self._on_editar,
             on_desactivar_cb=self._on_desactivar,
