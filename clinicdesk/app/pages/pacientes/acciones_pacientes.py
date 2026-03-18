@@ -1,7 +1,6 @@
 from __future__ import annotations
 
-from typing import Callable
-
+from collections.abc import Callable
 from PySide6.QtCore import QPoint
 from PySide6.QtWidgets import QDialog, QMenu, QMessageBox, QWidget
 
@@ -20,13 +19,21 @@ from clinicdesk.app.application.usecases.pacientes_crud import (
 )
 from clinicdesk.app.application.usecases.registrar_auditoria_acceso import RegistrarAuditoriaAcceso
 from clinicdesk.app.i18n import I18nManager
+from clinicdesk.app.pages.pacientes.helpers.estado_acciones_pacientes import (
+    AccionPaciente,
+    EstadoAccionesPacientes,
+    accion_habilitada,
+    despachar_accion,
+)
 from clinicdesk.app.pages.pacientes.dialogs.historial_paciente_dialog import HistorialPacienteDialog
 from clinicdesk.app.pages.pacientes.dialogs.paciente_form import PacienteFormDialog
 from clinicdesk.app.pages.shared.crud_page_helpers import confirm_deactivation
 from clinicdesk.app.ui.error_presenter import present_error
 
 
-def on_nuevo(*, parent: QWidget, i18n: I18nManager, uc_crear: CrearPacienteUseCase, on_success: Callable[[], None]) -> None:
+def on_nuevo(
+    *, parent: QWidget, i18n: I18nManager, uc_crear: CrearPacienteUseCase, on_success: Callable[[], None]
+) -> None:
     dialog = PacienteFormDialog(parent, i18n=i18n)
     if dialog.exec() != QDialog.Accepted:
         return
@@ -130,37 +137,43 @@ def open_context_menu(
     table,
     pos: QPoint,
     i18n: I18nManager,
-    can_write: bool,
-    has_selection: bool,
+    estado: EstadoAccionesPacientes,
     on_nuevo_cb: Callable[[], None],
     on_editar_cb: Callable[[], None],
     on_desactivar_cb: Callable[[], None],
     on_historial_cb: Callable[[], None],
 ) -> None:
-    row = table.rowAt(pos.y())
-    if row >= 0:
-        table.setCurrentCell(row, 0)
+    accion = _resolver_accion_menu_contextual(parent=parent, table=table, pos=pos, i18n=i18n, estado=estado)
+    despachar_accion(
+        accion=accion,
+        on_nuevo_cb=on_nuevo_cb,
+        on_editar_cb=on_editar_cb,
+        on_desactivar_cb=on_desactivar_cb,
+        on_historial_cb=on_historial_cb,
+    )
+
+
+def _resolver_accion_menu_contextual(
+    *, parent: QWidget, table, pos: QPoint, i18n: I18nManager, estado: EstadoAccionesPacientes
+) -> AccionPaciente | None:
     menu = QMenu(parent)
-    action_new = menu.addAction(i18n.t("pacientes.accion.nuevo"))
-    action_edit = menu.addAction(i18n.t("pacientes.accion.editar"))
-    action_delete = menu.addAction(i18n.t("pacientes.accion.desactivar"))
-    action_historial = menu.addAction(i18n.t("pacientes.historial.boton"))
-    action_edit.setEnabled(has_selection)
-    action_delete.setEnabled(has_selection)
-    action_historial.setEnabled(has_selection)
-    if not can_write:
-        action_new.setEnabled(False)
-        action_edit.setEnabled(False)
-        action_delete.setEnabled(False)
-    action = menu.exec(table.viewport().mapToGlobal(pos))
-    if action == action_new:
-        on_nuevo_cb()
-    elif action == action_edit:
-        on_editar_cb()
-    elif action == action_delete:
-        on_desactivar_cb()
-    elif action == action_historial:
-        on_historial_cb()
+    acciones = _construir_acciones_menu(menu=menu, i18n=i18n, estado=estado)
+    accion_qt = menu.exec(table.viewport().mapToGlobal(pos))
+    return acciones.get(accion_qt)
+
+
+def _construir_acciones_menu(
+    *, menu: QMenu, i18n: I18nManager, estado: EstadoAccionesPacientes
+) -> dict[object, AccionPaciente]:
+    acciones = {
+        menu.addAction(i18n.t("pacientes.accion.nuevo")): AccionPaciente.NUEVO,
+        menu.addAction(i18n.t("pacientes.accion.editar")): AccionPaciente.EDITAR,
+        menu.addAction(i18n.t("pacientes.accion.desactivar")): AccionPaciente.DESACTIVAR,
+        menu.addAction(i18n.t("pacientes.historial.boton")): AccionPaciente.HISTORIAL,
+    }
+    for accion_qt, accion in acciones.items():
+        accion_qt.setEnabled(accion_habilitada(accion=accion, estado=estado))
+    return acciones
 
 
 def open_csv_dialog(parent: QWidget) -> None:
