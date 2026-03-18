@@ -54,4 +54,4 @@ def test_on_estado_vm_omite_render_cuando_pagina_no_visible() -> None:
     assert isinstance(primer_if.test, ast.UnaryOp)
     assert isinstance(primer_if.test.op, ast.Not)
     assert isinstance(primer_if.test.operand, ast.Attribute)
-    assert primer_if.test.operand.attr == "_pagina_visible"
+    assert primer_if.test.operand.attr == "pagina_visible"
