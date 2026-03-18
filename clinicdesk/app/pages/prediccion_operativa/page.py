@@ -2,39 +2,39 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from PySide6.QtCore import QThread, Qt, Slot
+from PySide6.QtCore import Qt, Slot
 from PySide6.QtWidgets import (
     QCheckBox,
     QGroupBox,
     QLabel,
     QMessageBox,
-    QPushButton,
     QProgressBar,
+    QPushButton,
     QTableWidget,
     QTableWidgetItem,
     QVBoxLayout,
     QWidget,
 )
 
-from clinicdesk.app.application.services.prediccion_operativa_facade import PrediccionOperativaFacade
 from clinicdesk.app.application.security import UserContext
+from clinicdesk.app.application.services.prediccion_operativa_facade import PrediccionOperativaFacade
 from clinicdesk.app.application.usecases.registrar_telemetria import RegistrarTelemetria
 from clinicdesk.app.i18n import I18nManager
+from clinicdesk.app.pages.prediccion_operativa.coordinadores import (
+    CoordinadorBackgroundEntrenamientoPrediccionOperativa,
+    CoordinadorContextoPrediccionOperativa,
+    CoordinadorRunsEntrenamientoPrediccionOperativa,
+)
 from clinicdesk.app.pages.prediccion_operativa.helpers import (
     construir_bullets_explicacion,
     debe_cargar_previsualizacion,
     resolver_clave_estado_salud,
     resolver_texto_estimacion,
 )
-from clinicdesk.app.bootstrap_logging import get_logger
-from clinicdesk.app.pages.prediccion_operativa.workers import RelayEntrenamientoOperativo, WorkerEntrenarOperativo
 from clinicdesk.app.pages.shared.persistencia_estimaciones_settings import (
     guardar_mostrar_estimaciones_agenda,
     leer_mostrar_estimaciones_agenda,
 )
-
-
-LOGGER = get_logger(__name__)
 
 
 @dataclass(slots=True)
@@ -66,13 +66,9 @@ class PagePrediccionOperativa(QWidget):
         self._i18n = i18n
         self._telemetria_uc = telemetria_uc
         self._contexto_usuario = contexto_usuario
-        self._thread_duracion: QThread | None = None
-        self._thread_espera: QThread | None = None
-        self._worker_duracion: WorkerEntrenarOperativo | None = None
-        self._worker_espera: WorkerEntrenarOperativo | None = None
-        self._relay_duracion: RelayEntrenamientoOperativo | None = None
-        self._relay_espera: RelayEntrenamientoOperativo | None = None
-        self._token_entrenamiento: dict[str, int] = {"duracion": 0, "espera": 0}
+        self._contexto_operativo = CoordinadorContextoPrediccionOperativa()
+        self._runs_entrenamiento = CoordinadorRunsEntrenamientoPrediccionOperativa()
+        self._background_entrenamiento = CoordinadorBackgroundEntrenamientoPrediccionOperativa(self)
         self._predicciones_duracion: dict[int, str] = {}
         self._predicciones_espera: dict[int, str] = {}
         self._proximas_citas: list[object] = []
@@ -81,7 +77,12 @@ class PagePrediccionOperativa(QWidget):
         self._retranslate()
 
     def on_show(self) -> None:
+        self._contexto_operativo.on_show()
         self._refresh_todo()
+
+    def on_hide(self) -> None:
+        self._contexto_operativo.on_hide()
+        self._runs_entrenamiento.invalidar_todos()
 
     def _build_ui(self) -> None:
         root = QVBoxLayout(self)
@@ -166,59 +167,39 @@ class PagePrediccionOperativa(QWidget):
             bloque.lbl_feedback.setText(self._i18n.t("prediccion_operativa.msg.faltan_datos"))
 
     def _entrenar(self, tipo: str) -> None:
+        self._preparar_ui_entrenamiento(tipo)
+        self._registrar_telemetria("estimaciones_preparar", f"click_{tipo}")
+        self._iniciar_entrenamiento_background(tipo)
+
+    def _preparar_ui_entrenamiento(self, tipo: str) -> None:
         bloque = self._bloque(tipo)
         bloque.progress.setVisible(True)
         bloque.btn_preparar.setEnabled(False)
         bloque.btn_comprobar.setEnabled(False)
         bloque.btn_reintentar.setVisible(False)
         bloque.lbl_feedback.setText(self._i18n.t("prediccion_operativa.estado.actualizando"))
-        self._registrar_telemetria("estimaciones_preparar", f"click_{tipo}")
-        self._ejecutar_worker(tipo)
 
-    def _ejecutar_worker(self, tipo: str) -> None:
-        token = self._siguiente_token_entrenamiento(tipo)
-        thread = QThread(self)
+    def _iniciar_entrenamiento_background(self, tipo: str) -> None:
+        run = self._runs_entrenamiento.iniciar_run(tipo, self._contexto_operativo.token_contexto)
         uc = self._facade.entrenar_duracion_uc if tipo == "duracion" else self._facade.entrenar_espera_uc
-        worker = WorkerEntrenarOperativo(uc.ejecutar, self._facade.cerrar_conexion_hilo_actual)
-        relay = RelayEntrenamientoOperativo(tipo, token)
-        worker.moveToThread(thread)
-        thread.started.connect(worker.run)
-        worker.ok.connect(relay.on_worker_ok)
-        worker.fail.connect(relay.on_worker_fail)
-        relay.ok.connect(self._on_train_ok)
-        relay.fail.connect(self._on_train_fail)
-        worker.finished.connect(thread.quit)
-        worker.finished.connect(worker.deleteLater)
-        thread.finished.connect(relay.on_hilo_finalizado)
-        relay.hilo_finalizado.connect(self._on_train_thread_finished)
-        thread.finished.connect(thread.deleteLater)
-        if tipo == "duracion":
-            self._thread_duracion, self._worker_duracion, self._relay_duracion = thread, worker, relay
-        else:
-            self._thread_espera, self._worker_espera, self._relay_espera = thread, worker, relay
-        thread.start()
+        self._background_entrenamiento.iniciar_entrenamiento(
+            run=run,
+            ejecutar=uc.ejecutar,
+            cerrar_conexion=self._facade.cerrar_conexion_hilo_actual,
+            on_ok=self._on_train_ok,
+            on_fail=self._on_train_fail,
+            on_thread_finished=self._on_train_thread_finished,
+        )
 
-    def _siguiente_token_entrenamiento(self, tipo: str) -> int:
-        token = self._token_entrenamiento[tipo] + 1
-        self._token_entrenamiento[tipo] = token
-        return token
-
-    def _entrenamiento_vigente(self, tipo: str, token: int) -> bool:
-        if token != self._token_entrenamiento[tipo]:
-            LOGGER.info(
-                "prediccion_entrenamiento_omitido", extra={"tipo": tipo, "token": token, "razon": "token_obsoleto"}
-            )
+    def _puede_consumir_resultado_entrenamiento(self, tipo: str, token: int) -> bool:
+        if not self._runs_entrenamiento.run_vigente(tipo, token):
             return False
-        if not self.isVisible():
-            LOGGER.info(
-                "prediccion_entrenamiento_omitido", extra={"tipo": tipo, "token": token, "razon": "pagina_no_visible"}
-            )
-            return False
-        return True
+        token_contexto = self._runs_entrenamiento.contexto_de_run(tipo)
+        return self._contexto_operativo.contexto_vigente(token_contexto)
 
     @Slot(str, int, object)
     def _on_train_ok(self, tipo: str, token: int, _payload: object) -> None:
-        if not self._entrenamiento_vigente(tipo, token):
+        if not self._puede_consumir_resultado_entrenamiento(tipo, token):
             return
         bloque = self._bloque(tipo)
         bloque.progress.setVisible(False)
@@ -231,7 +212,7 @@ class PagePrediccionOperativa(QWidget):
 
     @Slot(str, int, object)
     def _on_train_fail(self, tipo: str, token: int, _payload: object) -> None:
-        if not self._entrenamiento_vigente(tipo, token):
+        if not self._puede_consumir_resultado_entrenamiento(tipo, token):
             return
         bloque = self._bloque(tipo)
         bloque.progress.setVisible(False)
@@ -242,16 +223,8 @@ class PagePrediccionOperativa(QWidget):
         self._registrar_telemetria("estimaciones_preparar", f"fail_{tipo}")
 
     @Slot(str, int)
-    def _on_train_thread_finished(self, tipo: str, token: int) -> None:
-        LOGGER.info("prediccion_entrenamiento_cleanup", extra={"tipo": tipo, "token": token})
-        if tipo == "duracion":
-            self._thread_duracion = None
-            self._worker_duracion = None
-            self._relay_duracion = None
-            return
-        self._thread_espera = None
-        self._worker_espera = None
-        self._relay_espera = None
+    def _on_train_thread_finished(self, tipo: str, _token: int) -> None:
+        self._background_entrenamiento.limpiar(tipo)
 
     def _cargar_previsualizacion(self) -> None:
         if not debe_cargar_previsualizacion(self.chk_mostrar_agenda.isChecked()):
@@ -284,7 +257,9 @@ class PagePrediccionOperativa(QWidget):
         uc = self._facade.explicar_duracion_uc if tipo == "duracion" else self._facade.explicar_espera_uc
         exp = uc.ejecutar(cita_id, nivel)
         QMessageBox.information(
-            self, self._i18n.t("prediccion_operativa.btn.ver_por_que"), construir_bullets_explicacion(exp, self._i18n)
+            self,
+            self._i18n.t("prediccion_operativa.btn.ver_por_que"),
+            construir_bullets_explicacion(exp, self._i18n),
         )
         self._registrar_telemetria("explicacion_ver_por_que", f"ok_{tipo}", cita_id=cita_id)
 
