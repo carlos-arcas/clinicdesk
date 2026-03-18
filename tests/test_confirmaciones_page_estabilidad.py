@@ -46,8 +46,7 @@ def test_relay_carga_ok_propaga_payload_con_token() -> None:
 def test_on_carga_ok_descarta_resultado_obsoleto(container, monkeypatch: pytest.MonkeyPatch) -> None:
     _app()
     page = PageConfirmaciones(container, I18nManager("es"))
-    page._pagina_visible = True
-    page._token_carga = 5
+    page._coordinador_contexto.sincronizar_para_pruebas(pagina_visible=True, token_carga=5)
 
     llamado = {"ok": False}
     monkeypatch.setattr(page._vm, "resolver_carga_ok", lambda **_kwargs: llamado.__setitem__("ok", True))
@@ -60,8 +59,7 @@ def test_on_carga_ok_descarta_resultado_obsoleto(container, monkeypatch: pytest.
 def test_on_carga_error_vigente_no_rompe_pagina(container, monkeypatch: pytest.MonkeyPatch) -> None:
     _app()
     page = PageConfirmaciones(container, I18nManager("es"))
-    page._pagina_visible = True
-    page._token_carga = 9
+    page._coordinador_contexto.sincronizar_para_pruebas(pagina_visible=True, token_carga=9)
 
     llamado = {"error": False}
     monkeypatch.setattr(page._vm, "resolver_carga_error", lambda **_kwargs: llamado.__setitem__("error", True))
@@ -74,8 +72,7 @@ def test_on_carga_error_vigente_no_rompe_pagina(container, monkeypatch: pytest.M
 def test_on_carga_ok_omite_render_si_pagina_no_visible(container, monkeypatch: pytest.MonkeyPatch) -> None:
     _app()
     page = PageConfirmaciones(container, I18nManager("es"))
-    page._pagina_visible = False
-    page._token_carga = 3
+    page._coordinador_contexto.sincronizar_para_pruebas(pagina_visible=False, token_carga=3)
 
     llamado = {"ok": False}
     monkeypatch.setattr(page._vm, "resolver_carga_ok", lambda **_kwargs: llamado.__setitem__("ok", True))
@@ -121,15 +118,29 @@ def test_arrancar_carga_usa_slots_explicitos_sin_lambdas() -> None:
     assert kwargs["on_thread_finished"].attr == "_on_carga_thread_finished"
 
 
+def test_on_show_delega_contexto_y_carga_inicial(container, monkeypatch: pytest.MonkeyPatch) -> None:
+    _app()
+    page = PageConfirmaciones(container, I18nManager("es"))
+    llamadas: list[str] = []
+
+    monkeypatch.setattr(page._coordinador_contexto, "on_show", lambda: llamadas.append("on_show"))
+    monkeypatch.setattr(page, "_restaurar_preferencias", lambda: llamadas.append("restaurar"))
+    monkeypatch.setattr(page, "_load_data", lambda *, reset: llamadas.append(f"load:{reset}"))
+
+    page.on_show()
+
+    assert llamadas == ["on_show", "restaurar", "load:True"]
+
+
 def test_on_hide_invalida_contexto_operativo(container) -> None:
     _app()
     page = PageConfirmaciones(container, I18nManager("es"))
-    page._token_whatsapp_rapido = 4
+    page._coordinador_contexto.sincronizar_para_pruebas(pagina_visible=True, token_whatsapp_rapido=4)
 
     page.on_hide()
 
-    assert page._pagina_visible is False
-    assert page._token_whatsapp_rapido == 5
+    assert page._coordinador_contexto.pagina_visible is False
+    assert page._coordinador_contexto.token_whatsapp_rapido == 5
     assert page._cita_en_preparacion is None
 
 
@@ -139,9 +150,9 @@ def test_on_lote_done_refresca_solo_si_contexto_vigente(container, monkeypatch: 
     refrescos: list[bool] = []
     monkeypatch.setattr(page, "_load_data", lambda *, reset: refrescos.append(reset))
 
-    page._pagina_visible = True
+    page._coordinador_contexto.sincronizar_para_pruebas(pagina_visible=True)
     page._on_lote_done(3)
-    page._pagina_visible = False
+    page._coordinador_contexto.sincronizar_para_pruebas(pagina_visible=False)
     page._on_lote_done(4)
 
     assert refrescos == [False]
@@ -163,10 +174,18 @@ def test_refresh_operativo_delega_en_coordinador(container, monkeypatch: pytest.
     assert llamadas == [("whatsapp_rapido_ok", 9)]
 
 
+def test_page_no_reintroduce_propiedades_legacy_duplicadas() -> None:
+    source = RUTA_PAGE.read_text(encoding="utf-8")
+
+    assert "def _pagina_visible" not in source
+    assert "def _token_carga" not in source
+    assert "def _token_whatsapp_rapido" not in source
+
+
 def test_on_estado_vm_no_renderiza_si_pagina_no_visible_runtime(container, monkeypatch: pytest.MonkeyPatch) -> None:
     _app()
     page = PageConfirmaciones(container, I18nManager("es"))
-    page._pagina_visible = False
+    page._coordinador_contexto.sincronizar_para_pruebas(pagina_visible=False)
     llamado = {"render": False}
 
     monkeypatch.setattr(

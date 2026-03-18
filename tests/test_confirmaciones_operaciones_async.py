@@ -30,6 +30,7 @@ class _I18nFalso:
 
 class _PageFalsa:
     def __init__(self) -> None:
+        self._coordinador_contexto = type("Ctx", (), {"nueva_operacion_whatsapp_rapido": lambda self: 10})()
         self._token_whatsapp_rapido = 10
         self._cita_en_preparacion = 25
         self.telemetria: list[tuple[str, str, int | None]] = []
@@ -168,6 +169,16 @@ def test_worker_wiring_sin_callbacks_directos_a_ui() -> None:
         and node.func.id == "arrancar_preparacion_whatsapp"
     ]
     assert len(llamadas_rapido) == 1
+    asignacion_operacion = next(
+        node
+        for node in metodo_rapido.body
+        if isinstance(node, ast.Assign)
+        and any(isinstance(target, ast.Name) and target.id == "operation_id" for target in node.targets)
+    )
+    assert isinstance(asignacion_operacion.value, ast.Call)
+    assert isinstance(asignacion_operacion.value.func, ast.Attribute)
+    assert asignacion_operacion.value.func.attr == "nueva_operacion_whatsapp_rapido"
+
     kwargs_rapido = {kw.arg: kw.value for kw in llamadas_rapido[0].keywords if kw.arg is not None}
     assert isinstance(kwargs_rapido["on_ok"], ast.Attribute)
     assert kwargs_rapido["on_ok"].attr == "_on_whatsapp_rapido_ok"

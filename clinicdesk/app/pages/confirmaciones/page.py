@@ -118,45 +118,6 @@ class PageConfirmaciones(QWidget):
         self._i18n.subscribe(self._retranslate)
         self._retranslate()
 
-    @property
-    def _pagina_visible(self) -> bool:
-        return self._coordinador_contexto.pagina_visible
-
-    @_pagina_visible.setter
-    def _pagina_visible(self, value: bool) -> None:
-        if value:
-            self._coordinador_contexto.on_show()
-            return
-        self._coordinador_contexto._pagina_visible = False
-
-    @property
-    def _token_carga(self) -> int:
-        return self._coordinador_contexto.token_carga
-
-    @_token_carga.setter
-    def _token_carga(self, value: int) -> None:
-        self._coordinador_contexto._token_carga = value
-
-    @property
-    def _token_busqueda_rapida(self) -> int:
-        return self._coordinador_contexto.token_busqueda_rapida
-
-    @_token_busqueda_rapida.setter
-    def _token_busqueda_rapida(self, value: int) -> None:
-        self._coordinador_contexto._token_busqueda_rapida = value
-
-    @property
-    def _token_whatsapp_rapido(self) -> int:
-        return self._coordinador_contexto.token_whatsapp_rapido
-
-    @_token_whatsapp_rapido.setter
-    def _token_whatsapp_rapido(self, value: int) -> None:
-        self._coordinador_contexto._token_whatsapp_rapido = value
-
-    @property
-    def _token_refresh_operativo(self) -> int:
-        return self._coordinador_refresh.token_refresh_operativo
-
     def _build_shortcuts(self) -> None:
         self._shortcut_focus_busqueda = QShortcut(QKeySequence("Ctrl+F"), self)
         self._shortcut_focus_busqueda.activated.connect(self._ui.txt_buscar.setFocus)
@@ -385,14 +346,14 @@ class PageConfirmaciones(QWidget):
         )
 
     def _on_estado_vm(self, estado: EstadoListado[object]) -> None:
-        if not self._pagina_visible:
+        if not self._coordinador_contexto.pagina_visible:
             LOGGER.info(
                 "confirmaciones_estado_omitido",
                 extra={
                     "action": "confirmaciones_estado_omitido",
                     "reason": "pagina_no_visible",
                     "fase": estado.estado_pantalla.name,
-                    "token": self._token_carga,
+                    "token": self._coordinador_contexto.token_carga,
                 },
             )
             return
