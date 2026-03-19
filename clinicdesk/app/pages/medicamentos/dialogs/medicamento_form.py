@@ -67,7 +67,7 @@ class MedicamentoFormDialog(QDialog):
                 id=self._medicamento_id,
                 nombre_comercial=self.txt_nombre_comercial.text().strip(),
                 nombre_compuesto=self.txt_nombre_compuesto.text().strip(),
-                cantidad_en_almacen=self.spn_stock.value(),
+                cantidad_almacen=self.spn_stock.value(),
                 activo=self.chk_activo.isChecked(),
             )
             medicamento.validar()
