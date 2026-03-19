@@ -26,7 +26,7 @@ class AplicacionSesion(Protocol):
 
 
 class I18nSesion(Protocol):
-    def t(self, key: str) -> str: ...
+    def t(self, key: str, **kwargs: object) -> str: ...
 
 
 def crear_sesion_autenticada(

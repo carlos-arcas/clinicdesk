@@ -9,7 +9,7 @@ from clinicdesk.app.pages.seguros.workspace_navegacion import (
 
 
 class _I18nDummy:
-    def t(self, key: str) -> str:
+    def t(self, key: str, **kwargs: object) -> str:
         return key
 
 
