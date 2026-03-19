@@ -15,7 +15,7 @@ from clinicdesk.app.ui.wizard_bienvenida.paginas.pagina_sync import PaginaSync
 
 
 class _I18nFake:
-    def t(self, key: str) -> str:
+    def t(self, key: str, **kwargs: object) -> str:
         return key
 
 

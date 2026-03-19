@@ -24,7 +24,7 @@ RUTA_LOTE_CONTROLLER = Path("clinicdesk/app/pages/confirmaciones/lote_controller
 
 
 class _I18nFalso:
-    def t(self, key: str) -> str:
+    def t(self, key: str, **kwargs: object) -> str:
         return key
 
 

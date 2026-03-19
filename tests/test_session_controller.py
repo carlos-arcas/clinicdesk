@@ -61,7 +61,7 @@ class AppFalsa:
 
 
 class I18nFalso:
-    def t(self, key: str) -> str:
+    def t(self, key: str, **kwargs: object) -> str:
         return key
 
 

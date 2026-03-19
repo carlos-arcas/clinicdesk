@@ -6,7 +6,7 @@ from PySide6.QtWidgets import QLabel, QVBoxLayout, QWidget
 
 
 class _I18nProtocol(Protocol):
-    def t(self, key: str) -> str: ...
+    def t(self, key: str, **kwargs: object) -> str: ...
 
 
 class PaginaBase(QWidget):
