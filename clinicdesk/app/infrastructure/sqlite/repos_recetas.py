@@ -8,6 +8,7 @@ from typing import Optional
 
 from clinicdesk.app.domain.exceptions import ValidationError
 from clinicdesk.app.domain.modelos import Receta, RecetaLinea
+from clinicdesk.app.infrastructure.sqlite.id_utils import require_lastrowid
 from clinicdesk.app.infrastructure.sqlite.recetas.consultas import construir_consulta_por_actor
 from clinicdesk.app.infrastructure.sqlite.recetas.mapping import row_to_linea, row_to_receta
 from clinicdesk.app.infrastructure.sqlite.recetas.sql import (
@@ -37,7 +38,7 @@ class RecetasRepository:
             ),
         )
         self._con.commit()
-        return int(cur.lastrowid)
+        return require_lastrowid(cur, context="RecetasRepository.create_receta")
 
     def update_receta(self, receta: Receta) -> None:
         if not receta.id:
@@ -56,7 +57,10 @@ class RecetasRepository:
         self._con.commit()
 
     def get_receta_by_id(self, receta_id: int) -> Optional[Receta]:
-        row = self._con.execute("SELECT * FROM recetas WHERE id = ?", (receta_id,)).fetchone()
+        row = self._con.execute(
+            "SELECT * FROM recetas WHERE id = ? AND activo = 1",
+            (receta_id,),
+        ).fetchone()
         return row_to_receta(row) if row else None
 
     def delete_receta(self, receta_id: int) -> None:
@@ -76,7 +80,7 @@ class RecetasRepository:
             ),
         )
         self._con.commit()
-        return int(cur.lastrowid)
+        return require_lastrowid(cur, context="RecetasRepository.add_linea")
 
     def update_linea(self, linea: RecetaLinea) -> None:
         if not linea.id:

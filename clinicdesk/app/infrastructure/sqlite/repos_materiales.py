@@ -19,6 +19,8 @@ import logging
 import sqlite3
 from typing import List, Optional
 
+from clinicdesk.app.infrastructure.sqlite.id_utils import require_lastrowid
+
 from clinicdesk.app.domain.modelos import Material
 from clinicdesk.app.common.search_utils import like_value, normalize_search_text
 from clinicdesk.app.domain.exceptions import ValidationError
@@ -68,7 +70,7 @@ class MaterialesRepository:
             ),
         )
         self._con.commit()
-        return int(cur.lastrowid)
+        return require_lastrowid(cur, context="MaterialesRepository.create")
 
     def update(self, material: Material) -> None:
         """
@@ -113,7 +115,7 @@ class MaterialesRepository:
         Obtiene un material por id.
         """
         row = self._con.execute(
-            "SELECT * FROM materiales WHERE id = ?",
+            "SELECT * FROM materiales WHERE id = ? AND activo = 1",
             (material_id,),
         ).fetchone()
 
@@ -128,7 +130,7 @@ class MaterialesRepository:
         Lista todos los materiales.
         """
         sql = "SELECT * FROM materiales"
-        params = []
+        params: list[object] = []
 
         if solo_activos:
             sql += " WHERE activo = 1"
@@ -159,8 +161,8 @@ class MaterialesRepository:
         """
         texto = normalize_search_text(texto)
 
-        clauses = []
-        params = []
+        clauses: list[str] = []
+        params: list[object] = []
 
         if texto:
             clauses.append("nombre LIKE ? COLLATE NOCASE")

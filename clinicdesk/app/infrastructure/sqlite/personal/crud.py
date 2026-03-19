@@ -90,10 +90,10 @@ def fetch_by_documento(
 ) -> sqlite3.Row | None:
     if protection.enabled:
         return con.execute(
-            "SELECT id FROM personal WHERE tipo_documento = ? AND documento_hash = ?",
+            "SELECT id FROM personal WHERE tipo_documento = ? AND documento_hash = ? AND activo = 1",
             (tipo, protection.hash_for_lookup("documento", documento)),
         ).fetchone()
     return con.execute(
-        "SELECT id FROM personal WHERE tipo_documento = ? AND documento = ?",
+        "SELECT id FROM personal WHERE tipo_documento = ? AND documento = ? AND activo = 1",
         (tipo, documento),
     ).fetchone()
