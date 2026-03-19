@@ -26,6 +26,24 @@ class RegistroPaginaSpec:
     requiere_i18n: bool = False
 
 
+@dataclass(frozen=True)
+class ResultadoReintentoPagina:
+    ok: bool
+    mensaje: str = ""
+    pagina_recuperada: object | None = None
+
+
+class _FactoryPaginaRecargable:
+    def __init__(self, factory_inicial: Callable[[], object]) -> None:
+        self._factory_actual = factory_inicial
+
+    def crear(self) -> object:
+        return self._factory_actual()
+
+    def actualizar(self, nueva_factory: Callable[[], object]) -> None:
+        self._factory_actual = nueva_factory
+
+
 def _build_specs_por_defecto() -> tuple[RegistroPaginaSpec, ...]:
     return (
         RegistroPaginaSpec("home", "clinicdesk.app.pages.home.register", requiere_i18n=True),
@@ -65,7 +83,8 @@ def _crear_placeholder_page_def(
     page_id: str,
     codigo_error: str,
     detalles_cortos: str,
-    recargar_callback: Callable[[], tuple[bool, str]],
+    factory_recargable: _FactoryPaginaRecargable,
+    recargar_callback: Callable[[], ResultadoReintentoPagina],
 ):
     def _factory():
         from clinicdesk.app.pages.placeholder.page_no_disponible import PageNoDisponible
@@ -78,10 +97,11 @@ def _crear_placeholder_page_def(
             on_reintentar=recargar_callback,
         )
 
+    factory_recargable.actualizar(_factory)
     return _PageEntry(
         key=page_id,
         title=page_id,
-        factory=_factory,
+        factory=factory_recargable.crear,
     )
 
 
@@ -104,20 +124,42 @@ def _invocar_registrador(
     registrador(registry, container)
 
 
+def _resolver_pagina_recuperada(
+    *,
+    spec: RegistroPaginaSpec,
+    container,
+    i18n: I18nManager,
+) -> _PageEntry:
+    registrador = _cargar_registrador(spec)
+    registry_temporal = PageRegistry()
+    _invocar_registrador(
+        registrador=registrador,
+        spec=spec,
+        registry=registry_temporal,
+        container=container,
+        i18n=i18n,
+    )
+    return registry_temporal.get(spec.page_id)
+
+
 def _registrar_placeholder(
     *,
     registry: PageRegistry,
+    container,
     i18n: I18nManager,
     spec: RegistroPaginaSpec,
     codigo_error: str,
     detalles_cortos: str,
 ) -> None:
-    def _reintentar() -> tuple[bool, str]:
+    factory_recargable = _FactoryPaginaRecargable(lambda: None)
+
+    def _reintentar() -> ResultadoReintentoPagina:
         try:
-            _cargar_registrador(spec)
+            pagina_recuperada = _resolver_pagina_recuperada(spec=spec, container=container, i18n=i18n)
         except Exception as exc:  # pragma: no cover - defensivo
-            return False, _truncar_error(exc)
-        return True, ""
+            return ResultadoReintentoPagina(ok=False, mensaje=_truncar_error(exc))
+        factory_recargable.actualizar(pagina_recuperada.factory)
+        return ResultadoReintentoPagina(ok=True, pagina_recuperada=pagina_recuperada.factory())
 
     registry.register(
         _crear_placeholder_page_def(
@@ -125,6 +167,7 @@ def _registrar_placeholder(
             page_id=spec.page_id,
             codigo_error=codigo_error,
             detalles_cortos=detalles_cortos,
+            factory_recargable=factory_recargable,
             recargar_callback=_reintentar,
         )
     )
@@ -157,6 +200,7 @@ def _registrar_paginas_seguras(
             _log_page_error(spec=spec, reason_code="import_error", error=error)
             _registrar_placeholder(
                 registry=registry,
+                container=container,
                 i18n=i18n,
                 spec=spec,
                 codigo_error="import_error",
@@ -176,6 +220,7 @@ def _registrar_paginas_seguras(
             _log_page_error(spec=spec, reason_code="register_error", error=error)
             _registrar_placeholder(
                 registry=registry,
+                container=container,
                 i18n=i18n,
                 spec=spec,
                 codigo_error="register_error",
