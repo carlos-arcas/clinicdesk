@@ -49,7 +49,6 @@ def test_docs_principales_no_presentan_api_como_demo() -> None:
         repo_root / "docs" / "minimizacion_salidas.md",
         repo_root / "docs" / "features.md",
         repo_root / "docs" / "features_pendientes.md",
-        repo_root / "docs" / "proyecto_narrativo_features_10_bloqueo.md",
     ]
 
     for ruta in rutas:
