@@ -22,6 +22,7 @@ from dataclasses import dataclass
 from typing import List, Optional
 
 from clinicdesk.app.domain.exceptions import ValidationError
+from clinicdesk.app.infrastructure.sqlite.id_utils import require_lastrowid, require_row_id
 
 
 logger = logging.getLogger(__name__)
@@ -118,14 +119,14 @@ class DispensacionesRepository:
             ),
         )
         self._con.commit()
-        return int(cur.lastrowid)
+        return require_lastrowid(cur, context="DispensacionesRepository.create")
 
     def get_by_id(self, dispensacion_id: int) -> Optional[Dispensacion]:
         """
         Obtiene una dispensación por id.
         """
         row = self._con.execute(
-            "SELECT * FROM dispensaciones WHERE id = ?",
+            "SELECT * FROM dispensaciones WHERE id = ? AND activo = 1",
             (dispensacion_id,),
         ).fetchone()
 
@@ -234,7 +235,7 @@ class DispensacionesRepository:
         Convierte fila SQLite en Dispensacion.
         """
         return Dispensacion(
-            id=row["id"],
+            id=require_row_id(row, context="DispensacionesRepository._row_to_model"),
             receta_id=row["receta_id"],
             receta_linea_id=row["receta_linea_id"],
             medicamento_id=row["medicamento_id"],

@@ -21,6 +21,7 @@ from typing import List, Optional
 
 from clinicdesk.app.common.search_utils import like_value, normalize_search_text
 from clinicdesk.app.domain.exceptions import ValidationError
+from clinicdesk.app.infrastructure.sqlite.id_utils import require_lastrowid, require_row_id
 
 
 logger = logging.getLogger(__name__)
@@ -126,7 +127,7 @@ class IncidenciasRepository:
             ),
         )
         self._con.commit()
-        return int(cur.lastrowid)
+        return require_lastrowid(cur, context="IncidenciasRepository.create")
 
     def update(self, incidencia: Incidencia) -> None:
         """
@@ -199,7 +200,7 @@ class IncidenciasRepository:
         Obtiene una incidencia por id.
         """
         row = self._con.execute(
-            "SELECT * FROM incidencias WHERE id = ?",
+            "SELECT * FROM incidencias WHERE id = ? AND activo = 1",
             (incidencia_id,),
         ).fetchone()
 
@@ -277,7 +278,7 @@ class IncidenciasRepository:
         Convierte fila SQLite en Incidencia.
         """
         return Incidencia(
-            id=row["id"],
+            id=require_row_id(row, context="IncidenciasRepository._row_to_model"),
             tipo=row["tipo"],
             severidad=row["severidad"],
             estado=row["estado"],
