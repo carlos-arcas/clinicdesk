@@ -12,7 +12,7 @@ LOGGER = get_logger(__name__)
 _MAX_ERROR_LEN = 120
 
 
-@dataclass(frozen=True)
+@dataclass
 class _PageEntry:
     key: str
     title: str
@@ -24,6 +24,8 @@ class RegistroPaginaSpec:
     page_id: str
     modulo_registro: str
     requiere_i18n: bool = False
+    titulo: str | None = None
+    titulo_key_i18n: str | None = None
 
 
 @dataclass(frozen=True)
@@ -31,6 +33,8 @@ class ResultadoReintentoPagina:
     ok: bool
     mensaje: str = ""
     pagina_recuperada: object | None = None
+    page_id: str = ""
+    titulo_pagina: str = ""
 
 
 class _FactoryPaginaRecargable:
@@ -46,30 +50,47 @@ class _FactoryPaginaRecargable:
 
 def _build_specs_por_defecto() -> tuple[RegistroPaginaSpec, ...]:
     return (
-        RegistroPaginaSpec("home", "clinicdesk.app.pages.home.register", requiere_i18n=True),
-        RegistroPaginaSpec("pacientes", "clinicdesk.app.pages.pacientes.register"),
-        RegistroPaginaSpec("citas", "clinicdesk.app.pages.citas.register", requiere_i18n=True),
-        RegistroPaginaSpec("confirmaciones", "clinicdesk.app.pages.confirmaciones.register", requiere_i18n=True),
-        RegistroPaginaSpec("medicos", "clinicdesk.app.pages.medicos.register"),
-        RegistroPaginaSpec("personal", "clinicdesk.app.pages.personal.register"),
-        RegistroPaginaSpec("salas", "clinicdesk.app.pages.salas.register"),
-        RegistroPaginaSpec("farmacia", "clinicdesk.app.pages.farmacia.register"),
-        RegistroPaginaSpec("medicamentos", "clinicdesk.app.pages.medicamentos.register"),
-        RegistroPaginaSpec("materiales", "clinicdesk.app.pages.materiales.register"),
-        RegistroPaginaSpec("recetas", "clinicdesk.app.pages.recetas.register"),
-        RegistroPaginaSpec("dispensaciones", "clinicdesk.app.pages.dispensaciones.register"),
-        RegistroPaginaSpec("turnos", "clinicdesk.app.pages.turnos.register"),
-        RegistroPaginaSpec("ausencias", "clinicdesk.app.pages.ausencias.register"),
-        RegistroPaginaSpec("incidencias", "clinicdesk.app.pages.incidencias.register"),
-        RegistroPaginaSpec("auditoria", "clinicdesk.app.pages.auditoria.register"),
         RegistroPaginaSpec(
-            "prediccion_ausencias", "clinicdesk.app.pages.prediccion_ausencias.register", requiere_i18n=True
+            "home", "clinicdesk.app.pages.home.register", requiere_i18n=True, titulo_key_i18n="nav.home"
+        ),
+        RegistroPaginaSpec("pacientes", "clinicdesk.app.pages.pacientes.register", titulo="Pacientes"),
+        RegistroPaginaSpec("citas", "clinicdesk.app.pages.citas.register", requiere_i18n=True, titulo="Citas"),
+        RegistroPaginaSpec(
+            "confirmaciones",
+            "clinicdesk.app.pages.confirmaciones.register",
+            requiere_i18n=True,
+            titulo_key_i18n="nav.confirmaciones",
+        ),
+        RegistroPaginaSpec("medicos", "clinicdesk.app.pages.medicos.register", titulo="Médicos"),
+        RegistroPaginaSpec("personal", "clinicdesk.app.pages.personal.register", titulo="Personal"),
+        RegistroPaginaSpec("salas", "clinicdesk.app.pages.salas.register", titulo="Salas"),
+        RegistroPaginaSpec("farmacia", "clinicdesk.app.pages.farmacia.register", titulo="Farmacia"),
+        RegistroPaginaSpec("medicamentos", "clinicdesk.app.pages.medicamentos.register", titulo="Medicamentos"),
+        RegistroPaginaSpec("materiales", "clinicdesk.app.pages.materiales.register", titulo="Materiales"),
+        RegistroPaginaSpec("recetas", "clinicdesk.app.pages.recetas.register", titulo="Recetas"),
+        RegistroPaginaSpec("dispensaciones", "clinicdesk.app.pages.dispensaciones.register", titulo="Dispensaciones"),
+        RegistroPaginaSpec("turnos", "clinicdesk.app.pages.turnos.register", titulo="Turnos / Cuadrantes"),
+        RegistroPaginaSpec("ausencias", "clinicdesk.app.pages.ausencias.register", titulo="Ausencias"),
+        RegistroPaginaSpec("incidencias", "clinicdesk.app.pages.incidencias.register", titulo="Incidencias"),
+        RegistroPaginaSpec("auditoria", "clinicdesk.app.pages.auditoria.register", titulo="Auditoría"),
+        RegistroPaginaSpec(
+            "prediccion_ausencias",
+            "clinicdesk.app.pages.prediccion_ausencias.register",
+            requiere_i18n=True,
+            titulo_key_i18n="nav.prediccion_ausencias",
         ),
         RegistroPaginaSpec(
-            "prediccion_operativa", "clinicdesk.app.pages.prediccion_operativa.register", requiere_i18n=True
+            "prediccion_operativa",
+            "clinicdesk.app.pages.prediccion_operativa.register",
+            requiere_i18n=True,
+            titulo_key_i18n="nav.prediccion_operativa",
         ),
-        RegistroPaginaSpec("gestion", "clinicdesk.app.pages.gestion.register", requiere_i18n=True),
-        RegistroPaginaSpec("seguros", "clinicdesk.app.pages.seguros.register", requiere_i18n=True),
+        RegistroPaginaSpec(
+            "gestion", "clinicdesk.app.pages.gestion.register", requiere_i18n=True, titulo_key_i18n="nav.gestion"
+        ),
+        RegistroPaginaSpec(
+            "seguros", "clinicdesk.app.pages.seguros.register", requiere_i18n=True, titulo_key_i18n="nav.seguros"
+        ),
     )
 
 
@@ -77,10 +98,19 @@ def _truncar_error(error: Exception) -> str:
     return str(error).strip().replace("\n", " ")[:_MAX_ERROR_LEN]
 
 
+def _resolver_titulo_placeholder(spec: RegistroPaginaSpec, i18n: I18nManager) -> str:
+    if spec.titulo_key_i18n:
+        return i18n.t(spec.titulo_key_i18n)
+    if spec.titulo:
+        return spec.titulo
+    return spec.page_id
+
+
 def _crear_placeholder_page_def(
     *,
     i18n: I18nManager,
     page_id: str,
+    titulo_visible: str,
     codigo_error: str,
     detalles_cortos: str,
     factory_recargable: _FactoryPaginaRecargable,
@@ -91,7 +121,7 @@ def _crear_placeholder_page_def(
 
         return PageNoDisponible(
             i18n=i18n,
-            nombre_pagina=page_id,
+            nombre_pagina=titulo_visible,
             codigo_error=codigo_error,
             detalles_cortos=detalles_cortos,
             on_reintentar=recargar_callback,
@@ -100,7 +130,7 @@ def _crear_placeholder_page_def(
     factory_recargable.actualizar(_factory)
     return _PageEntry(
         key=page_id,
-        title=page_id,
+        title=titulo_visible,
         factory=factory_recargable.crear,
     )
 
@@ -152,25 +182,33 @@ def _registrar_placeholder(
     detalles_cortos: str,
 ) -> None:
     factory_recargable = _FactoryPaginaRecargable(lambda: None)
+    titulo_placeholder = _resolver_titulo_placeholder(spec, i18n)
+    page_entry: _PageEntry
 
     def _reintentar() -> ResultadoReintentoPagina:
         try:
             pagina_recuperada = _resolver_pagina_recuperada(spec=spec, container=container, i18n=i18n)
         except Exception as exc:  # pragma: no cover - defensivo
             return ResultadoReintentoPagina(ok=False, mensaje=_truncar_error(exc))
+        page_entry.title = pagina_recuperada.title
         factory_recargable.actualizar(pagina_recuperada.factory)
-        return ResultadoReintentoPagina(ok=True, pagina_recuperada=pagina_recuperada.factory())
-
-    registry.register(
-        _crear_placeholder_page_def(
-            i18n=i18n,
-            page_id=spec.page_id,
-            codigo_error=codigo_error,
-            detalles_cortos=detalles_cortos,
-            factory_recargable=factory_recargable,
-            recargar_callback=_reintentar,
+        return ResultadoReintentoPagina(
+            ok=True,
+            pagina_recuperada=pagina_recuperada.factory(),
+            page_id=pagina_recuperada.key,
+            titulo_pagina=pagina_recuperada.title,
         )
+
+    page_entry = _crear_placeholder_page_def(
+        i18n=i18n,
+        page_id=spec.page_id,
+        titulo_visible=titulo_placeholder,
+        codigo_error=codigo_error,
+        detalles_cortos=detalles_cortos,
+        factory_recargable=factory_recargable,
+        recargar_callback=_reintentar,
     )
+    registry.register(page_entry)
 
 
 def _log_page_error(*, spec: RegistroPaginaSpec, reason_code: str, error: Exception) -> None:
