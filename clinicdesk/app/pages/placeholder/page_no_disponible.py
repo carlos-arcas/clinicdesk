@@ -2,9 +2,10 @@ from __future__ import annotations
 
 from typing import Callable
 
-from PySide6.QtWidgets import QLabel, QPushButton, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QLabel, QPushButton, QStackedWidget, QVBoxLayout, QWidget
 
 from clinicdesk.app.i18n import I18nManager
+from clinicdesk.app.ui.bootstrap_ui import ResultadoReintentoPagina
 
 _MAX_DETALLE = 120
 
@@ -17,7 +18,7 @@ class PageNoDisponible(QWidget):
         nombre_pagina: str,
         codigo_error: str,
         detalles_cortos: str = "",
-        on_reintentar: Callable[[], tuple[bool, str]] | None = None,
+        on_reintentar: Callable[[], ResultadoReintentoPagina] | None = None,
     ) -> None:
         super().__init__()
         self._i18n = i18n
@@ -68,9 +69,31 @@ class PageNoDisponible(QWidget):
     def _reintentar_carga(self) -> None:
         if self._on_reintentar is None:
             return
-        ok, mensaje = self._on_reintentar()
-        clave = "placeholder.reintento_ok" if ok else "placeholder.reintento_fail"
+        resultado = self._on_reintentar()
+        if resultado.ok and self._reemplazar_por_pagina(resultado.pagina_recuperada):
+            return
+        self._feedback.setText(self._build_feedback(resultado))
+
+    def _build_feedback(self, resultado: ResultadoReintentoPagina) -> str:
+        clave = "placeholder.reintento_ok" if resultado.ok else "placeholder.reintento_fail"
         texto = self._i18n.t(clave)
-        if mensaje:
-            texto = f"{texto}: {mensaje[:_MAX_DETALLE]}"
-        self._feedback.setText(texto)
+        if resultado.mensaje:
+            texto = f"{texto}: {resultado.mensaje[:_MAX_DETALLE]}"
+        return texto
+
+    def _reemplazar_por_pagina(self, pagina: object | None) -> bool:
+        if not isinstance(pagina, QWidget):
+            return False
+        parent = self.parentWidget()
+        while parent is not None:
+            if isinstance(parent, QStackedWidget):
+                indice = parent.indexOf(self)
+                if indice == -1:
+                    return False
+                parent.insertWidget(indice, pagina)
+                parent.setCurrentWidget(pagina)
+                parent.removeWidget(self)
+                self.deleteLater()
+                return True
+            parent = parent.parentWidget()
+        return False
