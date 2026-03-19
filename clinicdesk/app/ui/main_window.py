@@ -151,6 +151,11 @@ class MainWindow(QMainWindow):
     def _current_page_widget(self) -> QWidget | None:
         return self.stack.currentWidget()
 
+    def actualizar_titulo_pagina(self, key: str, titulo: str) -> None:
+        item = self._sidebar_item_by_key.get(key)
+        if item is not None:
+            item.setText(titulo)
+
     def _open_quick_search_for_current_page(self) -> None:
         key = self._current_page_key()
         page = self._current_page_widget()

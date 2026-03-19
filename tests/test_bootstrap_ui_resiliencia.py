@@ -8,11 +8,13 @@ import pytest
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 try:
-    from PySide6.QtWidgets import QApplication, QLabel, QStackedWidget
+    from PySide6.QtWidgets import QApplication, QLabel, QStackedWidget, QVBoxLayout, QWidget
 except ImportError:  # pragma: no cover
     QApplication = None
     QLabel = None
     QStackedWidget = None
+    QVBoxLayout = None
+    QWidget = None
 
 from clinicdesk.app.i18n import I18nManager
 from clinicdesk.app.ui import bootstrap_ui
@@ -31,10 +33,22 @@ def _app() -> QApplication:
     return QApplication.instance() or QApplication([])
 
 
+class _HostNavegacion(QWidget if QWidget is not None else object):
+    def __init__(self) -> None:
+        super().__init__()
+        self.stack = QStackedWidget(self)
+        self.actualizaciones: list[tuple[str, str]] = []
+        layout = QVBoxLayout(self)
+        layout.addWidget(self.stack)
+
+    def actualizar_titulo_pagina(self, key: str, titulo: str) -> None:
+        self.actualizaciones.append((key, titulo))
+
+
 def test_get_pages_devuelve_placeholder_si_falla_import(monkeypatch, caplog) -> None:
     registry_specs = (
-        bootstrap_ui.RegistroPaginaSpec("ok", "mod.ok"),
-        bootstrap_ui.RegistroPaginaSpec("rota", "mod.rota"),
+        bootstrap_ui.RegistroPaginaSpec("ok", "mod.ok", titulo="OK"),
+        bootstrap_ui.RegistroPaginaSpec("rota", "mod.rota", titulo="Rota"),
     )
 
     def _register_ok(registry, _container) -> None:
@@ -52,7 +66,7 @@ def test_get_pages_devuelve_placeholder_si_falla_import(monkeypatch, caplog) -> 
 
     assert [page.key for page in pages] == ["ok", "rota"]
     rota = next(page for page in pages if page.key == "rota")
-    assert rota.title == "rota"
+    assert rota.title == "Rota"
     assert callable(rota.factory)
     assert any(record.msg == "page_register_fail" for record in caplog.records)
 
@@ -62,7 +76,7 @@ def test_get_pages_devuelve_placeholder_si_falla_import(monkeypatch, caplog) -> 
 def test_placeholder_recupera_pagina_real_tras_retry(monkeypatch) -> None:
     _app()
     estado = {"disponible": False}
-    spec = bootstrap_ui.RegistroPaginaSpec("rota", "mod.rota")
+    spec = bootstrap_ui.RegistroPaginaSpec("rota", "mod.rota", titulo="Rota temporal")
 
     def _register_pagina(registry, _container) -> None:
         if not estado["disponible"]:
@@ -72,10 +86,12 @@ def test_placeholder_recupera_pagina_real_tras_retry(monkeypatch) -> None:
     monkeypatch.setattr(bootstrap_ui, "_cargar_registrador", lambda _spec: _register_pagina)
     pages = bootstrap_ui.get_pages(container=object(), i18n=I18nManager("es"), specs_paginas=(spec,))
 
-    stack = QStackedWidget()
+    host = _HostNavegacion()
+    stack = host.stack
     placeholder = pages[0].factory()
     stack.addWidget(placeholder)
     stack.setCurrentWidget(placeholder)
+    assert pages[0].title == "Rota temporal"
 
     estado["disponible"] = True
     placeholder._reintentar_carga()
@@ -84,6 +100,8 @@ def test_placeholder_recupera_pagina_real_tras_retry(monkeypatch) -> None:
     assert actual is not placeholder
     assert isinstance(actual, QLabel)
     assert actual.text() == "Página real"
+    assert pages[0].title == "Rota"
+    assert host.actualizaciones == [("rota", "Rota")]
 
     nueva_instancia = pages[0].factory()
     assert isinstance(nueva_instancia, QLabel)
@@ -94,7 +112,7 @@ def test_placeholder_recupera_pagina_real_tras_retry(monkeypatch) -> None:
 @pytest.mark.uiqt
 def test_placeholder_permanece_si_retry_sigue_fallando(monkeypatch) -> None:
     _app()
-    spec = bootstrap_ui.RegistroPaginaSpec("rota", "mod.rota")
+    spec = bootstrap_ui.RegistroPaginaSpec("rota", "mod.rota", titulo="Rota")
 
     def _register_pagina(_registry, _container) -> None:
         raise RuntimeError("todavía roto")
@@ -102,7 +120,8 @@ def test_placeholder_permanece_si_retry_sigue_fallando(monkeypatch) -> None:
     monkeypatch.setattr(bootstrap_ui, "_cargar_registrador", lambda _spec: _register_pagina)
     pages = bootstrap_ui.get_pages(container=object(), i18n=I18nManager("es"), specs_paginas=(spec,))
 
-    stack = QStackedWidget()
+    host = _HostNavegacion()
+    stack = host.stack
     placeholder = pages[0].factory()
     stack.addWidget(placeholder)
     stack.setCurrentWidget(placeholder)
@@ -110,8 +129,18 @@ def test_placeholder_permanece_si_retry_sigue_fallando(monkeypatch) -> None:
     placeholder._reintentar_carga()
 
     assert stack.currentWidget() is placeholder
+    assert host.actualizaciones == []
     assert "Todavía no se puede cargar" in placeholder._feedback.text()
     assert "todavía roto" in placeholder._feedback.text()
+
+
+def test_placeholder_construye_titulo_visible_desde_spec_i18n(monkeypatch) -> None:
+    spec = bootstrap_ui.RegistroPaginaSpec("confirmaciones", "mod.rota", titulo_key_i18n="nav.confirmaciones")
+    monkeypatch.setattr(bootstrap_ui, "_cargar_registrador", lambda _spec: (_ for _ in ()).throw(ImportError("falló")))
+
+    pages = bootstrap_ui.get_pages(container=object(), i18n=I18nManager("es"), specs_paginas=(spec,))
+
+    assert [page.title for page in pages] == ["Confirmaciones"]
 
 
 def test_bootstrap_construye_paginas_validas_sin_afectar_flujo_normal(monkeypatch) -> None:

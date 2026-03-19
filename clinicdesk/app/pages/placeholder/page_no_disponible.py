@@ -70,6 +70,8 @@ class PageNoDisponible(QWidget):
         if self._on_reintentar is None:
             return
         resultado = self._on_reintentar()
+        if resultado.ok:
+            self._actualizar_titulo_navegacion(resultado)
         if resultado.ok and self._reemplazar_por_pagina(resultado.pagina_recuperada):
             return
         self._feedback.setText(self._build_feedback(resultado))
@@ -97,3 +99,14 @@ class PageNoDisponible(QWidget):
                 return True
             parent = parent.parentWidget()
         return False
+
+    def _actualizar_titulo_navegacion(self, resultado: ResultadoReintentoPagina) -> None:
+        if not resultado.page_id or not resultado.titulo_pagina:
+            return
+        parent = self.parentWidget()
+        while parent is not None:
+            actualizador = getattr(parent, "actualizar_titulo_pagina", None)
+            if callable(actualizador):
+                actualizador(resultado.page_id, resultado.titulo_pagina)
+                return
+            parent = parent.parentWidget()
