@@ -60,7 +60,7 @@ class CsvMappingMixin:
             id=None,
             nombre_compuesto=(row.get("nombre_compuesto") or "").strip(),
             nombre_comercial=(row.get("nombre_comercial") or "").strip(),
-            cantidad_en_almacen=self._to_int(row.get("cantidad_en_almacen")) or 0,
+            cantidad_almacen=self._to_int(row.get("cantidad_en_almacen")) or 0,
             activo=self._parse_bool_default(row.get("activo"), default=True),
         )
 
@@ -69,7 +69,7 @@ class CsvMappingMixin:
             id=None,
             nombre=(row.get("nombre") or "").strip(),
             fungible=self._parse_bool_default(row.get("fungible"), default=True),
-            cantidad_en_almacen=self._to_int(row.get("cantidad_en_almacen")) or 0,
+            cantidad_almacen=self._to_int(row.get("cantidad_en_almacen")) or 0,
             activo=self._parse_bool_default(row.get("activo"), default=True),
         )
 

@@ -68,7 +68,7 @@ class MaterialFormDialog(QDialog):
                 id=self._material_id,
                 nombre=self.txt_nombre.text().strip(),
                 fungible=self.chk_fungible.isChecked(),
-                cantidad_en_almacen=self.spn_stock.value(),
+                cantidad_almacen=self.spn_stock.value(),
                 activo=self.chk_activo.isChecked(),
             )
             material.validar()
