@@ -10,6 +10,7 @@ from clinicdesk.app.domain.enums import TipoDocumento
 from clinicdesk.app.domain.exceptions import ValidationError
 from clinicdesk.app.domain.modelos import Medico
 from clinicdesk.app.infrastructure.sqlite.date_utils import format_iso_date, parse_iso_date
+from clinicdesk.app.infrastructure.sqlite.id_utils import require_lastrowid, require_row_id
 from clinicdesk.app.infrastructure.sqlite.medicos_field_protection import MedicosFieldProtection
 from clinicdesk.app.infrastructure.sqlite.pii_crypto import get_connection_pii_cipher
 
@@ -27,7 +28,7 @@ class MedicosRepository:
         payload = _payload_for_write(medico, self._field_protection, self._encrypt)
         cur = self._con.execute(_insert_sql(self._field_protection.enabled), payload)
         self._con.commit()
-        return int(cur.lastrowid)
+        return require_lastrowid(cur, context="MedicosRepository.create")
 
     def update(self, medico: Medico) -> None:
         if not medico.id:
@@ -42,7 +43,7 @@ class MedicosRepository:
         self._con.commit()
 
     def get_by_id(self, medico_id: int) -> Optional[Medico]:
-        row = self._con.execute("SELECT * FROM medicos WHERE id = ?", (medico_id,)).fetchone()
+        row = self._con.execute("SELECT * FROM medicos WHERE id = ? AND activo = 1", (medico_id,)).fetchone()
         return self._row_to_model(row) if row else None
 
     def get_id_by_documento(self, tipo_documento: TipoDocumento | str, documento: str) -> Optional[int]:
@@ -50,7 +51,7 @@ class MedicosRepository:
             return None
         tipo = tipo_documento.value if isinstance(tipo_documento, TipoDocumento) else str(tipo_documento)
         row = _fetch_by_documento(self._con, self._field_protection, tipo=tipo, documento=documento)
-        return int(row["id"]) if row else None
+        return require_row_id(row, context="MedicosRepository.get_id_by_documento") if row else None
 
     def list_all(self, *, solo_activos: bool = True) -> List[Medico]:
         sql = "SELECT * FROM medicos" + (" WHERE activo = 1" if solo_activos else "")
@@ -181,11 +182,11 @@ def _fetch_by_documento(
 ) -> sqlite3.Row | None:
     if protection.enabled:
         return con.execute(
-            "SELECT id FROM medicos WHERE tipo_documento = ? AND documento_hash = ?",
+            "SELECT id FROM medicos WHERE tipo_documento = ? AND documento_hash = ? AND activo = 1",
             (tipo, protection.hash_for_lookup("documento", documento)),
         ).fetchone()
     return con.execute(
-        "SELECT id FROM medicos WHERE tipo_documento = ? AND documento = ?",
+        "SELECT id FROM medicos WHERE tipo_documento = ? AND documento = ? AND activo = 1",
         (tipo, documento),
     ).fetchone()
 

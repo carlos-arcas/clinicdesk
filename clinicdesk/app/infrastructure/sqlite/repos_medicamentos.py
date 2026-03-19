@@ -19,6 +19,8 @@ import logging
 import sqlite3
 from typing import List, Optional
 
+from clinicdesk.app.infrastructure.sqlite.id_utils import require_lastrowid, require_row_id
+
 from clinicdesk.app.domain.modelos import Medicamento
 from clinicdesk.app.common.search_utils import like_value, normalize_search_text
 from clinicdesk.app.domain.exceptions import ValidationError
@@ -68,7 +70,7 @@ class MedicamentosRepository:
             ),
         )
         self._con.commit()
-        return int(cur.lastrowid)
+        return require_lastrowid(cur, context="MedicamentosRepository.create")
 
     def update(self, medicamento: Medicamento) -> None:
         """
@@ -113,7 +115,7 @@ class MedicamentosRepository:
         Obtiene un medicamento por id.
         """
         row = self._con.execute(
-            "SELECT * FROM medicamentos WHERE id = ?",
+            "SELECT * FROM medicamentos WHERE id = ? AND activo = 1",
             (medicamento_id,),
         ).fetchone()
 
@@ -129,13 +131,15 @@ class MedicamentosRepository:
         row = self._con.execute(
             """
             SELECT id FROM medicamentos
-            WHERE nombre_comercial LIKE ? COLLATE NOCASE
+            WHERE activo = 1 AND (
+                  nombre_comercial LIKE ? COLLATE NOCASE
                OR nombre_compuesto LIKE ? COLLATE NOCASE
+            )
             ORDER BY nombre_comercial
             """,
             (like_value(nombre), like_value(nombre)),
         ).fetchone()
-        return int(row["id"]) if row else None
+        return require_row_id(row, context="MedicamentosRepository.get_id_by_nombre") if row else None
 
     # --------------------------------------------------------------
     # Listado y búsqueda
@@ -146,7 +150,7 @@ class MedicamentosRepository:
         Lista todos los medicamentos.
         """
         sql = "SELECT * FROM medicamentos"
-        params = []
+        params: list[object] = []
 
         if solo_activos:
             sql += " WHERE activo = 1"
@@ -175,8 +179,8 @@ class MedicamentosRepository:
         """
         texto = normalize_search_text(texto)
 
-        clauses = []
-        params = []
+        clauses: list[str] = []
+        params: list[object] = []
 
         if texto:
             clauses.append("(nombre_comercial LIKE ? COLLATE NOCASE OR nombre_compuesto LIKE ? COLLATE NOCASE)")

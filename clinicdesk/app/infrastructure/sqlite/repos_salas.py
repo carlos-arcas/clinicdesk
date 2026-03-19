@@ -19,6 +19,8 @@ import logging
 import sqlite3
 from typing import List, Optional
 
+from clinicdesk.app.infrastructure.sqlite.id_utils import require_lastrowid
+
 from clinicdesk.app.domain.modelos import Sala
 from clinicdesk.app.domain.enums import TipoSala
 from clinicdesk.app.common.search_utils import like_value, normalize_search_text
@@ -66,7 +68,7 @@ class SalasRepository:
             ),
         )
         self._con.commit()
-        return int(cur.lastrowid)
+        return require_lastrowid(cur, context="SalasRepository.create")
 
     def update(self, sala: Sala) -> None:
         """
@@ -111,7 +113,7 @@ class SalasRepository:
         Obtiene una sala por id.
         """
         row = self._con.execute(
-            "SELECT * FROM salas WHERE id = ?",
+            "SELECT * FROM salas WHERE id = ? AND activa = 1",
             (sala_id,),
         ).fetchone()
 
@@ -126,7 +128,7 @@ class SalasRepository:
         Lista todas las salas.
         """
         sql = "SELECT * FROM salas"
-        params = []
+        params: list[object] = []
 
         if solo_activas:
             sql += " WHERE activa = 1"
@@ -158,8 +160,8 @@ class SalasRepository:
         tipo_value = normalize_search_text(tipo.value if tipo else None)
         texto = normalize_search_text(texto)
 
-        clauses = []
-        params = []
+        clauses: list[str] = []
+        params: list[object] = []
 
         if tipo_value:
             clauses.append("tipo LIKE ? COLLATE NOCASE")
