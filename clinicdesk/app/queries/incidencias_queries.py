@@ -21,8 +21,8 @@ class IncidenciaRow:
     fecha_hora: str
     descripcion: str
     nota_override: str
-    confirmado_por_personal_id: int
-    confirmado_por_nombre: str
+    confirmado_por_personal_id: Optional[int]
+    confirmado_por_nombre: Optional[str]
 
     medico_id: Optional[int]
     medico_nombre: Optional[str]
@@ -82,7 +82,10 @@ class IncidenciasQueries:
                     i.descripcion,
                     i.nota_override,
                     i.confirmado_por_personal_id,
-                    (cp.nombre || ' ' || cp.apellidos) AS confirmado_por_nombre,
+                    CASE
+                        WHEN i.confirmado_por_personal_id IS NULL THEN NULL
+                        ELSE (cp.nombre || ' ' || cp.apellidos)
+                    END AS confirmado_por_nombre,
 
                     i.medico_id,
                     CASE WHEN i.medico_id IS NULL THEN NULL ELSE (m.nombre || ' ' || m.apellidos) END AS medico_nombre,
@@ -96,7 +99,7 @@ class IncidenciasQueries:
                 FROM incidencias i
                 LEFT JOIN medicos m ON m.id = i.medico_id
                 LEFT JOIN personal p ON p.id = i.personal_id
-                JOIN personal cp ON cp.id = i.confirmado_por_personal_id
+                LEFT JOIN personal cp ON cp.id = i.confirmado_por_personal_id
                 {where_sql}
                 ORDER BY i.fecha_hora DESC, i.id DESC
                 LIMIT ?
@@ -154,7 +157,7 @@ class IncidenciasQueries:
             fecha_hora=row["fecha_hora"],
             descripcion=row["descripcion"],
             nota_override=row["nota_override"],
-            confirmado_por_personal_id=int(row["confirmado_por_personal_id"]),
+            confirmado_por_personal_id=self._optional_int(row, "confirmado_por_personal_id"),
             confirmado_por_nombre=row["confirmado_por_nombre"],
             medico_id=row["medico_id"],
             medico_nombre=row["medico_nombre"],
@@ -164,6 +167,11 @@ class IncidenciasQueries:
             receta_id=row["receta_id"],
             dispensacion_id=row["dispensacion_id"],
         )
+
+    @staticmethod
+    def _optional_int(row: sqlite3.Row, field: str) -> Optional[int]:
+        value = row[field]
+        return int(value) if value is not None else None
 
     def get_by_id(self, incidencia_id: int) -> Optional[IncidenciaRow]:
         try:
@@ -178,7 +186,10 @@ class IncidenciasQueries:
                     i.descripcion,
                     i.nota_override,
                     i.confirmado_por_personal_id,
-                    (cp.nombre || ' ' || cp.apellidos) AS confirmado_por_nombre,
+                    CASE
+                        WHEN i.confirmado_por_personal_id IS NULL THEN NULL
+                        ELSE (cp.nombre || ' ' || cp.apellidos)
+                    END AS confirmado_por_nombre,
 
                     i.medico_id,
                     CASE WHEN i.medico_id IS NULL THEN NULL ELSE (m.nombre || ' ' || m.apellidos) END AS medico_nombre,
@@ -192,7 +203,7 @@ class IncidenciasQueries:
                 FROM incidencias i
                 LEFT JOIN medicos m ON m.id = i.medico_id
                 LEFT JOIN personal p ON p.id = i.personal_id
-                JOIN personal cp ON cp.id = i.confirmado_por_personal_id
+                LEFT JOIN personal cp ON cp.id = i.confirmado_por_personal_id
                 WHERE i.id = ? AND i.activo = 1
                 """,
                 (incidencia_id,),
