@@ -10,11 +10,6 @@ import sqlite3
 logger = logging.getLogger(__name__)
 
 
-# =========================
-# DTOs para la UI
-# =========================
-
-
 @dataclass(frozen=True)
 class RecetaRow:
     id: int
@@ -26,6 +21,7 @@ class RecetaRow:
 @dataclass(frozen=True)
 class RecetaLineaRow:
     id: int
+    medicamento_id: int
     medicamento: str
     dosis: str
     cantidad: int
@@ -33,25 +29,15 @@ class RecetaLineaRow:
     estado: str
 
 
-# =========================
-# Queries
-# =========================
-
-
 class FarmaciaQueries:
-    """
-    Consultas de SOLO lectura para Farmacia.
-    Devuelve datos ya preparados para la UI.
-    """
+    """Consultas de solo lectura para farmacia listas para la UI."""
 
     def __init__(self, connection: sqlite3.Connection) -> None:
         self._conn = connection
 
-    # -------- Recetas --------
-
     def recetas_por_paciente(self, paciente_id: int) -> List[RecetaRow]:
         try:
-            cur = self._conn.execute(
+            rows = self._conn.execute(
                 """
                 SELECT
                     r.id,
@@ -64,29 +50,28 @@ class FarmaciaQueries:
                 ORDER BY r.fecha DESC
                 """,
                 (paciente_id,),
-            )
+            ).fetchall()
         except sqlite3.Error as exc:
-            logger.error("Error SQL en FarmaciaQueries.recetas_por_paciente: %s", exc)
+            logger.error("farmacia_queries_recetas_por_paciente_sql_error", extra={"error": str(exc)})
             return []
 
         return [
             RecetaRow(
-                id=row["id"],
+                id=int(row["id"]),
                 fecha=row["fecha"],
                 medico=row["medico"],
                 estado=row["estado"],
             )
-            for row in cur.fetchall()
+            for row in rows
         ]
-
-    # -------- Líneas de receta --------
 
     def lineas_por_receta(self, receta_id: int) -> List[RecetaLineaRow]:
         try:
-            cur = self._conn.execute(
+            rows = self._conn.execute(
                 """
                 SELECT
                     rl.id,
+                    rl.medicamento_id,
                     med.nombre_comercial AS medicamento,
                     rl.dosis,
                     rl.cantidad,
@@ -98,19 +83,20 @@ class FarmaciaQueries:
                 ORDER BY rl.id
                 """,
                 (receta_id,),
-            )
+            ).fetchall()
         except sqlite3.Error as exc:
-            logger.error("Error SQL en FarmaciaQueries.lineas_por_receta: %s", exc)
+            logger.error("farmacia_queries_lineas_por_receta_sql_error", extra={"error": str(exc)})
             return []
 
         return [
             RecetaLineaRow(
-                id=row["id"],
+                id=int(row["id"]),
+                medicamento_id=int(row["medicamento_id"]),
                 medicamento=row["medicamento"],
                 dosis=row["dosis"],
-                cantidad=row["cantidad"],
-                pendiente=row["pendiente"],
+                cantidad=int(row["cantidad"]),
+                pendiente=int(row["pendiente"]),
                 estado=row["estado"],
             )
-            for row in cur.fetchall()
+            for row in rows
         ]

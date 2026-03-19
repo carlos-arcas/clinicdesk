@@ -15,7 +15,7 @@ class IncidenciasController:
     def __init__(self, parent: QWidget, container: AppContainer) -> None:
         self._parent = parent
         self._c = container
-        self._q = IncidenciasQueries(container)
+        self._q = IncidenciasQueries(container.connection)
 
     def search(
         self,
