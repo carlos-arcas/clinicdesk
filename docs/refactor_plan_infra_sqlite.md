@@ -124,4 +124,4 @@ Crear utilidades explícitas y pequeñas en `infrastructure/sqlite/common/`:
 - Reducción sostenida de LOC por archivo y tamaño por función en los cuatro hotspots.
 - Cero regresiones funcionales observables en UI durante la migración.
 - Contratos públicos estables hasta etapa de consolidación.
-- Evidencia de avance en `docs/quality_report.md` y `docs/progress_log.md`.
+- Evidencia de avance en `docs/quality_report.md` y en los commits asociados al refactor.

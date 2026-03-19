@@ -2,29 +2,27 @@
 
 ![Python >=3.11](https://img.shields.io/badge/python-%3E%3D3.11-3776AB?logo=python&logoColor=white)
 
-ClinicDesk es una aplicación de escritorio en Python + PySide6 para operación clínica diaria. El repositorio mantiene una API HTTP opcional y de solo lectura para integraciones puntuales, pero el producto principal es la app desktop.
+ClinicDesk es una aplicación desktop en Python + PySide6 para la operación clínica diaria. El repositorio incluye una API HTTP opcional y de solo lectura para integraciones puntuales, pero el producto principal es la aplicación de escritorio.
 
-## Qué incluye el producto
+## Producto real
 - Agenda clínica, pacientes, confirmaciones, farmacia, auditoría y módulos operativos.
-- Clean Architecture con separación entre dominio, aplicación, infraestructura y presentación.
-- Quality gates, controles de seguridad y logging estructurado para trazabilidad operativa.
+- Arquitectura limpia con separación entre dominio, aplicación, infraestructura y presentación.
+- Logging estructurado y gates de calidad para trazabilidad operativa.
 
-## Ejecutar la aplicación desktop
-### Setup
+## Arranque de la aplicación desktop
+### Preparación del entorno
 ```bash
 python scripts/setup.py
 ```
 
-### Arranque
+### Ejecución
 ```bash
 python scripts/run_app.py
 ```
 
-## Calidad y mantenimiento
-Comandos canónicos:
-
+## Comandos canónicos de calidad
 - Gate rápido: `python -m scripts.gate_rapido`
-- Gate completo de PR/CI: `python -m scripts.gate_pr`
+- Gate completo PR/CI: `python -m scripts.gate_pr`
 - Doctor de entorno: `python -m scripts.doctor_entorno_calidad`
 - Lint: `python -m scripts.lint_all`
 - Formato: `python -m scripts.format_all`
@@ -32,7 +30,7 @@ Comandos canónicos:
 CI debe ejecutar exactamente `python -m scripts.gate_pr`.
 
 ## API opcional de solo lectura
-La API no redefine el producto. Existe para healthcheck e integraciones puntuales de consulta.
+La API no redefine el producto. Solo expone healthcheck e integraciones de consulta.
 
 ### Arranque local
 ```bash
@@ -44,20 +42,15 @@ python -m clinicdesk.web.api.serve
 python -m clinicdesk.web.serve_health
 ```
 
-### Arranque con Docker
-```bash
-docker compose up --build
-```
-
 Variables relevantes:
 - `CLINICDESK_API_KEY`: clave para endpoints `/api/*`.
 - `CLINICDESK_DB_PATH`: ruta SQLite usada por la API.
-- `CLINICDESK_WEB_MODE=api|healthz`: modo del contenedor raíz.
-- `CLINICDESK_WEB_PORT`: puerto HTTP del contenedor raíz.
+- `CLINICDESK_WEB_MODE=api|healthz`: modo HTTP auxiliar.
+- `CLINICDESK_WEB_PORT`: puerto HTTP auxiliar.
 
 ## Documentación útil
 - Arquitectura: [docs/architecture_contract.md](docs/architecture_contract.md)
-- Gate y CI: [docs/ci_quality_gate.md](docs/ci_quality_gate.md)
 - Pruebas: [docs/TESTING.md](docs/TESTING.md)
+- Gate y CI: [docs/ci_quality_gate.md](docs/ci_quality_gate.md)
 - Seguridad: [docs/security_hardening.md](docs/security_hardening.md)
 - Checklist funcional: [docs/features.md](docs/features.md)
