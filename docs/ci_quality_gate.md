@@ -1,286 +1,34 @@
-# CI Quality Gate (Core)
+# Quality gate de CI y PR
 
-## Objetivo
-Asegurar calidad continua sin bloquear por UI. El gate bloqueante aplica al **core clínico bajo control en Paso 2** (flujo de citas end-to-end).
-
-## Comando canónico (local y CI)
+## Comando canónico
 - Gate rápido: `python -m scripts.gate_rapido`
 - Gate completo PR/CI: `python -m scripts.gate_pr`
 
-Regla de CI: ejecutar exactamente `python -m scripts.gate_pr`.
+CI debe ejecutar exactamente `python -m scripts.gate_pr`.
 
-## Qué ejecuta el gate
-1. **Lint/format obligatorio con Ruff**
-   - Configuración central en `pyproject.toml` (`[tool.ruff]` y `[tool.ruff.format]`).
-   - El gate ejecuta siempre `ruff check .` y `ruff format --check .`.
-   - Si Ruff no está instalado, el gate falla con error explícito (sin skips silenciosos).
-2. **Typecheck incremental con mypy (bloqueante + report-only)**
-   - Comando bloqueante: `python -m mypy $(cat scripts/mypy_scope.txt)`.
-   - El scope bloqueante vive en `scripts/mypy_scope.txt` y solo cubre módulos core de dominio/aplicación/queries.
-   - Comando report-only: `python -m mypy clinicdesk/app`.
-   - El reporte report-only siempre se guarda en `docs/mypy_report.txt` y no rompe el gate por ahora.
-3. **Tests bloqueantes**
-   - Ejecuta `pytest` con `-m "not ui"`.
-4. **Coverage SOLO core + artefacto en docs/**
-   - Calcula cobertura core mediante trazado de ejecución sobre los módulos core definidos en el script.
-   - Además genera `docs/coverage.xml` usando `pytest-cov` para publicar artefactos en CI.
-5. **Structural gate (LOC + CC + hotspots)**
-   - Analiza Python con `ast` (sin dependencias externas) excluyendo `app/ui/**`, `tests/**`, `migrations/**` y `sql/**`.
-   - Detecta monolitos por tamaño de archivo/función/clase.
-   - Calcula complejidad ciclomática (CC) por función/método.
-   - Calcula hotspots por score combinado de tamaño y CC.
-   - Genera siempre `docs/quality_report.md`.
-6. **Umbral de cobertura core**
-   - Falla si cobertura core `< 85%`.
+## Qué valida el gate completo
+1. Ruff (`check` y `format --check`).
+2. Typecheck incremental con mypy.
+3. `pytest -q` en el scope bloqueante.
+4. Cobertura mínima del core (`>= 85%`).
+5. Guardrails estructurales: arquitectura, tamaño, complejidad y residuos prohibidos.
+6. Seguridad: `pip-audit`, escaneo de secretos y control básico de PII en logs.
+7. Documentación contractual y checklist funcional.
 
+## Artefactos generados por el gate
+- `docs/coverage.xml`
+- `docs/quality_report.md`
+- `docs/mypy_report.txt`
+- `docs/pip_audit_report.txt`
+- `docs/secrets_scan_report.txt`
 
-
-## Seguridad de dependencias y secretos (bloqueante)
-
-El gate canónico `python -m scripts.gate_pr` ahora ejecuta además:
-
-7. **`pip-audit` bloqueante**
-   - Comando: `python -m pip_audit --progress-spinner off --output docs/pip_audit_report.txt --format columns`
-   - Si existen vulnerabilidades, el gate falla.
-   - Allowlist opcional y controlada: `docs/pip_audit_allowlist.json` con `id` y `motivo` por vulnerabilidad.
-8. **Escaneo de secretos con Gitleaks**
-   - Comando: `gitleaks detect --source . --config .gitleaks.toml --report-format json --report-path docs/secrets_scan_report.txt`
-   - Reporte: `docs/secrets_scan_report.txt` (siempre en JSON).
-   - La configuración en `.gitleaks.toml` excluye artefactos no fuente (`__pycache__`, `*.pyc`, caches de pytest/mypy/ruff y `.venv`) para evitar falsos positivos sin relajar el escaneo sobre código fuente.
-   - Si no existe `gitleaks` en `PATH`, el gate falla con guía de instalación (sin skips silenciosos).
-9. **Guardrail básico de PII en logging**
-   - Escaneo AST de llamadas `logger.*` para strings hardcodeados con tokens sensibles (`dni`, `nif`, `email`, `telefono`, `direccion`, `historia_clinica`).
-   - Allowlist mínima: `docs/pii_logging_allowlist.json` con `clave` y `motivo` explícito.
-
-### Preflight de entorno (doctor)
-Antes del gate, valida entorno y pins con:
-
-- `python -m scripts.doctor_entorno_calidad`
-
-Salida/códigos estables:
-- `0`: entorno alineado.
-- `2`: herramienta crítica ausente.
-- `3`: mismatch de versión pinneada.
-- `4`: wheelhouse requerido y ausente (cuando se usa `--require-wheelhouse`).
-
-Para bootstrap offline-first opcional:
-- definir `CLINICDESK_WHEELHOUSE=/ruta/a/wheelhouse`
-- generar wheelhouse (fuera de CI): `python -m scripts.dev.build_wheelhouse`
-
-### Ejecución local exacta
-1. `python -m pip install --upgrade pip`
-2. `pip install -r requirements-dev.txt`
-3. Instalar Gitleaks (ejemplo Ubuntu):
-   - `sudo apt-get update`
-   - `sudo apt-get install -y gitleaks`
-4. Ejecutar gate completo: `python -m scripts.gate_pr`
-
-### Si falla `pip-audit` por módulo no instalado
-1. Instala dependencias de desarrollo con el comando exacto:
-   - `pip install -r requirements-dev.txt`
-2. Verifica que el ejecutable responde en el mismo entorno:
-   - `python -m pip_audit --help`
-3. Reejecuta el gate completo:
-   - `python -m scripts.gate_pr`
-
-### Cómo resolver fallos
-- **Fallo de `pip-audit` por CVEs**:
-  1. Actualizar dependencia vulnerable en `requirements*.txt` / lock correspondiente.
-  2. Reinstalar y repetir gate.
-  3. Solo si es falso positivo real/no mitigable temporalmente: añadir entrada en `docs/pip_audit_allowlist.json` con `id` y `motivo` verificable.
-- **Fallo de secrets scan**:
-  1. Revocar/rotar secreto comprometido.
-  2. Eliminar del historial/código y reemplazar por variables de entorno/secret manager.
-  3. Reejecutar gate hasta reporte limpio.
-- **Fallo de guardrail PII/logging**:
-  1. Quitar tokens sensibles del mensaje hardcodeado.
-  2. Mantener detalle técnico sin PII (usar IDs anonimizados).
-  3. Si es test explícito, documentar allowlist con motivo.
-
-## Definición de “core” (Paso 2)
-Módulos incluidos en cobertura bloqueante:
-- `clinicdesk/app/domain/enums.py`
-- `clinicdesk/app/domain/exceptions.py`
-- `clinicdesk/app/application/usecases/crear_cita.py`
-- `clinicdesk/app/infrastructure/sqlite/repos_citas.py`
-- `clinicdesk/app/queries/citas_queries.py`
-
-## Scope bloqueante de mypy (incremental)
-
-Fuente de verdad: `scripts/mypy_scope.txt`.
-
-Estado inicial (sprint actual):
-- `clinicdesk/app/domain/enums.py`
-- `clinicdesk/app/domain/exceptions.py`
-- `clinicdesk/app/domain/entities.py`
-- `clinicdesk/app/domain/repositorios.py`
-- `clinicdesk/app/domain/value_objects.py`
-- `clinicdesk/app/application/citas/validaciones.py`
-- `clinicdesk/app/application/usecases/crear_cita.py`
-- `clinicdesk/app/queries/citas_queries.py`
-
-Plan operativo de ampliación por sprint:
-1. Revisar `docs/mypy_report.txt` y seleccionar 1-2 módulos con mayor valor de negocio.
-2. Añadir rutas exactas al final de `scripts/mypy_scope.txt`.
-3. Resolver tipos del módulo nuevo sin `type: ignore` masivos.
-4. Ejecutar `python -m scripts.gate_pr` y mergear solo si el scope bloqueante continúa en verde.
-
-Módulos excluidos del gate bloqueante en este paso:
-- UI/presentation (`clinicdesk/app/ui`, `clinicdesk/app/pages`)
-- scripts de soporte y tests
-- resto de módulos legacy que se incorporarán gradualmente al gate en pasos siguientes.
-
-## Instalación para desarrollo
-1. `python -m pip install --upgrade pip`
-2. `pip install -r requirements-dev.txt`
-
-## Capa de composición (DI/wiring)
-- La composición de dependencias se centraliza en `clinicdesk/app/composicion/` con builders `build_*` por contexto (repositorios, queries y facades).
-- `clinicdesk/app/container.py` queda como orquestador fino: arma `AppContainer` invocando esa capa sin lógica de negocio.
-- Esta separación reduce deuda de wiring y facilita tests arquitectónicos sin romper límites de Clean Architecture.
-
-## Notas de operación
-- Los tests de UI deben declararse con marker `ui` para no bloquear este gate.
-- El script devuelve `exit code != 0` si falla Ruff, tests, cobertura core o generación de reportes.
-- El reporte estructural se mantiene en `docs/quality_report.md` y la cobertura en `docs/coverage.xml`.
-- Los comandos de tests desde raíz ya no requieren `PYTHONPATH=.`.
-
-## Demo ML CLI (30s)
-Puedes ejecutar el flujo ML end-to-end sin UI (ya no requiere `PYTHONPATH=.`):
-
-1. Build features + artifacts:
-   - `python scripts/ml_cli.py build-features --demo-fake --version v_demo --store-path ./data/feature_store`
-2. Train (split temporal + calibración + model store):
-   - `python scripts/ml_cli.py train --dataset-version v_demo --model-version m_demo --feature-store-path ./data/feature_store --model-store-path ./data/model_store`
-3. Score (baseline o trained):
-   - `python scripts/ml_cli.py score --dataset-version v_demo --predictor trained --model-version m_demo --feature-store-path ./data/feature_store --model-store-path ./data/model_store --limit 10`
-4. Drift (comparar versiones):
-   - `python scripts/ml_cli.py drift --from-version v_demo --to-version v_demo2 --feature-store-path ./data/feature_store`
-
-## Power BI Integration (CSV Contracts)
-La CLI ML incluye exportación CSV estable (orden fijo de columnas) para integrar dashboards externos (ej. Power BI) sin depender de `pandas`.
-
-Comandos:
-- `python scripts/ml_cli.py export features --dataset-version v_demo --output ./exports --feature-store-path ./data/feature_store`
-- `python scripts/ml_cli.py export metrics --model-name citas_nb_v1 --model-version m_demo --dataset-version v_demo --output ./exports --model-store-path ./data/model_store`
-- `python scripts/ml_cli.py export scoring --dataset-version v_demo --predictor trained --model-version m_demo --output ./exports --feature-store-path ./data/feature_store --model-store-path ./data/model_store`
-- `python scripts/ml_cli.py export drift --from-version v_demo --to-version v_demo2 --output ./exports --feature-store-path ./data/feature_store`
-
-Archivos generados en `./exports/`:
-- `features_export.csv`
-- `model_metrics_export.csv`
-- `scoring_export.csv`
-- `drift_export.csv`
-
-### Contratos y trazabilidad endurecidos (ML)
-
-- `train` valida metadata del dataset (`row_count` y `content_hash`) antes de entrenar.
-- `train` persiste metadatos de trazabilidad mínimos (`pipeline_stage`, `predictor_kind`, `traceability.dataset_version`, `schema_hash`).
-- `score` rechaza datasets vacíos y, en modo `trained`, rechaza scoring contra `dataset_version` distinto al usado en entrenamiento.
-- `drift` requiere versiones distintas y datasets no vacíos por versión.
-- `export scoring` valida `predictor_kind` y tokens obligatorios (`dataset_version`, `model_version`).
-- `export drift` falla si `from_version == to_version` para evitar reportes inválidos.
-- `export kpis` valida consistencia `dataset_version` entre request y `score_response`.
-
-Esto blinda regresiones silenciosas y mantiene contrato estable para BI sin introducir dependencias nuevas.
-
-
-## Demo dataset reproducible (SQLite real, sin demo-fake)
-Flujo recomendado para demos ML + Power BI con datos coherentes:
-
-1. Seed de demo:
-   - `python scripts/ml_cli.py seed-demo --seed 123 --doctors 10 --patients 80 --appointments 300 --from 2026-01-01 --to 2026-02-28 --incidence-rate 0.15`
-2. Build features desde SQLite real:
-   - `python scripts/ml_cli.py build-features --from 2026-01-01 --to 2026-02-28 --store-path ./data/feature_store`
-3. Train:
-   - `python scripts/ml_cli.py train --dataset-version <version> --model-version m_demo --feature-store-path ./data/feature_store --model-store-path ./data/model_store`
-4. Export para Power BI:
-   - `python scripts/ml_cli.py export features --dataset-version <version> --output ./exports --feature-store-path ./data/feature_store`
-
-Secuencia completa para operación: `seed-demo -> build-features -> train -> export -> Power BI`.
-
-## Logging & Crash files
-- El bootstrap de logging unificado usa `logging` de stdlib y crea en cada ejecución:
-  - `logs/app.log` (operacional)
-  - `logs/crash_soft.log` (errores esperables capturados)
-  - `logs/crash_fatal.log` (excepciones no controladas / critical)
-- Antes de crear handlers, el bootstrap trunca explícitamente `app.log`, `crash_soft.log` y `crash_fatal.log` para sobrescribir contenido previo en cada arranque.
-- Se agregó una validación bloqueante en `scripts/quality_gate.py` para fallar si aparece `print` en archivos Python fuera de allowlist mínima.
-- Todos los scripts CLI deben enrutar salida de consola por `logging` (handler de consola a `stderr`), no por `print`.
-
-## Seed demo rápido y seguro
-Para poblar dataset demo grande con feedback real de progreso por batch + ETA, turbo SQLite y reset seguro:
-
-- `CLINICDESK_DB_PATH=./data/clinicdesk.db python scripts/ml_cli.py seed-demo --appointments 5000 --batch-size 500 --turbo --reset`
-
-Notas:
-- `--turbo` activa PRAGMAs de rendimiento solo durante el seed.
-- `--reset` solo borra automáticamente en rutas consideradas seguras de demo (por defecto se auto-activa únicamente en rutas seguras).
-- Si la ruta no es segura, se bloquea el borrado con error explícito para evitar pérdida de datos.
-
-
-## Structural Gate (detalle)
-
-### Definición de CC
-CC por función/método se calcula como:
-- Base `1`
-- `+1` por `if`, `for`, `async for`, `while`, `if` ternario (`IfExp`)
-- `+N` por `try` según cantidad de `except`
-- `+ (n-1)` por operadores booleanos `and/or` (`BoolOp`)
-- `+N` por `match` según cantidad de `case`
-- `+N` por `ifs` en comprensiones
-
-No suma por `with`, `raise` ni `assert`.
-
-### Umbrales y configuración
-Los umbrales viven en `scripts/quality_thresholds.json`:
-- `max_file_loc = 400`
-- `max_function_loc = 60`
-- `max_class_loc = 200`
-- `max_cc = 10`
-- `max_avg_cc_per_file = 6`
-- `max_hotspots = 0`
-
-Se puede pasar archivo alterno con `--thresholds`.
-
-### Allowlist / deuda controlada
-`allowlist` permite override por ruta con motivo explícito:
-
-```json
-{
-  "path": "clinicdesk/app/legacy/*.py",
-  "max_cc": 15,
-  "max_function_loc": 90,
-  "reason": "deuda temporal planificada"
-}
+## Ejecución local mínima
+```bash
+pip install -r requirements-dev.txt
+python -m scripts.gate_pr
 ```
 
-Cada override aparece en `docs/quality_report.md` para facilitar su reducción gradual.
-
-#### Baseline allowlisted vigente (structural gate)
-
-| Archivo | Motivo |
-| --- | --- |
-| `scripts/structural_gate.py` | Script de tooling fuera del core clínico; refactor pendiente por tamaño/CC. |
-| `scripts/ml_cli.py` | CLI de soporte ML con flujo operativo amplio; deuda temporal controlada. |
-| `clinicdesk/app/infrastructure/sqlite/demo_data_seeder.py` | Seeder demo legado concentrado en un módulo único. |
-| `clinicdesk/app/infrastructure/sqlite/repos_pacientes.py` | Repositorio legacy pendiente de partición por mixins/cohesión. |
-| `clinicdesk/app/infrastructure/sqlite/repos_personal.py` | Repositorio legacy pendiente de segmentación por responsabilidades. |
-| `clinicdesk/app/infrastructure/sqlite/repos_recetas.py` | Refactor diferido por compatibilidad con UI actual. |
-| `clinicdesk/app/queries/medicos_queries.py` | Deuda preexistente en búsqueda avanzada (filtros + paginación + ordenación en una sola función). |
-| `clinicdesk/app/queries/personal_queries.py` | Deuda preexistente en búsqueda avanzada análoga; requiere extracción de helpers por criterio. |
-
-#### Plan de reducción de deuda
-
-- Mantener `--strict` como modo esperado en CI sin subir umbrales globales.
-- Objetivo operativo: retirar **1–2 entradas de allowlist por sprint**.
-- Priorización sugerida:
-  1. `clinicdesk/app/queries/medicos_queries.py` y `clinicdesk/app/queries/personal_queries.py` (impacto directo en violaciones activas de LOC/CC/avg-CC).
-  2. `clinicdesk/app/infrastructure/sqlite/demo_data_seeder.py` (alto LOC y hotspot).
-  3. Repositorios legacy `repos_*` por partición incremental de clases grandes.
-
-### Estrategia de reducción gradual de deuda
-1. Ejecutar en `--report-only` para obtener baseline.
-2. Priorizar top hotspots del reporte y bajar CC/LOC por módulo.
-3. Reducir allowlist iterativamente (subir exigencia por sprint).
-4. Mantener `--strict` como gate final en CI.
+## Si falla
+- Corregir el problema real.
+- Reejecutar el gate completo.
+- No bajar umbrales ni desactivar checks para “pasar”.

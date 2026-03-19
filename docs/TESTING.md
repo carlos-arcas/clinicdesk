@@ -1,11 +1,11 @@
-# Pruebas y quality gate
+# Pruebas
 
 ## Preparar entorno
 ```bash
 python scripts/setup.py
 ```
 
-Si prefieres hacerlo manualmente:
+Si necesitas hacerlo a mano:
 
 ```bash
 python -m venv .venv
@@ -39,8 +39,8 @@ QT_QPA_PLATFORM=offscreen pytest -q -m "uiqt"
 - Lint y formato.
 - Typecheck incremental.
 - Tests rápidos y cobertura mínima del core.
-- Guardrails estructurales, secretos, PII y artefactos.
-- Verificación de documentación contractual y checklist funcional.
+- Guardrails estructurales, secretos, PII y contratos documentales.
+- Verificación de entrypoints y documentación funcional mínima.
 
 ## Regla operativa
-Antes de abrir PR hay que ejecutar `python -m scripts.gate_pr` y repetir el ciclo hasta que quede en verde.
+Antes de abrir PR hay que ejecutar `python -m scripts.gate_pr`. Si falla, se corrige y se repite el ciclo hasta dejarlo en verde.

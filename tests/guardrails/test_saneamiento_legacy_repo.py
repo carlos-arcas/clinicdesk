@@ -38,6 +38,11 @@ RUTAS_LEGACY_PROHIBIDAS = (
     Path("clinicdesk/app/pages/Nuevo documento de texto.txt"),
     Path("docs/proyecto_narrativo_features_10_bloqueo.md"),
     Path("PORTFOLIO.md"),
+    Path("docs/ml_roadmap_codex.md"),
+    Path("docs/progress_log.md"),
+    Path("docs/roadmap_senior.md"),
+    Path("docs/branch_protection_recommended.md"),
+    Path("docs/standards.md"),
 )
 MARCADORES_PLACEHOLDER = (
     "[placeholder]",
