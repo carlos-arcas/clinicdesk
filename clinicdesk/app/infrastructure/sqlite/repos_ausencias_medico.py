@@ -21,6 +21,7 @@ from dataclasses import dataclass
 from typing import List, Optional
 
 from clinicdesk.app.domain.exceptions import ValidationError
+from clinicdesk.app.infrastructure.sqlite.id_utils import require_lastrowid, require_row_id
 
 
 logger = logging.getLogger(__name__)
@@ -109,7 +110,7 @@ class AusenciasMedicoRepository:
             ),
         )
         self._con.commit()
-        return int(cur.lastrowid)
+        return require_lastrowid(cur, context="AusenciasMedicoRepository.create")
 
     def update(self, ausencia: AusenciaMedico) -> None:
         """
@@ -157,7 +158,7 @@ class AusenciasMedicoRepository:
         Obtiene una ausencia por id.
         """
         row = self._con.execute(
-            "SELECT * FROM ausencias_medico WHERE id = ?",
+            "SELECT * FROM ausencias_medico WHERE id = ? AND activo = 1",
             (ausencia_id,),
         ).fetchone()
 
@@ -246,7 +247,7 @@ class AusenciasMedicoRepository:
         Convierte fila SQLite en AusenciaMedico.
         """
         return AusenciaMedico(
-            id=row["id"],
+            id=require_row_id(row, context="AusenciasMedicoRepository._row_to_model"),
             medico_id=row["medico_id"],
             inicio=row["inicio"],
             fin=row["fin"],

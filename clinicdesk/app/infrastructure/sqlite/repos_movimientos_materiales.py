@@ -21,6 +21,7 @@ from dataclasses import dataclass
 from typing import List, Optional
 
 from clinicdesk.app.domain.exceptions import ValidationError
+from clinicdesk.app.infrastructure.sqlite.id_utils import require_lastrowid, require_row_id
 
 
 logger = logging.getLogger(__name__)
@@ -107,14 +108,14 @@ class MovimientosMaterialesRepository:
             ),
         )
         self._con.commit()
-        return int(cur.lastrowid)
+        return require_lastrowid(cur, context="MovimientosMaterialesRepository.create")
 
     def get_by_id(self, movimiento_id: int) -> Optional[MovimientoMaterial]:
         """
         Obtiene un movimiento por id.
         """
         row = self._con.execute(
-            "SELECT * FROM movimientos_materiales WHERE id = ?",
+            "SELECT * FROM movimientos_materiales WHERE id = ? AND activo = 1",
             (movimiento_id,),
         ).fetchone()
 
@@ -208,7 +209,7 @@ class MovimientosMaterialesRepository:
         Convierte fila SQLite en MovimientoMaterial.
         """
         return MovimientoMaterial(
-            id=row["id"],
+            id=require_row_id(row, context="MovimientosMaterialesRepository._row_to_model"),
             material_id=row["material_id"],
             tipo=row["tipo"],
             cantidad=row["cantidad"],

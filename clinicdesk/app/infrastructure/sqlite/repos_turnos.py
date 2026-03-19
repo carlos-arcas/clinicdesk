@@ -21,6 +21,7 @@ from typing import List, Optional
 
 from clinicdesk.app.common.search_utils import has_search_values, like_value, normalize_search_text
 from clinicdesk.app.domain.exceptions import ValidationError
+from clinicdesk.app.infrastructure.sqlite.id_utils import require_lastrowid, require_row_id
 
 
 logger = logging.getLogger(__name__)
@@ -99,7 +100,7 @@ class TurnosRepository:
             ),
         )
         self._con.commit()
-        return int(cur.lastrowid)
+        return require_lastrowid(cur, context="TurnosRepository.create")
 
     def update(self, turno: Turno) -> None:
         """
@@ -144,7 +145,7 @@ class TurnosRepository:
         Obtiene un turno por id.
         """
         row = self._con.execute(
-            "SELECT * FROM turnos WHERE id = ?",
+            "SELECT * FROM turnos WHERE id = ? AND activo = 1",
             (turno_id,),
         ).fetchone()
 
@@ -225,7 +226,7 @@ class TurnosRepository:
         Convierte una fila SQLite en un modelo Turno.
         """
         return Turno(
-            id=row["id"],
+            id=require_row_id(row, context="TurnosRepository._row_to_model"),
             nombre=row["nombre"],
             hora_inicio=row["hora_inicio"],
             hora_fin=row["hora_fin"],

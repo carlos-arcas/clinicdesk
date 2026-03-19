@@ -9,6 +9,7 @@ from clinicdesk.app.common.sensitive_field_canonicalization import canonicalize_
 from clinicdesk.app.domain.enums import TipoDocumento
 from clinicdesk.app.domain.exceptions import ValidationError
 from clinicdesk.app.domain.modelos import Paciente
+from clinicdesk.app.infrastructure.sqlite.id_utils import require_lastrowid, require_row_id
 from clinicdesk.app.infrastructure.sqlite.pacientes.crud import (
     fetch_by_documento,
     insert_sql,
@@ -37,7 +38,7 @@ class PacientesRepository:
         paciente.validar()
         payload = create_payload(paciente, self._field_protection, self._encrypt)
         cur = self._con.execute(insert_sql(self._field_protection.enabled), payload)
-        paciente_id = int(cur.lastrowid)
+        paciente_id = require_lastrowid(cur, context="PacientesRepository.create")
         self._con.execute(
             "UPDATE pacientes SET num_historia = ? WHERE id = ?",
             (format_num_historia(paciente_id), paciente_id),
@@ -58,7 +59,7 @@ class PacientesRepository:
         self._con.commit()
 
     def get_by_id(self, paciente_id: int) -> Optional[Paciente]:
-        row = self._con.execute("SELECT * FROM pacientes WHERE id = ?", (paciente_id,)).fetchone()
+        row = self._con.execute("SELECT * FROM pacientes WHERE id = ? AND activo = 1", (paciente_id,)).fetchone()
         return self._row_to_model(row) if row else None
 
     def get_id_by_documento(self, tipo_documento: TipoDocumento | str, documento: str) -> Optional[int]:
@@ -66,7 +67,7 @@ class PacientesRepository:
             return None
         tipo = tipo_documento.value if isinstance(tipo_documento, TipoDocumento) else str(tipo_documento)
         row = fetch_by_documento(self._con, self._field_protection, tipo=tipo, documento=documento)
-        return int(row["id"]) if row else None
+        return require_row_id(row, context="PacientesRepository.get_id_by_documento") if row else None
 
     def get_id_by_email(self, email: str) -> Optional[int]:
         return self._get_id_by_contacto("email", email)
@@ -121,18 +122,18 @@ class PacientesRepository:
             return None
         if self._field_protection.enabled:
             row = self._con.execute(
-                f"SELECT id FROM pacientes WHERE {field}_hash = ?",
+                f"SELECT id FROM pacientes WHERE {field}_hash = ? AND activo = 1",
                 (self._field_protection.hash_for_lookup(field, canonical),),
             ).fetchone()
-            return int(row["id"]) if row else None
+            return require_row_id(row, context=f"PacientesRepository._get_id_by_contacto.{field}") if row else None
         if field == "email":
             row = self._con.execute(
-                "SELECT id FROM pacientes WHERE LOWER(TRIM(COALESCE(email, ''))) = ?",
+                "SELECT id FROM pacientes WHERE LOWER(TRIM(COALESCE(email, ''))) = ? AND activo = 1",
                 (canonical,),
             ).fetchone()
-            return int(row["id"]) if row else None
+            return require_row_id(row, context=f"PacientesRepository._get_id_by_contacto.{field}") if row else None
         row = self._con.execute(
             "SELECT id FROM pacientes WHERE REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(TRIM(COALESCE(telefono, '')), ' ', ''), '-', ''), '.', ''), '(', ''), ')', '') = ?",
             (canonical.lstrip("+"),),
         ).fetchone()
-        return int(row["id"]) if row else None
+        return require_row_id(row, context=f"PacientesRepository._get_id_by_contacto.{field}") if row else None

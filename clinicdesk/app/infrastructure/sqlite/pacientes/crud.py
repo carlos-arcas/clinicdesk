@@ -109,10 +109,10 @@ def fetch_by_documento(
         return None
     if protection.enabled:
         return con.execute(
-            "SELECT id FROM pacientes WHERE tipo_documento = ? AND documento_hash = ?",
+            "SELECT id FROM pacientes WHERE tipo_documento = ? AND documento_hash = ? AND activo = 1",
             (tipo, protection.hash_for_lookup("documento", documento_canonico)),
         ).fetchone()
     return con.execute(
-        "SELECT id FROM pacientes WHERE tipo_documento = ? AND UPPER(REPLACE(REPLACE(TRIM(documento), ' ', ''), '-', '')) = ?",
+        "SELECT id FROM pacientes WHERE tipo_documento = ? AND UPPER(REPLACE(REPLACE(TRIM(documento), ' ', ''), '-', '')) = ? AND activo = 1",
         (tipo, documento_canonico),
     ).fetchone()

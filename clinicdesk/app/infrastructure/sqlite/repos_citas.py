@@ -24,6 +24,7 @@ from typing import List, Optional
 from clinicdesk.app.domain.enums import EstadoCita
 from clinicdesk.app.domain.modelos import Cita
 from clinicdesk.app.domain.exceptions import ValidationError
+from clinicdesk.app.infrastructure.sqlite.id_utils import require_lastrowid, require_row_id
 from clinicdesk.app.infrastructure.sqlite.sqlite_datetime_codecs import (
     deserialize_datetime,
     serialize_datetime,
@@ -86,7 +87,7 @@ class CitasRepository:
             ),
         )
         self._con.commit()
-        return int(cur.lastrowid)
+        return require_lastrowid(cur, context="CitasRepository.create")
 
     def update(self, cita: Cita) -> None:
         """
@@ -136,7 +137,7 @@ class CitasRepository:
         Obtiene una cita por id.
         """
         row = self._con.execute(
-            "SELECT * FROM citas WHERE id = ?",
+            "SELECT * FROM citas WHERE id = ? AND activo = 1",
             (cita_id,),
         ).fetchone()
 
@@ -237,7 +238,7 @@ class CitasRepository:
         Convierte fila SQLite en Cita.
         """
         return Cita(
-            id=row["id"],
+            id=require_row_id(row, context="CitasRepository._row_to_model"),
             paciente_id=row["paciente_id"],
             medico_id=row["medico_id"],
             sala_id=row["sala_id"],

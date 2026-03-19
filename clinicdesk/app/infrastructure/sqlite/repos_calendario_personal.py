@@ -20,6 +20,7 @@ from dataclasses import dataclass
 from typing import List, Optional
 
 from clinicdesk.app.domain.exceptions import ValidationError
+from clinicdesk.app.infrastructure.sqlite.id_utils import require_lastrowid, require_row_id
 
 
 # ---------------------------------------------------------------------
@@ -95,7 +96,7 @@ class CalendarioPersonalRepository:
             ),
         )
         self._con.commit()
-        return int(cur.lastrowid)
+        return require_lastrowid(cur, context="CalendarioPersonalRepository.create")
 
     def update(self, bloque: BloqueCalendarioPersonal) -> None:
         """
@@ -146,7 +147,7 @@ class CalendarioPersonalRepository:
         Obtiene un bloque por id.
         """
         row = self._con.execute(
-            "SELECT * FROM calendario_personal WHERE id = ?",
+            "SELECT * FROM calendario_personal WHERE id = ? AND activo = 1",
             (bloque_id,),
         ).fetchone()
 
@@ -223,7 +224,7 @@ class CalendarioPersonalRepository:
         Convierte una fila SQLite en un BloqueCalendarioPersonal.
         """
         return BloqueCalendarioPersonal(
-            id=row["id"],
+            id=require_row_id(row, context="CalendarioPersonalRepository._row_to_model"),
             personal_id=row["personal_id"],
             fecha=row["fecha"],
             turno_id=row["turno_id"],
