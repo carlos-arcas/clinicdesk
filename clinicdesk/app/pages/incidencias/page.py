@@ -157,7 +157,7 @@ class PageIncidencias(QWidget):
         if not row:
             return
 
-        self.lbl_confirmado_por.setText(row.confirmado_por_nombre)
+        self.lbl_confirmado_por.setText(row.confirmado_por_nombre or "")
         refs = []
         if row.cita_id:
             refs.append("Cita vinculada")
