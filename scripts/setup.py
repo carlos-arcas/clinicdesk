@@ -11,6 +11,7 @@ from scripts.quality_gate_components.doctor_entorno_calidad_core import (
     diagnosticar_entorno_calidad,
     renderizar_reporte,
 )
+from scripts.quality_gate_components.toolchain import COMANDO_DOCTOR, COMANDO_GATE
 
 
 def resolve_repo_root() -> Path:
@@ -30,11 +31,43 @@ def _venv_python() -> Path:
     return VENV_DIR / "bin" / "python"
 
 
+def _log(mensaje: str) -> None:
+    sys.stdout.write(f"{mensaje}\n")
+
+
+def _resumen_error_instalacion(stderr: str, stdout: str) -> list[str]:
+    texto = f"{stdout}\n{stderr}".lower()
+    if any(token in texto for token in ("proxyerror", "proxy", "407 proxy", "tunnel connection failed")):
+        return [
+            "[setup][diagnostico] Fallo de red/proxy detectado durante instalación.",
+            "[setup][accion] Revisa HTTP_PROXY/HTTPS_PROXY o usa un índice accesible antes de reintentar.",
+        ]
+    if any(token in texto for token in ("temporary failure in name resolution", "failed to establish a new connection", "connection timed out")):
+        return [
+            "[setup][diagnostico] Fallo de conectividad a índices Python detectado.",
+            "[setup][accion] Sin wheelhouse ni acceso a red, este entorno no es recuperable localmente.",
+        ]
+    if "no matching distribution found" in texto or "could not find a version that satisfies the requirement" in texto:
+        return [
+            "[setup][diagnostico] El lock pide una versión que pip no pudo resolver con el índice actual.",
+            "[setup][accion] Verifica índice/proxy y que el lock esté actualizado antes de reintentar.",
+        ]
+    return []
+
+
 def _run_command(command: list[str], descripcion: str) -> None:
     _log(f"[setup] {descripcion}: {' '.join(command)}")
-    resultado = subprocess.run(command, cwd=PROJECT_ROOT)
+    resultado = subprocess.run(command, cwd=PROJECT_ROOT, capture_output=True, text=True, check=False)
+    if resultado.stdout:
+        _log(resultado.stdout.rstrip())
+    if resultado.stderr:
+        _log(resultado.stderr.rstrip())
     if resultado.returncode != 0:
-        raise RuntimeError(f"Fallo '{descripcion}' (exit code {resultado.returncode}).")
+        pistas = _resumen_error_instalacion(resultado.stderr or "", resultado.stdout or "")
+        detalle = f"Fallo '{descripcion}' (exit code {resultado.returncode})."
+        if pistas:
+            detalle = f"{detalle} {' '.join(linea.replace('[setup][diagnostico] ', '').replace('[setup][accion] ', '') for linea in pistas)}"
+        raise RuntimeError(detalle)
 
 
 def _crear_venv_si_no_existe() -> None:
@@ -92,10 +125,6 @@ def _verificar_herramientas(python_venv: Path) -> None:
         _run_command(comando, f"Verificar herramienta {nombre}")
 
 
-def _log(mensaje: str) -> None:
-    sys.stdout.write(f"{mensaje}\n")
-
-
 def main() -> int:
     try:
         diagnostico = diagnosticar_entorno_calidad(PROJECT_ROOT)
@@ -110,12 +139,15 @@ def main() -> int:
         _verificar_herramientas(python_venv)
         diagnostico_final = diagnosticar_entorno_calidad(PROJECT_ROOT)
         if codigo_salida_estable(diagnostico_final) != 0:
-            raise RuntimeError("El entorno quedó desalineado tras setup. Revisa el reporte del doctor.")
+            raise RuntimeError(
+                "El entorno quedó desalineado tras setup. "
+                f"Ejecuta {COMANDO_DOCTOR} para el detalle y no lances {COMANDO_GATE} hasta corregirlo."
+            )
     except RuntimeError as exc:
         _log(f"[setup][error] {exc}")
         return 1
 
-    _log("[setup] Entorno listo. Puedes ejecutar la app con: python scripts/run_app.py")
+    _log(f"[setup] Entorno listo. Próximos pasos: {COMANDO_DOCTOR} && {COMANDO_GATE}")
     return 0
 
 

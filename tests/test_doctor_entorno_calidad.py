@@ -15,11 +15,16 @@ class _Resultado:
         self.stderr = stderr
 
 
-def test_doctor_entorno_alineado(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+def _escribir_lock_dev(tmp_path: Path) -> None:
     (tmp_path / "requirements-dev.txt").write_text(
         "ruff==0.8.4\npytest==8.3.2\nmypy==1.13.0\npip-audit==2.7.3\n",
         encoding="utf-8",
     )
+
+
+def test_doctor_entorno_alineado(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    _escribir_lock_dev(tmp_path)
+    monkeypatch.setattr(doctor.metadata, "version", lambda nombre: "2.7.3" if nombre == "pip-audit" else "0.0.0")
 
     def fake_run(command, **_kwargs):
         if command[:5] == [sys.executable, "-m", "pip", "cache", "dir"]:
@@ -38,12 +43,14 @@ def test_doctor_entorno_alineado(monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 
     diagnostico = doctor.diagnosticar_entorno_calidad(tmp_path)
     assert doctor.codigo_salida_estable(diagnostico) == 0
+    assert diagnostico.source_of_truth.startswith("requirements-dev.txt")
 
 
-def test_doctor_reporta_ruff_ausente(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    (tmp_path / "requirements-dev.txt").write_text(
-        "ruff==0.8.4\npytest==8.3.2\nmypy==1.13.0\npip-audit==2.7.3\n", encoding="utf-8"
-    )
+def test_doctor_reporta_herramienta_faltante_con_comando_accionable(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    _escribir_lock_dev(tmp_path)
+    monkeypatch.setattr(doctor.metadata, "version", lambda nombre: "2.7.3" if nombre == "pip-audit" else "0.0.0")
 
     def fake_run(command, **_kwargs):
         if command[:5] == [sys.executable, "-m", "pip", "cache", "dir"]:
@@ -56,12 +63,14 @@ def test_doctor_reporta_ruff_ausente(monkeypatch: pytest.MonkeyPatch, tmp_path: 
 
     diagnostico = doctor.diagnosticar_entorno_calidad(tmp_path)
     assert doctor.codigo_salida_estable(diagnostico) == 2
+    lineas = doctor.renderizar_reporte(diagnostico)
+    assert any("ruff: falta en el entorno; gate bloqueado" in linea for linea in lineas)
+    assert any("python -m pip install -r requirements-dev.txt" in linea for linea in lineas)
 
 
 def test_doctor_reporta_ruff_version_incorrecta(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    (tmp_path / "requirements-dev.txt").write_text(
-        "ruff==0.8.4\npytest==8.3.2\nmypy==1.13.0\npip-audit==2.7.3\n", encoding="utf-8"
-    )
+    _escribir_lock_dev(tmp_path)
+    monkeypatch.setattr(doctor.metadata, "version", lambda nombre: "2.7.3" if nombre == "pip-audit" else "0.0.0")
 
     def fake_run(command, **_kwargs):
         if command[:5] == [sys.executable, "-m", "pip", "cache", "dir"]:
@@ -81,13 +90,29 @@ def test_doctor_reporta_ruff_version_incorrecta(monkeypatch: pytest.MonkeyPatch,
     diagnostico = doctor.diagnosticar_entorno_calidad(tmp_path)
     assert doctor.codigo_salida_estable(diagnostico) == 3
     lineas = doctor.renderizar_reporte(diagnostico)
-    assert any("versión desalineada" in linea for linea in lineas)
+    assert any("versión desalineada; gate bloqueado" in linea for linea in lineas)
+    assert any("esperada=0.8.4; instalada=0.14.11" in linea for linea in lineas)
+
+
+def test_doctor_detecta_lock_dev_incompleto(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    (tmp_path / "requirements-dev.txt").write_text("pytest==8.3.2\n", encoding="utf-8")
+
+    def fake_run(command, **_kwargs):
+        if command[:5] == [sys.executable, "-m", "pip", "cache", "dir"]:
+            return _Resultado(0, stdout="/tmp/pip-cache")
+        raise AssertionError(f"No debería ejecutar herramientas cuando el lock es inválido: {command}")
+
+    monkeypatch.setattr(doctor.subprocess, "run", fake_run)
+
+    diagnostico = doctor.diagnosticar_entorno_calidad(tmp_path)
+    assert doctor.codigo_salida_estable(diagnostico) == 5
+    assert diagnostico.toolchain_error is not None
+    assert "ruff" in diagnostico.toolchain_error
 
 
 def test_doctor_detecta_wheelhouse_requerido_ausente(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    (tmp_path / "requirements-dev.txt").write_text(
-        "ruff==0.8.4\npytest==8.3.2\nmypy==1.13.0\npip-audit==2.7.3\n", encoding="utf-8"
-    )
+    _escribir_lock_dev(tmp_path)
+    monkeypatch.setattr(doctor.metadata, "version", lambda nombre: "2.7.3" if nombre == "pip-audit" else "0.0.0")
 
     def fake_run(command, **_kwargs):
         if command[:5] == [sys.executable, "-m", "pip", "cache", "dir"]:
@@ -106,3 +131,28 @@ def test_doctor_detecta_wheelhouse_requerido_ausente(monkeypatch: pytest.MonkeyP
 
     diagnostico = doctor.diagnosticar_entorno_calidad(tmp_path, wheelhouse=tmp_path / "wheelhouse")
     assert doctor.codigo_salida_estable(diagnostico, exigir_wheelhouse=True) == 4
+    lineas = doctor.renderizar_reporte(diagnostico, exigir_wheelhouse=True)
+    assert any("Modo offline requerido" in linea for linea in lineas)
+
+
+def test_doctor_usa_metadata_para_pip_audit(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    _escribir_lock_dev(tmp_path)
+    monkeypatch.setattr(doctor.metadata, "version", lambda nombre: "2.7.3" if nombre == "pip-audit" else "0.0.0")
+
+    def fake_run(command, **_kwargs):
+        if command[:5] == [sys.executable, "-m", "pip", "cache", "dir"]:
+            return _Resultado(0, stdout="/tmp/pip-cache")
+        if command[2] == "ruff":
+            return _Resultado(0, stdout="ruff 0.8.4")
+        if command[2] == "pytest":
+            return _Resultado(0, stdout="pytest 8.3.2")
+        if command[2] == "mypy":
+            return _Resultado(0, stdout="mypy 1.13.0")
+        raise AssertionError(f"Comando inesperado: {command}")
+
+    monkeypatch.setattr(doctor.subprocess, "run", fake_run)
+
+    diagnostico = doctor.diagnosticar_entorno_calidad(tmp_path)
+    estado = next(item for item in diagnostico.herramientas if item.nombre == "pip-audit")
+    assert estado.instalada is True
+    assert estado.version_instalada == "2.7.3"
