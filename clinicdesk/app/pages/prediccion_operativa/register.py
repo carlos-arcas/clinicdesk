@@ -18,6 +18,7 @@ def register(registry: PageRegistry, container: AppContainer, i18n: I18nManager)
                 i18n,
                 RegistrarTelemetria(container.telemetria_eventos_repo),
                 container.user_context,
+                container.autorizador_acciones,
             ),
         )
     )

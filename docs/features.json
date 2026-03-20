@@ -61,11 +61,11 @@
       "nombre": "Se puede ejecutar pipeline ML de riesgo de citas",
       "descripcion": "Soporta construcción de dataset, entrenamiento, scoring y control de drift de forma reproducible.",
       "prioridad": "Alta",
-      "estado_global": "Parcial",
+      "estado_global": "Verificada",
       "desglose": {
         "logica": "Verificada",
         "ui": "Verificada",
-        "validaciones_seguridad": "Parcial",
+        "validaciones_seguridad": "Verificada",
         "e2e": "Verificada"
       },
       "evidencias": [
@@ -75,9 +75,12 @@
         "tests/ui/test_ruta_critica_desktop_smoke.py",
         "tests/test_prediccion_operativa_facade_integracion.py",
         "tests/test_main_entrypoint_e2e.py",
-        "tests/test_ml_cross_module_e2e.py"
+        "tests/test_ml_cross_module_e2e.py",
+        "tests/test_prediccion_operativa_security_policy.py",
+        "tests/test_prediccion_operativa_security_static.py",
+        "tests/test_prediccion_operativa_security.py"
       ],
-      "observaciones": "Core analítico con buena cobertura; la evidencia desktop ahora combina el harness E2E/controlado del entrypoint real (`main()` hasta `app.exec()`/salida limpia) con una prueba cross-módulo desde `MainWindow` que navega por la vía UI real a predicción operativa, dispara entrenamiento mínimo real, vuelve a Gestión y verifica salud/estimaciones consumidas por `PrediccionOperativaGestionAdapter`, incluyendo cita vigilada coherente y limpieza de runs/hilos al abandonar el módulo. El residual honesto de la feature ya no está en `e2e`, sino en `validaciones_seguridad`, que sigue parcial."
+      "observaciones": "El flujo desktop de predicción operativa ya aplica autorización explícita y centralizada para entrenamiento/reintento mediante `Action.ML_ENTRENAR`, con feedback observable de denegación, telemetría sin PII adicional y una decisión explícita de mantener lectura/explicación para perfiles de solo lectura. La evidencia combina pruebas de política, guardrails estructurales y pruebas UI focalizadas del denial path."
     },
     {
       "id": "FTR-006",
