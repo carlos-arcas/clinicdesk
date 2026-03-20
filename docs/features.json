@@ -66,7 +66,7 @@
         "logica": "Verificada",
         "ui": "Verificada",
         "validaciones_seguridad": "Parcial",
-        "e2e": "Parcial"
+        "e2e": "Verificada"
       },
       "evidencias": [
         "tests/test_ml_training.py",
@@ -74,9 +74,10 @@
         "tests/test_drift_report.py",
         "tests/ui/test_ruta_critica_desktop_smoke.py",
         "tests/test_prediccion_operativa_facade_integracion.py",
-        "tests/test_main_entrypoint_e2e.py"
+        "tests/test_main_entrypoint_e2e.py",
+        "tests/test_ml_cross_module_e2e.py"
       ],
-      "observaciones": "Core analítico con buena cobertura; además ahora hay dos evidencias UI complementarias: un smoke desktop reforzado desde `MainWindow` y un harness E2E/controlado del entrypoint real que ejecuta `main()` hasta el loop Qt, navega por la vía real al módulo de predicción operativa, dispara el entrenamiento con feedback observable y cierra limpiamente sin widgets top-level visibles ni hilos de entrenamiento activos. Sigue pendiente un E2E total más amplio: recorrido cross-módulo más extenso y validación operacional de background fuera de este tramo controlado."
+      "observaciones": "Core analítico con buena cobertura; la evidencia desktop ahora combina el harness E2E/controlado del entrypoint real (`main()` hasta `app.exec()`/salida limpia) con una prueba cross-módulo desde `MainWindow` que navega por la vía UI real a predicción operativa, dispara entrenamiento mínimo real, vuelve a Gestión y verifica salud/estimaciones consumidas por `PrediccionOperativaGestionAdapter`, incluyendo cita vigilada coherente y limpieza de runs/hilos al abandonar el módulo. El residual honesto de la feature ya no está en `e2e`, sino en `validaciones_seguridad`, que sigue parcial."
     },
     {
       "id": "FTR-006",

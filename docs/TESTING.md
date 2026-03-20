@@ -40,6 +40,7 @@ QT_QPA_PLATFORM=offscreen pytest -q -m "uiqt"
 QT_QPA_PLATFORM=offscreen pytest -q tests/ui/test_ruta_critica_desktop_smoke.py
 pytest -q tests/test_prediccion_operativa_facade_integracion.py
 QT_QPA_PLATFORM=offscreen pytest -q tests/test_main_entrypoint_e2e.py
+QT_QPA_PLATFORM=offscreen pytest -q tests/test_ml_cross_module_e2e.py
 ```
 
 ### Exportación KPI CSV E2E/controlada
@@ -81,6 +82,7 @@ Qué cubren:
 - flujo smoke de citas: abrir `PageCitas`, comprobar estado vacío estable, crear una cita por la ruta UI soportada y verificarla en listado con SQLite temporal;
 - flujo ML desktop reforzado: `MainWindow` real, navegación desde `gestión` hasta `prediccion_operativa`, disparo del entrenamiento por el wiring real `QThread`/relay de la pantalla, feedback visible de inicio/fin, previsualización con datos reales y explicación observable sin sleeps arbitrarios;
 - harness E2E/controlado del entrypoint desktop: `main()` real con `LoginDialog` inyectado para prueba, entrada en `app.exec()`, ventana principal visible, navegación UI real a `prediccion_operativa`, entrenamiento mínimo observable, explicación visible y salida controlada del loop Qt con cierre limpio de top-level widgets;
+- prueba cross-módulo desktop: `MainWindow` real, navegación ida/vuelta entre `gestión` y `prediccion_operativa`, entrenamiento operativo mínimo, verificación de salud/estimaciones consumidas por Gestión y limpieza de background al abandonar el módulo;
 - smoke focal de `PagePrediccionOperativa` para mantener cobertura rápida del entrenamiento mínimo y de la explicación utilizable en aislamiento controlado;
 - integración fuerte del facade real con dataset efímero y una marca temporal fija por test para entrenamiento, previsualización y explicación sin red, Docker ni servicios externos.
 
@@ -93,7 +95,7 @@ Alcance honesto para `FTR-005`:
 - **entrypoint E2E/controlado**: cubre `main()` + `app.exec()` real + login aceptado + ventana principal visible + navegación UI a ML + entrenamiento observable + cierre limpio del loop;
 - **smoke desktop**: sigue cubriendo el flujo headless realista hasta `MainWindow` + navegación al módulo ML + background Qt de la pantalla + salida observable en tabla y diálogo;
 - **integración fuerte**: cubre facade real, dataset y explicaciones sin lanzar la aplicación completa;
-- **todavía no es E2E total**: aunque ya ejecuta `clinicdesk/app/main.py` hasta cierre completo del loop, todavía no verifica un recorrido operacional más amplio entre varios módulos ni jobs de background ajenos al entrenamiento mínimo soportado.
+- **E2E de la feature soportada**: el residual previo de FTR-005 en navegación cross-módulo ya queda cubierto con Gestión como consumidor real; lo que sigue fuera del feature es ampliar cobertura a otros módulos solo si producto soporta nuevas superficies sin inventarlas.
 
 ### Autenticación desktop PySide6
 ```bash
