@@ -24,16 +24,17 @@
         "logica": "Verificada",
         "ui": "Verificada",
         "validaciones_seguridad": "Verificada",
-        "e2e": "Parcial"
+        "e2e": "Verificada"
       },
       "evidencias": [
         "clinicdesk/app/security/auth.py",
         "tests/test_auth_service.py",
         "tests/test_login_dialog_ui.py",
         "tests/test_session_controller.py",
-        "tests/test_main_auth_flow.py"
+        "tests/test_main_auth_flow.py",
+        "tests/test_main_entrypoint_e2e.py"
       ],
-      "observaciones": "La autenticación desktop ya cubre servicio, diálogo y transición post-login; además ahora existe una prueba headless controlada del wiring real extraído desde `clinicdesk/app/main.py` que recorre apertura de sesión, visibilidad de ventana principal, logout, reapertura satisfactoria, cancelación de relogin y error de transición con feedback. `e2e` se mantiene en parcial porque el entorno automatizado todavía no ejecuta `main()` hasta `app.exec()`/salida completa del loop real."
+      "observaciones": "La autenticación desktop ya cubre servicio, diálogo y transición post-login; además ahora existe un harness E2E/controlado del entrypoint real que ejecuta `main()` hasta `app.exec()`/salida limpia del loop Qt sobre SQLite temporal, con login aceptado, ventana principal visible y cierre controlado sin salida silenciosa."
     },
     {
       "id": "FTR-004",
@@ -63,7 +64,7 @@
       "estado_global": "Parcial",
       "desglose": {
         "logica": "Verificada",
-        "ui": "Parcial",
+        "ui": "Verificada",
         "validaciones_seguridad": "Parcial",
         "e2e": "Parcial"
       },
@@ -72,9 +73,10 @@
         "tests/test_train_calibration_integration.py",
         "tests/test_drift_report.py",
         "tests/ui/test_ruta_critica_desktop_smoke.py",
-        "tests/test_prediccion_operativa_facade_integracion.py"
+        "tests/test_prediccion_operativa_facade_integracion.py",
+        "tests/test_main_entrypoint_e2e.py"
       ],
-      "observaciones": "Core analítico con buena cobertura; además hay un smoke desktop reforzado que entra por MainWindow, navega desde gestión hasta predicción operativa y dispara el entrenamiento por QThread real de la pantalla sobre SQLite efímera, verificando feedback visible, previsualización y explicación observable. El facade real sigue cubierto con integración fuerte. Aun así no se declara E2E total: falta recorrer un arranque extremo a extremo con loop principal real y validación cross-módulo más amplia."
+      "observaciones": "Core analítico con buena cobertura; además ahora hay dos evidencias UI complementarias: un smoke desktop reforzado desde `MainWindow` y un harness E2E/controlado del entrypoint real que ejecuta `main()` hasta el loop Qt, navega por la vía real al módulo de predicción operativa, dispara el entrenamiento con feedback observable y cierra limpiamente sin widgets top-level visibles ni hilos de entrenamiento activos. Sigue pendiente un E2E total más amplio: recorrido cross-módulo más extenso y validación operacional de background fuera de este tramo controlado."
     },
     {
       "id": "FTR-006",

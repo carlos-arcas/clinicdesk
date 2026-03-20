@@ -4,8 +4,9 @@ import logging
 import sys
 import uuid
 from collections.abc import Callable
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Protocol
+from typing import Any, Protocol
 
 from PySide6.QtWidgets import QApplication, QDialog, QMessageBox
 
@@ -45,6 +46,29 @@ class DialogoLoginEjecutable(Protocol):
 
 class FabricaDialogoLogin(Protocol):
     def __call__(self, auth: AuthService, i18n: I18nManager, demo_allowed: bool) -> DialogoLoginEjecutable: ...
+
+
+@dataclass(frozen=True, slots=True)
+class ContextoEntrypointDesktop:
+    app: QApplication
+    container: Any
+    i18n: I18nManager
+    auth: AuthService
+    controlador: ControladorSesionAutenticada
+    run_id: str
+    demo_allowed: bool
+
+    @property
+    def ventana_principal(self) -> Any | None:
+        return self.controlador.ventana_principal
+
+
+class PreparadorLoopEntrypoint(Protocol):
+    def __call__(self, contexto: ContextoEntrypointDesktop) -> None: ...
+
+
+def _ejecutar_loop_qt(app: QApplication) -> int:
+    return app.exec()
 
 
 def _install_ui_log_buffer() -> LogBufferHandler:
@@ -89,7 +113,7 @@ def _inicializar_app() -> tuple[QApplication, str]:
     set_run_context(run_id)
     install_global_exception_hook(LOGGER)
     _install_ui_log_buffer()
-    app = QApplication(sys.argv)
+    app = QApplication.instance() or QApplication(sys.argv)
     app.aboutToQuit.connect(lambda: _log_about_to_quit(app))
     app.setStyleSheet(load_qss())
     return app, run_id
@@ -114,10 +138,19 @@ def _crear_dialogo_login(auth: AuthService, i18n: I18nManager, demo_allowed: boo
     return LoginDialog(auth, i18n, demo_allowed=demo_allowed)
 
 
+@dataclass(frozen=True, slots=True)
+class ControlEntrypointDesktop:
+    crear_dialogo_login: FabricaDialogoLogin = _crear_dialogo_login
+    preparar_loop: PreparadorLoopEntrypoint | None = None
+    ejecutar_loop: Callable[[QApplication], int] = _ejecutar_loop_qt
+
+
 def _cerrar_widgets_superiores(app: QApplication) -> None:
     app.setQuitOnLastWindowClosed(True)
-    for widget in app.topLevelWidgets():
+    for widget in list(app.topLevelWidgets()):
         widget.close()
+        widget.deleteLater()
+    app.processEvents()
 
 
 def _crear_callback_logout(
@@ -186,7 +219,8 @@ def abrir_sesion_autenticada(
         )
 
 
-def main() -> int:
+def main(control: ControlEntrypointDesktop | None = None) -> int:
+    control = control or ControlEntrypointDesktop()
     app, run_id = _inicializar_app()
 
     con = bootstrap_database(apply_schema=True)
@@ -205,11 +239,28 @@ def main() -> int:
         demo_allowed=demo_allowed,
         controlador=controlador,
         run_id=run_id,
+        crear_dialogo_login=control.crear_dialogo_login,
     ):
         container.close()
         return 0
 
-    return app.exec()
+    contexto = ContextoEntrypointDesktop(
+        app=app,
+        container=container,
+        i18n=i18n,
+        auth=auth,
+        controlador=controlador,
+        run_id=run_id,
+        demo_allowed=demo_allowed,
+    )
+    if control.preparar_loop is not None:
+        control.preparar_loop(contexto)
+
+    try:
+        return control.ejecutar_loop(app)
+    finally:
+        _cerrar_widgets_superiores(app)
+        container.close()
 
 
 if __name__ == "__main__":
