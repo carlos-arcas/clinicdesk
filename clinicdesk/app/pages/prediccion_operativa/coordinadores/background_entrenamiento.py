@@ -49,3 +49,6 @@ class CoordinadorBackgroundEntrenamientoPrediccionOperativa:
 
     def limpiar(self, tipo: str) -> None:
         self._runtime_por_tipo[tipo] = None
+
+    def tiene_hilos_activos(self) -> bool:
+        return any(runtime is not None for runtime in self._runtime_por_tipo.values())
