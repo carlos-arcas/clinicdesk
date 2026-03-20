@@ -2,7 +2,7 @@
 
 ![Python >=3.11](https://img.shields.io/badge/python-%3E%3D3.11-3776AB?logo=python&logoColor=white)
 
-ClinicDesk es una aplicación desktop en Python + PySide6 para la operación clínica diaria. El repositorio incluye una API HTTP opcional y de solo lectura para integraciones puntuales, pero el producto principal es la aplicación de escritorio.
+ClinicDesk es una aplicación desktop en Python + PySide6 para la operación clínica diaria. El repositorio soporta exclusivamente la experiencia de escritorio y sus flujos de calidad asociados.
 
 ## Producto real
 - Agenda clínica, pacientes, confirmaciones, farmacia, auditoría y módulos operativos.
@@ -29,24 +29,8 @@ python scripts/run_app.py
 
 CI debe ejecutar exactamente `python -m scripts.gate_pr`.
 
-## API opcional de solo lectura
-La API no redefine el producto. Solo expone healthcheck e integraciones de consulta.
-
-### Arranque local
-```bash
-python -m clinicdesk.web.api.serve
-```
-
-### Healthcheck mínimo
-```bash
-python -m clinicdesk.web.serve_health
-```
-
-Variables relevantes:
-- `CLINICDESK_API_KEY`: clave para endpoints `/api/*`.
-- `CLINICDESK_DB_PATH`: ruta SQLite usada por la API.
-- `CLINICDESK_WEB_MODE=api|healthz`: modo HTTP auxiliar.
-- `CLINICDESK_WEB_PORT`: puerto HTTP auxiliar.
+## Variables relevantes
+- `CLINICDESK_DB_PATH`: ruta SQLite usada por la aplicación desktop y utilidades de soporte.
 
 ## Documentación útil
 - Arquitectura: [docs/architecture_contract.md](docs/architecture_contract.md)
