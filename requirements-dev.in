@@ -8,4 +8,3 @@ pytest-qt
 pip-audit
 mypy
 pip-tools
-httpx
