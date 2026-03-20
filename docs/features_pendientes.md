@@ -3,7 +3,8 @@
 Derivado de `docs/features.json`.
 
 ## Pendientes reales
-- **FTR-006 — Se puede exportar KPIs y resultados en CSV**
-  - Sin pendiente E2E relevante en el flujo hoy soportado por producto: el wiring contractual vía CLI ya queda cubierto con SQLite y stores temporales, incluyendo scoring, drift opcional y validación de contenido de los cuatro CSV. El residual honesto queda fuera de este feature: no existe UI real para este flujo y no se reclama cobertura UI inventada.
-- **FTR-008 — Se puede rotar claves criptográficas de campos sensibles**
-  - Sin pendiente E2E relevante en el flujo hoy soportado por producto: la verificación operacional ya cubre la CLI real con SQLite temporal, dry-run/apply, recifrado efectivo, lectura funcional posterior, auditoría saneada y errores contractuales. El residual honesto queda fuera del feature: no existe UI para esta capacidad y no se inventa cobertura visual.
+- Ninguno en las features actualmente marcadas como verificadas.
+
+## Notas de coherencia
+- **FTR-006** y **FTR-008** ya no se listan como pendientes reales porque sus flujos operacionales soportados por producto quedaron verificados en modo E2E/controlado sin residual E2E relevante.
+- **FTR-007** sale de pendientes reales en esta pasada porque ahora existe una verificación controlada del flujo real de exportación desde `PageAuditoria` hasta el worker/job premium y el CSV resultante.
