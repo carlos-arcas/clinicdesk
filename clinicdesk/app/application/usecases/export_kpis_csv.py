@@ -3,6 +3,7 @@ from __future__ import annotations
 import csv
 from collections import Counter
 from dataclasses import dataclass
+from typing import Final
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -25,6 +26,51 @@ class ExportKpisRequest:
 
 class ExportKpisValidationError(ValueError):
     """Error explícito de validación para export KPI."""
+
+
+class ExportKpisOutputError(ValueError):
+    """Error explícito de escritura para export KPI."""
+
+
+COLUMNAS_CONTRACTUALES_POR_ARCHIVO: Final[dict[str, tuple[str, ...]]] = {
+    "kpi_overview.csv": (
+        "run_ts",
+        "dataset_version",
+        "model_name",
+        "model_version",
+        "predictor_kind",
+        "citas_count",
+        "risk_high_count",
+        "risk_high_pct",
+        "threshold_used",
+        "drift_severity",
+        "drift_psi_max",
+        "exports_dir",
+    ),
+    "kpi_scores_by_bucket.csv": (
+        "dataset_version",
+        "model_version",
+        "predictor_kind",
+        "label",
+        "count",
+        "pct",
+    ),
+    "kpi_drift_by_feature.csv": (
+        "from_version",
+        "to_version",
+        "feature_name",
+        "psi_value",
+        "severity",
+    ),
+    "kpi_training_metrics.csv": (
+        "model_name",
+        "model_version",
+        "dataset_version",
+        "split",
+        "metric_name",
+        "metric_value",
+    ),
+}
 
 
 class ExportKpisCSV:
@@ -59,20 +105,7 @@ class ExportKpisCSV:
 
 
 def _overview_header() -> tuple[str, ...]:
-    return (
-        "run_ts",
-        "dataset_version",
-        "model_name",
-        "model_version",
-        "predictor_kind",
-        "citas_count",
-        "risk_high_count",
-        "risk_high_pct",
-        "threshold_used",
-        "drift_severity",
-        "drift_psi_max",
-        "exports_dir",
-    )
+    return COLUMNAS_CONTRACTUALES_POR_ARCHIVO[ExportKpisCSV.OVERVIEW_FILE]
 
 
 def _overview_row(
@@ -100,7 +133,7 @@ def _overview_row(
 
 
 def _bucket_header() -> tuple[str, ...]:
-    return ("dataset_version", "model_version", "predictor_kind", "label", "count", "pct")
+    return COLUMNAS_CONTRACTUALES_POR_ARCHIVO[ExportKpisCSV.BUCKET_FILE]
 
 
 def _bucket_rows(request: ExportKpisRequest, labels: Counter[str]) -> list[tuple[str, ...]]:
@@ -122,7 +155,7 @@ def _bucket_rows(request: ExportKpisRequest, labels: Counter[str]) -> list[tuple
 
 
 def _drift_header() -> tuple[str, ...]:
-    return ("from_version", "to_version", "feature_name", "psi_value", "severity")
+    return COLUMNAS_CONTRACTUALES_POR_ARCHIVO[ExportKpisCSV.DRIFT_FILE]
 
 
 def _drift_rows(report: DriftReport | None) -> list[tuple[str, ...]]:
@@ -137,7 +170,7 @@ def _drift_rows(report: DriftReport | None) -> list[tuple[str, ...]]:
 
 
 def _training_header() -> tuple[str, ...]:
-    return ("model_name", "model_version", "dataset_version", "split", "metric_name", "metric_value")
+    return COLUMNAS_CONTRACTUALES_POR_ARCHIVO[ExportKpisCSV.TRAINING_FILE]
 
 
 def _training_rows(train_response: TrainCitasModelResponse) -> list[tuple[str, ...]]:
@@ -181,15 +214,23 @@ def _resolve_drift(report: DriftReport | None) -> tuple[DriftSeverity, str, floa
 
 def _resolve_output_dir(path: str | Path) -> Path:
     output_dir = Path(path)
-    output_dir.mkdir(parents=True, exist_ok=True)
+    try:
+        output_dir.mkdir(parents=True, exist_ok=True)
+    except OSError as exc:
+        raise ExportKpisOutputError(f"No se pudo preparar directorio de export KPI: {output_dir}") from exc
+    if not output_dir.is_dir():
+        raise ExportKpisOutputError(f"La ruta de export KPI no es un directorio escribible: {output_dir}")
     return output_dir
 
 
 def _write_csv(path: Path, headers: tuple[str, ...], rows: list[tuple[str, ...]]) -> None:
-    with path.open("w", encoding="utf-8", newline="") as handle:
-        writer = csv.writer(handle)
-        writer.writerow(headers)
-        writer.writerows(rows)
+    try:
+        with path.open("w", encoding="utf-8", newline="") as handle:
+            writer = csv.writer(handle)
+            writer.writerow(headers)
+            writer.writerows(rows)
+    except OSError as exc:
+        raise ExportKpisOutputError(f"No se pudo escribir CSV KPI: {path}") from exc
 
 
 def _fmt(value: float) -> str:

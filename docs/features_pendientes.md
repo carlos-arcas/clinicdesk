@@ -7,4 +7,4 @@ Derivado de `docs/features.json`.
 
 ## Notas de coherencia
 - **FTR-004** ya no se lista como residual de seguridad: la creación de citas quedó respaldada con evidencia de autorización real, denial path sin persistencia parcial, guardrail UI readonly y auditoría saneada en el flujo de create/override.
-- **FTR-005**, **FTR-006**, **FTR-007** y **FTR-008** ya no se listan como pendientes reales porque sus flujos soportados por producto quedaron verificados con evidencia funcional y, en el caso de `FTR-005`, con guardrails explícitos de autorización para entrenamiento/reintento en desktop.
+- **FTR-005**, **FTR-006**, **FTR-007** y **FTR-008** ya no se listan como pendientes reales porque sus flujos soportados por producto quedaron verificados con evidencia funcional; en **FTR-006** la dimensión residual de seguridad quedó cerrada con pruebas explícitas de no fuga de PII/datos operativos y error controlado de salida en la CLI real.
