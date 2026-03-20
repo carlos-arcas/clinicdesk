@@ -10,7 +10,7 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 try:
     from PySide6.QtCore import QDate, Qt
-    from PySide6.QtWidgets import QDialog
+    from PySide6.QtWidgets import QDialog, QMessageBox, QPushButton
 except ImportError as exc:  # pragma: no cover
     pytest.skip(f"PySide6 no disponible: {exc}", allow_module_level=True)
 
@@ -20,6 +20,7 @@ from clinicdesk.app import main as app_main
 from clinicdesk.app.pages.citas.page import PageCitas
 from clinicdesk.app.pages.pages_registry import get_pages
 from clinicdesk.app.pages.prediccion_operativa.page import PagePrediccionOperativa
+from clinicdesk.app.ui.main_window import MainWindow
 from tests.support.ruta_critica_desktop import (
     FECHA_BASE_CITAS,
     obtener_fecha_base_prediccion,
@@ -161,6 +162,60 @@ def test_smoke_desktop_prediccion_operativa_entrena_y_previsualiza(qtbot, contai
     assert bloque.tabla.item(0, 0).text()
 
 
+def test_smoke_desktop_prediccion_operativa_main_window_navega_y_entrena_con_background_real(
+    qtbot, container, seed_data
+) -> None:
+    fecha_base = obtener_fecha_base_prediccion()
+    cita_futura_id = seed_historial_y_agenda_prediccion(container, seed_data, ahora=fecha_base)
+    window = MainWindow(container, I18nManager("es"), on_logout=lambda: None)
+    qtbot.addWidget(window)
+    window.show()
+
+    item_gestion = window._sidebar_item_by_key["gestion"]
+    window.sidebar.setCurrentRow(window.sidebar.row(item_gestion))
+    qtbot.waitUntil(lambda: window.stack.currentWidget() is not None)
+    pagina_gestion = window.stack.currentWidget()
+    assert pagina_gestion is not None
+
+    qtbot.mouseClick(pagina_gestion.btn_ir_estimaciones_duracion, Qt.LeftButton)
+    qtbot.waitUntil(lambda: isinstance(window.stack.currentWidget(), PagePrediccionOperativa))
+    page = window.stack.currentWidget()
+    assert isinstance(page, PagePrediccionOperativa)
+    page.chk_mostrar_agenda.setChecked(True)
+
+    bloque = page._bloque("duracion")
+    qtbot.mouseClick(bloque.btn_preparar, Qt.LeftButton)
+
+    qtbot.waitUntil(lambda: bloque.progress.isVisible())
+    assert bloque.lbl_feedback.text() == page._i18n.t("prediccion_operativa.estado.actualizando")
+    assert bloque.btn_preparar.isEnabled() is False
+    assert window.stack.currentWidget() is page
+
+    qtbot.waitUntil(lambda: not bloque.progress.isVisible())
+    qtbot.waitUntil(lambda: page._predicciones_duracion.get(cita_futura_id) is not None)
+    qtbot.waitUntil(lambda: bloque.tabla.rowCount() >= 1)
+
+    assert bloque.lbl_feedback.text() == page._i18n.t("prediccion_operativa.msg.listo")
+    assert page._predicciones_duracion[cita_futura_id] in {"BAJO", "MEDIO", "ALTO"}
+    assert bloque.tabla.item(0, 0) is not None
+    assert bloque.tabla.item(0, 0).text()
+    assert bloque.tabla.item(0, 4) is not None
+    assert bloque.tabla.item(0, 4).text()
+
+    boton_explicacion = bloque.tabla.cellWidget(0, 5)
+    assert isinstance(boton_explicacion, QPushButton)
+    qtbot.mouseClick(boton_explicacion, Qt.LeftButton)
+    qtbot.waitUntil(lambda: isinstance(page._dialogo_explicacion_activo, QMessageBox))
+
+    dialogo = page._dialogo_explicacion_activo
+    assert dialogo is not None
+    assert dialogo.windowTitle() == page._i18n.t("prediccion_operativa.btn.ver_por_que")
+    assert dialogo.text()
+    assert "•" in dialogo.text()
+    dialogo.accept()
+    qtbot.waitUntil(lambda: page._dialogo_explicacion_activo is None)
+
+
 def test_smoke_desktop_prediccion_operativa_muestra_explicacion_util(qtbot, container, seed_data, monkeypatch) -> None:
     fecha_base = obtener_fecha_base_prediccion()
     cita_futura_id = seed_historial_y_agenda_prediccion(container, seed_data, ahora=fecha_base)
@@ -180,19 +235,17 @@ def test_smoke_desktop_prediccion_operativa_muestra_explicacion_util(qtbot, cont
         kwargs["on_ok"](run.tipo, run.token, resultado)
         kwargs["on_thread_finished"](run.tipo, run.token)
 
-    capturado: dict[str, str] = {}
-
-    def _capturar_explicacion(_parent, titulo: str, texto: str) -> None:
-        capturado["titulo"] = titulo
-        capturado["texto"] = texto
-
     monkeypatch.setattr(page._background_entrenamiento, "iniciar_entrenamiento", _entrenamiento_inline)
-    monkeypatch.setattr("clinicdesk.app.pages.prediccion_operativa.page.QMessageBox.information", _capturar_explicacion)
 
     page._entrenar("duracion")
     qtbot.waitUntil(lambda: page._predicciones_duracion.get(cita_futura_id) is not None)
     page._mostrar_por_que("duracion", cita_futura_id, page._predicciones_duracion[cita_futura_id])
+    qtbot.waitUntil(lambda: isinstance(page._dialogo_explicacion_activo, QMessageBox))
 
-    assert capturado["titulo"] == page._i18n.t("prediccion_operativa.btn.ver_por_que")
-    assert capturado["texto"]
-    assert "•" in capturado["texto"]
+    dialogo = page._dialogo_explicacion_activo
+    assert dialogo is not None
+    assert dialogo.windowTitle() == page._i18n.t("prediccion_operativa.btn.ver_por_que")
+    assert dialogo.text()
+    assert "•" in dialogo.text()
+    dialogo.accept()
+    qtbot.waitUntil(lambda: page._dialogo_explicacion_activo is None)

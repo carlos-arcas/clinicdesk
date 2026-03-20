@@ -44,13 +44,19 @@ pytest -q tests/test_prediccion_operativa_facade_integracion.py
 Qué cubren:
 - arranque controlado de `QApplication`, resolución lazy del registro de páginas y navegación mínima hacia `citas` y `prediccion_operativa`;
 - flujo smoke de citas: abrir `PageCitas`, comprobar estado vacío estable, crear una cita por la ruta UI soportada y verificarla en listado con SQLite temporal;
-- flujo ML honesto: smoke desktop de `PagePrediccionOperativa` disparando entrenamiento mínimo sin infraestructura externa, verificando previsualización y explicación observable;
-- integración fuerte del facade real con dataset efímero y una marca temporal anclada por test para entrenamiento, previsualización y explicación sin red, Docker ni servicios externos.
+- flujo ML desktop reforzado: `MainWindow` real, navegación desde `gestión` hasta `prediccion_operativa`, disparo del entrenamiento por el wiring real `QThread`/relay de la pantalla, feedback visible de inicio/fin, previsualización con datos reales y explicación observable sin sleeps arbitrarios;
+- smoke focal de `PagePrediccionOperativa` para mantener cobertura rápida del entrenamiento mínimo y de la explicación utilizable en aislamiento controlado;
+- integración fuerte del facade real con dataset efímero y una marca temporal fija por test para entrenamiento, previsualización y explicación sin red, Docker ni servicios externos.
 
 Notas de estabilidad:
 - todos estos tests usan SQLite temporal controlada por fixtures de `pytest`;
-- la siembra ML usa una marca temporal anclada en fixture (`obtener_fecha_base_prediccion()`) para mantener coherencia entre histórico y agenda futura sin depender del reloj real;
+- la siembra ML usa una marca temporal fija por test (`obtener_fecha_base_prediccion()`) para mantener coherencia entre histórico y agenda futura sin depender del reloj real;
 - las esperas UI usan `qtbot.waitUntil(...)` en lugar de `sleep` arbitrario.
+
+Alcance honesto para `FTR-005`:
+- **smoke desktop**: cubre el flujo headless realista hasta `MainWindow` + navegación al módulo ML + background Qt de la pantalla + salida observable en tabla y diálogo;
+- **integración fuerte**: cubre facade real, dataset y explicaciones sin lanzar la aplicación completa;
+- **todavía no es E2E total**: no ejecuta `clinicdesk/app/main.py` hasta cierre completo del loop ni verifica un recorrido operacional de extremo a extremo más amplio entre varios módulos.
 
 ### Autenticación desktop PySide6
 ```bash
