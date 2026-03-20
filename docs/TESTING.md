@@ -60,6 +60,21 @@ Notas de estabilidad:
 - fija rangos de fechas explícitos para no depender del reloj operativo;
 - no usa `sleep` ni servicios externos.
 
+### Exportación de auditoría E2E/controlada
+```bash
+QT_QPA_PLATFORM=offscreen pytest -q tests/test_exportar_auditoria_csv_usecase.py tests/test_auditoria_export_e2e.py
+```
+
+Qué cubre:
+- `PageAuditoria` real cargada dentro de `MainWindow`, con filtros válidos y disparo por la ruta `_on_exportar()` → `run_premium_job(...)`;
+- worker real `crear_worker_exportacion(...)` con escritura física del CSV en `tmp_path`, sin mocks masivos de negocio;
+- validación de cabeceras exactas `COLUMNAS_EXPORTACION_AUDITORIA`, contenido mínimo contractual y redacción efectiva de PII en usuario/identificadores;
+- feedback observable de éxito (`job.done`) y feedback controlado de error (`job.failed`) cuando la integridad de auditoría queda comprometida antes de exportar.
+
+Notas de estabilidad:
+- usa `QT_QPA_PLATFORM=offscreen`, SQLite temporal y diálogos de confirmación/guardado controlados por monkeypatch;
+- no usa `sleep`, no escribe sobre bases persistentes del repo y mantiene el worker/job real de producto.
+
 ### Rotación de claves CLI E2E/controlada
 ```bash
 pytest -q tests/test_security_cli.py tests/test_security_cli_e2e.py

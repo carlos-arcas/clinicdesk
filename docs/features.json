@@ -109,13 +109,14 @@
         "logica": "Verificada",
         "ui": "No implementada",
         "validaciones_seguridad": "Verificada",
-        "e2e": "Parcial"
+        "e2e": "Verificada"
       },
       "evidencias": [
         "clinicdesk/app/application/usecases/exportar_auditoria_csv.py",
-        "tests/test_exportar_auditoria_csv_usecase.py"
+        "tests/test_exportar_auditoria_csv_usecase.py",
+        "tests/test_auditoria_export_e2e.py"
       ],
-      "observaciones": "Reglas de autorización y sanitización están cubiertas; falta test de flujo completo desde punto de acceso final de usuario."
+      "observaciones": "Además del caso de uso aislado, ahora existe una prueba E2E/controlada headless sobre la UI real `PageAuditoria` dentro de `MainWindow`: carga la pantalla, aplica filtros válidos, dispara `_on_exportar()` → `run_premium_job(...)` con worker real, escribe el CSV en `tmp_path`, valida cabeceras contractuales y saneamiento de PII, verifica feedback observable de éxito y confirma error controlado cuando la integridad de la auditoría queda comprometida antes de exportar."
     },
     {
       "id": "FTR-008",
