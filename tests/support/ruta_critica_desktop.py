@@ -8,6 +8,11 @@ from clinicdesk.app.domain.enums import EstadoCita, TipoCita
 FECHA_BASE_CITAS = datetime(2024, 5, 20, 9, 0, 0)
 
 
+def obtener_fecha_base_prediccion() -> datetime:
+    ahora = datetime.now()
+    return ahora.replace(hour=9, minute=0, second=0, microsecond=0)
+
+
 def crear_cita_programada(
     container, seed_data: dict[str, int], inicio: datetime, *, motivo: str = "Seguimiento"
 ) -> int:
@@ -33,7 +38,7 @@ def seed_historial_y_agenda_prediccion(
     ahora: datetime | None = None,
     total_historicas: int = 60,
 ) -> int:
-    base = (ahora or datetime.now()).replace(second=0, microsecond=0)
+    base = (ahora or obtener_fecha_base_prediccion()).replace(second=0, microsecond=0)
     for indice in range(total_historicas):
         inicio = base - timedelta(days=45 - (indice % 15), hours=indice % 4, minutes=(indice % 3) * 10)
         cita_id = container.citas_repo.create(
