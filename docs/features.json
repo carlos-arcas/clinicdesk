@@ -30,9 +30,10 @@
         "clinicdesk/app/security/auth.py",
         "tests/test_auth_service.py",
         "tests/test_login_dialog_ui.py",
-        "tests/test_session_controller.py"
+        "tests/test_session_controller.py",
+        "tests/test_main_auth_flow.py"
       ],
-      "observaciones": "El servicio de autenticación tiene cobertura unitaria; además el login desktop PySide6 ya verifica first-run, credenciales válidas, bloqueo determinista, demo permitido/prohibido y la transición post-login. Se eleva E2E solo a parcial porque no existe todavía un recorrido completo con `main()`/loop real y logout extremo a extremo."
+      "observaciones": "La autenticación desktop ya cubre servicio, diálogo y transición post-login; además ahora existe una prueba headless controlada del wiring real extraído desde `clinicdesk/app/main.py` que recorre apertura de sesión, visibilidad de ventana principal, logout, reapertura satisfactoria, cancelación de relogin y error de transición con feedback. `e2e` se mantiene en parcial porque el entorno automatizado todavía no ejecuta `main()` hasta `app.exec()`/salida completa del loop real."
     },
     {
       "id": "FTR-004",

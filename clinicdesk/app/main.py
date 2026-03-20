@@ -3,7 +3,9 @@ from __future__ import annotations
 import logging
 import sys
 import uuid
+from collections.abc import Callable
 from pathlib import Path
+from typing import Protocol
 
 from PySide6.QtWidgets import QApplication, QDialog, QMessageBox
 
@@ -13,14 +15,14 @@ from clinicdesk.app.container import build_container
 from clinicdesk.app.crash_handler import install_global_exception_hook
 from clinicdesk.app.infrastructure.crash_logger import instalar_hooks_crash
 from clinicdesk.app.i18n import I18nManager
+from clinicdesk.app.security.auth import AuthService, is_demo_mode_allowed
 from clinicdesk.app.session_controller import (
     ContextoSesionAutenticada,
     ControladorSesionAutenticada,
     FabricaVentanaPrincipal,
 )
-from clinicdesk.app.security.auth import AuthService, is_demo_mode_allowed
 from clinicdesk.app.ui.log_buffer_handler import LogBufferHandler
-from clinicdesk.app.ui.login_dialog import LoginDialog
+from clinicdesk.app.ui.login_dialog import LoginDialog, LoginOutcome
 from clinicdesk.app.ui.main_window import MainWindow
 from clinicdesk.app.ui.theme import load_qss
 
@@ -33,6 +35,16 @@ class _UIRunIdFilter(logging.Filter):
         if not hasattr(record, "run_id"):
             record.run_id = "-"
         return True
+
+
+class DialogoLoginEjecutable(Protocol):
+    outcome: LoginOutcome
+
+    def exec(self) -> int: ...
+
+
+class FabricaDialogoLogin(Protocol):
+    def __call__(self, auth: AuthService, i18n: I18nManager, demo_allowed: bool) -> DialogoLoginEjecutable: ...
 
 
 def _install_ui_log_buffer() -> LogBufferHandler:
@@ -98,6 +110,82 @@ def _crear_controlador_sesion(app: QApplication, container, i18n: I18nManager) -
     )
 
 
+def _crear_dialogo_login(auth: AuthService, i18n: I18nManager, demo_allowed: bool) -> DialogoLoginEjecutable:
+    return LoginDialog(auth, i18n, demo_allowed=demo_allowed)
+
+
+def _cerrar_widgets_superiores(app: QApplication) -> None:
+    app.setQuitOnLastWindowClosed(True)
+    for widget in app.topLevelWidgets():
+        widget.close()
+
+
+def _crear_callback_logout(
+    app: QApplication,
+    auth: AuthService,
+    i18n: I18nManager,
+    demo_allowed: bool,
+    controlador: ControladorSesionAutenticada,
+    run_id: str,
+    crear_dialogo_login: FabricaDialogoLogin,
+) -> Callable[[], None]:
+    def _logout() -> None:
+        LOGGER.info("session_logout")
+        if controlador.ventana_principal is not None:
+            controlador.ventana_principal.hide()
+        if not abrir_sesion_autenticada(
+            app=app,
+            auth=auth,
+            i18n=i18n,
+            demo_allowed=demo_allowed,
+            controlador=controlador,
+            run_id=run_id,
+            crear_dialogo_login=crear_dialogo_login,
+        ):
+            _cerrar_widgets_superiores(app)
+
+    return _logout
+
+
+def abrir_sesion_autenticada(
+    *,
+    app: QApplication,
+    auth: AuthService,
+    i18n: I18nManager,
+    demo_allowed: bool,
+    controlador: ControladorSesionAutenticada,
+    run_id: str,
+    crear_dialogo_login: FabricaDialogoLogin = _crear_dialogo_login,
+) -> bool:
+    while True:
+        app.setQuitOnLastWindowClosed(False)
+        login = crear_dialogo_login(auth, i18n, demo_allowed)
+        if login.exec() != QDialog.Accepted:
+            return False
+
+        if login.outcome.demo_mode:
+            LOGGER.warning("auth_mode=DEMO access_granted")
+        else:
+            LOGGER.info("auth_mode=STANDARD access_granted")
+
+        contexto = ContextoSesionAutenticada(
+            username=login.outcome.username,
+            demo_mode=login.outcome.demo_mode,
+            run_id=run_id,
+        )
+        logout = _crear_callback_logout(app, auth, i18n, demo_allowed, controlador, run_id, crear_dialogo_login)
+        if controlador.transicionar_post_login(contexto, logout):
+            return True
+        LOGGER.error(
+            "post_login_transition_fail",
+            extra={
+                "action": "post_login_transition_fail",
+                "reason_code": "dependency_wiring_failed",
+                "exc_type": "none",
+            },
+        )
+
+
 def main() -> int:
     app, run_id = _inicializar_app()
 
@@ -110,44 +198,14 @@ def main() -> int:
     demo_allowed = is_demo_mode_allowed(db_path)
     controlador = _crear_controlador_sesion(app=app, container=container, i18n=i18n)
 
-    def open_authenticated_session() -> bool:
-        while True:
-            app.setQuitOnLastWindowClosed(False)
-            login = LoginDialog(auth, i18n, demo_allowed=demo_allowed)
-            if login.exec() != QDialog.Accepted:
-                return False
-
-            if login.outcome.demo_mode:
-                LOGGER.warning("auth_mode=DEMO access_granted")
-            else:
-                LOGGER.info("auth_mode=STANDARD access_granted")
-
-            def _logout() -> None:
-                LOGGER.info("session_logout")
-                if controlador.ventana_principal is not None:
-                    controlador.ventana_principal.hide()
-                if not open_authenticated_session():
-                    app.setQuitOnLastWindowClosed(True)
-                    for widget in app.topLevelWidgets():
-                        widget.close()
-
-            contexto = ContextoSesionAutenticada(
-                username=login.outcome.username,
-                demo_mode=login.outcome.demo_mode,
-                run_id=run_id,
-            )
-            if controlador.transicionar_post_login(contexto, _logout):
-                return True
-            LOGGER.error(
-                "post_login_transition_fail",
-                extra={
-                    "action": "post_login_transition_fail",
-                    "reason_code": "dependency_wiring_failed",
-                    "exc_type": "none",
-                },
-            )
-
-    if not open_authenticated_session():
+    if not abrir_sesion_autenticada(
+        app=app,
+        auth=auth,
+        i18n=i18n,
+        demo_allowed=demo_allowed,
+        controlador=controlador,
+        run_id=run_id,
+    ):
         container.close()
         return 0
 
