@@ -155,3 +155,30 @@ def test_usuario_lectura_puede_ver_explicacion_sin_entrenar_nuevo(qtbot, contain
     assert "Paciente" not in (telemetria.eventos[-1]["contexto"] or "")
     dialogo.accept()
     qtbot.waitUntil(lambda: page._dialogo_explicacion_activo is None)
+
+
+def test_usuario_lectura_mantiene_previsualizacion_y_accion_explicativa_habilitada(
+    qtbot, container, seed_data, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    cita_id = seed_historial_y_agenda_prediccion(container, seed_data, ahora=obtener_fecha_base_prediccion())
+    page_admin = _crear_page(container, contexto_usuario=UserContext(role=Role.ADMIN, username="admin"))
+    qtbot.addWidget(page_admin)
+    page_admin.chk_mostrar_agenda.setChecked(True)
+    page_admin.on_show()
+    monkeypatch.setattr(page_admin._background_entrenamiento, "iniciar_entrenamiento", _entrenamiento_inline)
+    page_admin._entrenar("duracion")
+    qtbot.waitUntil(lambda: page_admin._predicciones_duracion.get(cita_id) is not None)
+
+    page = _crear_page(container, contexto_usuario=UserContext(role=Role.READONLY, username="readonly"))
+    qtbot.addWidget(page)
+    page.chk_mostrar_agenda.setChecked(True)
+    page.on_show()
+
+    bloque = page._bloque("duracion")
+    qtbot.waitUntil(lambda: bloque.tabla.rowCount() > 0)
+
+    accion = bloque.tabla.cellWidget(0, 5)
+    assert accion is not None
+    assert accion.isEnabled() is True
+    assert bloque.tabla.item(0, 2).text()
+    assert bloque.tabla.item(0, 3).text()

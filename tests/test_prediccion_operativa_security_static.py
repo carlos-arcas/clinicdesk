@@ -39,6 +39,17 @@ def test_guardrail_denegado_registra_telemetria_y_feedback() -> None:
     assert "_registrar_telemetria" in nombres_llamados
 
 
+def test_previsualizacion_consulta_politica_de_lectura() -> None:
+    metodo = _metodo("_cargar_previsualizacion")
+    nombres_llamados = [
+        node.func.attr if isinstance(node.func, ast.Attribute) else node.func.id
+        for node in ast.walk(metodo)
+        if isinstance(node, ast.Call) and isinstance(node.func, (ast.Attribute, ast.Name))
+    ]
+
+    assert "puede_ver_estimaciones" in nombres_llamados
+
+
 def test_register_inyecta_autorizador_existente_del_container() -> None:
     tree = ast.parse(RUTA_REGISTER.read_text(encoding="utf-8"))
     atributos = {
