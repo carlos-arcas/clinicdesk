@@ -59,6 +59,23 @@ Notas de estabilidad:
 - fija rangos de fechas explícitos para no depender del reloj operativo;
 - no usa `sleep` ni servicios externos.
 
+### Rotación de claves CLI E2E/controlada
+```bash
+pytest -q tests/test_security_cli.py tests/test_security_cli_e2e.py
+```
+
+Qué cubre:
+- `generate-key` real, verificando salida no vacía, formato razonable y advertencia segura por `stderr`;
+- `check-key` real con clave válida, inválida y ausente, comprobando `rc` y mensajes explícitos;
+- `rotate-key --dry-run` sobre SQLite temporal real, con contadores coherentes y sin fugas de PII ni material de clave;
+- `rotate-key --apply` con recifrado efectivo, lectura funcional posterior mediante `PacientesRepository` y auditoría `CRYPTO_ROTATE` saneada;
+- errores contractuales por modo ausente, entorno inválido (`CLINICDESK_CRYPTO_KEY` / `CLINICDESK_CRYPTO_KEY_PREVIOUS`), columnas de cifrado ausentes y schema/DB inválidos con mensajes explícitos.
+
+Notas de estabilidad:
+- usa `security_cli.main([...])` directamente, sin subprocess, red, Docker ni servicios externos;
+- opera con `tmp_path` y SQLite efímera, sin bases persistentes del repo;
+- no usa `sleep`, mocks de negocio ni helpers privados como sujeto principal del test.
+
 Qué cubren:
 - arranque controlado de `QApplication`, resolución lazy del registro de páginas y navegación mínima hacia `citas` y `prediccion_operativa`;
 - flujo smoke de citas: abrir `PageCitas`, comprobar estado vacío estable, crear una cita por la ruta UI soportada y verificarla en listado con SQLite temporal;

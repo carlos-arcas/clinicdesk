@@ -49,7 +49,14 @@ def validar_clave_activa() -> int:
 def ejecutar_rotacion(args: argparse.Namespace) -> int:
     db_path = Path(args.db_path)
     schema_path = Path(args.schema_path)
-    con = bootstrap(db_path, schema_path, apply=True)
+    try:
+        con = bootstrap(db_path, schema_path, apply=True)
+    except FileNotFoundError as exc:
+        sys.stderr.write(f"ERROR: {exc}\n")
+        return 1
+    except sqlite3.Error as exc:
+        sys.stderr.write(f"ERROR: SQLite inválida o inaccesible: {exc}\n")
+        return 1
     try:
         if args.dry_run:
             resultado = rotar_claves(con, dry_run=True, batch_size=args.batch_size, sample_size=args.sample_size)
