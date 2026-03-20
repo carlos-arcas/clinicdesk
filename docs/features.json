@@ -121,18 +121,19 @@
       "nombre": "Se puede rotar claves criptográficas de campos sensibles",
       "descripcion": "CLI de seguridad para recifrar PII con modo dry-run/apply y registro de auditoría.",
       "prioridad": "Media",
-      "estado_global": "Parcial",
+      "estado_global": "Verificada",
       "desglose": {
         "logica": "Verificada",
         "ui": "No implementada",
         "validaciones_seguridad": "Verificada",
-        "e2e": "No verificada"
+        "e2e": "Verificada"
       },
       "evidencias": [
         "scripts/security_cli.py",
-        "tests/test_security_cli.py"
+        "tests/test_security_cli.py",
+        "tests/test_security_cli_e2e.py"
       ],
-      "observaciones": "Cobertura fuerte de contrato CLI y no exposición de PII; no hay escenario E2E operacional de rotación dentro de despliegue real automatizado."
+      "observaciones": "La evidencia ya cubre el contrato operacional soportado por producto vía `scripts/security_cli.py` sobre SQLite temporal real, sin mocks de negocio: `generate-key`, `check-key`, `rotate-key --dry-run` y `rotate-key --apply`, además de errores explícitos por modo ausente, entorno inválido, columnas de cifrado ausentes y schema/DB inválidos. Los tests verifican contadores, ausencia de fugas de PII/material de clave, recifrado real con lectura funcional posterior por repositorio y auditoría mínima saneada. `ui` sigue en \"No implementada\" porque este feature no expone interfaz gráfica."
     }
   ]
 }
