@@ -193,8 +193,11 @@ class PagePrediccionOperativa(QWidget):
         self._registrar_telemetria("estimaciones_preparar", f"click_{tipo}")
         self._iniciar_entrenamiento_background(tipo)
 
+    def _decision_entrenamiento(self):
+        return self._politica_seguridad.decidir_entrenamiento()
+
     def _autorizar_entrenamiento(self, tipo: str) -> bool:
-        decision = self._politica_seguridad.decidir_entrenamiento()
+        decision = self._decision_entrenamiento()
         if decision.permitido:
             return True
         self._mostrar_feedback_denegacion(tipo, decision.motivo_i18n)
@@ -266,6 +269,9 @@ class PagePrediccionOperativa(QWidget):
         self._background_entrenamiento.limpiar(tipo)
 
     def _cargar_previsualizacion(self) -> None:
+        if not self._politica_seguridad.puede_ver_estimaciones():
+            self._vaciar_tablas()
+            return
         if not debe_cargar_previsualizacion(self.chk_mostrar_agenda.isChecked()):
             self._vaciar_tablas()
             return
@@ -287,6 +293,7 @@ class PagePrediccionOperativa(QWidget):
             for col, valor in enumerate(valores):
                 tabla.setItem(fila, col, QTableWidgetItem(str(valor)))
             boton = QPushButton(self._i18n.t("prediccion_operativa.btn.ver_por_que"))
+            boton.setEnabled(self._politica_seguridad.puede_ver_explicacion())
             boton.clicked.connect(lambda _, c=cita.cita_id, n=nivel, t=bloque.tipo: self._mostrar_por_que(t, c, n))
             tabla.setCellWidget(fila, 5, boton)
         if tabla.rowCount() == 0:
@@ -328,7 +335,7 @@ class PagePrediccionOperativa(QWidget):
             return
 
     def _aplicar_seguridad_entrenamiento(self) -> None:
-        decision = self._politica_seguridad.decidir_entrenamiento()
+        decision = self._decision_entrenamiento()
         for bloque in (self._bloque_duracion, self._bloque_espera):
             habilitado = decision.permitido and not bloque.progress.isVisible()
             bloque.btn_preparar.setEnabled(habilitado)
