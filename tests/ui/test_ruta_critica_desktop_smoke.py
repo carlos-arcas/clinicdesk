@@ -18,8 +18,13 @@ from clinicdesk.app.application.citas import FiltrosCitasDTO
 from clinicdesk.app.i18n import I18nManager
 from clinicdesk.app import main as app_main
 from clinicdesk.app.pages.citas.page import PageCitas
+from clinicdesk.app.pages.pages_registry import get_pages
 from clinicdesk.app.pages.prediccion_operativa.page import PagePrediccionOperativa
-from tests.support.ruta_critica_desktop import FECHA_BASE_CITAS, seed_historial_y_agenda_prediccion
+from tests.support.ruta_critica_desktop import (
+    FECHA_BASE_CITAS,
+    obtener_fecha_base_prediccion,
+    seed_historial_y_agenda_prediccion,
+)
 
 pytestmark = [pytest.mark.ui, pytest.mark.uiqt, pytest.mark.integration]
 
@@ -45,6 +50,25 @@ def _filtros_dia(fecha: datetime) -> FiltrosCitasDTO:
         rango_preset="PERSONALIZADO",
         desde=fecha.replace(hour=0, minute=0, second=0, microsecond=0),
         hasta=fecha.replace(hour=23, minute=59, second=59, microsecond=0),
+    )
+
+
+def test_smoke_navegacion_minima_modulos_ruta_critica(qtbot, container) -> None:
+    pages = {page.key: page for page in get_pages(container, I18nManager("es"))}
+
+    assert "citas" in pages
+    assert "prediccion_operativa" in pages
+
+    page_citas = pages["citas"].factory()
+    page_prediccion = pages["prediccion_operativa"].factory()
+    qtbot.addWidget(page_citas)
+    qtbot.addWidget(page_prediccion)
+
+    assert page_citas.findChild(type(page_citas.btn_new), "citas_btn_nueva") is not None
+    assert page_citas.findChild(type(page_citas.table_lista), "citas_tabla_lista") is not None
+    assert (
+        page_prediccion.findChild(type(page_prediccion.chk_mostrar_agenda), "prediccion_operativa_chk_mostrar_agenda")
+        is not None
     )
 
 
@@ -105,7 +129,8 @@ def test_smoke_desktop_citas_crear_y_consultar(qtbot, container, seed_data, monk
 
 
 def test_smoke_desktop_prediccion_operativa_entrena_y_previsualiza(qtbot, container, seed_data, monkeypatch) -> None:
-    cita_futura_id = seed_historial_y_agenda_prediccion(container, seed_data)
+    fecha_base = obtener_fecha_base_prediccion()
+    cita_futura_id = seed_historial_y_agenda_prediccion(container, seed_data, ahora=fecha_base)
     page = PagePrediccionOperativa(
         facade=container.prediccion_operativa_facade,
         i18n=I18nManager("es"),
@@ -137,7 +162,8 @@ def test_smoke_desktop_prediccion_operativa_entrena_y_previsualiza(qtbot, contai
 
 
 def test_smoke_desktop_prediccion_operativa_muestra_explicacion_util(qtbot, container, seed_data, monkeypatch) -> None:
-    cita_futura_id = seed_historial_y_agenda_prediccion(container, seed_data)
+    fecha_base = obtener_fecha_base_prediccion()
+    cita_futura_id = seed_historial_y_agenda_prediccion(container, seed_data, ahora=fecha_base)
     page = PagePrediccionOperativa(
         facade=container.prediccion_operativa_facade,
         i18n=I18nManager("es"),
