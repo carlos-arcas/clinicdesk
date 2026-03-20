@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import datetime
 import os
 
 import pytest
@@ -15,12 +15,11 @@ except ImportError as exc:  # pragma: no cover
     pytest.skip(f"PySide6 no disponible: {exc}", allow_module_level=True)
 
 from clinicdesk.app.application.citas import FiltrosCitasDTO
-from clinicdesk.app.domain.citas import Cita
-from clinicdesk.app.domain.enums import EstadoCita, TipoCita
 from clinicdesk.app.i18n import I18nManager
 from clinicdesk.app import main as app_main
 from clinicdesk.app.pages.citas.page import PageCitas
 from clinicdesk.app.pages.prediccion_operativa.page import PagePrediccionOperativa
+from tests.support.ruta_critica_desktop import FECHA_BASE_CITAS, seed_historial_y_agenda_prediccion
 
 pytestmark = [pytest.mark.ui, pytest.mark.uiqt, pytest.mark.integration]
 
@@ -49,67 +48,6 @@ def _filtros_dia(fecha: datetime) -> FiltrosCitasDTO:
     )
 
 
-def _crear_cita_programada(container, seed_data: dict[str, int], inicio: datetime) -> int:
-    fin = inicio + timedelta(minutes=30)
-    return container.citas_repo.create(
-        Cita(
-            paciente_id=seed_data["paciente_activo_id"],
-            medico_id=seed_data["medico_activo_id"],
-            sala_id=seed_data["sala_activa_id"],
-            inicio=inicio,
-            fin=fin,
-            estado=EstadoCita.PROGRAMADA,
-            motivo="Seguimiento",
-            tipo_cita=TipoCita.PRIMERA,
-        )
-    )
-
-
-def _seed_prediccion_operativa(container, seed_data: dict[str, int]) -> int:
-    ahora = datetime.now().replace(second=0, microsecond=0)
-    for indice in range(60):
-        inicio = ahora - timedelta(days=45 - (indice % 15), hours=indice % 4, minutes=(indice % 3) * 10)
-        cita_id = container.citas_repo.create(
-            Cita(
-                paciente_id=seed_data["paciente_activo_id"],
-                medico_id=seed_data["medico_activo_id"],
-                sala_id=seed_data["sala_activa_id"],
-                inicio=inicio,
-                fin=inicio + timedelta(minutes=30),
-                estado=EstadoCita.REALIZADA,
-                motivo=f"Histórica {indice}",
-                tipo_cita=TipoCita.PRIMERA,
-            )
-        )
-        check_in = inicio - timedelta(minutes=12)
-        llamado = inicio - timedelta(minutes=4)
-        consulta_inicio = inicio + timedelta(minutes=2)
-        consulta_fin = consulta_inicio + timedelta(minutes=18 + (indice % 5))
-        container.connection.execute(
-            """
-            UPDATE citas
-            SET check_in_at = ?,
-                llamado_a_consulta_at = ?,
-                consulta_inicio_at = ?,
-                consulta_fin_at = ?,
-                check_out_at = ?
-            WHERE id = ?
-            """,
-            (
-                check_in.strftime("%Y-%m-%d %H:%M:%S"),
-                llamado.strftime("%Y-%m-%d %H:%M:%S"),
-                consulta_inicio.strftime("%Y-%m-%d %H:%M:%S"),
-                consulta_fin.strftime("%Y-%m-%d %H:%M:%S"),
-                (consulta_fin + timedelta(minutes=5)).strftime("%Y-%m-%d %H:%M:%S"),
-                cita_id,
-            ),
-        )
-    proxima = ahora + timedelta(days=1, hours=2)
-    futura_id = _crear_cita_programada(container, seed_data, proxima)
-    container.connection.commit()
-    return futura_id
-
-
 def test_smoke_arranque_controlado_pyside(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(app_main, "instalar_hooks_crash", lambda *_args, **_kwargs: None)
     monkeypatch.setattr(app_main, "configure_logging", lambda *_args, **_kwargs: None)
@@ -128,7 +66,7 @@ def test_smoke_desktop_citas_crear_y_consultar(qtbot, container, seed_data, monk
     page = PageCitas(container, I18nManager("es"))
     qtbot.addWidget(page)
 
-    fecha_base = datetime(2024, 5, 20, 9, 0, 0)
+    fecha_base = FECHA_BASE_CITAS
     page.calendar.setSelectedDate(QDate(2024, 5, 20))
     page._filtros_aplicados = _filtros_dia(fecha_base)
     page._refrescar_vistas_principales("test_setup")
@@ -167,7 +105,7 @@ def test_smoke_desktop_citas_crear_y_consultar(qtbot, container, seed_data, monk
 
 
 def test_smoke_desktop_prediccion_operativa_entrena_y_previsualiza(qtbot, container, seed_data, monkeypatch) -> None:
-    cita_futura_id = _seed_prediccion_operativa(container, seed_data)
+    cita_futura_id = seed_historial_y_agenda_prediccion(container, seed_data)
     page = PagePrediccionOperativa(
         facade=container.prediccion_operativa_facade,
         i18n=I18nManager("es"),
@@ -196,3 +134,39 @@ def test_smoke_desktop_prediccion_operativa_entrena_y_previsualiza(qtbot, contai
     assert page._predicciones_duracion[cita_futura_id] in {"BAJO", "MEDIO", "ALTO"}
     assert bloque.tabla.rowCount() >= 1
     assert bloque.tabla.item(0, 0).text()
+
+
+def test_smoke_desktop_prediccion_operativa_muestra_explicacion_util(qtbot, container, seed_data, monkeypatch) -> None:
+    cita_futura_id = seed_historial_y_agenda_prediccion(container, seed_data)
+    page = PagePrediccionOperativa(
+        facade=container.prediccion_operativa_facade,
+        i18n=I18nManager("es"),
+        telemetria_uc=_TelemetriaDummy(),
+        contexto_usuario=container.user_context,
+    )
+    qtbot.addWidget(page)
+    page.chk_mostrar_agenda.setChecked(True)
+    page.on_show()
+
+    def _entrenamiento_inline(**kwargs) -> None:
+        resultado = kwargs["ejecutar"]()
+        run = kwargs["run"]
+        kwargs["on_ok"](run.tipo, run.token, resultado)
+        kwargs["on_thread_finished"](run.tipo, run.token)
+
+    capturado: dict[str, str] = {}
+
+    def _capturar_explicacion(_parent, titulo: str, texto: str) -> None:
+        capturado["titulo"] = titulo
+        capturado["texto"] = texto
+
+    monkeypatch.setattr(page._background_entrenamiento, "iniciar_entrenamiento", _entrenamiento_inline)
+    monkeypatch.setattr("clinicdesk.app.pages.prediccion_operativa.page.QMessageBox.information", _capturar_explicacion)
+
+    page._entrenar("duracion")
+    qtbot.waitUntil(lambda: page._predicciones_duracion.get(cita_futura_id) is not None)
+    page._mostrar_por_que("duracion", cita_futura_id, page._predicciones_duracion[cita_futura_id])
+
+    assert capturado["titulo"] == page._i18n.t("prediccion_operativa.btn.ver_por_que")
+    assert capturado["texto"]
+    assert "•" in capturado["texto"]

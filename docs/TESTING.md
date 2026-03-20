@@ -43,8 +43,14 @@ pytest -q tests/test_prediccion_operativa_facade_integracion.py
 
 Qué cubren:
 - arranque controlado de `QApplication` y composición mínima PySide6;
-- flujo smoke de citas: abrir `PageCitas`, crear una cita por la ruta UI soportada y verificarla en listado con SQLite temporal;
-- flujo ML honesto: smoke desktop de `PagePrediccionOperativa` disparando entrenamiento mínimo sin infraestructura externa, más integración fuerte del facade real para entrenamiento, previsualización y explicación.
+- flujo smoke de citas: abrir `PageCitas`, comprobar estado vacío estable, crear una cita por la ruta UI soportada y verificarla en listado con SQLite temporal;
+- flujo ML honesto: smoke desktop de `PagePrediccionOperativa` disparando entrenamiento mínimo sin infraestructura externa, verificando previsualización y explicación observable;
+- integración fuerte del facade real con dataset efímero y una marca temporal anclada por test para entrenamiento, previsualización y explicación sin red, Docker ni servicios externos.
+
+Notas de estabilidad:
+- todos estos tests usan SQLite temporal controlada por fixtures de `pytest`;
+- la siembra ML captura una única marca temporal al inicio de cada test para mantener coherencia entre histórico y agenda futura;
+- las esperas UI usan `qtbot.waitUntil(...)` en lugar de `sleep` arbitrario.
 
 ## Qué protege el gate
 - Lint y formato.
