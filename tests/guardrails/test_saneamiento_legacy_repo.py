@@ -22,6 +22,11 @@ PATRONES_STACK_PROHIBIDO = (
     re.compile(r"\bspa\b"),
     re.compile(r"\bssr\b"),
     re.compile(r"\bssg\b"),
+    re.compile(r"\bfastapi\b", re.IGNORECASE),
+    re.compile(r"\bstarlette\b", re.IGNORECASE),
+    re.compile(r"\buvicorn\b", re.IGNORECASE),
+    re.compile(r"\btestclient\b", re.IGNORECASE),
+    re.compile(r"\bclinicdesk/web\b", re.IGNORECASE),
 )
 ALLOWLIST_REFERENCIAS = {
     Path("tests/guardrails/test_saneamiento_legacy_repo.py"),
@@ -35,6 +40,10 @@ ENTRYPOINTS_CANONICOS = (
 RUTAS_LEGACY_PROHIBIDAS = (
     Path("presentacion/webapp"),
     Path("web/config"),
+    Path("clinicdesk/web"),
+    Path("docker/api"),
+    Path("docker-compose.yml"),
+    Path("scripts/entrypoint.sh"),
     Path("clinicdesk/app/pages/Nuevo documento de texto.txt"),
     Path("docs/proyecto_narrativo_features_10_bloqueo.md"),
     Path("PORTFOLIO.md"),

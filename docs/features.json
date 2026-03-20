@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "ultima_actualizacion": "2026-03-19",
+  "ultima_actualizacion": "2026-03-20",
   "estados_permitidos": [
     "Verificada",
     "Parcial",
@@ -8,31 +8,12 @@
     "No implementada"
   ],
   "ruta_critica_principal": [
-    "FTR-002",
     "FTR-003",
     "FTR-004",
     "FTR-005",
     "FTR-006"
   ],
   "funciones": [
-    {
-      "id": "FTR-002",
-      "nombre": "Se puede consultar healthcheck del servicio web",
-      "descripcion": "Expone /healthz para verificar disponibilidad del proceso web y respuesta mínima JSON.",
-      "prioridad": "Alta",
-      "estado_global": "Verificada",
-      "desglose": {
-        "logica": "Verificada",
-        "ui": "No implementada",
-        "validaciones_seguridad": "Parcial",
-        "e2e": "Parcial"
-      },
-      "evidencias": [
-        "clinicdesk/web/healthz.py",
-        "tests/test_healthz.py"
-      ],
-      "observaciones": "Cobertura de contrato HTTP básico presente; falta evidencia de hardening adicional (auth/rate-limit) para marcar validaciones como Verificada."
-    },
     {
       "id": "FTR-003",
       "nombre": "Se puede autenticar usuario y bloquear tras intentos fallidos",
