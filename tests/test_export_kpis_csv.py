@@ -8,7 +8,9 @@ from pathlib import Path
 from clinicdesk.app.application.ml.drift import DriftReport
 from clinicdesk.app.application.ml.evaluation import EvalMetrics
 from clinicdesk.app.application.usecases.export_kpis_csv import (
+    COLUMNAS_CONTRACTUALES_POR_ARCHIVO,
     ExportKpisCSV,
+    ExportKpisOutputError,
     ExportKpisRequest,
     ExportKpisValidationError,
 )
@@ -27,20 +29,7 @@ def test_export_kpis_csv_generates_expected_files_and_headers(tmp_path: Path) ->
         "kpi_training_metrics",
     }
     overview = _read_csv(Path(outputs["kpi_overview"]))
-    assert overview[0] == [
-        "run_ts",
-        "dataset_version",
-        "model_name",
-        "model_version",
-        "predictor_kind",
-        "citas_count",
-        "risk_high_count",
-        "risk_high_pct",
-        "threshold_used",
-        "drift_severity",
-        "drift_psi_max",
-        "exports_dir",
-    ]
+    assert overview[0] == list(COLUMNAS_CONTRACTUALES_POR_ARCHIVO[ExportKpisCSV.OVERVIEW_FILE])
     assert overview[1][9] == "GREEN"
 
 
@@ -107,4 +96,23 @@ def test_export_kpis_csv_rejects_dataset_version_mismatch(tmp_path: Path) -> Non
     )
 
     with pytest.raises(ExportKpisValidationError, match="dataset_version inconsistente"):
+        ExportKpisCSV().execute(request)
+
+
+def test_export_kpis_csv_rejects_output_path_that_is_not_a_directory(tmp_path: Path) -> None:
+    occupied = tmp_path / "occupied.txt"
+    occupied.write_text("taken", encoding="utf-8")
+
+    request = _request(tmp_path, 0.1)
+    request = ExportKpisRequest(
+        dataset_version=request.dataset_version,
+        predictor_kind=request.predictor_kind,
+        exports_dir=occupied,
+        train_response=request.train_response,
+        score_response=request.score_response,
+        drift_report=request.drift_report,
+        run_ts=request.run_ts,
+    )
+
+    with pytest.raises(ExportKpisOutputError, match="No se pudo preparar directorio de export KPI"):
         ExportKpisCSV().execute(request)

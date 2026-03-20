@@ -75,6 +75,7 @@ Si tampoco puedes generar ese wheelhouse por restricciones de red reales, el ent
 - Tests rápidos y cobertura mínima del core.
 - Guardrails estructurales, secretos, PII y contratos documentales.
 - Evidencia de seguridad de citas: autorización real en `CrearCitaUseCase`, guardrail UI readonly y auditoría saneada del flujo de creación/override.
+- Evidencia de seguridad de export KPI: `pytest -q tests/test_export_kpis_csv.py tests/test_export_kpis_csv_e2e.py tests/test_export_kpis_csv_security.py` valida columnas contractuales exactas, ausencia de `cita_id`/nombres/reasons/payloads en los cuatro CSV agregados y error explícito cuando `export kpis --output` apunta a una ruta no válida como directorio.
 - Verificación de entrypoints y documentación funcional mínima.
 
 ## Regla operativa
