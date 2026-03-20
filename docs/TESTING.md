@@ -52,6 +52,21 @@ Notas de estabilidad:
 - la siembra ML usa una marca temporal anclada en fixture (`obtener_fecha_base_prediccion()`) para mantener coherencia entre histórico y agenda futura sin depender del reloj real;
 - las esperas UI usan `qtbot.waitUntil(...)` en lugar de `sleep` arbitrario.
 
+### Autenticación desktop PySide6
+```bash
+QT_QPA_PLATFORM=offscreen pytest -q tests/test_login_dialog_ui.py tests/test_session_controller.py tests/test_auth_service.py
+```
+
+Qué cubren:
+- `tests/test_login_dialog_ui.py`: contrato observable de `LoginDialog` para first-run, creación inicial válida/ inválida, login correcto con `Accepted` + `LoginOutcome`, bloqueo tras intentos fallidos con reloj inyectado, y demo mode permitido/prohibido;
+- `tests/test_session_controller.py`: transición post-login de `ControladorSesionAutenticada`, incluyendo creación de ventana principal, visibilidad real, retención de referencia, secuencia de `setQuitOnLastWindowClosed(...)` y fallos controlados cuando la factory devuelve `None`, la ventana no queda visible o la factory explota;
+- `tests/test_auth_service.py`: contrato base de hashing, verificación y bloqueo del servicio de autenticación sobre SQLite efímera.
+
+Alcance honesto:
+- **UI/smoke desktop**: `LoginDialog` real, widgets reales y feedback observable vía `QMessageBox` interceptado en tests headless;
+- **integración fuerte**: `AuthService` + `LoginDialog` y `ControladorSesionAutenticada` se prueban con dobles mínimos y SQLite temporal, sin lanzar `main()` completo ni un loop infinito;
+- **no cubre todavía un E2E completo** con `clinicdesk/app/main.py`, logout real y reapertura de sesión dentro del mismo ciclo extremo a extremo.
+
 ## Qué protege el gate
 - Lint y formato.
 - Typecheck incremental.

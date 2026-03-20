@@ -7,6 +7,7 @@ import sqlite3
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from typing import Callable
 
 
 @dataclass(frozen=True)
@@ -16,10 +17,18 @@ class AuthResult:
 
 
 class AuthService:
-    def __init__(self, connection: sqlite3.Connection, *, max_attempts: int = 5, lock_seconds: int = 60) -> None:
+    def __init__(
+        self,
+        connection: sqlite3.Connection,
+        *,
+        max_attempts: int = 5,
+        lock_seconds: int = 60,
+        now_provider: Callable[[], datetime] | None = None,
+    ) -> None:
         self._con = connection
         self._max_attempts = max_attempts
         self._lock_seconds = lock_seconds
+        self._now_provider = now_provider or _utc_now
         self._ensure_schema()
 
     def _ensure_schema(self) -> None:
@@ -46,7 +55,7 @@ class AuthService:
     def create_user(self, username: str, password: str) -> None:
         username = username.strip()
         digest, salt = _hash_password(password)
-        now = _utc_now_iso()
+        now = _utc_now_iso(self._now_provider())
         self._con.execute(
             """
             INSERT INTO auth_users(username, password_hash, password_salt, failed_attempts, locked_until, created_at, updated_at)
@@ -66,7 +75,7 @@ class AuthService:
 
         user_id = int(row["id"])
         locked_until = row["locked_until"]
-        if locked_until and datetime.fromisoformat(locked_until) > datetime.now(timezone.utc):
+        if locked_until and datetime.fromisoformat(locked_until) > self._now_provider():
             return AuthResult(ok=False, locked=True)
 
         expected_hash = bytes(row["password_hash"])
@@ -75,7 +84,7 @@ class AuthService:
         if hmac.compare_digest(expected_hash, computed):
             self._con.execute(
                 "UPDATE auth_users SET failed_attempts = 0, locked_until = NULL, updated_at = ? WHERE id = ?",
-                (_utc_now_iso(), user_id),
+                (_utc_now_iso(self._now_provider()), user_id),
             )
             self._con.commit()
             return AuthResult(ok=True)
@@ -83,11 +92,11 @@ class AuthService:
         failed_attempts = int(row["failed_attempts"]) + 1
         lock_until_value = None
         if failed_attempts >= self._max_attempts:
-            lock_until_value = (datetime.now(timezone.utc) + timedelta(seconds=self._lock_seconds)).isoformat()
+            lock_until_value = (self._now_provider() + timedelta(seconds=self._lock_seconds)).isoformat()
             failed_attempts = 0
         self._con.execute(
             "UPDATE auth_users SET failed_attempts = ?, locked_until = ?, updated_at = ? WHERE id = ?",
-            (failed_attempts, lock_until_value, _utc_now_iso(), user_id),
+            (failed_attempts, lock_until_value, _utc_now_iso(self._now_provider()), user_id),
         )
         self._con.commit()
         return AuthResult(ok=False, locked=lock_until_value is not None)
@@ -108,5 +117,9 @@ def _derive_hash(password: str, salt: bytes) -> bytes:
     return hashlib.pbkdf2_hmac("sha256", password.encode("utf-8"), salt, 310_000)
 
 
-def _utc_now_iso() -> str:
-    return datetime.now(timezone.utc).isoformat()
+def _utc_now() -> datetime:
+    return datetime.now(timezone.utc)
+
+
+def _utc_now_iso(value: datetime) -> str:
+    return value.isoformat()

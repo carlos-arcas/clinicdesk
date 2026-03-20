@@ -55,9 +55,11 @@ class LoggerFalso:
 class AppFalsa:
     def __init__(self) -> None:
         self.quit_on_last_window_closed = True
+        self.historial: list[bool] = []
 
     def setQuitOnLastWindowClosed(self, enabled: bool) -> None:
         self.quit_on_last_window_closed = enabled
+        self.historial.append(enabled)
 
 
 class I18nFalso:
@@ -96,6 +98,13 @@ def test_controlador_guarda_referencia_en_app_y_controlador() -> None:
     assert controlador.ventana_principal is fabrica.ventana
     assert getattr(app, "ventana_principal") is fabrica.ventana
     assert fabrica.ventana.isVisible() is True
+    assert app.historial == [False, True]
+    assert [evento[0] for evento in logger.eventos] == [
+        "auth_login_accepted",
+        "main_window_create",
+        "main_window_show",
+        "post_login_transition_ok",
+    ]
 
 
 def test_flujo_no_define_sys_exit_en_controlador() -> None:
@@ -130,3 +139,75 @@ def test_controlador_reporta_error_si_fabrica_devuelve_none() -> None:
         "reason_code": "main_window_init_failed",
         "exc_type": "none",
     }
+    assert app.historial == [False]
+
+
+def test_controlador_falla_si_ventana_no_queda_visible() -> None:
+    class VentanaInvisible(VentanaFalsa):
+        def show(self) -> None:
+            self.visible = False
+
+    fabrica = FabricaFalsa()
+    fabrica.ventana = VentanaInvisible()
+    app = AppFalsa()
+    logger = LoggerFalso()
+    errores: list[str] = []
+    controlador = ControladorSesionAutenticada(app, I18nFalso(), logger, fabrica, errores.append)
+
+    ok = controlador.transicionar_post_login(
+        ContextoSesionAutenticada(username="ana", demo_mode=False, run_id="r1"),
+        on_logout=lambda: None,
+    )
+
+    assert ok is False
+    assert controlador.ventana_principal is fabrica.ventana
+    assert errores == ["session.error.open_failed"]
+    assert app.historial == [False]
+    assert logger.eventos[-1][1] == {
+        "action": "post_login_transition_fail",
+        "reason_code": "main_window_init_failed",
+        "exc_type": "none",
+    }
+
+
+def test_controlador_cierra_ventana_anterior_antes_de_recrear() -> None:
+    fabrica = FabricaFalsa()
+    app = AppFalsa()
+    logger = LoggerFalso()
+    controlador = ControladorSesionAutenticada(app, I18nFalso(), logger, fabrica, lambda _msg: None)
+    ventana_anterior = VentanaFalsa(visible=True)
+    controlador.ventana_principal = ventana_anterior
+
+    ok = controlador.transicionar_post_login(
+        ContextoSesionAutenticada(username="ana", demo_mode=False, run_id="r2"),
+        on_logout=lambda: None,
+    )
+
+    assert ok is True
+    assert ventana_anterior.closed is True
+    assert controlador.ventana_principal is fabrica.ventana
+
+
+def test_controlador_reporta_error_si_factory_lanza_excepcion() -> None:
+    class FabricaExplosiva:
+        def crear_ventana_principal(self, contexto: ContextoSesionAutenticada, on_logout):
+            raise RuntimeError("boom")
+
+    app = AppFalsa()
+    logger = LoggerFalso()
+    errores: list[str] = []
+    controlador = ControladorSesionAutenticada(app, I18nFalso(), logger, FabricaExplosiva(), errores.append)
+
+    ok = controlador.transicionar_post_login(
+        ContextoSesionAutenticada(username="ana", demo_mode=False, run_id="r1"),
+        on_logout=lambda: None,
+    )
+
+    assert ok is False
+    assert errores == ["session.error.open_failed"]
+    assert logger.eventos[-1][1] == {
+        "action": "post_login_transition_fail",
+        "reason_code": "unexpected_error",
+        "exc_type": "RuntimeError",
+    }
+    assert app.historial == [False]
