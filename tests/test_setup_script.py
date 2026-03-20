@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import subprocess
 from pathlib import Path
 
 from scripts import setup
@@ -20,8 +19,13 @@ class _DiagnosticoAlineado:
     python_activo = "3.12.0"
     venv_activo = True
     cache_pip = "/tmp/pip"
+    indice_pip = None
+    proxy_configurado = False
+    diagnostico_red = "sin wheelhouse"
     tiene_faltantes = False
     tiene_desalineaciones = False
+    toolchain_error = None
+    source_of_truth = "requirements-dev.txt"
 
 
 def _mockear_doctor_alineado(monkeypatch) -> None:
@@ -38,9 +42,7 @@ def test_setup_main_ejecuta_comandos_esperados(monkeypatch, tmp_path: Path) -> N
 
     def fake_run(command, **kwargs):
         comandos.append(command)
-        if command[:5] == [setup.sys.executable, "-m", "pip", "cache", "dir"]:
-            return _Resultado(returncode=0, stdout="/tmp/pip-cache")
-        return subprocess.CompletedProcess(command, 0)
+        return _Resultado(returncode=0, stdout="ok")
 
     monkeypatch.setattr(setup, "PROJECT_ROOT", Path(__file__).resolve().parents[1])
     monkeypatch.setattr(setup, "VENV_DIR", venv_dir)
@@ -69,11 +71,9 @@ def test_setup_main_devuelve_error_si_falla_subproceso(monkeypatch, tmp_path: Pa
     original_exists = Path.exists
 
     def fake_run(command, **kwargs):
-        if command[:5] == [setup.sys.executable, "-m", "pip", "cache", "dir"]:
-            return _Resultado(returncode=0, stdout="/tmp/pip-cache")
         if command[-1].endswith("requirements.txt"):
-            return subprocess.CompletedProcess(command, 1)
-        return subprocess.CompletedProcess(command, 0)
+            return _Resultado(returncode=1, stderr="connection timed out")
+        return _Resultado(returncode=0, stdout="ok")
 
     monkeypatch.setattr(setup, "PROJECT_ROOT", Path(__file__).resolve().parents[1])
     monkeypatch.setattr(setup, "VENV_DIR", venv_dir)
@@ -88,6 +88,7 @@ def test_setup_main_devuelve_error_si_falla_subproceso(monkeypatch, tmp_path: Pa
     assert rc == 1
     assert "[setup][error]" in salida
     assert "Instalar dependencias runtime" in salida
+    assert "entorno no es recuperable localmente" in salida
 
 
 def test_instalar_dependencias_falla_si_falta_requirements(monkeypatch, tmp_path: Path) -> None:
@@ -109,3 +110,8 @@ def test_instalar_dependencias_falla_si_falta_requirements(monkeypatch, tmp_path
         assert "No se encontraron requirements.txt" in str(exc)
     else:
         raise AssertionError("Se esperaba RuntimeError cuando faltan requirements")
+
+
+def test_resumen_error_instalacion_detecta_proxy() -> None:
+    lineas = setup._resumen_error_instalacion("ProxyError: tunnel connection failed", "")
+    assert any("red/proxy" in linea for linea in lineas)
