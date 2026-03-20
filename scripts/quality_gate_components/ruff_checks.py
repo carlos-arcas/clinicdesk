@@ -10,6 +10,7 @@ from typing import Sequence
 from scripts._ruff_targets import obtener_targets_python
 
 from . import config
+from .toolchain import cargar_toolchain_esperado
 
 _LOGGER = logging.getLogger(__name__)
 RUTA_ARTEFACTO_DIFF_RUFF = Path("docs/ruff_format_diff.txt")
@@ -18,7 +19,6 @@ DELIMITADOR_FIN_DIFF = "END RUFF FORMAT DIFF"
 MAX_LINEAS_DIFF_HEAD = 200
 MAX_LINEAS_DIFF_TAIL = 50
 PATRON_VERSION_RUFF = re.compile(r"ruff\s+(?P<version>\S+)")
-PATRON_PIN_RUFF = re.compile(r"^ruff\s*==\s*(?P<version>[^\s#;]+)")
 PATRON_WOULD_REFORMAT = re.compile(r"^Would reformat:\s+(?P<ruta>.+)$")
 
 
@@ -35,34 +35,17 @@ def _loggear_version_ruff(root: Path) -> tuple[int, str]:
 
 
 def _obtener_version_ruff_pinneada(root: Path) -> str | None:
-    requirements_dev = root / "requirements-dev.txt"
-    if not requirements_dev.exists():
-        _LOGGER.error("[quality-gate] ❌ Falta requirements-dev.txt para validar versión de Ruff.")
+    try:
+        return cargar_toolchain_esperado(root).version_esperada("ruff")
+    except Exception as exc:
+        _LOGGER.error("[quality-gate] ❌ No se pudo cargar la fuente de verdad del tooling: %s", exc)
         return None
-
-    for linea in requirements_dev.read_text(encoding="utf-8").splitlines():
-        contenido = linea.strip()
-        if not contenido or contenido.startswith("#"):
-            continue
-        version = _extraer_version_ruff_pinneada_desde_linea(contenido)
-        if version is not None:
-            return version
-
-    _LOGGER.error("[quality-gate] ❌ requirements-dev.txt no define pin de Ruff (ruff==x.y.z).")
-    return None
 
 
 def _extraer_version_ruff_instalada(salida_version: str) -> str | None:
     match = PATRON_VERSION_RUFF.search(salida_version)
     if not match:
         _LOGGER.error("[quality-gate] ❌ No se pudo parsear la versión de Ruff: %s", salida_version)
-        return None
-    return match.group("version")
-
-
-def _extraer_version_ruff_pinneada_desde_linea(linea_requirements: str) -> str | None:
-    match = PATRON_PIN_RUFF.search(linea_requirements)
-    if not match:
         return None
     return match.group("version")
 
