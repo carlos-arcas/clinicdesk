@@ -1,0 +1,198 @@
+from __future__ import annotations
+
+from dataclasses import dataclass
+from datetime import datetime, timedelta
+import os
+
+import pytest
+
+os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+
+try:
+    from PySide6.QtCore import QDate, Qt
+    from PySide6.QtWidgets import QDialog
+except ImportError as exc:  # pragma: no cover
+    pytest.skip(f"PySide6 no disponible: {exc}", allow_module_level=True)
+
+from clinicdesk.app.application.citas import FiltrosCitasDTO
+from clinicdesk.app.domain.citas import Cita
+from clinicdesk.app.domain.enums import EstadoCita, TipoCita
+from clinicdesk.app.i18n import I18nManager
+from clinicdesk.app import main as app_main
+from clinicdesk.app.pages.citas.page import PageCitas
+from clinicdesk.app.pages.prediccion_operativa.page import PagePrediccionOperativa
+
+pytestmark = [pytest.mark.ui, pytest.mark.uiqt, pytest.mark.integration]
+
+
+@dataclass(slots=True)
+class _FakeDialogoCita:
+    datos: object
+
+    def exec(self) -> int:
+        return QDialog.Accepted
+
+    def get_data(self) -> object:
+        return self.datos
+
+
+class _TelemetriaDummy:
+    def ejecutar(self, **_kwargs) -> None:
+        return None
+
+
+def _filtros_dia(fecha: datetime) -> FiltrosCitasDTO:
+    return FiltrosCitasDTO(
+        rango_preset="PERSONALIZADO",
+        desde=fecha.replace(hour=0, minute=0, second=0, microsecond=0),
+        hasta=fecha.replace(hour=23, minute=59, second=59, microsecond=0),
+    )
+
+
+def _crear_cita_programada(container, seed_data: dict[str, int], inicio: datetime) -> int:
+    fin = inicio + timedelta(minutes=30)
+    return container.citas_repo.create(
+        Cita(
+            paciente_id=seed_data["paciente_activo_id"],
+            medico_id=seed_data["medico_activo_id"],
+            sala_id=seed_data["sala_activa_id"],
+            inicio=inicio,
+            fin=fin,
+            estado=EstadoCita.PROGRAMADA,
+            motivo="Seguimiento",
+            tipo_cita=TipoCita.PRIMERA,
+        )
+    )
+
+
+def _seed_prediccion_operativa(container, seed_data: dict[str, int]) -> int:
+    ahora = datetime.now().replace(second=0, microsecond=0)
+    for indice in range(60):
+        inicio = ahora - timedelta(days=45 - (indice % 15), hours=indice % 4, minutes=(indice % 3) * 10)
+        cita_id = container.citas_repo.create(
+            Cita(
+                paciente_id=seed_data["paciente_activo_id"],
+                medico_id=seed_data["medico_activo_id"],
+                sala_id=seed_data["sala_activa_id"],
+                inicio=inicio,
+                fin=inicio + timedelta(minutes=30),
+                estado=EstadoCita.REALIZADA,
+                motivo=f"Histórica {indice}",
+                tipo_cita=TipoCita.PRIMERA,
+            )
+        )
+        check_in = inicio - timedelta(minutes=12)
+        llamado = inicio - timedelta(minutes=4)
+        consulta_inicio = inicio + timedelta(minutes=2)
+        consulta_fin = consulta_inicio + timedelta(minutes=18 + (indice % 5))
+        container.connection.execute(
+            """
+            UPDATE citas
+            SET check_in_at = ?,
+                llamado_a_consulta_at = ?,
+                consulta_inicio_at = ?,
+                consulta_fin_at = ?,
+                check_out_at = ?
+            WHERE id = ?
+            """,
+            (
+                check_in.strftime("%Y-%m-%d %H:%M:%S"),
+                llamado.strftime("%Y-%m-%d %H:%M:%S"),
+                consulta_inicio.strftime("%Y-%m-%d %H:%M:%S"),
+                consulta_fin.strftime("%Y-%m-%d %H:%M:%S"),
+                (consulta_fin + timedelta(minutes=5)).strftime("%Y-%m-%d %H:%M:%S"),
+                cita_id,
+            ),
+        )
+    proxima = ahora + timedelta(days=1, hours=2)
+    futura_id = _crear_cita_programada(container, seed_data, proxima)
+    container.connection.commit()
+    return futura_id
+
+
+def test_smoke_arranque_controlado_pyside(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(app_main, "instalar_hooks_crash", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(app_main, "configure_logging", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(app_main, "install_global_exception_hook", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(app_main, "_install_ui_log_buffer", lambda: None)
+    monkeypatch.setattr(app_main, "load_qss", lambda: "")
+
+    app, run_id = app_main._inicializar_app()
+
+    assert run_id
+    assert app is not None
+    app.quit()
+
+
+def test_smoke_desktop_citas_crear_y_consultar(qtbot, container, seed_data, monkeypatch: pytest.MonkeyPatch) -> None:
+    page = PageCitas(container, I18nManager("es"))
+    qtbot.addWidget(page)
+
+    fecha_base = datetime(2024, 5, 20, 9, 0, 0)
+    page.calendar.setSelectedDate(QDate(2024, 5, 20))
+    page._filtros_aplicados = _filtros_dia(fecha_base)
+    page._refrescar_vistas_principales("test_setup")
+    qtbot.waitUntil(lambda: page.table_lista.rowCount() == 0)
+
+    from clinicdesk.app.controllers import citas_controller as citas_controller_module
+    from clinicdesk.app.pages.citas.dialogs.dialog_cita_form import CitaFormData
+
+    monkeypatch.setattr(
+        citas_controller_module,
+        "CitaFormDialog",
+        lambda *args, **kwargs: _FakeDialogoCita(
+            CitaFormData(
+                paciente_id=seed_data["paciente_activo_id"],
+                medico_id=seed_data["medico_activo_id"],
+                sala_id=seed_data["sala_activa_id"],
+                inicio="2024-05-20 09:00:00",
+                fin="2024-05-20 09:30:00",
+                motivo="Control anual",
+                observaciones="Creada desde smoke desktop",
+            )
+        ),
+    )
+
+    page._on_new()
+
+    qtbot.waitUntil(lambda: page.table_lista.rowCount() == 1)
+    assert page.lbl_estado.text() == ""
+    assert page.table_lista.item(0, 0).data(Qt.UserRole) == page._citas_lista_ids[0]
+    textos_fila = [
+        page.table_lista.item(0, columna).text()
+        for columna in range(page.table_lista.columnCount())
+        if page.table_lista.item(0, columna) is not None
+    ]
+    assert any("Laura" in texto for texto in textos_fila)
+
+
+def test_smoke_desktop_prediccion_operativa_entrena_y_previsualiza(qtbot, container, seed_data, monkeypatch) -> None:
+    cita_futura_id = _seed_prediccion_operativa(container, seed_data)
+    page = PagePrediccionOperativa(
+        facade=container.prediccion_operativa_facade,
+        i18n=I18nManager("es"),
+        telemetria_uc=_TelemetriaDummy(),
+        contexto_usuario=container.user_context,
+    )
+    qtbot.addWidget(page)
+    page.on_show()
+
+    bloque = page._bloque("duracion")
+    assert "60" in bloque.lbl_datos.text()
+
+    def _entrenamiento_inline(**kwargs) -> None:
+        resultado = kwargs["ejecutar"]()
+        run = kwargs["run"]
+        kwargs["on_ok"](run.tipo, run.token, resultado)
+        kwargs["on_thread_finished"](run.tipo, run.token)
+
+    monkeypatch.setattr(page._background_entrenamiento, "iniciar_entrenamiento", _entrenamiento_inline)
+
+    page._entrenar("duracion")
+
+    qtbot.waitUntil(lambda: not bloque.progress.isVisible())
+    qtbot.waitUntil(lambda: page._predicciones_duracion.get(cita_futura_id) is not None)
+    assert bloque.lbl_feedback.text() == page._i18n.t("prediccion_operativa.msg.listo")
+    assert page._predicciones_duracion[cita_futura_id] in {"BAJO", "MEDIO", "ALTO"}
+    assert bloque.tabla.rowCount() >= 1
+    assert bloque.tabla.item(0, 0).text()
