@@ -54,14 +54,9 @@ def cargar_toolchain_esperado(repo_root: Path) -> ToolchainEsperado:
     )
 
 
-def _leer_versiones_lock(requirements_dev_lock: Path) -> dict[str, str]:
-    if not requirements_dev_lock.exists():
-        raise ErrorToolchain(
-            f"Falta el lock dev obligatorio: {requirements_dev_lock}. Regénéralo con {COMANDO_REGENERAR_LOCK}."
-        )
-
+def leer_versiones_lock_desde_texto(texto_lock: str) -> dict[str, str]:
     versiones: dict[str, str] = {}
-    for numero_linea, linea in enumerate(requirements_dev_lock.read_text(encoding="utf-8").splitlines(), start=1):
+    for linea in texto_lock.splitlines():
         contenido = _normalizar_linea(linea)
         if contenido is None:
             continue
@@ -69,6 +64,16 @@ def _leer_versiones_lock(requirements_dev_lock: Path) -> dict[str, str]:
         if separador != "==":
             continue
         versiones[nombre] = version
+    return versiones
+
+
+def _leer_versiones_lock(requirements_dev_lock: Path) -> dict[str, str]:
+    if not requirements_dev_lock.exists():
+        raise ErrorToolchain(
+            f"Falta el lock dev obligatorio: {requirements_dev_lock}. Regénéralo con {COMANDO_REGENERAR_LOCK}."
+        )
+
+    versiones = leer_versiones_lock_desde_texto(requirements_dev_lock.read_text(encoding="utf-8"))
 
     faltantes = [herramienta.nombre_paquete for herramienta in HERRAMIENTAS_GATE if herramienta.nombre_paquete not in versiones]
     if faltantes:

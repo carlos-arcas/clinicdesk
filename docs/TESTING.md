@@ -18,6 +18,14 @@ Este comando **no instala dependencias**. Solo informa de forma determinista:
 - cuál falta, cuál está desalineada y qué comando exacto corrige cada caso;
 - si el problema es de red/proxy/offline-first (`wheelhouse`, `PIP_INDEX_URL`, `HTTP[S]_PROXY`).
 
+Si necesitas validar explícitamente si el entorno es recuperable sin red, ejecuta:
+
+```bash
+python -m scripts.doctor_entorno_calidad --require-wheelhouse
+```
+
+Ese modo no intenta instalar nada y falla solo si el modo offline-first es imposible por ausencia de wheelhouse.
+
 ## Si necesitas hacerlo a mano
 ```bash
 python -m venv .venv
@@ -28,6 +36,7 @@ pip install -r requirements-dev.txt
 
 ## Comandos canónicos
 - Doctor de entorno: `python -m scripts.doctor_entorno_calidad`
+- Doctor offline-first estricto: `python -m scripts.doctor_entorno_calidad --require-wheelhouse`
 - Suite rápida: `pytest -q`
 - Gate rápido: `python -m scripts.gate_rapido`
 - Gate completo: `python -m scripts.gate_pr`
@@ -49,6 +58,7 @@ python -m scripts.lock_deps
 
 ## Proxy, red restringida y modo offline-first
 - Si `setup.py` detecta errores como `ProxyError`, timeouts o fallo de resolución DNS, lo reportará explícitamente como bloqueo de entorno.
+- `python -m scripts.gate_pr` aborta antes del gate funcional si detecta bloqueo de entorno; así distingue entre “no validé el proyecto” y “el proyecto falló el gate”.
 - Si no hay `wheelhouse`, el setup depende de red/proxy reales. En ese caso el repo **no simula** un PASS: solo informa del bloqueo.
 - Si necesitas preparar un entorno local sin acceso externo, puedes construir un wheelhouse fuera del repo y reutilizarlo con `CLINICDESK_WHEELHOUSE`:
 
