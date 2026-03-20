@@ -74,6 +74,7 @@ Si tampoco puedes generar ese wheelhouse por restricciones de red reales, el ent
 - Typecheck incremental.
 - Tests rápidos y cobertura mínima del core.
 - Guardrails estructurales, secretos, PII y contratos documentales.
+- Evidencia de seguridad de citas: autorización real en `CrearCitaUseCase`, guardrail UI readonly y auditoría saneada del flujo de creación/override.
 - Verificación de entrypoints y documentación funcional mínima.
 
 ## Regla operativa
