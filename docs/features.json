@@ -86,13 +86,15 @@
         "logica": "Verificada",
         "ui": "No implementada",
         "validaciones_seguridad": "Parcial",
-        "e2e": "Parcial"
+        "e2e": "Verificada"
       },
       "evidencias": [
         "clinicdesk/app/application/usecases/export_kpis_csv.py",
-        "tests/test_export_kpis_csv.py"
+        "scripts/ml_cli.py",
+        "tests/test_export_kpis_csv.py",
+        "tests/test_export_kpis_csv_e2e.py"
       ],
-      "observaciones": "Contrato de exportación probado; pendiente verificar consumo E2E con herramienta externa de reporting en entorno automatizado."
+      "observaciones": "Además del caso de uso aislado, ahora existe una prueba E2E/controlada por CLI que recorre el wiring real soportado por `scripts/ml_cli.py` sobre SQLite y stores temporales: seed-demo, build-features, train, score, drift opcional y `export kpis`, validando los cuatro CSV contractuales por contenido mínimo y el error explícito ante requests inconsistentes. `ui` permanece en \"No implementada\" porque este flujo no expone UI real."
     },
     {
       "id": "FTR-007",
