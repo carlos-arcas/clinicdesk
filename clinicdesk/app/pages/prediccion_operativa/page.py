@@ -72,6 +72,7 @@ class PagePrediccionOperativa(QWidget):
         self._predicciones_duracion: dict[int, str] = {}
         self._predicciones_espera: dict[int, str] = {}
         self._proximas_citas: list[object] = []
+        self._dialogo_explicacion_activo: QMessageBox | None = None
         self._build_ui()
         self._i18n.subscribe(self._retranslate)
         self._retranslate()
@@ -262,12 +263,23 @@ class PagePrediccionOperativa(QWidget):
     def _mostrar_por_que(self, tipo: str, cita_id: int, nivel: str) -> None:
         uc = self._facade.explicar_duracion_uc if tipo == "duracion" else self._facade.explicar_espera_uc
         exp = uc.ejecutar(cita_id, nivel)
-        QMessageBox.information(
-            self,
-            self._i18n.t("prediccion_operativa.btn.ver_por_que"),
-            construir_bullets_explicacion(exp, self._i18n),
-        )
+        self._abrir_dialogo_explicacion(construir_bullets_explicacion(exp, self._i18n))
         self._registrar_telemetria("explicacion_ver_por_que", f"ok_{tipo}", cita_id=cita_id)
+
+    def _abrir_dialogo_explicacion(self, texto: str) -> None:
+        dialogo = QMessageBox(self)
+        dialogo.setWindowTitle(self._i18n.t("prediccion_operativa.btn.ver_por_que"))
+        dialogo.setIcon(QMessageBox.Icon.Information)
+        dialogo.setText(texto)
+        dialogo.setStandardButtons(QMessageBox.StandardButton.Ok)
+        dialogo.setModal(True)
+        dialogo.finished.connect(self._on_dialogo_explicacion_cerrado)
+        self._dialogo_explicacion_activo = dialogo
+        dialogo.open()
+
+    @Slot(int)
+    def _on_dialogo_explicacion_cerrado(self, _resultado: int) -> None:
+        self._dialogo_explicacion_activo = None
 
     def _registrar_telemetria(self, evento: str, resultado: str, cita_id: int | None = None) -> None:
         try:

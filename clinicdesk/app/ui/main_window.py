@@ -21,6 +21,7 @@ from PySide6.QtWidgets import (
 
 from clinicdesk.app.application.csv.csv_service import CsvService
 from clinicdesk.app.controllers.csv_controller import CsvController
+from clinicdesk.app.application.preferencias.preferencias_usuario import PreferenciasUsuario
 from clinicdesk.app.container import AppContainer
 from clinicdesk.app.application.citas.navigation_intent import CitasNavigationIntentDTO
 from clinicdesk.app.i18n import I18nManager
@@ -197,6 +198,76 @@ class MainWindow(QMainWindow):
 
     def open_csv_dialog(self) -> None:
         self._csv_controller.open_dialog()
+
+    def _crear_pagina_si_hace_falta(self, key: str) -> QWidget:
+        indice = self._page_index_by_key.get(key)
+        if indice is not None:
+            widget = self.stack.widget(indice)
+            assert widget is not None
+            return widget
+        factory = self._factory_by_key[key]
+        widget = factory()
+        indice = self.stack.addWidget(widget)
+        self._page_index_by_key[key] = indice
+        return widget
+
+    def _guardar_pagina_actual(self, key: str) -> None:
+        preferencias = self.container.preferencias_service.get()
+        if preferencias.pagina_ultima == key:
+            return
+        self.container.preferencias_service.set(
+            PreferenciasUsuario(
+                pagina_ultima=key,
+                restaurar_pagina_ultima_en_arranque=preferencias.restaurar_pagina_ultima_en_arranque,
+                filtros_pacientes=preferencias.filtros_pacientes,
+                filtros_confirmaciones=preferencias.filtros_confirmaciones,
+                last_search_by_context=preferencias.last_search_by_context,
+                columnas_por_contexto=preferencias.columnas_por_contexto,
+            )
+        )
+
+    def _aplicar_intent_si_corresponde(self, key: str, widget: QWidget, intent: object | None) -> None:
+        if key == "citas":
+            if isinstance(intent, CitasNavigationIntentDTO):
+                self._intent_citas.guardar(intent)
+            intent = self._intent_citas.consumir()
+        aplicar_intent = getattr(widget, "aplicar_intent", None)
+        if intent is not None and callable(aplicar_intent):
+            aplicar_intent(intent)
+
+    def navigate(self, key: str, intent: object | None = None) -> QWidget | None:
+        item = self._sidebar_item_by_key.get(key)
+        if item is None:
+            return None
+        row = self.sidebar.row(item)
+        self.sidebar.setCurrentRow(row)
+        widget = self._crear_pagina_si_hace_falta(key)
+        self._aplicar_intent_si_corresponde(key, widget, intent)
+        return widget
+
+    def _on_sidebar_changed(self, row: int) -> None:
+        if row < 0:
+            return
+        item = self.sidebar.item(row)
+        if item is None:
+            return
+        key = item.data(Qt.UserRole)
+        actual = self.stack.currentWidget()
+        if actual is not None and hasattr(actual, "on_hide"):
+            actual.on_hide()
+        widget = self._crear_pagina_si_hace_falta(key)
+        self.stack.setCurrentWidget(widget)
+        self._guardar_pagina_actual(key)
+        on_show = getattr(widget, "on_show", None)
+        if callable(on_show):
+            on_show()
+
+    def _restaurar_pagina_ultima(self) -> None:
+        key = "pacientes"
+        preferencias = self.container.preferencias_service.get()
+        if preferencias.restaurar_pagina_ultima_en_arranque and preferencias.pagina_ultima:
+            key = preferencias.pagina_ultima
+        self.navigate(key)
 
     def _build_menu(self) -> None:
         menu_bar = self.menuBar()

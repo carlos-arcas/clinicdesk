@@ -6,11 +6,11 @@ from clinicdesk.app.domain.citas import Cita
 from clinicdesk.app.domain.enums import EstadoCita, TipoCita
 
 FECHA_BASE_CITAS = datetime(2024, 5, 20, 9, 0, 0)
+FECHA_BASE_PREDICCION = datetime(2026, 4, 15, 9, 0, 0)
 
 
 def obtener_fecha_base_prediccion() -> datetime:
-    ahora = datetime.now()
-    return ahora.replace(hour=9, minute=0, second=0, microsecond=0)
+    return FECHA_BASE_PREDICCION
 
 
 def crear_cita_programada(

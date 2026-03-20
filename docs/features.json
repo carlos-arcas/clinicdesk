@@ -73,7 +73,7 @@
         "tests/ui/test_ruta_critica_desktop_smoke.py",
         "tests/test_prediccion_operativa_facade_integracion.py"
       ],
-      "observaciones": "Core analítico con buena cobertura; ahora también hay smoke desktop que dispara el entrenamiento mínimo desde la página PySide6 y una integración fuerte de facade que valida entrenamiento + previsualización + explicación con datos efímeros. Sigue pendiente un E2E total con navegación completa de ventana principal y background real."
+      "observaciones": "Core analítico con buena cobertura; además hay un smoke desktop reforzado que entra por MainWindow, navega desde gestión hasta predicción operativa y dispara el entrenamiento por QThread real de la pantalla sobre SQLite efímera, verificando feedback visible, previsualización y explicación observable. El facade real sigue cubierto con integración fuerte. Aun así no se declara E2E total: falta recorrer un arranque extremo a extremo con loop principal real y validación cross-módulo más amplia."
     },
     {
       "id": "FTR-006",
