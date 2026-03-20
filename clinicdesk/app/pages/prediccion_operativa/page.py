@@ -16,7 +16,10 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from clinicdesk.app.application.security import UserContext
+from clinicdesk.app.application.security import AutorizadorAcciones, UserContext
+from clinicdesk.app.application.services.politica_seguridad_prediccion_operativa import (
+    PoliticaSeguridadPrediccionOperativa,
+)
 from clinicdesk.app.application.services.prediccion_operativa_facade import PrediccionOperativaFacade
 from clinicdesk.app.application.usecases.registrar_telemetria import RegistrarTelemetria
 from clinicdesk.app.i18n import I18nManager
@@ -35,6 +38,9 @@ from clinicdesk.app.pages.shared.persistencia_estimaciones_settings import (
     guardar_mostrar_estimaciones_agenda,
     leer_mostrar_estimaciones_agenda,
 )
+from clinicdesk.app.bootstrap_logging import get_logger
+
+LOGGER = get_logger(__name__)
 
 
 @dataclass(slots=True)
@@ -59,6 +65,7 @@ class PagePrediccionOperativa(QWidget):
         i18n: I18nManager,
         telemetria_uc: RegistrarTelemetria,
         contexto_usuario: UserContext,
+        autorizador_acciones: AutorizadorAcciones | None = None,
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
@@ -66,6 +73,10 @@ class PagePrediccionOperativa(QWidget):
         self._i18n = i18n
         self._telemetria_uc = telemetria_uc
         self._contexto_usuario = contexto_usuario
+        self._politica_seguridad = PoliticaSeguridadPrediccionOperativa(
+            autorizador=autorizador_acciones or AutorizadorAcciones(),
+            contexto_usuario=contexto_usuario,
+        )
         self._contexto_operativo = CoordinadorContextoPrediccionOperativa()
         self._runs_entrenamiento = CoordinadorRunsEntrenamientoPrediccionOperativa()
         self._background_entrenamiento = CoordinadorBackgroundEntrenamientoPrediccionOperativa(self)
@@ -76,6 +87,7 @@ class PagePrediccionOperativa(QWidget):
         self._build_ui()
         self._i18n.subscribe(self._retranslate)
         self._retranslate()
+        self._aplicar_seguridad_entrenamiento()
 
     def on_show(self) -> None:
         self._contexto_operativo.on_show()
@@ -155,6 +167,7 @@ class PagePrediccionOperativa(QWidget):
         self._comprobar_datos("duracion")
         self._comprobar_datos("espera")
         self._cargar_previsualizacion()
+        self._aplicar_seguridad_entrenamiento()
 
     def _comprobar_datos(self, tipo: str) -> None:
         bloque = self._bloque(tipo)
@@ -174,9 +187,28 @@ class PagePrediccionOperativa(QWidget):
             bloque.lbl_feedback.setText(self._i18n.t("prediccion_operativa.msg.faltan_datos"))
 
     def _entrenar(self, tipo: str) -> None:
+        if not self._autorizar_entrenamiento(tipo):
+            return
         self._preparar_ui_entrenamiento(tipo)
         self._registrar_telemetria("estimaciones_preparar", f"click_{tipo}")
         self._iniciar_entrenamiento_background(tipo)
+
+    def _autorizar_entrenamiento(self, tipo: str) -> bool:
+        decision = self._politica_seguridad.decidir_entrenamiento()
+        if decision.permitido:
+            return True
+        self._mostrar_feedback_denegacion(tipo, decision.motivo_i18n)
+        LOGGER.warning(
+            "prediccion_operativa_entrenamiento_denegado",
+            extra={
+                "action": "prediccion_operativa_entrenamiento_denegado",
+                "tipo_modelo": tipo,
+                "permiso": decision.accion.value,
+                "role": self._contexto_usuario.role.value,
+            },
+        )
+        self._registrar_telemetria("estimaciones_preparar", f"denegado_{tipo}")
+        return False
 
     def _preparar_ui_entrenamiento(self, tipo: str) -> None:
         bloque = self._bloque(tipo)
@@ -261,6 +293,8 @@ class PagePrediccionOperativa(QWidget):
             bloque.lbl_feedback.setText(self._i18n.t("prediccion_operativa.msg.sin_proximas"))
 
     def _mostrar_por_que(self, tipo: str, cita_id: int, nivel: str) -> None:
+        if not self._politica_seguridad.puede_ver_explicacion():
+            return
         uc = self._facade.explicar_duracion_uc if tipo == "duracion" else self._facade.explicar_espera_uc
         exp = uc.ejecutar(cita_id, nivel)
         self._abrir_dialogo_explicacion(construir_bullets_explicacion(exp, self._i18n))
@@ -293,6 +327,23 @@ class PagePrediccionOperativa(QWidget):
         except Exception:
             return
 
+    def _aplicar_seguridad_entrenamiento(self) -> None:
+        decision = self._politica_seguridad.decidir_entrenamiento()
+        for bloque in (self._bloque_duracion, self._bloque_espera):
+            habilitado = decision.permitido and not bloque.progress.isVisible()
+            bloque.btn_preparar.setEnabled(habilitado)
+            bloque.btn_reintentar.setEnabled(habilitado)
+            if not decision.permitido and decision.motivo_i18n is not None:
+                bloque.lbl_feedback.setText(self._i18n.t(decision.motivo_i18n))
+
+    def _mostrar_feedback_denegacion(self, tipo: str, motivo_i18n: str | None) -> None:
+        bloque = self._bloque(tipo)
+        bloque.progress.setVisible(False)
+        bloque.btn_preparar.setEnabled(False)
+        bloque.btn_reintentar.setEnabled(False)
+        if motivo_i18n is not None:
+            bloque.lbl_feedback.setText(self._i18n.t(motivo_i18n))
+
     def _vaciar_tablas(self) -> None:
         for bloque in (self._bloque_duracion, self._bloque_espera):
             bloque.tabla.setRowCount(0)
@@ -310,6 +361,7 @@ class PagePrediccionOperativa(QWidget):
         self.chk_mostrar_agenda.setText(self._i18n.t("citas.prediccion_operativa.toggle.mostrar_estimaciones"))
         self._traducir_bloque(self._bloque_duracion, "prediccion_operativa.duracion")
         self._traducir_bloque(self._bloque_espera, "prediccion_operativa.espera")
+        self._aplicar_seguridad_entrenamiento()
 
     def _traducir_bloque(self, bloque: _RefsBloque, titulo_key: str) -> None:
         bloque.box.setTitle(self._i18n.t(titulo_key))
