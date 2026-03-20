@@ -41,6 +41,23 @@ QT_QPA_PLATFORM=offscreen pytest -q tests/ui/test_ruta_critica_desktop_smoke.py
 pytest -q tests/test_prediccion_operativa_facade_integracion.py
 ```
 
+### Exportación KPI CSV E2E/controlada
+```bash
+pytest -q tests/test_export_kpis_csv.py tests/test_export_kpis_csv_e2e.py
+```
+
+Qué cubre:
+- flujo contractual real vía `scripts/ml_cli.py` sin subprocess ni red, apoyado en el wiring soportado por producto;
+- `seed-demo` sobre SQLite temporal + `build-features` hacia stores temporales para obtener datasets reproducibles;
+- `train`, `score` y `export kpis` reales, más drift opcional con dos versiones de dataset;
+- validación de contenido mínimo de `kpi_overview.csv`, `kpi_scores_by_bucket.csv`, `kpi_drift_by_feature.csv` y `kpi_training_metrics.csv`;
+- escenario `trained` con drift, escenario `baseline` sin drift y error explícito cuando el request resulta inconsistente con el contrato real.
+
+Notas de estabilidad:
+- usa `tmp_path`, SQLite efímera y stores JSON temporales;
+- fija rangos de fechas explícitos para no depender del reloj operativo;
+- no usa `sleep` ni servicios externos.
+
 Qué cubren:
 - arranque controlado de `QApplication`, resolución lazy del registro de páginas y navegación mínima hacia `citas` y `prediccion_operativa`;
 - flujo smoke de citas: abrir `PageCitas`, comprobar estado vacío estable, crear una cita por la ruta UI soportada y verificarla en listado con SQLite temporal;
