@@ -22,15 +22,17 @@
       "estado_global": "Verificada",
       "desglose": {
         "logica": "Verificada",
-        "ui": "No verificada",
+        "ui": "Verificada",
         "validaciones_seguridad": "Verificada",
-        "e2e": "No verificada"
+        "e2e": "Parcial"
       },
       "evidencias": [
         "clinicdesk/app/security/auth.py",
-        "tests/test_auth_service.py"
+        "tests/test_auth_service.py",
+        "tests/test_login_dialog_ui.py",
+        "tests/test_session_controller.py"
       ],
-      "observaciones": "El contrato del servicio de autenticación está cubierto unitariamente; no se confirmó flujo integral con pantalla de login en esta iteración."
+      "observaciones": "El servicio de autenticación tiene cobertura unitaria; además el login desktop PySide6 ya verifica first-run, credenciales válidas, bloqueo determinista, demo permitido/prohibido y la transición post-login. Se eleva E2E solo a parcial porque no existe todavía un recorrido completo con `main()`/loop real y logout extremo a extremo."
     },
     {
       "id": "FTR-004",
