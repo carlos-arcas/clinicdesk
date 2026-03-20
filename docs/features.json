@@ -45,16 +45,18 @@
       "desglose": {
         "logica": "Verificada",
         "ui": "Verificada",
-        "validaciones_seguridad": "Parcial",
+        "validaciones_seguridad": "Verificada",
         "e2e": "Verificada"
       },
       "evidencias": [
         "clinicdesk/app/application/usecases/crear_cita.py",
         "tests/test_citas.py",
         "tests/ui/test_pacientes_viewmodel_puro.py",
-        "tests/ui/test_ruta_critica_desktop_smoke.py"
+        "tests/ui/test_ruta_critica_desktop_smoke.py",
+        "tests/test_citas_security.py",
+        "tests/ui/test_citas_security_ui.py"
       ],
-      "observaciones": "Hay cobertura robusta de caso de uso y queries; además existe smoke desktop PySide6 que arranca la app, crea una cita por la ruta UI soportada y verifica su aparición en el listado sobre una DB temporal controlada."
+      "observaciones": "La ruta crítica desktop ya tiene smoke PySide6 con DB temporal que crea una cita por la vía UI soportada y la verifica en el listado. Además, la evidencia de seguridad ya cubre autorización real en el caso de uso, denial path sin persistencia parcial, guardrail UI readonly sin disparo del controller y auditoría saneada del flujo de creación/override."
     },
     {
       "id": "FTR-005",
