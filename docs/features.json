@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "ultima_actualizacion": "2026-03-20",
+  "ultima_actualizacion": "2026-03-21",
   "estados_permitidos": [
     "Verificada",
     "Parcial",
@@ -103,7 +103,7 @@
         "tests/test_export_kpis_csv_e2e.py",
         "tests/test_export_kpis_csv_security.py"
       ],
-      "observaciones": "Además del caso de uso aislado y del flujo E2E/controlado por CLI, la evidencia de seguridad ahora demuestra que los cuatro CSV KPI solo exportan columnas contractuales agregadas, sin `cita_id`, nombres operativos ni reasons/payloads a nivel fila, y que la vía real soportada por `scripts/ml_cli.py` devuelve error explícito y controlado cuando la ruta de salida no es un directorio escribible. `ui` permanece en \"No implementada\" porque este flujo no expone UI real."
+      "observaciones": "Además del caso de uso aislado y del flujo E2E/controlado por CLI, la evidencia de seguridad ahora demuestra que los cuatro CSV KPI solo exportan columnas contractuales centralizadas y métricas agregadas, sin `cita_id`, nombres operativos ni reasons/payloads a nivel fila; también valida error de salida explícito y controlado tanto en el caso de uso como en la vía real soportada por `scripts/ml_cli.py` cuando la ruta de salida no es un directorio escribible."
     },
     {
       "id": "FTR-007",
