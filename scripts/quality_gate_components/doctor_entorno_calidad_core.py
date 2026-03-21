@@ -38,6 +38,7 @@ class EstadoHerramienta:
 @dataclass(frozen=True)
 class DiagnosticoEntornoCalidad:
     python_activo: str
+    python_path: str
     venv_activo: bool
     cache_pip: str | None
     wheelhouse: Path
@@ -83,6 +84,7 @@ def diagnosticar_entorno_calidad(repo_root: Path, wheelhouse: Path | None = None
 
     return DiagnosticoEntornoCalidad(
         python_activo=f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}",
+        python_path=sys.executable,
         venv_activo=_venv_activo(),
         cache_pip=_cache_pip(),
         wheelhouse=wheelhouse_path,
@@ -113,6 +115,7 @@ def renderizar_reporte(diagnostico: DiagnosticoEntornoCalidad, exigir_wheelhouse
         "[doctor] Diagnóstico de entorno de calidad",
         f"[doctor] Fuente de verdad tooling: {diagnostico.source_of_truth}",
         f"[doctor] Python activo: {diagnostico.python_activo}",
+        f"[doctor] Intérprete activo: {diagnostico.python_path}",
         f"[doctor] Venv activo: {'sí' if diagnostico.venv_activo else 'no'}",
         f"[doctor] pip cache dir: {diagnostico.cache_pip or 'no disponible'}",
         f"[doctor] pip index: {diagnostico.indice_pip or 'pip por defecto'}",
@@ -163,13 +166,17 @@ def _proxy_configurado() -> bool:
 def _diagnostico_red(proxy_configurado: bool, indice_pip: str | None, wheelhouse: Path) -> str:
     if wheelhouse_disponible(wheelhouse):
         return "wheelhouse disponible: el setup puede instalar sin red si los wheels cubren el lock."
-    if proxy_configurado or indice_pip:
-        return "sin wheelhouse; la instalación dependerá de acceso al índice configurado/proxy."
+    if proxy_configurado and indice_pip:
+        return "sin wheelhouse; la instalación dependerá del proxy y del índice configurado."
+    if proxy_configurado:
+        return "sin wheelhouse; la instalación dependerá del proxy configurado y de que el índice remoto responda."
+    if indice_pip:
+        return "sin wheelhouse; la instalación dependerá del índice configurado."
     return "sin wheelhouse ni proxy/index explícito; una red restringida bloqueará la reinstalación."
 
 
 def _estado_herramientas(toolchain: ToolchainEsperado) -> tuple[EstadoHerramienta, ...]:
-    return tuple(_estado_herramienta(herramienta, toolchain.version_esperada(herramienta.nombre_paquete)) for herramienta in toolchain.herramientas)
+    return tuple(_estado_herramienta(h, toolchain.version_esperada(h.nombre_paquete)) for h in toolchain.herramientas)
 
 
 def _estado_herramienta(herramienta: HerramientaToolchain, esperado: str | None) -> EstadoHerramienta:
@@ -179,27 +186,11 @@ def _estado_herramienta(herramienta: HerramientaToolchain, esperado: str | None)
     resultado = subprocess.run(comando, capture_output=True, text=True, check=False)
     if resultado.returncode != 0:
         detalle = (resultado.stderr or resultado.stdout or "error desconocido").strip()
-        return EstadoHerramienta(
-            nombre=herramienta.nombre_paquete,
-            version_esperada=esperado,
-            instalada=False,
-            version_instalada=None,
-            detalle_error=detalle,
-            bloquea_gate=True,
-            comando_corregir=COMANDO_REINSTALAR_LOCK,
-        )
+        return EstadoHerramienta(herramienta.nombre_paquete, esperado, False, None, detalle, True, COMANDO_REINSTALAR_LOCK)
 
     version = _extraer_version(resultado.stdout or resultado.stderr or "")
     desalineada = esperado is not None and version != esperado
-    return EstadoHerramienta(
-        nombre=herramienta.nombre_paquete,
-        version_esperada=esperado,
-        instalada=True,
-        version_instalada=version,
-        detalle_error=None,
-        bloquea_gate=desalineada,
-        comando_corregir=COMANDO_REINSTALAR_LOCK,
-    )
+    return EstadoHerramienta(herramienta.nombre_paquete, esperado, True, version, None, desalineada, COMANDO_REINSTALAR_LOCK)
 
 
 def _estado_herramienta_por_metadata(herramienta: HerramientaToolchain, esperado: str | None) -> EstadoHerramienta:
@@ -207,22 +198,22 @@ def _estado_herramienta_por_metadata(herramienta: HerramientaToolchain, esperado
         version = metadata.version(herramienta.nombre_paquete)
     except metadata.PackageNotFoundError:
         return EstadoHerramienta(
-            nombre=herramienta.nombre_paquete,
-            version_esperada=esperado,
-            instalada=False,
-            version_instalada=None,
-            detalle_error="paquete no instalado en el intérprete activo",
-            bloquea_gate=True,
-            comando_corregir=COMANDO_REINSTALAR_LOCK,
+            herramienta.nombre_paquete,
+            esperado,
+            False,
+            None,
+            "paquete no instalado en el intérprete activo",
+            True,
+            COMANDO_REINSTALAR_LOCK,
         )
     return EstadoHerramienta(
-        nombre=herramienta.nombre_paquete,
-        version_esperada=esperado,
-        instalada=True,
-        version_instalada=version,
-        detalle_error=None,
-        bloquea_gate=esperado is not None and version != esperado,
-        comando_corregir=COMANDO_REINSTALAR_LOCK,
+        herramienta.nombre_paquete,
+        esperado,
+        True,
+        version,
+        None,
+        esperado is not None and version != esperado,
+        COMANDO_REINSTALAR_LOCK,
     )
 
 
@@ -237,34 +228,48 @@ def _lineas_herramienta(herramienta: EstadoHerramienta) -> list[str]:
     if not herramienta.instalada:
         return [
             f"[doctor][error] {herramienta.nombre}: falta en el entorno; gate bloqueado.",
-            f"[doctor][detalle] esperado={esperado}; error={herramienta.detalle_error or 'sin detalle'}",
+            f"[doctor][detalle] esperado={esperado}; instalada=no; error={herramienta.detalle_error or 'sin detalle'}",
             f"[doctor][accion] Ejecuta: {herramienta.comando_corregir}",
         ]
     if herramienta.version_esperada and herramienta.version_instalada != herramienta.version_esperada:
         return [
             f"[doctor][error] {herramienta.nombre}: versión desalineada; gate bloqueado.",
-            f"[doctor][detalle] esperada={esperado}; instalada={instalada}",
+            f"[doctor][detalle] esperada={esperado}; instalada={instalada}; interprete_activo={sys.executable}",
             f"[doctor][accion] Ejecuta: {herramienta.comando_corregir}",
         ]
     return [f"[doctor] {herramienta.nombre}: OK (esperada={esperado}; instalada={instalada})."]
 
 
 def _lineas_ayuda(diagnostico: DiagnosticoEntornoCalidad, exigir_wheelhouse: bool) -> list[str]:
+    lineas: list[str] = []
+    if not diagnostico.venv_activo:
+        lineas.append(f"[doctor][warn] El intérprete activo no parece venir de un venv; revisa {diagnostico.python_path}.")
     if exigir_wheelhouse and not diagnostico.wheelhouse_disponible:
-        return [
-            "[doctor][error] Modo offline requerido y wheelhouse ausente; gate local no es recuperable sin dependencias externas.",
-            f"[doctor][accion] Genera o apunta un wheelhouse: {COMANDO_BUILD_WHEELHOUSE}",
-        ]
+        lineas.extend(
+            [
+                "[doctor][error] Modo offline requerido y wheelhouse ausente; gate local no es recuperable sin dependencias externas.",
+                f"[doctor][accion] Genera o apunta un wheelhouse: {COMANDO_BUILD_WHEELHOUSE}",
+            ]
+        )
+        return lineas
     if diagnostico.toolchain_error is not None:
-        return [f"[doctor][accion] Revalida el entorno con: {COMANDO_DOCTOR}"]
+        lineas.append(f"[doctor][accion] Revalida el entorno con: {COMANDO_DOCTOR}")
+        return lineas
     if diagnostico.entorno_bloqueado:
-        return [
-            f"[doctor][warn] El gate real seguirá fallando por entorno hasta corregir lo anterior: {COMANDO_GATE}",
-            f"[doctor][accion] Revalida sin instalar nada con: {COMANDO_DOCTOR}",
-        ]
+        lineas.extend(
+            [
+                f"[doctor][warn] El gate real seguirá fallando por entorno hasta corregir lo anterior: {COMANDO_GATE}",
+                f"[doctor][accion] Revalida sin instalar nada con: {COMANDO_DOCTOR}",
+            ]
+        )
+        return lineas
     if not diagnostico.wheelhouse_disponible:
-        return [
-            "[doctor][warn] Wheelhouse ausente: setup dependerá de red/proxy y puede fallar en entornos restringidos.",
-            f"[doctor][accion] Si necesitas modo offline-first, prepara wheels con: {COMANDO_BUILD_WHEELHOUSE}",
-        ]
-    return ["[doctor] Wheelhouse listo para instalación offline-first."]
+        lineas.extend(
+            [
+                "[doctor][warn] Wheelhouse ausente: setup dependerá de red/proxy y puede fallar en entornos restringidos.",
+                f"[doctor][accion] Si necesitas modo offline-first, prepara wheels con: {COMANDO_BUILD_WHEELHOUSE}",
+            ]
+        )
+        return lineas
+    lineas.append("[doctor] Wheelhouse listo para instalación offline-first.")
+    return lineas

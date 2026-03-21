@@ -10,6 +10,7 @@ from scripts.quality_gate_components.doctor_entorno_calidad_core import (
 from scripts.quality_gate_components.toolchain import (
     COMANDO_REINSTALAR_LOCK,
     cargar_toolchain_esperado,
+    leer_paquetes_input_desde_texto,
     leer_versiones_lock_desde_texto,
 )
 
@@ -53,6 +54,7 @@ def test_cargar_toolchain_esperado_lee_versiones_desde_lock(tmp_path: Path) -> N
 def test_renderizar_reporte_muestra_error_accionable_para_tool_faltante(tmp_path: Path) -> None:
     diagnostico = DiagnosticoEntornoCalidad(
         python_activo="3.12.1",
+        python_path="/tmp/.venv/bin/python",
         venv_activo=True,
         cache_pip="/tmp/pip-cache",
         wheelhouse=tmp_path / "wheelhouse",
@@ -80,3 +82,22 @@ def test_renderizar_reporte_muestra_error_accionable_para_tool_faltante(tmp_path
     assert any("ruff: falta en el entorno; gate bloqueado" in linea for linea in lineas)
     assert any(COMANDO_REINSTALAR_LOCK in linea for linea in lineas)
     assert any("gate real seguirá fallando por entorno" in linea for linea in lineas)
+
+
+def test_leer_paquetes_input_omite_includes_y_conserva_paquetes() -> None:
+    paquetes = leer_paquetes_input_desde_texto("# lock dev\n-r requirements.in\nruff\npytest==8.3.2\n")
+
+    assert paquetes == ("ruff", "pytest")
+
+
+def test_cargar_toolchain_esperado_falla_si_input_y_lock_no_coinciden(tmp_path: Path) -> None:
+    (tmp_path / "requirements-dev.in").write_text("ruff\npytest\nmypy\npip-audit\n", encoding="utf-8")
+    (tmp_path / "requirements-dev.txt").write_text("ruff==0.8.4\npytest==8.3.2\nmypy==1.13.0\n", encoding="utf-8")
+
+    try:
+        cargar_toolchain_esperado(tmp_path)
+    except RuntimeError as exc:
+        assert "pip-audit" in str(exc)
+        assert "Regénéralo con python -m scripts.lock_deps" in str(exc)
+    else:
+        raise AssertionError("Se esperaba error si requirements-dev.in y requirements-dev.txt no coinciden")

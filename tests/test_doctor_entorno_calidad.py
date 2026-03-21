@@ -16,6 +16,7 @@ class _Resultado:
 
 
 def _escribir_lock_dev(tmp_path: Path) -> None:
+    (tmp_path / "requirements-dev.in").write_text("ruff\npytest\nmypy\npip-audit\n", encoding="utf-8")
     (tmp_path / "requirements-dev.txt").write_text(
         "ruff==0.8.4\npytest==8.3.2\nmypy==1.13.0\npip-audit==2.7.3\n",
         encoding="utf-8",
@@ -44,6 +45,7 @@ def test_doctor_entorno_alineado(monkeypatch: pytest.MonkeyPatch, tmp_path: Path
     diagnostico = doctor.diagnosticar_entorno_calidad(tmp_path)
     assert doctor.codigo_salida_estable(diagnostico) == 0
     assert diagnostico.source_of_truth.startswith("requirements-dev.txt")
+    assert diagnostico.python_path == sys.executable
 
 
 def test_doctor_reporta_herramienta_faltante_con_comando_accionable(
@@ -156,3 +158,28 @@ def test_doctor_usa_metadata_para_pip_audit(monkeypatch: pytest.MonkeyPatch, tmp
     estado = next(item for item in diagnostico.herramientas if item.nombre == "pip-audit")
     assert estado.instalada is True
     assert estado.version_instalada == "2.7.3"
+
+
+def test_doctor_reporta_interprete_y_red_para_proxy(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    _escribir_lock_dev(tmp_path)
+    monkeypatch.setattr(doctor.metadata, "version", lambda nombre: "2.7.3" if nombre == "pip-audit" else "0.0.0")
+    monkeypatch.setenv("HTTPS_PROXY", "http://proxy.local:8080")
+
+    def fake_run(command, **_kwargs):
+        if command[:5] == [sys.executable, "-m", "pip", "cache", "dir"]:
+            return _Resultado(0, stdout="/tmp/pip-cache")
+        if command[2] == "ruff":
+            return _Resultado(0, stdout="ruff 0.8.4")
+        if command[2] == "pytest":
+            return _Resultado(0, stdout="pytest 8.3.2")
+        if command[2] == "mypy":
+            return _Resultado(0, stdout="mypy 1.13.0")
+        raise AssertionError(f"Comando inesperado: {command}")
+
+    monkeypatch.setattr(doctor.subprocess, "run", fake_run)
+
+    diagnostico = doctor.diagnosticar_entorno_calidad(tmp_path)
+    lineas = doctor.renderizar_reporte(diagnostico)
+    assert any("Intérprete activo" in linea for linea in lineas)
+    assert any("proxy configurado" in linea.lower() or "proxy detectado: sí" in linea.lower() for linea in lineas)
+    assert "proxy" in diagnostico.diagnostico_red

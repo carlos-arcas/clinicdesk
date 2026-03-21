@@ -10,7 +10,7 @@ from typing import Sequence
 from scripts._ruff_targets import obtener_targets_python
 
 from . import config
-from .toolchain import cargar_toolchain_esperado
+from .toolchain import version_paquete_desde_lock
 
 _LOGGER = logging.getLogger(__name__)
 RUTA_ARTEFACTO_DIFF_RUFF = Path("docs/ruff_format_diff.txt")
@@ -36,11 +36,19 @@ def _loggear_version_ruff(root: Path) -> tuple[int, str]:
 
 def _obtener_version_ruff_pinneada(root: Path) -> str | None:
     try:
-        return cargar_toolchain_esperado(root).version_esperada("ruff")
+        return version_paquete_desde_lock(root, "ruff")
     except Exception as exc:
         _LOGGER.error("[quality-gate] ❌ No se pudo cargar la fuente de verdad del tooling: %s", exc)
         return None
 
+
+
+
+def _extraer_version_ruff_pinneada_desde_linea(linea: str) -> str | None:
+    contenido = linea.split("#", maxsplit=1)[0].strip().replace(" ", "")
+    if not contenido.startswith("ruff=="):
+        return None
+    return contenido.split("==", maxsplit=1)[1] or None
 
 def _extraer_version_ruff_instalada(salida_version: str) -> str | None:
     match = PATRON_VERSION_RUFF.search(salida_version)
