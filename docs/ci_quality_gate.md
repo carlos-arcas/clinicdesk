@@ -11,9 +11,9 @@ CI debe ejecutar exactamente `python -m scripts.gate_pr`.
 
 ## Flujo local recomendado
 1. Ejecuta `python scripts/setup.py` para crear o reparar `.venv`.
-2. Activa el venv del repo.
+2. Usa siempre los comandos canónicos del repo. Si `.venv` existe y es utilizable, `doctor`, `gate_rapido` y `gate_pr` se reejecutan automáticamente con ese intérprete.
 3. Ejecuta el doctor.
-4. Si falta tooling o hay versiones desalineadas, ejecuta `python -m pip install -r requirements-dev.txt` dentro del venv correcto.
+4. Si falta tooling o hay versiones desalineadas, ejecuta `python -m pip install -r requirements-dev.txt` dentro del Python del repo o vuelve a correr `python scripts/setup.py`.
 5. Si el doctor reporta lock incoherente o desalineado con `requirements-dev.in`, ejecuta `python -m scripts.lock_deps`.
 6. Si necesitas reproducibilidad sin red, valida `--require-wheelhouse`.
 7. Cuando el doctor quede en verde, ejecuta `python -m scripts.gate_pr`.
@@ -25,7 +25,7 @@ Los workflows de CI hacen la misma secuencia lógica:
 3. Se ejecuta `python -m scripts.doctor_entorno_calidad` como evidencia de preflight.
 4. Se ejecuta el gate canónico `python -m scripts.gate_pr`.
 
-En CI no se usa `setup.py` porque el runner no necesita crear `.venv`; el equivalente es `actions/setup-python` + instalación explícita del lock.
+En CI no se usa `setup.py` porque el runner no necesita crear `.venv`; el equivalente es `actions/setup-python` + instalación explícita del lock. La autorreejecución canónica se desactiva en CI para no interferir con ese flujo.
 
 ## Fuente de verdad del tooling
 - Versiones fijadas: `requirements-dev.txt`
@@ -36,7 +36,7 @@ En CI no se usa `setup.py` porque el runner no necesita crear `.venv`; el equiva
 El doctor, el preflight del gate y las validaciones específicas de Ruff consumen esa misma fuente de verdad.
 
 ## Significado de `rc=20`
-`rc=20` en `python -m scripts.gate_pr` significa **bloqueo operativo del entorno local o del job**. El proyecto todavía no fue validado por el gate funcional.
+`rc=20` en `python -m scripts.gate_pr` significa **bloqueo operativo del entorno local o del job**. El proyecto todavía no fue validado por el gate funcional. Si el problema era ejecutar con un Python ajeno al repo y `.venv` existe, el comando ya se habrá reejecutado automáticamente antes de llegar a ese punto.
 
 ## Entornos con proxy/red restringida
 - Si no hay wheelhouse, `setup.py` deja claro que la instalación depende de red/proxy reales.

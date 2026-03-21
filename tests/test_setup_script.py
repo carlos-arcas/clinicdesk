@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from scripts import setup
+from scripts.quality_gate_components.ejecucion_canonica import DecisionEjecucionCanonica
 
 
 class _Resultado:
@@ -63,6 +64,7 @@ def test_setup_main_ejecuta_comandos_esperados(monkeypatch, tmp_path: Path) -> N
     monkeypatch.setattr(setup, "PROJECT_ROOT", Path(__file__).resolve().parents[1])
     monkeypatch.setattr(setup, "VENV_DIR", venv_dir)
     monkeypatch.setattr(setup.subprocess, "run", fake_run)
+    monkeypatch.setattr(setup, "resolver_ejecucion_canonica", lambda *_args, **_kwargs: DecisionEjecucionCanonica("continuar"))
     monkeypatch.setattr(setup, "_venv_python", lambda: python_venv)
     _mockear_doctor_alineado(monkeypatch)
     monkeypatch.setattr(Path, "exists", lambda self: True if self == python_venv else original_exists(self))
@@ -81,6 +83,25 @@ def test_setup_main_ejecuta_comandos_esperados(monkeypatch, tmp_path: Path) -> N
     )
 
 
+def test_setup_main_reejecuta_en_python_del_repo_si_venv_ya_existe(monkeypatch) -> None:
+    observado: dict[str, object] = {}
+    monkeypatch.setattr(
+        setup,
+        "resolver_ejecucion_canonica",
+        lambda *_args, **_kwargs: DecisionEjecucionCanonica("reejecutar", python_objetivo=Path("/tmp/repo/.venv/bin/python")),
+    )
+    monkeypatch.setattr(
+        setup,
+        "reejecutar_en_python_objetivo",
+        lambda decision, argv: observado.update({"decision": decision, "argv": argv}) or 4,
+    )
+
+    rc = setup.main()
+
+    assert rc == 4
+    assert observado["argv"][:1] == ["scripts/setup.py"]
+
+
 def test_setup_main_devuelve_error_si_falla_subproceso(monkeypatch, tmp_path: Path, capsys) -> None:
     venv_dir = tmp_path / ".venv"
     python_venv = venv_dir / "bin" / "python"
@@ -94,6 +115,7 @@ def test_setup_main_devuelve_error_si_falla_subproceso(monkeypatch, tmp_path: Pa
     monkeypatch.setattr(setup, "PROJECT_ROOT", Path(__file__).resolve().parents[1])
     monkeypatch.setattr(setup, "VENV_DIR", venv_dir)
     monkeypatch.setattr(setup.subprocess, "run", fake_run)
+    monkeypatch.setattr(setup, "resolver_ejecucion_canonica", lambda *_args, **_kwargs: DecisionEjecucionCanonica("continuar"))
     monkeypatch.setattr(setup, "_venv_python", lambda: python_venv)
     _mockear_doctor_alineado(monkeypatch)
     monkeypatch.setattr(Path, "exists", lambda self: True if self == python_venv else original_exists(self))
@@ -107,13 +129,14 @@ def test_setup_main_devuelve_error_si_falla_subproceso(monkeypatch, tmp_path: Pa
     assert "entorno no es recuperable localmente" in salida
 
 
-def test_setup_main_falla_si_python_lanzador_no_es_compatible(monkeypatch, tmp_path: Path, capsys) -> None:
+def test_setup_main_falla_si_python_lanzador_no_es_compatible(monkeypatch, capsys) -> None:
     class _DiagnosticoIncompatible(_DiagnosticoAlineado):
         class interprete(_Interprete):
             version_compatible = False
             version_minima_repo = "3.11"
             comando_recrear = "python scripts/setup.py"
 
+    monkeypatch.setattr(setup, "resolver_ejecucion_canonica", lambda *_args, **_kwargs: DecisionEjecucionCanonica("continuar"))
     monkeypatch.setattr(setup, "diagnosticar_entorno_calidad", lambda *_args, **_kwargs: _DiagnosticoIncompatible())
     monkeypatch.setattr(setup, "renderizar_reporte", lambda *_args, **_kwargs: [])
 

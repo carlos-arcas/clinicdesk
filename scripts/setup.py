@@ -6,12 +6,16 @@ from pathlib import Path
 import subprocess
 import sys
 
+if __package__ in {None, ""}:
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
 from scripts.quality_gate_components.bootstrap_dependencias import comando_instalacion, resolver_wheelhouse, wheelhouse_disponible
 from scripts.quality_gate_components.doctor_entorno_calidad_core import (
     codigo_salida_estable,
     diagnosticar_entorno_calidad,
     renderizar_reporte,
 )
+from scripts.quality_gate_components.ejecucion_canonica import reejecutar_en_python_objetivo, resolver_ejecucion_canonica
 from scripts.quality_gate_components.toolchain import COMANDO_DOCTOR, COMANDO_GATE
 
 
@@ -102,10 +106,17 @@ def _run_command(command: list[str], descripcion: str, *, wheelhouse: Path | Non
     if resultado.stderr:
         _log(resultado.stderr.rstrip())
     if resultado.returncode != 0:
-        pistas = _resumen_error_instalacion(resultado.stderr or "", resultado.stdout or "", wheelhouse=wheelhouse or resolver_wheelhouse(PROJECT_ROOT))
+        pistas = _resumen_error_instalacion(
+            resultado.stderr or "",
+            resultado.stdout or "",
+            wheelhouse=wheelhouse or resolver_wheelhouse(PROJECT_ROOT),
+        )
         detalle = f"Fallo '{descripcion}' (exit code {resultado.returncode})."
         if pistas:
-            detalle = f"{detalle} {' '.join(linea.replace('[setup][diagnostico] ', '').replace('[setup][accion] ', '') for linea in pistas)}"
+            detalle = (
+                f"{detalle} "
+                f"{' '.join(linea.replace('[setup][diagnostico] ', '').replace('[setup][accion] ', '') for linea in pistas)}"
+            )
         raise RuntimeError(detalle)
 
 
@@ -187,6 +198,12 @@ def _verificar_herramientas(python_venv: Path) -> None:
 def main() -> int:
     try:
         _log_contexto_interprete()
+        decision = resolver_ejecucion_canonica(PROJECT_ROOT, exigir_venv_repo=False)
+        if decision.accion == "reejecutar":
+            return reejecutar_en_python_objetivo(decision, ["scripts/setup.py", *sys.argv[1:]])
+        if decision.accion == "continuar" and not _venv_python().exists():
+            _log("[setup] .venv ausente o no utilizable todavía; se intentará crear/reparar con el Python lanzador actual.")
+
         diagnostico = diagnosticar_entorno_calidad(PROJECT_ROOT)
         for linea in renderizar_reporte(diagnostico):
             _log(linea)

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from scripts import gate_rapido
+from scripts.quality_gate_components.ejecucion_canonica import DecisionEjecucionCanonica
 
 
 class _ProcesoFalso:
@@ -21,6 +22,7 @@ def test_main_invoca_entrypoint_report_only(monkeypatch):
         return _ProcesoFalso(returncode=0)
 
     monkeypatch.delenv("CLINICDESK_SANDBOX_MODE", raising=False)
+    monkeypatch.setattr(gate_rapido, "resolver_ejecucion_canonica", lambda *_args, **_kwargs: DecisionEjecucionCanonica("continuar"))
     monkeypatch.setattr(gate_rapido.os, "chdir", fake_chdir)
     monkeypatch.setattr(gate_rapido.subprocess, "run", fake_run)
 
@@ -37,6 +39,26 @@ def test_main_invoca_entrypoint_report_only(monkeypatch):
     assert observado["check"] is False
 
 
+def test_main_reejecuta_en_python_del_repo(monkeypatch):
+    observado: dict[str, object] = {}
+    monkeypatch.setattr(
+        gate_rapido,
+        "resolver_ejecucion_canonica",
+        lambda *_args, **_kwargs: DecisionEjecucionCanonica("reejecutar", python_objetivo=gate_rapido.REPO_ROOT / ".venv" / "bin" / "python"),
+    )
+    monkeypatch.setattr(
+        gate_rapido,
+        "reejecutar_en_python_objetivo",
+        lambda decision, argv, env_extra=None: observado.update({"argv": argv, "env_extra": env_extra}) or 5,
+    )
+
+    rc = gate_rapido.main()
+
+    assert rc == 5
+    assert observado["argv"][:2] == ["-m", "scripts.gate_rapido"]
+    assert observado["env_extra"] == {"CLINICDESK_SANDBOX_MODE": "1"}
+
+
 def test_main_inyecta_sandbox_mode_si_no_existe(monkeypatch):
     observado: dict[str, object] = {}
 
@@ -45,6 +67,7 @@ def test_main_inyecta_sandbox_mode_si_no_existe(monkeypatch):
         return _ProcesoFalso(returncode=3)
 
     monkeypatch.delenv("CLINICDESK_SANDBOX_MODE", raising=False)
+    monkeypatch.setattr(gate_rapido, "resolver_ejecucion_canonica", lambda *_args, **_kwargs: DecisionEjecucionCanonica("continuar"))
     monkeypatch.setattr(gate_rapido.os, "chdir", lambda *_: None)
     monkeypatch.setattr(gate_rapido.subprocess, "run", fake_run)
 
@@ -62,6 +85,7 @@ def test_main_respeta_sandbox_mode_preexistente(monkeypatch):
         return _ProcesoFalso(returncode=0)
 
     monkeypatch.setenv("CLINICDESK_SANDBOX_MODE", "0")
+    monkeypatch.setattr(gate_rapido, "resolver_ejecucion_canonica", lambda *_args, **_kwargs: DecisionEjecucionCanonica("continuar"))
     monkeypatch.setattr(gate_rapido.os, "chdir", lambda *_: None)
     monkeypatch.setattr(gate_rapido.subprocess, "run", fake_run)
 
@@ -72,6 +96,7 @@ def test_main_respeta_sandbox_mode_preexistente(monkeypatch):
 
 
 def test_main_propaga_returncode(monkeypatch):
+    monkeypatch.setattr(gate_rapido, "resolver_ejecucion_canonica", lambda *_args, **_kwargs: DecisionEjecucionCanonica("continuar"))
     monkeypatch.setattr(gate_rapido.os, "chdir", lambda *_: None)
     monkeypatch.setattr(
         gate_rapido.subprocess,

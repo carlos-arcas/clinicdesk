@@ -2,10 +2,10 @@
 
 ## Flujo operativo recomendado
 1. Crea o repara el entorno del repo con `python scripts/setup.py`.
-2. Activa el venv del repo (`source .venv/bin/activate` en Unix o `.venv\Scripts\activate` en Windows).
+2. Usa siempre los comandos canónicos (`python -m scripts.doctor_entorno_calidad`, `python -m scripts.gate_rapido`, `python -m scripts.gate_pr`). Si `.venv` existe y es utilizable, el repo se reejecuta automáticamente con ese intérprete.
 3. Ejecuta el doctor canónico: `python -m scripts.doctor_entorno_calidad`.
 4. Si necesitas validar recuperabilidad sin red, usa: `python -m scripts.doctor_entorno_calidad --require-wheelhouse`.
-5. Corrige el entorno según el comando exacto que indique el doctor.
+5. Corrige el entorno según el comando exacto que indique el doctor o el bloqueo canónico.
 6. Solo cuando el doctor quede alineado, ejecuta `python -m scripts.gate_pr`.
 
 ## Setup estándar
@@ -20,14 +20,14 @@ El setup ahora deja explícito, antes de instalar nada:
 - si `CLINICDESK_WHEELHOUSE` apunta a una ruta inválida, vacía o incompleta;
 - si el bloqueo depende de proxy/red real y no es recuperable localmente.
 
-Cuando termina bien, también imprime el comando exacto para activar el venv correcto.
+Cuando `.venv` ya existe y es utilizable, `setup.py` se reejecuta automáticamente dentro de ese Python antes de instalar/verificar tooling. Si `.venv` no existe o está roto, el setup lo dice explícitamente y usa el Python lanzador solo para crear o reparar el entorno.
 
 ## Doctor de entorno
 ```bash
 python -m scripts.doctor_entorno_calidad
 ```
 
-El doctor no instala nada. Informa de forma reproducible:
+El doctor no instala nada. Si `.venv` del repo existe y es ejecutable, se reejecuta automáticamente con ese intérprete y lo deja explícito en la salida. Si `.venv` falta o no es ejecutable, falla antes del diagnóstico funcional con una guía única y consistente. Informa de forma reproducible:
 - herramienta bloqueante;
 - versión esperada (desde `requirements-dev.txt`);
 - versión instalada en el intérprete activo;
@@ -56,8 +56,10 @@ No deben existir listas paralelas de versiones del toolchain. El doctor, Ruff y 
 
 ## Correcciones típicas
 ### Estás fuera del venv correcto o usando otro intérprete
+Los comandos canónicos intentan reejecutarse dentro de `.venv` automáticamente. Si eso no ocurre, el error significa que `.venv` falta o no es ejecutable.
+
 ```bash
-source .venv/bin/activate
+python scripts/setup.py
 python -m scripts.doctor_entorno_calidad
 ```
 
@@ -105,9 +107,8 @@ Interpretación:
 ## Recuperación local más rápida
 1. `rm -rf .venv`
 2. `python scripts/setup.py`
-3. `source .venv/bin/activate`
-4. `python -m scripts.doctor_entorno_calidad`
-5. `python -m scripts.gate_pr`
+3. `python -m scripts.doctor_entorno_calidad`
+4. `python -m scripts.gate_pr`
 
 ## Validación focalizada del export KPI
 ```bash
