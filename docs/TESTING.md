@@ -17,7 +17,7 @@ El setup ahora deja explícito, antes de instalar nada:
 - qué Python lanzó el script;
 - cuál es el `.venv` esperado del repo;
 - si el Python activo es compatible con la versión mínima del repo (`pyproject.toml`);
-- si `CLINICDESK_WHEELHOUSE` apunta a una ruta inválida, vacía o incompleta;
+- si `CLINICDESK_WHEELHOUSE` apunta a una ruta inválida, vacía o incompleta respecto al lock;
 - si el bloqueo depende de proxy/red real y no es recuperable localmente.
 
 Cuando `.venv` ya existe y es utilizable, `setup.py` se reejecuta automáticamente dentro de ese Python antes de instalar/verificar tooling. Si `.venv` no existe o está roto, el setup lo dice explícitamente y usa el Python lanzador solo para crear o reparar el entorno.
@@ -44,7 +44,7 @@ El doctor no instala nada. Si `.venv` del repo existe y es ejecutable, se reejec
 python -m scripts.doctor_entorno_calidad --require-wheelhouse
 ```
 
-Úsalo cuando quieras saber si el entorno es recuperable **sin red**. Si falta wheelhouse, si `CLINICDESK_WHEELHOUSE` apunta a algo inválido o si el directorio no contiene wheels utilizables, el doctor falla de forma explícita y no intenta instalar nada.
+Úsalo cuando quieras saber si el entorno es recuperable **sin red**. Si falta wheelhouse, si `CLINICDESK_WHEELHOUSE` apunta a algo inválido, si el directorio está vacío o si los wheels no cubren todas las dependencias fijadas por `requirements-dev.txt` (incluyendo `requirements.txt` vía `-r`), el doctor falla de forma explícita y no intenta instalar nada.
 
 ## Fuente única de verdad del tooling
 - Lock efectivo: `requirements-dev.txt`.
@@ -92,6 +92,31 @@ CLINICDESK_WHEELHOUSE=/ruta/a/wheelhouse python scripts/setup.py
 ```
 
 Si tampoco puedes construir ese wheelhouse por restricciones reales de red o proxy corporativo, el entorno local sigue bloqueado y esa recuperación **no depende del repo**: necesitas resolver la infraestructura externa.
+
+
+## Criterio operativo del wheelhouse
+Un wheelhouse se considera:
+- **válido/utilizable**: existe como directorio, contiene archivos `.whl` y cubre todas las dependencias fijadas por `requirements-dev.txt` más los includes (`-r requirements.txt`).
+- **incompleto**: hay wheels, pero falta al menos un paquete/version pinneado del lock; el doctor/setup listan ejemplos concretos faltantes.
+- **vacío**: el directorio existe pero no aporta ningún `.whl`.
+- **inválido**: la ruta existe pero no es directorio, o apunta a una ubicación no utilizable.
+
+### Cómo comprobarlo
+```bash
+python -m scripts.doctor_entorno_calidad --require-wheelhouse
+```
+
+### Cómo construirlo
+```bash
+python -m scripts.dev.build_wheelhouse
+```
+
+Ese comando descarga el lock dev, deja los wheels en `wheelhouse/` (o en `CLINICDESK_WHEELHOUSE` si está definido) y falla si, al terminar, la cobertura del lock sigue siendo incompleta.
+
+### Qué sigue dependiendo de infraestructura externa
+- Construir el wheelhouse inicial requiere que `pip download` alcance el índice o proxy configurado.
+- Si el lock incluye artefactos no disponibles para tu plataforma/intérprete, el repo lo reportará, pero no puede fabricarlos por sí solo.
+- Sin red/proxy funcional **y** sin wheelhouse utilizable, `setup.py` seguirá fallando honestamente.
 
 ## Significado exacto de `rc=20` en `gate_pr`
 `python -m scripts.gate_pr` devuelve `rc=20` cuando el preflight del entorno detecta un **bloqueo operativo local**. Eso significa que el gate funcional **todavía no ejecutó** las validaciones del proyecto.

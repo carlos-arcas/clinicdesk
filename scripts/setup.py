@@ -9,13 +9,20 @@ import sys
 if __package__ in {None, ""}:
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from scripts.quality_gate_components.bootstrap_dependencias import comando_instalacion, resolver_wheelhouse, wheelhouse_disponible
+from scripts.quality_gate_components.bootstrap_dependencias import (
+    comando_instalacion,
+    diagnosticar_wheelhouse_desde_lock,
+)
+from scripts.quality_gate_components.wheelhouse import resolver_wheelhouse
 from scripts.quality_gate_components.doctor_entorno_calidad_core import (
     codigo_salida_estable,
     diagnosticar_entorno_calidad,
     renderizar_reporte,
 )
-from scripts.quality_gate_components.ejecucion_canonica import reejecutar_en_python_objetivo, resolver_ejecucion_canonica
+from scripts.quality_gate_components.ejecucion_canonica import (
+    reejecutar_en_python_objetivo,
+    resolver_ejecucion_canonica,
+)
 from scripts.quality_gate_components.toolchain import COMANDO_DOCTOR, COMANDO_GATE
 
 
@@ -48,7 +55,9 @@ def _log(mensaje: str) -> None:
 
 
 def _resumen_error_instalacion(stderr: str, stdout: str, *, wheelhouse: Path | None = None) -> list[str]:
-    diagnostico = _clasificar_error_instalacion(stderr, stdout, wheelhouse=wheelhouse or resolver_wheelhouse(PROJECT_ROOT))
+    diagnostico = _clasificar_error_instalacion(
+        stderr, stdout, wheelhouse=wheelhouse or resolver_wheelhouse(PROJECT_ROOT)
+    )
     if diagnostico is None:
         return []
     return [
@@ -59,17 +68,28 @@ def _resumen_error_instalacion(stderr: str, stdout: str, *, wheelhouse: Path | N
 
 def _clasificar_error_instalacion(stderr: str, stdout: str, *, wheelhouse: Path) -> DiagnosticoInstalacion | None:
     texto = f"{stdout}\n{stderr}".lower()
-    offline = wheelhouse_disponible(wheelhouse)
-    if any(token in texto for token in ("proxyerror", "407 proxy", "tunnel connection failed", "cannot connect to proxy")):
+    diagnostico_wheelhouse = diagnosticar_wheelhouse_desde_lock(PROJECT_ROOT, wheelhouse)
+    offline = diagnostico_wheelhouse.utilizable
+    if any(
+        token in texto for token in ("proxyerror", "407 proxy", "tunnel connection failed", "cannot connect to proxy")
+    ):
         return DiagnosticoInstalacion(
             "proxy",
             "Fallo de red/proxy detectado durante instalación.",
             "Revisa HTTP_PROXY/HTTPS_PROXY, valida el índice configurado o usa un wheelhouse accesible antes de reintentar.",
         )
-    if any(token in texto for token in ("temporary failure in name resolution", "failed to establish a new connection", "connection timed out", "name or service not known")):
+    if any(
+        token in texto
+        for token in (
+            "temporary failure in name resolution",
+            "failed to establish a new connection",
+            "connection timed out",
+            "name or service not known",
+        )
+    ):
         accion = "Sin wheelhouse ni acceso a red, este entorno no es recuperable localmente."
         if offline:
-            accion = f"El wheelhouse existe en {wheelhouse}; revisa que el comando use --find-links o que cubra todo el lock."
+            accion = f"El wheelhouse existe en {wheelhouse}; revisa cobertura del lock. Faltan al menos: {', '.join(diagnostico_wheelhouse.paquetes_faltantes[:3]) or 'sin detalle'}."
         return DiagnosticoInstalacion("red", "Fallo de conectividad a índices Python detectado.", accion)
     if "no matching distribution found" in texto or "could not find a version that satisfies the requirement" in texto:
         return DiagnosticoInstalacion(
@@ -83,7 +103,14 @@ def _clasificar_error_instalacion(stderr: str, stdout: str, *, wheelhouse: Path)
             "Se detectó incoherencia entre el lock y el artefacto descargado.",
             "Regenera el lock o limpia artefactos/cache inconsistentes antes de reinstalar.",
         )
-    if any(token in texto for token in ("no such file or directory", "invalid wheel filename", "is not a supported wheel on this platform")):
+    if any(
+        token in texto
+        for token in (
+            "no such file or directory",
+            "invalid wheel filename",
+            "is not a supported wheel on this platform",
+        )
+    ):
         return DiagnosticoInstalacion(
             "wheelhouse",
             "El wheelhouse/configuración local no contiene wheels utilizables para este intérprete/plataforma.",
@@ -164,22 +191,26 @@ def _instalar_dependencias(python_venv: Path) -> None:
         raise RuntimeError("No se encontraron requirements.txt y/o requirements-dev.txt en la raíz del repositorio.")
 
     wheelhouse = resolver_wheelhouse(PROJECT_ROOT)
-    if os.environ.get("CLINICDESK_WHEELHOUSE") and not wheelhouse_disponible(wheelhouse):
-        motivo = "la ruta no existe o no es directorio"
-        if wheelhouse.exists() and wheelhouse.is_dir():
-            motivo = "el directorio existe pero no contiene wheels válidos del lock"
-        elif wheelhouse.exists() and not wheelhouse.is_dir():
-            motivo = "la ruta existe pero no es un directorio"
+    diagnostico_wheelhouse = diagnosticar_wheelhouse_desde_lock(PROJECT_ROOT, wheelhouse)
+    if os.environ.get("CLINICDESK_WHEELHOUSE") and not diagnostico_wheelhouse.utilizable:
+        faltantes = ", ".join(diagnostico_wheelhouse.paquetes_faltantes[:5])
+        sufijo = f" Faltan al menos: {faltantes}." if faltantes else ""
         raise RuntimeError(
-            f"CLINICDESK_WHEELHOUSE apunta a {wheelhouse}, pero {motivo}. "
-            "Ajusta la ruta, corrige el proxy/red para construirlo, o regenera el wheelhouse antes de reintentar."
+            f"CLINICDESK_WHEELHOUSE apunta a {wheelhouse}, pero está {diagnostico_wheelhouse.codigo}: "
+            f"{diagnostico_wheelhouse.detalle}.{sufijo} Ajusta la ruta, corrige el proxy/red para construirlo, "
+            "o regenera el wheelhouse antes de reintentar."
         )
-    comando_runtime, modo_runtime = comando_instalacion(str(python_venv), requirements, wheelhouse)
-    comando_dev, modo_dev = comando_instalacion(str(python_venv), requirements_dev, wheelhouse)
-    if modo_runtime == "offline":
-        _log(f"[setup] Wheelhouse detectado en {wheelhouse}; instalación offline-first habilitada.")
+    comando_runtime, modo_runtime = comando_instalacion(str(python_venv), requirements, wheelhouse, PROJECT_ROOT)
+    comando_dev, modo_dev = comando_instalacion(str(python_venv), requirements_dev, wheelhouse, PROJECT_ROOT)
+    if diagnostico_wheelhouse.utilizable:
+        _log(
+            f"[setup] Wheelhouse utilizable en {wheelhouse}; cubre requirements-dev.txt y la instalación offline-first queda habilitada."
+        )
     else:
-        _log(f"[setup][warn] Wheelhouse ausente en {wheelhouse}; instalación dependiente de red/proxy reales.")
+        _log(
+            f"[setup][warn] Wheelhouse {diagnostico_wheelhouse.codigo} en {wheelhouse}: {diagnostico_wheelhouse.detalle}. "
+            "La instalación dependerá de red/proxy reales."
+        )
     _run_command(comando_runtime, f"Instalar dependencias runtime ({modo_runtime})", wheelhouse=wheelhouse)
     _run_command(comando_dev, f"Instalar dependencias dev ({modo_dev})", wheelhouse=wheelhouse)
 
@@ -202,7 +233,9 @@ def main() -> int:
         if decision.accion == "reejecutar":
             return reejecutar_en_python_objetivo(decision, ["scripts/setup.py", *sys.argv[1:]])
         if decision.accion == "continuar" and not _venv_python().exists():
-            _log("[setup] .venv ausente o no utilizable todavía; se intentará crear/reparar con el Python lanzador actual.")
+            _log(
+                "[setup] .venv ausente o no utilizable todavía; se intentará crear/reparar con el Python lanzador actual."
+            )
 
         diagnostico = diagnosticar_entorno_calidad(PROJECT_ROOT)
         for linea in renderizar_reporte(diagnostico):

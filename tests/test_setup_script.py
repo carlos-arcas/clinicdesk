@@ -64,7 +64,9 @@ def test_setup_main_ejecuta_comandos_esperados(monkeypatch, tmp_path: Path) -> N
     monkeypatch.setattr(setup, "PROJECT_ROOT", Path(__file__).resolve().parents[1])
     monkeypatch.setattr(setup, "VENV_DIR", venv_dir)
     monkeypatch.setattr(setup.subprocess, "run", fake_run)
-    monkeypatch.setattr(setup, "resolver_ejecucion_canonica", lambda *_args, **_kwargs: DecisionEjecucionCanonica("continuar"))
+    monkeypatch.setattr(
+        setup, "resolver_ejecucion_canonica", lambda *_args, **_kwargs: DecisionEjecucionCanonica("continuar")
+    )
     monkeypatch.setattr(setup, "_venv_python", lambda: python_venv)
     _mockear_doctor_alineado(monkeypatch)
     monkeypatch.setattr(Path, "exists", lambda self: True if self == python_venv else original_exists(self))
@@ -88,7 +90,9 @@ def test_setup_main_reejecuta_en_python_del_repo_si_venv_ya_existe(monkeypatch) 
     monkeypatch.setattr(
         setup,
         "resolver_ejecucion_canonica",
-        lambda *_args, **_kwargs: DecisionEjecucionCanonica("reejecutar", python_objetivo=Path("/tmp/repo/.venv/bin/python")),
+        lambda *_args, **_kwargs: DecisionEjecucionCanonica(
+            "reejecutar", python_objetivo=Path("/tmp/repo/.venv/bin/python")
+        ),
     )
     monkeypatch.setattr(
         setup,
@@ -115,7 +119,9 @@ def test_setup_main_devuelve_error_si_falla_subproceso(monkeypatch, tmp_path: Pa
     monkeypatch.setattr(setup, "PROJECT_ROOT", Path(__file__).resolve().parents[1])
     monkeypatch.setattr(setup, "VENV_DIR", venv_dir)
     monkeypatch.setattr(setup.subprocess, "run", fake_run)
-    monkeypatch.setattr(setup, "resolver_ejecucion_canonica", lambda *_args, **_kwargs: DecisionEjecucionCanonica("continuar"))
+    monkeypatch.setattr(
+        setup, "resolver_ejecucion_canonica", lambda *_args, **_kwargs: DecisionEjecucionCanonica("continuar")
+    )
     monkeypatch.setattr(setup, "_venv_python", lambda: python_venv)
     _mockear_doctor_alineado(monkeypatch)
     monkeypatch.setattr(Path, "exists", lambda self: True if self == python_venv else original_exists(self))
@@ -136,7 +142,9 @@ def test_setup_main_falla_si_python_lanzador_no_es_compatible(monkeypatch, capsy
             version_minima_repo = "3.11"
             comando_recrear = "python scripts/setup.py"
 
-    monkeypatch.setattr(setup, "resolver_ejecucion_canonica", lambda *_args, **_kwargs: DecisionEjecucionCanonica("continuar"))
+    monkeypatch.setattr(
+        setup, "resolver_ejecucion_canonica", lambda *_args, **_kwargs: DecisionEjecucionCanonica("continuar")
+    )
     monkeypatch.setattr(setup, "diagnosticar_entorno_calidad", lambda *_args, **_kwargs: _DiagnosticoIncompatible())
     monkeypatch.setattr(setup, "renderizar_reporte", lambda *_args, **_kwargs: [])
 
@@ -195,6 +203,25 @@ def test_instalar_dependencias_falla_si_env_wheelhouse_apunta_a_ruta_sin_wheels(
     try:
         setup._instalar_dependencias(python_venv)
     except RuntimeError as exc:
-        assert "no contiene wheels válidos del lock" in str(exc)
+        assert "vacio" in str(exc)
     else:
         raise AssertionError("Se esperaba RuntimeError por wheelhouse vacío")
+
+
+def test_instalar_dependencias_falla_si_env_wheelhouse_apunta_a_lock_incompleto(monkeypatch, tmp_path: Path) -> None:
+    python_venv = tmp_path / ".venv" / "bin" / "python"
+    (tmp_path / "requirements.txt").write_text("PySide6==6.8.3\ncryptography==46.0.5\n", encoding="utf-8")
+    (tmp_path / "requirements-dev.txt").write_text("-r requirements.txt\npytest==8.3.2\n", encoding="utf-8")
+    wheelhouse = tmp_path / "wheelhouse-incompleto"
+    wheelhouse.mkdir()
+    (wheelhouse / "pytest-8.3.2-py3-none-any.whl").write_text("x", encoding="utf-8")
+    monkeypatch.setattr(setup, "PROJECT_ROOT", tmp_path)
+    monkeypatch.setenv("CLINICDESK_WHEELHOUSE", str(wheelhouse))
+
+    try:
+        setup._instalar_dependencias(python_venv)
+    except RuntimeError as exc:
+        assert "incompleto" in str(exc)
+        assert "pyside6==6.8.3" in str(exc).lower()
+    else:
+        raise AssertionError("Se esperaba RuntimeError por wheelhouse incompleto")

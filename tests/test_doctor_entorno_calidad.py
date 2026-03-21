@@ -188,7 +188,9 @@ def test_doctor_reporta_interprete_y_red_para_proxy(monkeypatch: pytest.MonkeyPa
     assert "proxy" in diagnostico.diagnostico_red
 
 
-def test_doctor_explica_wheelhouse_invalido_por_variable_entorno(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+def test_doctor_explica_wheelhouse_invalido_por_variable_entorno(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
     _escribir_lock_dev(tmp_path)
     wheelhouse_invalido = tmp_path / "wheelhouse.txt"
     wheelhouse_invalido.write_text("no-dir", encoding="utf-8")
@@ -212,3 +214,27 @@ def test_doctor_explica_wheelhouse_invalido_por_variable_entorno(monkeypatch: py
     lineas = doctor.renderizar_reporte(diagnostico)
     assert "ruta inválida" in diagnostico.diagnostico_red
     assert any("Wheelhouse:" in linea and "ruta inválida" in linea for linea in lineas)
+
+
+def test_doctor_detecta_wheelhouse_incompleto(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    _escribir_lock_dev(tmp_path)
+    wheelhouse = tmp_path / "wheelhouse"
+    wheelhouse.mkdir()
+    (wheelhouse / "ruff-0.8.4-py3-none-any.whl").write_text("x", encoding="utf-8")
+    monkeypatch.setattr(doctor.metadata, "version", lambda nombre: "2.7.3" if nombre == "pip-audit" else "0.0.0")
+
+    def fake_run(command, **_kwargs):
+        if command[:5] == [sys.executable, "-m", "pip", "cache", "dir"]:
+            return _Resultado(0, stdout="/tmp/pip-cache")
+        if command[2] in {"ruff", "pytest", "mypy"}:
+            return _Resultado(0, stdout="ok 1.0.0")
+        raise AssertionError(f"Comando inesperado: {command}")
+
+    monkeypatch.setattr(doctor.subprocess, "run", fake_run)
+
+    diagnostico = doctor.diagnosticar_entorno_calidad(tmp_path, wheelhouse=wheelhouse)
+    lineas = doctor.renderizar_reporte(diagnostico, exigir_wheelhouse=True)
+    assert diagnostico.wheelhouse_estado == "incompleto"
+    assert any("Wheelhouse detalle" in linea for linea in lineas)
+    assert any("pytest==8.3.2" in linea.lower() for linea in lineas)
+    assert any("Faltan al menos" in linea for linea in lineas)

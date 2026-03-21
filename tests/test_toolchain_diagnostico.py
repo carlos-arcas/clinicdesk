@@ -34,32 +34,15 @@ INTERPRETE_OK = EstadoInterprete(
 
 def test_leer_versiones_lock_omite_comentarios_y_includes() -> None:
     versiones = leer_versiones_lock_desde_texto(
-        "\n".join(
-            [
-                "# lock dev",
-                "-r requirements.txt",
-                "ruff==0.8.4",
-                "pytest==8.3.2",
-                "",
-            ]
-        )
+        "\n".join(["# lock dev", "-r requirements.txt", "ruff==0.8.4", "pytest==8.3.2", ""])
     )
-
     assert versiones == {"ruff": "0.8.4", "pytest": "8.3.2"}
 
 
 def test_cargar_toolchain_esperado_lee_versiones_desde_lock(tmp_path: Path) -> None:
     (tmp_path / "requirements-dev.in").write_text("ruff\npytest\nmypy\npip-audit\n", encoding="utf-8")
     (tmp_path / "requirements-dev.txt").write_text(
-        "\n".join(
-            [
-                "ruff==0.8.4",
-                "pytest==8.3.2",
-                "mypy==1.13.0",
-                "pip-audit==2.7.3",
-            ]
-        ),
-        encoding="utf-8",
+        "ruff==0.8.4\npytest==8.3.2\nmypy==1.13.0\npip-audit==2.7.3\n", encoding="utf-8"
     )
     (tmp_path / "pyproject.toml").write_text('[tool.mypy]\npython_version = "3.11"\n', encoding="utf-8")
 
@@ -77,7 +60,10 @@ def test_renderizar_reporte_muestra_error_accionable_para_tool_faltante(tmp_path
         interprete=INTERPRETE_OK,
         cache_pip="/tmp/pip-cache",
         wheelhouse=tmp_path / "wheelhouse",
+        wheelhouse_estado="ausente",
         wheelhouse_disponible=False,
+        wheelhouse_detalle="directorio ausente",
+        wheelhouse_faltantes=(),
         indice_pip=None,
         proxy_configurado=False,
         diagnostico_red="sin wheelhouse ni proxy/index explícito; una red restringida bloqueará la reinstalación.",
@@ -97,7 +83,6 @@ def test_renderizar_reporte_muestra_error_accionable_para_tool_faltante(tmp_path
     )
 
     lineas = renderizar_reporte(diagnostico)
-
     assert any("ruff: falta en el entorno; gate bloqueado" in linea for linea in lineas)
     assert any(COMANDO_REINSTALAR_LOCK in linea for linea in lineas)
     assert any("gate real seguirá fallando por entorno" in linea for linea in lineas)
@@ -120,7 +105,10 @@ def test_renderizar_reporte_explica_interprete_fuera_del_repo(tmp_path: Path) ->
         ),
         cache_pip=None,
         wheelhouse=tmp_path / "wheelhouse",
+        wheelhouse_estado="ausente",
         wheelhouse_disponible=False,
+        wheelhouse_detalle="directorio ausente",
+        wheelhouse_faltantes=(),
         indice_pip=None,
         proxy_configurado=False,
         diagnostico_red="sin wheelhouse ni proxy/index explícito; una red restringida bloqueará la reinstalación.",
@@ -130,7 +118,6 @@ def test_renderizar_reporte_explica_interprete_fuera_del_repo(tmp_path: Path) ->
     )
 
     lineas = renderizar_reporte(diagnostico)
-
     assert any("Python esperado .venv" in linea for linea in lineas)
     assert any("Activa el venv correcto" in linea for linea in lineas)
     assert any("recréalo con" in linea for linea in lineas)
@@ -138,7 +125,6 @@ def test_renderizar_reporte_explica_interprete_fuera_del_repo(tmp_path: Path) ->
 
 def test_leer_paquetes_input_omite_includes_y_conserva_paquetes() -> None:
     paquetes = leer_paquetes_input_desde_texto("# lock dev\n-r requirements.in\nruff\npytest==8.3.2\n")
-
     assert paquetes == ("ruff", "pytest")
 
 
