@@ -10,7 +10,7 @@ from typing import Sequence
 from scripts._ruff_targets import obtener_targets_python
 
 from . import config
-from .toolchain import version_paquete_desde_lock
+from .toolchain import COMANDO_DOCTOR, COMANDO_SETUP, version_paquete_desde_lock
 
 _LOGGER = logging.getLogger(__name__)
 RUTA_ARTEFACTO_DIFF_RUFF = Path("docs/ruff_format_diff.txt")
@@ -70,10 +70,12 @@ def _validar_version_ruff(root: Path, salida_version: str) -> int:
     if version_instalada != version_pinneada:
         _LOGGER.error(
             "[quality-gate] ❌ Ruff desalineado con CI/local lock: instalado=%s pin=%s. "
-            "Instala dependencias con `python -m pip install -r requirements-dev.txt` "
-            "antes de ejecutar el gate.",
+            "Primero valida el intérprete/env con `%s`; reinstala el tooling con `python -m pip install -r requirements-dev.txt`; "
+            "si el venv del repo está roto, recréalo con `%s`.",
             version_instalada,
             version_pinneada,
+            COMANDO_DOCTOR,
+            COMANDO_SETUP,
         )
         return 1
 

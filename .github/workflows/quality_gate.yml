@@ -52,6 +52,11 @@ jobs:
           python -c "import pip_audit; print('pip_audit_ok')"
           python -m pip show pip-audit
 
+      - name: Doctor de entorno canónico
+        env:
+          PYTHONPATH: .
+        run: python -m scripts.doctor_entorno_calidad
+
       - name: Compile sanity check
         run: python -m compileall -q clinicdesk scripts tests
 

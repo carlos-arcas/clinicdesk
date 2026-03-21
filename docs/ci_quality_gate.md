@@ -1,6 +1,7 @@
 # Quality gate de CI y PR
 
 ## Comandos canónicos
+- Setup local recomendado: `python scripts/setup.py`
 - Doctor de entorno: `python -m scripts.doctor_entorno_calidad`
 - Doctor offline-first: `python -m scripts.doctor_entorno_calidad --require-wheelhouse`
 - Gate rápido: `python -m scripts.gate_rapido`
@@ -9,27 +10,40 @@
 CI debe ejecutar exactamente `python -m scripts.gate_pr`.
 
 ## Flujo local recomendado
-1. Ejecuta el doctor.
-2. Si falta tooling o hay versiones desalineadas, ejecuta `python -m pip install -r requirements-dev.txt`.
-3. Si el doctor reporta lock incoherente o desalineado con `requirements-dev.in`, ejecuta `python -m scripts.lock_deps`.
-4. Si necesitas reproducibilidad sin red, valida `--require-wheelhouse`.
-5. Cuando el doctor quede en verde, ejecuta `python -m scripts.gate_pr`.
+1. Ejecuta `python scripts/setup.py` para crear o reparar `.venv`.
+2. Activa el venv del repo.
+3. Ejecuta el doctor.
+4. Si falta tooling o hay versiones desalineadas, ejecuta `python -m pip install -r requirements-dev.txt` dentro del venv correcto.
+5. Si el doctor reporta lock incoherente o desalineado con `requirements-dev.in`, ejecuta `python -m scripts.lock_deps`.
+6. Si necesitas reproducibilidad sin red, valida `--require-wheelhouse`.
+7. Cuando el doctor quede en verde, ejecuta `python -m scripts.gate_pr`.
+
+## Flujo CI real
+Los workflows de CI hacen la misma secuencia lógica:
+1. `actions/setup-python` fija la versión de Python del job.
+2. Se instalan `requirements.txt` y `requirements-dev.txt`.
+3. Se ejecuta `python -m scripts.doctor_entorno_calidad` como evidencia de preflight.
+4. Se ejecuta el gate canónico `python -m scripts.gate_pr`.
+
+En CI no se usa `setup.py` porque el runner no necesita crear `.venv`; el equivalente es `actions/setup-python` + instalación explícita del lock.
 
 ## Fuente de verdad del tooling
 - Versiones fijadas: `requirements-dev.txt`
 - Entrada editable: `requirements-dev.in`
 - Regeneración del lock: `python -m scripts.lock_deps`
+- Python mínimo del repo: `pyproject.toml`
 
 El doctor, el preflight del gate y las validaciones específicas de Ruff consumen esa misma fuente de verdad.
 
 ## Significado de `rc=20`
-`rc=20` en `python -m scripts.gate_pr` significa **bloqueo operativo del entorno local**. El proyecto todavía no fue validado por el gate funcional.
+`rc=20` en `python -m scripts.gate_pr` significa **bloqueo operativo del entorno local o del job**. El proyecto todavía no fue validado por el gate funcional.
 
 ## Entornos con proxy/red restringida
 - Si no hay wheelhouse, `setup.py` deja claro que la instalación depende de red/proxy reales.
+- Si `CLINICDESK_WHEELHOUSE` apunta a una ruta inválida o incompleta, doctor/setup lo reportan de forma inmediata.
 - Si hay wheelhouse pero es incompatible o incompleto, `setup.py` lo reporta como problema de wheelhouse/configuración, no como PASS.
 - El repo no añade binarios ni degrada el gate para ocultar fallos.
 
-## Si falla
+## Cómo distinguir bloqueo de entorno vs fallo de proyecto
 - **Bloqueo de entorno**: corrige lo que indique el doctor y vuelve a correr `python -m scripts.gate_pr`.
-- **Fallo de proyecto**: corrige el problema real del repositorio y reejecuta el gate completo.
+- **Fallo de proyecto**: si el doctor está alineado y el gate cae después, corrige el problema real del repositorio y reejecuta el gate completo.

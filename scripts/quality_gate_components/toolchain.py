@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
+import sys
+import tomllib
 
 
 @dataclass(frozen=True)
@@ -10,6 +12,14 @@ class HerramientaToolchain:
     modulo_python: str
     comando_version: tuple[str, ...] = ("--version",)
     usar_metadata: bool = False
+
+
+@dataclass(frozen=True)
+class InterpreteEsperado:
+    version_minima: str
+    python_repo: Path
+    comando_activar: str
+    comando_recrear: str
 
 
 HERRAMIENTAS_GATE: tuple[HerramientaToolchain, ...] = (
@@ -56,6 +66,17 @@ def cargar_toolchain_esperado(repo_root: Path) -> ToolchainEsperado:
     )
 
 
+def cargar_interprete_esperado(repo_root: Path) -> InterpreteEsperado:
+    version_minima = _leer_python_minimo(repo_root / "pyproject.toml")
+    python_repo = _python_repo(repo_root)
+    return InterpreteEsperado(
+        version_minima=version_minima,
+        python_repo=python_repo,
+        comando_activar=_comando_activar_desde_repo(repo_root),
+        comando_recrear=f"rm -rf {repo_root / '.venv'} && {COMANDO_SETUP}",
+    )
+
+
 def leer_versiones_lock_desde_texto(texto_lock: str) -> dict[str, str]:
     versiones: dict[str, str] = {}
     for linea in texto_lock.splitlines():
@@ -69,12 +90,11 @@ def leer_versiones_lock_desde_texto(texto_lock: str) -> dict[str, str]:
     return versiones
 
 
-
-
 def version_paquete_desde_lock(repo_root: Path, nombre_paquete: str) -> str | None:
     requirements_dev_lock = repo_root / "requirements-dev.txt"
     versiones = _leer_versiones_lock(requirements_dev_lock, validar_herramientas_gate=False)
     return versiones.get(nombre_paquete)
+
 
 def leer_paquetes_input_desde_texto(texto_input: str) -> tuple[str, ...]:
     paquetes: list[str] = []
@@ -127,6 +147,28 @@ def _validar_coherencia_input_y_lock(
             f"{requirements_dev_input.name} declara {faltantes_render} pero {requirements_dev_lock.name} no los fija. "
             f"Regénéralo con {COMANDO_REGENERAR_LOCK}."
         )
+
+
+def _leer_python_minimo(pyproject: Path) -> str:
+    if not pyproject.exists():
+        raise ErrorToolchain(f"Falta {pyproject}; no se puede resolver la versión mínima de Python del repo.")
+    contenido = tomllib.loads(pyproject.read_text(encoding="utf-8"))
+    try:
+        return str(contenido["tool"]["mypy"]["python_version"])
+    except KeyError as exc:  # pragma: no cover
+        raise ErrorToolchain("pyproject.toml no define tool.mypy.python_version para el tooling del repo.") from exc
+
+
+def _python_repo(repo_root: Path) -> Path:
+    if sys.platform.startswith("win"):
+        return repo_root / ".venv" / "Scripts" / "python.exe"
+    return repo_root / ".venv" / "bin" / "python"
+
+
+def _comando_activar_desde_repo(repo_root: Path) -> str:
+    if sys.platform.startswith("win"):
+        return f"{repo_root / '.venv' / 'Scripts' / 'activate'}"
+    return f"source {repo_root / '.venv' / 'bin' / 'activate'}"
 
 
 def _normalizar_linea(linea: str) -> str | None:

@@ -109,6 +109,12 @@ def _run_command(command: list[str], descripcion: str, *, wheelhouse: Path | Non
         raise RuntimeError(detalle)
 
 
+def _log_contexto_interprete() -> None:
+    _log(f"[setup] Python lanzador actual: {sys.executable}")
+    _log(f"[setup] Repo root: {PROJECT_ROOT}")
+    _log(f"[setup] Venv esperado del repo: {_venv_python()}")
+
+
 def _crear_venv_si_no_existe() -> None:
     if VENV_DIR.exists():
         _log(f"[setup] Entorno virtual ya existe en {VENV_DIR}")
@@ -148,9 +154,14 @@ def _instalar_dependencias(python_venv: Path) -> None:
 
     wheelhouse = resolver_wheelhouse(PROJECT_ROOT)
     if os.environ.get("CLINICDESK_WHEELHOUSE") and not wheelhouse_disponible(wheelhouse):
+        motivo = "la ruta no existe o no es directorio"
+        if wheelhouse.exists() and wheelhouse.is_dir():
+            motivo = "el directorio existe pero no contiene wheels válidos del lock"
+        elif wheelhouse.exists() and not wheelhouse.is_dir():
+            motivo = "la ruta existe pero no es un directorio"
         raise RuntimeError(
-            f"CLINICDESK_WHEELHOUSE apunta a {wheelhouse}, pero no hay wheels válidos. "
-            "Ajusta la ruta o regenera el wheelhouse antes de reintentar."
+            f"CLINICDESK_WHEELHOUSE apunta a {wheelhouse}, pero {motivo}. "
+            "Ajusta la ruta, corrige el proxy/red para construirlo, o regenera el wheelhouse antes de reintentar."
         )
     comando_runtime, modo_runtime = comando_instalacion(str(python_venv), requirements, wheelhouse)
     comando_dev, modo_dev = comando_instalacion(str(python_venv), requirements_dev, wheelhouse)
@@ -175,9 +186,15 @@ def _verificar_herramientas(python_venv: Path) -> None:
 
 def main() -> int:
     try:
+        _log_contexto_interprete()
         diagnostico = diagnosticar_entorno_calidad(PROJECT_ROOT)
         for linea in renderizar_reporte(diagnostico):
             _log(linea)
+        if not diagnostico.interprete.version_compatible:
+            raise RuntimeError(
+                "El Python lanzador no cumple la versión mínima del repo. "
+                f"Usa {diagnostico.interprete.comando_recrear} con un Python >= {diagnostico.interprete.version_minima_repo}."
+            )
         _crear_venv_si_no_existe()
         python_venv = _venv_python()
         if not python_venv.exists():
@@ -195,7 +212,8 @@ def main() -> int:
         _log(f"[setup][error] {exc}")
         return 1
 
-    _log(f"[setup] Entorno listo. Próximos pasos: {COMANDO_DOCTOR} && {COMANDO_GATE}")
+    _log(f"[setup] Entorno listo. Activa el venv con: {diagnostico_final.interprete.comando_activar}")
+    _log(f"[setup] Próximos pasos: {COMANDO_DOCTOR} && {COMANDO_GATE}")
     return 0
 
 

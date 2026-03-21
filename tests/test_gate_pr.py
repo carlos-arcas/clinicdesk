@@ -39,6 +39,9 @@ def test_gate_pr_ejecuta_quality_gate_si_preflight_esta_ok(monkeypatch) -> None:
 
 
 def test_preflight_entorno_explica_rc_20(monkeypatch, capsys) -> None:
+    class _Interprete:
+        usa_python_repo = False
+
     class _Diag:
         toolchain_error = None
         herramientas = ()
@@ -55,6 +58,7 @@ def test_preflight_entorno_explica_rc_20(monkeypatch, capsys) -> None:
         tiene_faltantes = True
         tiene_desalineaciones = False
         entorno_bloqueado = True
+        interprete = _Interprete()
 
     monkeypatch.setattr(gate_pr, "diagnosticar_entorno_calidad", lambda _root: _Diag())
     monkeypatch.setattr(gate_pr, "codigo_salida_estable", lambda _diag: 2)
@@ -66,3 +70,4 @@ def test_preflight_entorno_explica_rc_20(monkeypatch, capsys) -> None:
     assert rc == gate_pr.EXIT_ENTORNO_BLOQUEADO
     assert "rc=20" in err
     assert "todavía no se validó el proyecto" in err
+    assert "scripts/setup.py" in err

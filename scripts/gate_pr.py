@@ -16,7 +16,7 @@ from scripts.quality_gate_components.doctor_entorno_calidad_core import (
     diagnosticar_entorno_calidad,
     renderizar_reporte,
 )
-from scripts.quality_gate_components.toolchain import COMANDO_DOCTOR
+from scripts.quality_gate_components.toolchain import COMANDO_DOCTOR, COMANDO_SETUP
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 EXIT_ENTORNO_BLOQUEADO = 20
@@ -44,6 +44,10 @@ def _preflight_entorno(repo_root: Path) -> int:
     sys.stderr.write(
         f"[gate-pr][accion] Corrige el entorno con la guía anterior y reintenta: {COMANDO_DOCTOR}\n"
     )
+    if hasattr(diagnostico, 'interprete') and not diagnostico.interprete.usa_python_repo:
+        sys.stderr.write(
+            f"[gate-pr][accion] Si el venv del repo no está activo o quedó corrupto, recréalo con: {COMANDO_SETUP}\n"
+        )
     return EXIT_ENTORNO_BLOQUEADO
 
 
