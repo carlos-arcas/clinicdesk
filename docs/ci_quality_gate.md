@@ -44,6 +44,13 @@ El doctor, el preflight del gate y las validaciones específicas de Ruff consume
 - Si hay wheelhouse pero es incompatible o incompleto, `setup.py` lo reporta como problema de wheelhouse/configuración, no como PASS.
 - El repo no añade binarios ni degrada el gate para ocultar fallos.
 
+
+## Contrato offline-first del wheelhouse
+- `doctor` y `setup.py` validan el wheelhouse contra la misma fuente de verdad del lock: `requirements-dev.txt` y sus includes.
+- Un wheelhouse con wheels irrelevantes o parciales se marca como **incompleto**, no como disponible.
+- `build_wheelhouse` ahora verifica la cobertura del lock al final de la descarga y falla si aún faltan paquetes/versiones.
+- La ruta offline-first solo es realmente recuperable cuando el estado reportado es **utilizable**.
+
 ## Cómo distinguir bloqueo de entorno vs fallo de proyecto
 - **Bloqueo de entorno**: corrige lo que indique el doctor y vuelve a correr `python -m scripts.gate_pr`.
 - **Fallo de proyecto**: si el doctor está alineado y el gate cae después, corrige el problema real del repositorio y reejecuta el gate completo.

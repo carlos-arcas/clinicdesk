@@ -7,9 +7,9 @@ from pathlib import Path
 
 from scripts.quality_gate_components.bootstrap_dependencias import (
     comando_instalacion,
-    resolver_wheelhouse,
-    wheelhouse_disponible,
+    diagnosticar_wheelhouse_desde_lock,
 )
+from scripts.quality_gate_components.wheelhouse import resolver_wheelhouse
 from scripts.quality_gate_components.doctor_entorno_calidad_core import (
     codigo_salida_estable,
     diagnosticar_entorno_calidad,
@@ -60,7 +60,8 @@ def _instalar_archivo_requirements(nombre_archivo: str) -> bool:
         return False
 
     wheelhouse = resolver_wheelhouse(RAIZ_REPO)
-    comando, modo = comando_instalacion(sys.executable, ruta_requirements, wheelhouse)
+    diagnostico_wheelhouse = diagnosticar_wheelhouse_desde_lock(RAIZ_REPO, wheelhouse, ruta_requirements)
+    comando, modo = comando_instalacion(sys.executable, ruta_requirements, wheelhouse, RAIZ_REPO)
     _log(f"[setup_sandbox] Instalando {nombre_archivo} en modo {modo}...")
     resultado = subprocess.run(comando, cwd=RAIZ_REPO, capture_output=True, text=True, check=False)
     if resultado.returncode == 0:
@@ -71,8 +72,8 @@ def _instalar_archivo_requirements(nombre_archivo: str) -> bool:
     stdout = (resultado.stdout or "").strip()
     if _texto_error_red(stderr):
         _log("[setup_sandbox][error] Falló la instalación por conectividad (red/proxy).")
-        if not wheelhouse_disponible(wheelhouse):
-            _log(f"[setup_sandbox][error] Wheelhouse ausente en: {wheelhouse}")
+        if not diagnostico_wheelhouse.utilizable:
+            _log(f"[setup_sandbox][error] Wheelhouse {diagnostico_wheelhouse.codigo} en: {wheelhouse}")
             _log("[setup_sandbox][accion] Genera wheelhouse con: python -m scripts.dev.build_wheelhouse")
     else:
         _log(f"[setup_sandbox][error] pip devolvió exit code {resultado.returncode} al instalar {nombre_archivo}.")

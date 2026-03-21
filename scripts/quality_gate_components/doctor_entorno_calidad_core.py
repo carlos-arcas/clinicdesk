@@ -8,7 +8,8 @@ import re
 import subprocess
 import sys
 
-from .bootstrap_dependencias import resolver_wheelhouse, wheelhouse_disponible
+from .bootstrap_dependencias import diagnosticar_wheelhouse_desde_lock
+from .wheelhouse import resolver_wheelhouse
 from .entorno_python import EstadoInterprete, diagnosticar_interprete, lineas_ayuda_interprete
 from .toolchain import (
     COMANDO_BUILD_WHEELHOUSE,
@@ -42,7 +43,10 @@ class DiagnosticoEntornoCalidad:
     interprete: EstadoInterprete
     cache_pip: str | None
     wheelhouse: Path
+    wheelhouse_estado: str
     wheelhouse_disponible: bool
+    wheelhouse_detalle: str
+    wheelhouse_faltantes: tuple[str, ...]
     indice_pip: str | None
     proxy_configurado: bool
     diagnostico_red: str
@@ -85,7 +89,8 @@ def diagnosticar_entorno_calidad(repo_root: Path, wheelhouse: Path | None = None
     indice_pip = _indice_pip()
     proxy_configurado = _proxy_configurado()
     interprete = diagnosticar_interprete(cargar_interprete_esperado(repo_root))
-    diagnostico_red = _diagnostico_red(proxy_configurado, indice_pip, wheelhouse_path)
+    diagnostico_wheelhouse = diagnosticar_wheelhouse_desde_lock(repo_root, wheelhouse_path)
+    diagnostico_red = _diagnostico_red(proxy_configurado, indice_pip, diagnostico_wheelhouse)
     try:
         toolchain = cargar_toolchain_esperado(repo_root)
         herramientas = _estado_herramientas(toolchain)
@@ -99,7 +104,10 @@ def diagnosticar_entorno_calidad(repo_root: Path, wheelhouse: Path | None = None
         interprete=interprete,
         cache_pip=_cache_pip(),
         wheelhouse=wheelhouse_path,
-        wheelhouse_disponible=wheelhouse_disponible(wheelhouse_path),
+        wheelhouse_estado=diagnostico_wheelhouse.codigo,
+        wheelhouse_disponible=diagnostico_wheelhouse.utilizable,
+        wheelhouse_detalle=diagnostico_wheelhouse.detalle,
+        wheelhouse_faltantes=diagnostico_wheelhouse.paquetes_faltantes,
         indice_pip=indice_pip,
         proxy_configurado=proxy_configurado,
         diagnostico_red=diagnostico_red,
@@ -139,7 +147,8 @@ def renderizar_reporte(diagnostico: DiagnosticoEntornoCalidad, exigir_wheelhouse
         f"[doctor] pip index: {diagnostico.indice_pip or 'pip por defecto'}",
         f"[doctor] Proxy detectado: {'sí' if diagnostico.proxy_configurado else 'no'}",
         f"[doctor] Diagnóstico red: {diagnostico.diagnostico_red}",
-        f"[doctor] Wheelhouse: {diagnostico.wheelhouse} ({_estado_wheelhouse(diagnostico.wheelhouse, diagnostico.wheelhouse_disponible)})",
+        f"[doctor] Wheelhouse: {diagnostico.wheelhouse} ({_estado_wheelhouse(diagnostico)})",
+        f"[doctor] Wheelhouse detalle: {diagnostico.wheelhouse_detalle}",
     ]
     if diagnostico.toolchain_error is not None:
         lineas.extend(
@@ -155,12 +164,16 @@ def renderizar_reporte(diagnostico: DiagnosticoEntornoCalidad, exigir_wheelhouse
 
 
 def _source_of_truth(toolchain: ToolchainEsperado | None, repo_root: Path) -> str:
-    requirements_dev_lock = toolchain.requirements_dev_lock if toolchain is not None else repo_root / "requirements-dev.txt"
+    requirements_dev_lock = (
+        toolchain.requirements_dev_lock if toolchain is not None else repo_root / "requirements-dev.txt"
+    )
     return f"{requirements_dev_lock.name} (versiones fijadas) + requirements-dev.in (entrada editable)"
 
 
 def _cache_pip() -> str | None:
-    resultado = subprocess.run([sys.executable, "-m", "pip", "cache", "dir"], capture_output=True, text=True, check=False)
+    resultado = subprocess.run(
+        [sys.executable, "-m", "pip", "cache", "dir"], capture_output=True, text=True, check=False
+    )
     if resultado.returncode != 0:
         return None
     valor = (resultado.stdout or "").strip()
@@ -175,13 +188,15 @@ def _proxy_configurado() -> bool:
     return any(os.environ.get(nombre) for nombre in ("HTTP_PROXY", "HTTPS_PROXY", "http_proxy", "https_proxy"))
 
 
-def _diagnostico_red(proxy_configurado: bool, indice_pip: str | None, wheelhouse: Path) -> str:
-    if wheelhouse_disponible(wheelhouse):
-        return "wheelhouse disponible: el setup puede instalar sin red si los wheels cubren el lock."
-    if wheelhouse.exists() and not wheelhouse.is_dir():
+def _diagnostico_red(proxy_configurado: bool, indice_pip: str | None, diagnostico_wheelhouse) -> str:
+    if diagnostico_wheelhouse.utilizable:
+        return "wheelhouse utilizable: cubre el lock y el setup puede instalar sin red."
+    if diagnostico_wheelhouse.codigo == "invalido":
         return "CLINICDESK_WHEELHOUSE apunta a una ruta inválida: existe pero no es un directorio utilizable."
-    if os.environ.get("CLINICDESK_WHEELHOUSE"):
-        return "CLINICDESK_WHEELHOUSE está definido pero no contiene wheels válidos; la recuperación offline no es posible así."
+    if diagnostico_wheelhouse.codigo in {"vacio", "incompleto"} and os.environ.get("CLINICDESK_WHEELHOUSE"):
+        faltantes = ", ".join(diagnostico_wheelhouse.paquetes_faltantes[:3])
+        sufijo = f" Faltan al menos: {faltantes}." if faltantes else ""
+        return f"CLINICDESK_WHEELHOUSE está definido pero no cubre el lock completo.{sufijo}"
     if proxy_configurado and indice_pip:
         return "sin wheelhouse; la instalación dependerá del proxy y del índice configurado."
     if proxy_configurado:
@@ -202,11 +217,15 @@ def _estado_herramienta(herramienta: HerramientaToolchain, esperado: str | None)
     resultado = subprocess.run(comando, capture_output=True, text=True, check=False)
     if resultado.returncode != 0:
         detalle = (resultado.stderr or resultado.stdout or "error desconocido").strip()
-        return EstadoHerramienta(herramienta.nombre_paquete, esperado, False, None, detalle, True, COMANDO_REINSTALAR_LOCK)
+        return EstadoHerramienta(
+            herramienta.nombre_paquete, esperado, False, None, detalle, True, COMANDO_REINSTALAR_LOCK
+        )
 
     version = _extraer_version(resultado.stdout or resultado.stderr or "")
     desalineada = esperado is not None and version != esperado
-    return EstadoHerramienta(herramienta.nombre_paquete, esperado, True, version, None, desalineada, COMANDO_REINSTALAR_LOCK)
+    return EstadoHerramienta(
+        herramienta.nombre_paquete, esperado, True, version, None, desalineada, COMANDO_REINSTALAR_LOCK
+    )
 
 
 def _estado_herramienta_por_metadata(herramienta: HerramientaToolchain, esperado: str | None) -> EstadoHerramienta:
@@ -238,14 +257,15 @@ def _extraer_version(texto: str) -> str | None:
     return None if not match else match.group("version")
 
 
-def _estado_wheelhouse(wheelhouse: Path, disponible: bool) -> str:
-    if disponible:
-        return "disponible"
-    if wheelhouse.exists() and not wheelhouse.is_dir():
-        return "ruta inválida"
-    if os.environ.get("CLINICDESK_WHEELHOUSE"):
-        return "definido pero incompleto/ausente"
-    return "ausente"
+def _estado_wheelhouse(diagnostico: DiagnosticoEntornoCalidad) -> str:
+    estados = {
+        "utilizable": "utilizable",
+        "incompleto": "incompleto",
+        "vacio": "vacío",
+        "invalido": "ruta inválida",
+        "ausente": "ausente",
+    }
+    return estados.get(diagnostico.wheelhouse_estado, diagnostico.wheelhouse_estado)
 
 
 def _lineas_herramienta(herramienta: EstadoHerramienta) -> list[str]:
@@ -269,9 +289,11 @@ def _lineas_herramienta(herramienta: EstadoHerramienta) -> list[str]:
 def _lineas_ayuda(diagnostico: DiagnosticoEntornoCalidad, exigir_wheelhouse: bool) -> list[str]:
     lineas = lineas_ayuda_interprete(diagnostico.interprete)
     if exigir_wheelhouse and not diagnostico.wheelhouse_disponible:
+        faltantes = ", ".join(diagnostico.wheelhouse_faltantes[:5])
+        detalle = f" Faltan al menos: {faltantes}." if faltantes else ""
         lineas.extend(
             [
-                "[doctor][error] Modo offline requerido y wheelhouse ausente/inválido; gate local no es recuperable sin dependencias externas.",
+                f"[doctor][error] Modo offline requerido y wheelhouse {diagnostico.wheelhouse_estado}; gate local no es recuperable sin dependencias externas.{detalle}",
                 f"[doctor][accion] Genera o apunta un wheelhouse válido: {COMANDO_BUILD_WHEELHOUSE}",
             ]
         )
