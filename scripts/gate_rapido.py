@@ -12,6 +12,12 @@ import subprocess
 import sys
 from pathlib import Path
 
+from scripts.quality_gate_components.ejecucion_canonica import (
+    reejecutar_en_python_objetivo,
+    renderizar_bloqueo,
+    resolver_ejecucion_canonica,
+)
+
 REPO_ROOT = Path(__file__).resolve().parent.parent
 LOGGER = logging.getLogger(__name__)
 
@@ -23,6 +29,18 @@ def _build_env() -> dict[str, str]:
 
 
 def main() -> int:
+    decision = resolver_ejecucion_canonica(REPO_ROOT, exigir_venv_repo=True)
+    if decision.accion == "reejecutar":
+        return reejecutar_en_python_objetivo(
+            decision,
+            ["-m", "scripts.gate_rapido", *sys.argv[1:]],
+            env_extra={"CLINICDESK_SANDBOX_MODE": _build_env()["CLINICDESK_SANDBOX_MODE"]},
+        )
+    if decision.accion == "bloquear":
+        for linea in renderizar_bloqueo(decision):
+            sys.stderr.write(f"{linea}\n")
+        return 1
+
     os.chdir(REPO_ROOT)
     comando = [
         sys.executable,

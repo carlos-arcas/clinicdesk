@@ -16,6 +16,11 @@ from scripts.quality_gate_components.doctor_entorno_calidad_core import (
     diagnosticar_entorno_calidad,
     renderizar_reporte,
 )
+from scripts.quality_gate_components.ejecucion_canonica import (
+    reejecutar_en_python_objetivo,
+    renderizar_bloqueo,
+    resolver_ejecucion_canonica,
+)
 from scripts.quality_gate_components.toolchain import COMANDO_DOCTOR, COMANDO_SETUP
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -44,7 +49,7 @@ def _preflight_entorno(repo_root: Path) -> int:
     sys.stderr.write(
         f"[gate-pr][accion] Corrige el entorno con la guía anterior y reintenta: {COMANDO_DOCTOR}\n"
     )
-    if hasattr(diagnostico, 'interprete') and not diagnostico.interprete.usa_python_repo:
+    if hasattr(diagnostico, "interprete") and not diagnostico.interprete.usa_python_repo:
         sys.stderr.write(
             f"[gate-pr][accion] Si el venv del repo no está activo o quedó corrupto, recréalo con: {COMANDO_SETUP}\n"
         )
@@ -52,6 +57,14 @@ def _preflight_entorno(repo_root: Path) -> int:
 
 
 def main() -> int:
+    decision = resolver_ejecucion_canonica(REPO_ROOT, exigir_venv_repo=True)
+    if decision.accion == "reejecutar":
+        return reejecutar_en_python_objetivo(decision, ["-m", "scripts.gate_pr", *sys.argv[1:]])
+    if decision.accion == "bloquear":
+        for linea in renderizar_bloqueo(decision):
+            sys.stderr.write(f"{linea}\n")
+        return EXIT_ENTORNO_BLOQUEADO
+
     preflight = _preflight_entorno(REPO_ROOT)
     if preflight != 0:
         return preflight
