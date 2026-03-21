@@ -27,6 +27,11 @@ jobs:
           python -m pip install -r requirements.txt
           python -m pip install -r requirements-dev.txt
 
+      - name: Doctor de entorno canónico
+        env:
+          PYTHONPATH: .
+        run: python -m scripts.doctor_entorno_calidad
+
       - name: Validate tag matches __version__
         id: validar_version
         env:

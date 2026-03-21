@@ -9,15 +9,17 @@ import subprocess
 import sys
 
 from .bootstrap_dependencias import resolver_wheelhouse, wheelhouse_disponible
+from .entorno_python import EstadoInterprete, diagnosticar_interprete, lineas_ayuda_interprete
 from .toolchain import (
     COMANDO_BUILD_WHEELHOUSE,
     COMANDO_DOCTOR,
     COMANDO_GATE,
-    COMANDO_REINSTALAR_LOCK,
     COMANDO_REGENERAR_LOCK,
+    COMANDO_REINSTALAR_LOCK,
     ErrorToolchain,
     HerramientaToolchain,
     ToolchainEsperado,
+    cargar_interprete_esperado,
     cargar_toolchain_esperado,
 )
 
@@ -37,9 +39,7 @@ class EstadoHerramienta:
 
 @dataclass(frozen=True)
 class DiagnosticoEntornoCalidad:
-    python_activo: str
-    python_path: str
-    venv_activo: bool
+    interprete: EstadoInterprete
     cache_pip: str | None
     wheelhouse: Path
     wheelhouse_disponible: bool
@@ -49,6 +49,18 @@ class DiagnosticoEntornoCalidad:
     herramientas: tuple[EstadoHerramienta, ...]
     toolchain_error: str | None
     source_of_truth: str
+
+    @property
+    def python_activo(self) -> str:
+        return self.interprete.python_activo
+
+    @property
+    def python_path(self) -> str:
+        return self.interprete.python_path
+
+    @property
+    def venv_activo(self) -> bool:
+        return self.interprete.venv_activo
 
     @property
     def tiene_faltantes(self) -> bool:
@@ -72,6 +84,7 @@ def diagnosticar_entorno_calidad(repo_root: Path, wheelhouse: Path | None = None
     wheelhouse_path = resolver_wheelhouse(repo_root) if wheelhouse is None else wheelhouse
     indice_pip = _indice_pip()
     proxy_configurado = _proxy_configurado()
+    interprete = diagnosticar_interprete(cargar_interprete_esperado(repo_root))
     diagnostico_red = _diagnostico_red(proxy_configurado, indice_pip, wheelhouse_path)
     try:
         toolchain = cargar_toolchain_esperado(repo_root)
@@ -83,9 +96,7 @@ def diagnosticar_entorno_calidad(repo_root: Path, wheelhouse: Path | None = None
         toolchain_error = str(exc)
 
     return DiagnosticoEntornoCalidad(
-        python_activo=f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}",
-        python_path=sys.executable,
-        venv_activo=_venv_activo(),
+        interprete=interprete,
         cache_pip=_cache_pip(),
         wheelhouse=wheelhouse_path,
         wheelhouse_disponible=wheelhouse_disponible(wheelhouse_path),
@@ -111,17 +122,24 @@ def codigo_salida_estable(diagnostico: DiagnosticoEntornoCalidad, exigir_wheelho
 
 
 def renderizar_reporte(diagnostico: DiagnosticoEntornoCalidad, exigir_wheelhouse: bool = False) -> list[str]:
+    interprete = diagnostico.interprete
     lineas = [
         "[doctor] Diagnóstico de entorno de calidad",
         f"[doctor] Fuente de verdad tooling: {diagnostico.source_of_truth}",
-        f"[doctor] Python activo: {diagnostico.python_activo}",
-        f"[doctor] Intérprete activo: {diagnostico.python_path}",
-        f"[doctor] Venv activo: {'sí' if diagnostico.venv_activo else 'no'}",
+        f"[doctor] Python activo: {interprete.python_activo}",
+        f"[doctor] Intérprete activo: {interprete.python_path}",
+        f"[doctor] Python esperado repo: >= {interprete.version_minima_repo}",
+        f"[doctor] Python esperado .venv: {interprete.python_esperado}",
+        f"[doctor] Venv activo: {'sí' if interprete.venv_activo else 'no'}",
+        f"[doctor] VIRTUAL_ENV: {interprete.venv_path or 'no definido'}",
+        f"[doctor] Intérprete repo activo: {'sí' if interprete.usa_python_repo else 'no'}",
+        f"[doctor] Compatibilidad Python: {'sí' if interprete.version_compatible else 'no'}",
+        f"[doctor] Diagnóstico intérprete: {interprete.detalle}",
         f"[doctor] pip cache dir: {diagnostico.cache_pip or 'no disponible'}",
         f"[doctor] pip index: {diagnostico.indice_pip or 'pip por defecto'}",
         f"[doctor] Proxy detectado: {'sí' if diagnostico.proxy_configurado else 'no'}",
         f"[doctor] Diagnóstico red: {diagnostico.diagnostico_red}",
-        f"[doctor] Wheelhouse: {diagnostico.wheelhouse} ({'disponible' if diagnostico.wheelhouse_disponible else 'ausente'})",
+        f"[doctor] Wheelhouse: {diagnostico.wheelhouse} ({_estado_wheelhouse(diagnostico.wheelhouse, diagnostico.wheelhouse_disponible)})",
     ]
     if diagnostico.toolchain_error is not None:
         lineas.extend(
@@ -139,12 +157,6 @@ def renderizar_reporte(diagnostico: DiagnosticoEntornoCalidad, exigir_wheelhouse
 def _source_of_truth(toolchain: ToolchainEsperado | None, repo_root: Path) -> str:
     requirements_dev_lock = toolchain.requirements_dev_lock if toolchain is not None else repo_root / "requirements-dev.txt"
     return f"{requirements_dev_lock.name} (versiones fijadas) + requirements-dev.in (entrada editable)"
-
-
-def _venv_activo() -> bool:
-    if os.environ.get("VIRTUAL_ENV"):
-        return True
-    return sys.prefix != getattr(sys, "base_prefix", sys.prefix)
 
 
 def _cache_pip() -> str | None:
@@ -166,6 +178,10 @@ def _proxy_configurado() -> bool:
 def _diagnostico_red(proxy_configurado: bool, indice_pip: str | None, wheelhouse: Path) -> str:
     if wheelhouse_disponible(wheelhouse):
         return "wheelhouse disponible: el setup puede instalar sin red si los wheels cubren el lock."
+    if wheelhouse.exists() and not wheelhouse.is_dir():
+        return "CLINICDESK_WHEELHOUSE apunta a una ruta inválida: existe pero no es un directorio utilizable."
+    if os.environ.get("CLINICDESK_WHEELHOUSE"):
+        return "CLINICDESK_WHEELHOUSE está definido pero no contiene wheels válidos; la recuperación offline no es posible así."
     if proxy_configurado and indice_pip:
         return "sin wheelhouse; la instalación dependerá del proxy y del índice configurado."
     if proxy_configurado:
@@ -222,6 +238,16 @@ def _extraer_version(texto: str) -> str | None:
     return None if not match else match.group("version")
 
 
+def _estado_wheelhouse(wheelhouse: Path, disponible: bool) -> str:
+    if disponible:
+        return "disponible"
+    if wheelhouse.exists() and not wheelhouse.is_dir():
+        return "ruta inválida"
+    if os.environ.get("CLINICDESK_WHEELHOUSE"):
+        return "definido pero incompleto/ausente"
+    return "ausente"
+
+
 def _lineas_herramienta(herramienta: EstadoHerramienta) -> list[str]:
     esperado = herramienta.version_esperada or "sin pin detectado"
     instalada = herramienta.version_instalada or "no instalada"
@@ -241,14 +267,12 @@ def _lineas_herramienta(herramienta: EstadoHerramienta) -> list[str]:
 
 
 def _lineas_ayuda(diagnostico: DiagnosticoEntornoCalidad, exigir_wheelhouse: bool) -> list[str]:
-    lineas: list[str] = []
-    if not diagnostico.venv_activo:
-        lineas.append(f"[doctor][warn] El intérprete activo no parece venir de un venv; revisa {diagnostico.python_path}.")
+    lineas = lineas_ayuda_interprete(diagnostico.interprete)
     if exigir_wheelhouse and not diagnostico.wheelhouse_disponible:
         lineas.extend(
             [
-                "[doctor][error] Modo offline requerido y wheelhouse ausente; gate local no es recuperable sin dependencias externas.",
-                f"[doctor][accion] Genera o apunta un wheelhouse: {COMANDO_BUILD_WHEELHOUSE}",
+                "[doctor][error] Modo offline requerido y wheelhouse ausente/inválido; gate local no es recuperable sin dependencias externas.",
+                f"[doctor][accion] Genera o apunta un wheelhouse válido: {COMANDO_BUILD_WHEELHOUSE}",
             ]
         )
         return lineas
@@ -266,7 +290,7 @@ def _lineas_ayuda(diagnostico: DiagnosticoEntornoCalidad, exigir_wheelhouse: boo
     if not diagnostico.wheelhouse_disponible:
         lineas.extend(
             [
-                "[doctor][warn] Wheelhouse ausente: setup dependerá de red/proxy y puede fallar en entornos restringidos.",
+                "[doctor][warn] Wheelhouse ausente o incompleto: setup dependerá de red/proxy y puede fallar en entornos restringidos.",
                 f"[doctor][accion] Si necesitas modo offline-first, prepara wheels con: {COMANDO_BUILD_WHEELHOUSE}",
             ]
         )

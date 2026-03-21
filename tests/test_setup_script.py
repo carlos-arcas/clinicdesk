@@ -12,13 +12,24 @@ class _Resultado:
         self.stderr = stderr
 
 
+class _Interprete:
+    version_minima_repo = "3.11"
+    python_esperado = "/tmp/repo/.venv/bin/python"
+    python_activo = "3.12.0"
+    python_path = "/tmp/repo/.venv/bin/python"
+    venv_activo = True
+    venv_path = "/tmp/repo/.venv"
+    usa_python_repo = True
+    version_compatible = True
+    detalle = "El intérprete activo coincide con .venv del repo."
+    comando_activar = "source /tmp/repo/.venv/bin/activate"
+    comando_recrear = "rm -rf /tmp/repo/.venv && python scripts/setup.py"
+
+
 class _DiagnosticoAlineado:
     herramientas = ()
     wheelhouse_disponible = False
     wheelhouse = Path("wheelhouse")
-    python_activo = "3.12.0"
-    python_path = "/tmp/.venv/bin/python"
-    venv_activo = True
     cache_pip = "/tmp/pip"
     indice_pip = None
     proxy_configurado = False
@@ -27,6 +38,10 @@ class _DiagnosticoAlineado:
     tiene_desalineaciones = False
     toolchain_error = None
     source_of_truth = "requirements-dev.txt"
+    interprete = _Interprete()
+    python_activo = _Interprete.python_activo
+    python_path = _Interprete.python_path
+    venv_activo = _Interprete.venv_activo
 
 
 def _mockear_doctor_alineado(monkeypatch) -> None:
@@ -92,6 +107,24 @@ def test_setup_main_devuelve_error_si_falla_subproceso(monkeypatch, tmp_path: Pa
     assert "entorno no es recuperable localmente" in salida
 
 
+def test_setup_main_falla_si_python_lanzador_no_es_compatible(monkeypatch, tmp_path: Path, capsys) -> None:
+    class _DiagnosticoIncompatible(_DiagnosticoAlineado):
+        class interprete(_Interprete):
+            version_compatible = False
+            version_minima_repo = "3.11"
+            comando_recrear = "python scripts/setup.py"
+
+    monkeypatch.setattr(setup, "diagnosticar_entorno_calidad", lambda *_args, **_kwargs: _DiagnosticoIncompatible())
+    monkeypatch.setattr(setup, "renderizar_reporte", lambda *_args, **_kwargs: [])
+
+    rc = setup.main()
+
+    salida = capsys.readouterr().out
+    assert rc == 1
+    assert "versión mínima del repo" in salida
+    assert "python scripts/setup.py" in salida
+
+
 def test_instalar_dependencias_falla_si_falta_requirements(monkeypatch, tmp_path: Path) -> None:
     python_venv = tmp_path / "bin" / "python"
     original_exists = Path.exists
@@ -139,6 +172,6 @@ def test_instalar_dependencias_falla_si_env_wheelhouse_apunta_a_ruta_sin_wheels(
     try:
         setup._instalar_dependencias(python_venv)
     except RuntimeError as exc:
-        assert "no hay wheels válidos" in str(exc)
+        assert "no contiene wheels válidos del lock" in str(exc)
     else:
         raise AssertionError("Se esperaba RuntimeError por wheelhouse vacío")

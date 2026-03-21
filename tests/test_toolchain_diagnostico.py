@@ -7,11 +7,28 @@ from scripts.quality_gate_components.doctor_entorno_calidad_core import (
     EstadoHerramienta,
     renderizar_reporte,
 )
+from scripts.quality_gate_components.entorno_python import EstadoInterprete
 from scripts.quality_gate_components.toolchain import (
     COMANDO_REINSTALAR_LOCK,
+    cargar_interprete_esperado,
     cargar_toolchain_esperado,
     leer_paquetes_input_desde_texto,
     leer_versiones_lock_desde_texto,
+)
+
+
+INTERPRETE_OK = EstadoInterprete(
+    version_minima_repo="3.11",
+    python_esperado="/tmp/repo/.venv/bin/python",
+    python_activo="3.12.1",
+    python_path="/tmp/repo/.venv/bin/python",
+    venv_activo=True,
+    venv_path="/tmp/repo/.venv",
+    usa_python_repo=True,
+    version_compatible=True,
+    detalle="El intérprete activo coincide con .venv del repo.",
+    comando_activar="source /tmp/repo/.venv/bin/activate",
+    comando_recrear="rm -rf /tmp/repo/.venv && python scripts/setup.py",
 )
 
 
@@ -44,18 +61,20 @@ def test_cargar_toolchain_esperado_lee_versiones_desde_lock(tmp_path: Path) -> N
         ),
         encoding="utf-8",
     )
+    (tmp_path / "pyproject.toml").write_text('[tool.mypy]\npython_version = "3.11"\n', encoding="utf-8")
 
     toolchain = cargar_toolchain_esperado(tmp_path)
+    interprete = cargar_interprete_esperado(tmp_path)
 
     assert toolchain.version_esperada("ruff") == "0.8.4"
     assert toolchain.version_esperada("pip-audit") == "2.7.3"
+    assert interprete.version_minima == "3.11"
+    assert interprete.python_repo == tmp_path / ".venv" / "bin" / "python"
 
 
 def test_renderizar_reporte_muestra_error_accionable_para_tool_faltante(tmp_path: Path) -> None:
     diagnostico = DiagnosticoEntornoCalidad(
-        python_activo="3.12.1",
-        python_path="/tmp/.venv/bin/python",
-        venv_activo=True,
+        interprete=INTERPRETE_OK,
         cache_pip="/tmp/pip-cache",
         wheelhouse=tmp_path / "wheelhouse",
         wheelhouse_disponible=False,
@@ -82,6 +101,39 @@ def test_renderizar_reporte_muestra_error_accionable_para_tool_faltante(tmp_path
     assert any("ruff: falta en el entorno; gate bloqueado" in linea for linea in lineas)
     assert any(COMANDO_REINSTALAR_LOCK in linea for linea in lineas)
     assert any("gate real seguirá fallando por entorno" in linea for linea in lineas)
+
+
+def test_renderizar_reporte_explica_interprete_fuera_del_repo(tmp_path: Path) -> None:
+    diagnostico = DiagnosticoEntornoCalidad(
+        interprete=EstadoInterprete(
+            version_minima_repo="3.11",
+            python_esperado="/tmp/repo/.venv/bin/python",
+            python_activo="3.12.1",
+            python_path="/usr/bin/python3",
+            venv_activo=False,
+            venv_path=None,
+            usa_python_repo=False,
+            version_compatible=True,
+            detalle="Estás fuera del venv del repo; el tooling visible puede pertenecer a otro entorno o al sistema.",
+            comando_activar="source /tmp/repo/.venv/bin/activate",
+            comando_recrear="rm -rf /tmp/repo/.venv && python scripts/setup.py",
+        ),
+        cache_pip=None,
+        wheelhouse=tmp_path / "wheelhouse",
+        wheelhouse_disponible=False,
+        indice_pip=None,
+        proxy_configurado=False,
+        diagnostico_red="sin wheelhouse ni proxy/index explícito; una red restringida bloqueará la reinstalación.",
+        herramientas=(),
+        toolchain_error=None,
+        source_of_truth="requirements-dev.txt (versiones fijadas) + requirements-dev.in (entrada editable)",
+    )
+
+    lineas = renderizar_reporte(diagnostico)
+
+    assert any("Python esperado .venv" in linea for linea in lineas)
+    assert any("Activa el venv correcto" in linea for linea in lineas)
+    assert any("recréalo con" in linea for linea in lineas)
 
 
 def test_leer_paquetes_input_omite_includes_y_conserva_paquetes() -> None:
