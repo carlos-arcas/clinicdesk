@@ -17,6 +17,7 @@ class _DiagnosticoAlineado:
     wheelhouse_disponible = False
     wheelhouse = Path("wheelhouse")
     python_activo = "3.12.0"
+    python_path = "/tmp/.venv/bin/python"
     venv_activo = True
     cache_pip = "/tmp/pip"
     indice_pip = None
@@ -115,3 +116,29 @@ def test_instalar_dependencias_falla_si_falta_requirements(monkeypatch, tmp_path
 def test_resumen_error_instalacion_detecta_proxy() -> None:
     lineas = setup._resumen_error_instalacion("ProxyError: tunnel connection failed", "")
     assert any("red/proxy" in linea for linea in lineas)
+
+
+def test_resumen_error_instalacion_detecta_wheelhouse_incompatible(tmp_path: Path) -> None:
+    lineas = setup._resumen_error_instalacion(
+        "ERROR: clinicdesk.whl is not a supported wheel on this platform",
+        "",
+        wheelhouse=tmp_path / "wheelhouse",
+    )
+    assert any("wheelhouse/configuración local" in linea for linea in lineas)
+
+
+def test_instalar_dependencias_falla_si_env_wheelhouse_apunta_a_ruta_sin_wheels(monkeypatch, tmp_path: Path) -> None:
+    python_venv = tmp_path / ".venv" / "bin" / "python"
+    (tmp_path / "requirements.txt").write_text("demo==1.0\n", encoding="utf-8")
+    (tmp_path / "requirements-dev.txt").write_text("pytest==8.3.2\n", encoding="utf-8")
+    wheelhouse = tmp_path / "wheelhouse-vacio"
+    wheelhouse.mkdir()
+    monkeypatch.setattr(setup, "PROJECT_ROOT", tmp_path)
+    monkeypatch.setenv("CLINICDESK_WHEELHOUSE", str(wheelhouse))
+
+    try:
+        setup._instalar_dependencias(python_venv)
+    except RuntimeError as exc:
+        assert "no hay wheels válidos" in str(exc)
+    else:
+        raise AssertionError("Se esperaba RuntimeError por wheelhouse vacío")

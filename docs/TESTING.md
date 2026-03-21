@@ -1,82 +1,84 @@
 # Pruebas
 
-## Preparar entorno
+## Flujo operativo recomendado
+1. Ejecuta el doctor canónico: `python -m scripts.doctor_entorno_calidad`.
+2. Si necesitas validar recuperabilidad sin red, usa: `python -m scripts.doctor_entorno_calidad --require-wheelhouse`.
+3. Corrige el entorno según el comando exacto que indique el doctor.
+4. Solo cuando el doctor quede alineado, ejecuta `python -m scripts.gate_pr`.
+
+## Setup estándar
 ```bash
 python scripts/setup.py
 ```
 
-## Diagnóstico rápido del entorno de calidad
-Antes de intentar reinstalar nada, usa el doctor canónico:
+El setup ahora diferencia explícitamente entre:
+- herramienta faltante o no instalada en el intérprete activo;
+- versión incompatible con el lock;
+- fallo de red/proxy;
+- wheelhouse ausente o incompatible;
+- lock incoherente o desactualizado.
 
+## Doctor de entorno
 ```bash
 python -m scripts.doctor_entorno_calidad
 ```
 
-Este comando **no instala dependencias**. Solo informa de forma determinista:
-- qué herramientas bloqueantes espera el gate (`ruff`, `pytest`, `mypy`, `pip-audit`);
-- qué versión exacta espera, leída desde `requirements-dev.txt`;
-- cuál falta, cuál está desalineada y qué comando exacto corrige cada caso;
-- si el problema es de red/proxy/offline-first (`wheelhouse`, `PIP_INDEX_URL`, `HTTP[S]_PROXY`).
+El doctor no instala nada. Informa de forma reproducible:
+- herramienta bloqueante;
+- versión esperada (desde `requirements-dev.txt`);
+- versión instalada en el intérprete activo;
+- path exacto del intérprete activo;
+- comando exacto para corregir;
+- estado de `wheelhouse`, `PIP_INDEX_URL` y proxies;
+- si el problema parece estar en lock, intérprete o dependencias ausentes.
 
-Si necesitas validar explícitamente si el entorno es recuperable sin red, ejecuta:
-
+## Doctor offline-first
 ```bash
 python -m scripts.doctor_entorno_calidad --require-wheelhouse
 ```
 
-Ese modo no intenta instalar nada y falla solo si el modo offline-first es imposible por ausencia de wheelhouse.
+Úsalo cuando quieras saber si el entorno es recuperable **sin red**. Si falta wheelhouse, el doctor falla de forma explícita y no intenta instalar nada.
 
-## Si necesitas hacerlo a mano
-```bash
-python -m venv .venv
-. .venv/bin/activate  # En Windows: .venv\Scripts\activate
-pip install -r requirements.txt
-pip install -r requirements-dev.txt
-```
+## Fuente única de verdad del tooling
+- Lock efectivo: `requirements-dev.txt`.
+- Entrada editable: `requirements-dev.in`.
+- Regeneración del lock: `python -m scripts.lock_deps`.
 
-## Comandos canónicos
-- Doctor de entorno: `python -m scripts.doctor_entorno_calidad`
-- Doctor offline-first estricto: `python -m scripts.doctor_entorno_calidad --require-wheelhouse`
-- Suite rápida: `pytest -q`
-- Gate rápido: `python -m scripts.gate_rapido`
-- Gate completo: `python -m scripts.gate_pr`
+No deben existir listas paralelas de versiones del toolchain. El doctor, Ruff y el gate leen la expectativa desde el lock.
 
-## Toolchain esperado y fuente de verdad
-- La **fuente única de verdad de versiones** del tooling de calidad es `requirements-dev.txt`.
-- `requirements-dev.in` es la entrada editable y `python -m scripts.lock_deps` regenera el lock.
-- Si el doctor indica que falta una herramienta o que la versión instalada no coincide, el comando de corrección esperado es:
-
+## Correcciones típicas
+### Falta tooling o la versión está desalineada
 ```bash
 python -m pip install -r requirements-dev.txt
 ```
 
-- Si el lock no contiene todas las herramientas del gate o está corrupto, regénéralo con:
-
+### El lock no coincide con `requirements-dev.in`
 ```bash
 python -m scripts.lock_deps
 ```
 
-## Proxy, red restringida y modo offline-first
-- Si `setup.py` detecta errores como `ProxyError`, timeouts o fallo de resolución DNS, lo reportará explícitamente como bloqueo de entorno.
-- `python -m scripts.gate_pr` aborta antes del gate funcional si detecta bloqueo de entorno; así distingue entre “no validé el proyecto” y “el proyecto falló el gate”.
-- Si no hay `wheelhouse`, el setup depende de red/proxy reales. En ese caso el repo **no simula** un PASS: solo informa del bloqueo.
-- Si necesitas preparar un entorno local sin acceso externo, puedes construir un wheelhouse fuera del repo y reutilizarlo con `CLINICDESK_WHEELHOUSE`:
+### Red/proxy restringidos
+- Si `setup.py` informa un error de proxy/red, el repo no “simula” un PASS.
+- Revisa `HTTP_PROXY`, `HTTPS_PROXY` y `PIP_INDEX_URL`.
+- Si necesitas modo offline-first, prepara un wheelhouse fuera del repo y reutilízalo con `CLINICDESK_WHEELHOUSE`.
 
 ```bash
 python -m scripts.dev.build_wheelhouse
 CLINICDESK_WHEELHOUSE=/ruta/a/wheelhouse python scripts/setup.py
 ```
 
-Si tampoco puedes generar ese wheelhouse por restricciones de red reales, el entorno local no es recuperable automáticamente y el doctor lo dejará indicado.
+Si tampoco puedes construir ese wheelhouse por restricciones reales de red, el entorno local sigue bloqueado y debes resolver esa dependencia externa fuera del repo.
 
-## Qué protege el gate
-- Lint y formato.
-- Typecheck incremental.
-- Tests rápidos y cobertura mínima del core.
-- Guardrails estructurales, secretos, PII y contratos documentales.
-- Evidencia de seguridad de citas: autorización real en `CrearCitaUseCase`, guardrail UI readonly y auditoría saneada del flujo de creación/override.
-- Evidencia de seguridad de export KPI: `pytest -q tests/test_export_kpis_csv.py tests/test_export_kpis_csv_e2e.py tests/test_export_kpis_csv_security.py` valida columnas contractuales exactas, ausencia de `cita_id`/nombres/reasons/payloads en los cuatro CSV agregados y error explícito cuando `export kpis --output` apunta a una ruta no válida como directorio.
-- Verificación de entrypoints y documentación funcional mínima.
+## Significado exacto de `rc=20` en `gate_pr`
+`python -m scripts.gate_pr` devuelve `rc=20` cuando el preflight del entorno detecta un **bloqueo operativo local**. Eso significa que el gate funcional **todavía no ejecutó** las validaciones del proyecto.
 
-## Regla operativa
-Antes de abrir PR hay que ejecutar `python -m scripts.gate_pr`. Si falla por entorno, primero corrige lo que indique `python -m scripts.doctor_entorno_calidad`; si falla por proyecto, corrige el código y repite el ciclo completo.
+Interpretación:
+- `rc=20`: falla de entorno local. Revisa el doctor.
+- otro código no-cero tras pasar preflight: fallo real del proyecto o del gate funcional.
+
+## Qué valida el gate
+- preflight de entorno;
+- lint y formato;
+- typecheck;
+- tests rápidos y cobertura;
+- guardrails estructurales, seguridad y documentación.

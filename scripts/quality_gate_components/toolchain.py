@@ -46,6 +46,8 @@ def cargar_toolchain_esperado(repo_root: Path) -> ToolchainEsperado:
     requirements_dev_lock = repo_root / "requirements-dev.txt"
     requirements_dev_input = repo_root / "requirements-dev.in"
     versiones = _leer_versiones_lock(requirements_dev_lock)
+    paquetes_input = _leer_paquetes_input(requirements_dev_input)
+    _validar_coherencia_input_y_lock(requirements_dev_lock, requirements_dev_input, versiones, paquetes_input)
     return ToolchainEsperado(
         herramientas=HERRAMIENTAS_GATE,
         versiones=versiones,
@@ -67,22 +69,64 @@ def leer_versiones_lock_desde_texto(texto_lock: str) -> dict[str, str]:
     return versiones
 
 
-def _leer_versiones_lock(requirements_dev_lock: Path) -> dict[str, str]:
+
+
+def version_paquete_desde_lock(repo_root: Path, nombre_paquete: str) -> str | None:
+    requirements_dev_lock = repo_root / "requirements-dev.txt"
+    versiones = _leer_versiones_lock(requirements_dev_lock, validar_herramientas_gate=False)
+    return versiones.get(nombre_paquete)
+
+def leer_paquetes_input_desde_texto(texto_input: str) -> tuple[str, ...]:
+    paquetes: list[str] = []
+    for linea in texto_input.splitlines():
+        contenido = _normalizar_linea(linea)
+        if contenido is None:
+            continue
+        nombre = contenido.split("==", maxsplit=1)[0].strip()
+        if nombre:
+            paquetes.append(nombre)
+    return tuple(paquetes)
+
+
+def _leer_versiones_lock(requirements_dev_lock: Path, *, validar_herramientas_gate: bool = True) -> dict[str, str]:
     if not requirements_dev_lock.exists():
         raise ErrorToolchain(
             f"Falta el lock dev obligatorio: {requirements_dev_lock}. Regénéralo con {COMANDO_REGENERAR_LOCK}."
         )
 
     versiones = leer_versiones_lock_desde_texto(requirements_dev_lock.read_text(encoding="utf-8"))
-
     faltantes = [herramienta.nombre_paquete for herramienta in HERRAMIENTAS_GATE if herramienta.nombre_paquete not in versiones]
-    if faltantes:
+    if validar_herramientas_gate and faltantes:
         faltantes_render = ", ".join(faltantes)
         raise ErrorToolchain(
             "El lock dev no define todas las herramientas del gate "
             f"({faltantes_render}) en {requirements_dev_lock}. Regénéralo con {COMANDO_REGENERAR_LOCK}."
         )
     return versiones
+
+
+def _leer_paquetes_input(requirements_dev_input: Path) -> tuple[str, ...]:
+    if not requirements_dev_input.exists():
+        raise ErrorToolchain(
+            f"Falta la entrada editable dev: {requirements_dev_input}. Regénérala o recupérala antes de usar {COMANDO_REGENERAR_LOCK}."
+        )
+    return leer_paquetes_input_desde_texto(requirements_dev_input.read_text(encoding="utf-8"))
+
+
+def _validar_coherencia_input_y_lock(
+    requirements_dev_lock: Path,
+    requirements_dev_input: Path,
+    versiones: dict[str, str],
+    paquetes_input: tuple[str, ...],
+) -> None:
+    faltantes_input = [paquete for paquete in paquetes_input if paquete not in versiones]
+    if faltantes_input:
+        faltantes_render = ", ".join(faltantes_input)
+        raise ErrorToolchain(
+            "La entrada editable y el lock dev están desalineados: "
+            f"{requirements_dev_input.name} declara {faltantes_render} pero {requirements_dev_lock.name} no los fija. "
+            f"Regénéralo con {COMANDO_REGENERAR_LOCK}."
+        )
 
 
 def _normalizar_linea(linea: str) -> str | None:

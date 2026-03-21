@@ -7,9 +7,9 @@ Este comando es la fuente única para CI y PR:
 from __future__ import annotations
 
 import logging
+from pathlib import Path
 import subprocess
 import sys
-from pathlib import Path
 
 from scripts.quality_gate_components.doctor_entorno_calidad_core import (
     codigo_salida_estable,
@@ -25,7 +25,7 @@ EXIT_ENTORNO_BLOQUEADO = 20
 def _preflight_entorno(repo_root: Path) -> int:
     try:
         diagnostico = diagnosticar_entorno_calidad(repo_root)
-    except Exception:  # pragma: no cover - fallback defensivo del wrapper
+    except Exception:  # pragma: no cover
         logging.exception("[gate-pr] Error inesperado ejecutando doctor de entorno previo al gate.")
         return 0
 
@@ -35,6 +35,9 @@ def _preflight_entorno(repo_root: Path) -> int:
 
     sys.stderr.write(
         "[gate-pr][entorno] Gate abortado por bloqueo del toolchain local; todavía no se validó el proyecto.\n"
+    )
+    sys.stderr.write(
+        f"[gate-pr][entorno] rc={EXIT_ENTORNO_BLOQUEADO} significa bloqueo operativo local (doctor rc={returncode_doctor}), no fallo funcional del repositorio.\n"
     )
     for linea in renderizar_reporte(diagnostico):
         sys.stderr.write(f"{linea}\n")
