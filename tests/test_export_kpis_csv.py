@@ -99,6 +99,25 @@ def test_export_kpis_csv_rejects_dataset_version_mismatch(tmp_path: Path) -> Non
         ExportKpisCSV().execute(request)
 
 
+def test_export_kpis_csv_returns_controlled_error_when_output_file_cannot_be_written(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    blocked = tmp_path / ExportKpisCSV.OVERVIEW_FILE
+
+    real_open = Path.open
+
+    def fake_open(self: Path, *args, **kwargs):
+        if self == blocked:
+            raise OSError("disk full")
+        return real_open(self, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "open", fake_open)
+
+    with pytest.raises(ExportKpisOutputError, match="No se pudo escribir CSV KPI"):
+        ExportKpisCSV().execute(_request(tmp_path, 0.1))
+
+
 def test_export_kpis_csv_rejects_output_path_that_is_not_a_directory(tmp_path: Path) -> None:
     occupied = tmp_path / "occupied.txt"
     occupied.write_text("taken", encoding="utf-8")

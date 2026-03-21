@@ -76,6 +76,13 @@ Interpretación:
 - `rc=20`: falla de entorno local. Revisa el doctor.
 - otro código no-cero tras pasar preflight: fallo real del proyecto o del gate funcional.
 
+## Validación focalizada del export KPI
+```bash
+pytest -q tests/test_export_kpis_csv.py tests/test_export_kpis_csv_e2e.py tests/test_export_kpis_csv_security.py
+```
+
+Úsalo cuando quieras revalidar solo el flujo contractual y de seguridad del export KPI: columnas permitidas por archivo, ausencia de PII/datos operativos en los CSV agregados y errores controlados de salida en la CLI real y en el caso de uso.
+
 ## Qué valida el gate
 - preflight de entorno;
 - lint y formato;
