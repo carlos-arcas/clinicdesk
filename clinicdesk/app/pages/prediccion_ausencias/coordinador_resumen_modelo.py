@@ -9,6 +9,7 @@ from clinicdesk.app.application.prediccion_ausencias.dtos import (
 )
 from clinicdesk.app.application.prediccion_ausencias.tendencia_entrenamientos import (
     calcular_resumen_tendencia_historial,
+    derivar_recomendacion_operativa_monitor_ml,
 )
 
 
@@ -33,6 +34,16 @@ class EstadoTendenciaHistorialDTO:
     tendencia_recall_i18n_key: str
     alerta_i18n_key: str
     alerta_activa: bool
+
+
+@dataclass(frozen=True, slots=True)
+class EstadoMonitorMlDTO:
+    estado_tendencia: str
+    alerta_activa: bool
+    calidad_ultimo_entrenamiento: str
+    recomendacion_operativa: str
+    recomendacion_i18n_key: str
+    recomendacion_fuerte: bool
 
 
 def derivar_estado_calidad_modelo(resumen: ResumenEntrenamientoModeloDTO) -> EstadoCalidadModeloDTO:
@@ -74,6 +85,26 @@ def derivar_estado_tendencia_historial(
     )
 
 
+def derivar_estado_monitor_ml(
+    historial: list[HistorialEntrenamientoModeloDTO],
+    *,
+    estado_calidad: EstadoCalidadModeloDTO,
+) -> EstadoMonitorMlDTO:
+    resumen = calcular_resumen_tendencia_historial(historial)
+    recomendacion = derivar_recomendacion_operativa_monitor_ml(
+        resumen_tendencia=resumen,
+        calidad_ultimo_entrenamiento=_calidad_ultimo_entrenamiento(historial, estado_calidad),
+    )
+    return EstadoMonitorMlDTO(
+        estado_tendencia=_estado_tendencia_monitor(resumen),
+        alerta_activa=resumen.alerta_rojo_consecutivo,
+        calidad_ultimo_entrenamiento=_calidad_ultimo_entrenamiento(historial, estado_calidad),
+        recomendacion_operativa=recomendacion.codigo,
+        recomendacion_i18n_key=recomendacion.i18n_key,
+        recomendacion_fuerte=recomendacion.es_fuerte,
+    )
+
+
 def _i18n_tendencia(tendencia: str) -> str:
     tendencia_normalizada = tendencia.lower()
     return f"prediccion_ausencias.historial.tendencia.valor.{tendencia_normalizada}"
@@ -85,3 +116,22 @@ def _i18n_alerta(resumen: ResumenTendenciaHistorialDTO) -> str:
     if resumen.rojos_consecutivos > 0:
         return "prediccion_ausencias.historial.alerta.rojo_inactiva"
     return "prediccion_ausencias.historial.alerta.sin_rojos"
+
+
+def _calidad_ultimo_entrenamiento(
+    historial: list[HistorialEntrenamientoModeloDTO], estado_calidad: EstadoCalidadModeloDTO
+) -> str:
+    if not historial:
+        return estado_calidad.estado
+    return historial[0].calidad_ux
+
+
+def _estado_tendencia_monitor(resumen: ResumenTendenciaHistorialDTO) -> str:
+    valores = (resumen.tendencia_accuracy, resumen.tendencia_recall_no_show)
+    if "EMPEORA" in valores:
+        return "EMPEORA"
+    if "MEJORA" in valores:
+        return "MEJORA"
+    if all(valor == "NO_DISPONIBLE" for valor in valores):
+        return "NO_DISPONIBLE"
+    return "ESTABLE"

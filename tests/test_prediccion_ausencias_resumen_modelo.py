@@ -4,6 +4,7 @@ from clinicdesk.app.application.prediccion_ausencias.dtos import ResumenEntrenam
 from clinicdesk.app.application.prediccion_ausencias.dtos import HistorialEntrenamientoModeloDTO
 from clinicdesk.app.pages.prediccion_ausencias.coordinador_resumen_modelo import (
     derivar_estado_calidad_modelo,
+    derivar_estado_monitor_ml,
     derivar_estado_tendencia_historial,
 )
 
@@ -71,3 +72,52 @@ def test_estado_tendencia_alerta_roja_activa() -> None:
 
     assert estado.alerta_activa is True
     assert estado.alerta_i18n_key == "prediccion_ausencias.historial.alerta.rojo_activa"
+
+
+def test_estado_monitor_ml_prioriza_alerta_y_recomendacion_fuerte() -> None:
+    historial = [_historial(calidad="ROJO"), _historial(calidad="ROJO"), _historial(calidad="ROJO")]
+    estado_calidad = derivar_estado_calidad_modelo(_resumen(accuracy=0.45, recall=0.35))
+
+    estado_monitor = derivar_estado_monitor_ml(historial, estado_calidad=estado_calidad)
+
+    assert estado_monitor.alerta_activa is True
+    assert estado_monitor.recomendacion_operativa == "ACCION_REVISAR_DATOS"
+    assert estado_monitor.recomendacion_fuerte is True
+
+
+def test_estado_monitor_ml_recomendacion_suave_si_empeora_sin_alerta() -> None:
+    historial = [
+        _historial(calidad="AMARILLO"),
+        HistorialEntrenamientoModeloDTO(
+            fecha_entrenamiento="2026-03-24T10:00:00+00:00",
+            model_type="PredictorAusenciasBaseline",
+            version="prediccion_ausencias_v1",
+            citas_usadas=60,
+            muestras_train=48,
+            muestras_validacion=12,
+            accuracy=0.64,
+            precision_no_show=0.5,
+            recall_no_show=0.51,
+            f1_no_show=0.5,
+            calidad_ux="VERDE",
+            ganador_criterio="f1",
+            baseline_f1=0.4,
+            v2_f1=0.5,
+        ),
+    ]
+    estado_calidad = derivar_estado_calidad_modelo(_resumen(accuracy=0.55, recall=0.45))
+
+    estado_monitor = derivar_estado_monitor_ml(historial, estado_calidad=estado_calidad)
+
+    assert estado_monitor.alerta_activa is False
+    assert estado_monitor.estado_tendencia == "EMPEORA"
+    assert estado_monitor.recomendacion_operativa == "ACCION_MONITORIZAR"
+
+
+def test_estado_monitor_ml_sin_accion_si_no_hay_historial() -> None:
+    estado_calidad = derivar_estado_calidad_modelo(_resumen(accuracy=0.7, recall=0.65))
+
+    estado_monitor = derivar_estado_monitor_ml([], estado_calidad=estado_calidad)
+
+    assert estado_monitor.estado_tendencia == "NO_DISPONIBLE"
+    assert estado_monitor.recomendacion_operativa == "SIN_ACCION"
