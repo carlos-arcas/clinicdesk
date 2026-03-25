@@ -5,6 +5,10 @@ from dataclasses import dataclass
 from clinicdesk.app.application.prediccion_ausencias.dtos import (
     HistorialEntrenamientoModeloDTO,
     ResumenEntrenamientoModeloDTO,
+    ResumenTendenciaHistorialDTO,
+)
+from clinicdesk.app.application.prediccion_ausencias.tendencia_entrenamientos import (
+    calcular_resumen_tendencia_historial,
 )
 
 
@@ -21,6 +25,14 @@ class FilaHistorialEntrenamientoCompactoDTO:
     accuracy: float | None
     recall_no_show: float | None
     calidad_ux: str
+
+
+@dataclass(frozen=True, slots=True)
+class EstadoTendenciaHistorialDTO:
+    tendencia_accuracy_i18n_key: str
+    tendencia_recall_i18n_key: str
+    alerta_i18n_key: str
+    alerta_activa: bool
 
 
 def derivar_estado_calidad_modelo(resumen: ResumenEntrenamientoModeloDTO) -> EstadoCalidadModeloDTO:
@@ -48,3 +60,28 @@ def construir_filas_historial_compacto(
         )
         for item in historial[:limite]
     ]
+
+
+def derivar_estado_tendencia_historial(
+    historial: list[HistorialEntrenamientoModeloDTO],
+) -> EstadoTendenciaHistorialDTO:
+    resumen = calcular_resumen_tendencia_historial(historial)
+    return EstadoTendenciaHistorialDTO(
+        tendencia_accuracy_i18n_key=_i18n_tendencia(resumen.tendencia_accuracy),
+        tendencia_recall_i18n_key=_i18n_tendencia(resumen.tendencia_recall_no_show),
+        alerta_i18n_key=_i18n_alerta(resumen),
+        alerta_activa=resumen.alerta_rojo_consecutivo,
+    )
+
+
+def _i18n_tendencia(tendencia: str) -> str:
+    tendencia_normalizada = tendencia.lower()
+    return f"prediccion_ausencias.historial.tendencia.valor.{tendencia_normalizada}"
+
+
+def _i18n_alerta(resumen: ResumenTendenciaHistorialDTO) -> str:
+    if resumen.alerta_rojo_consecutivo:
+        return "prediccion_ausencias.historial.alerta.rojo_activa"
+    if resumen.rojos_consecutivos > 0:
+        return "prediccion_ausencias.historial.alerta.rojo_inactiva"
+    return "prediccion_ausencias.historial.alerta.sin_rojos"
