@@ -21,6 +21,7 @@ from clinicdesk.app.application.services.prediccion_ausencias_facade import Pred
 from clinicdesk.app.infrastructure.prediccion_ausencias import (
     AlmacenamientoModeloPrediccion,
     PredictorAusenciasBaseline,
+    PredictorAusenciasV2,
 )
 from clinicdesk.app.infrastructure.sqlite.proveedor_conexion_sqlite import ProveedorConexionSqlitePorHilo
 from clinicdesk.app.queries.prediccion_ausencias_queries import PrediccionAusenciasQueries
@@ -37,7 +38,8 @@ def build_prediccion_ausencias_facade(
     entrenar_uc = EntrenarPrediccionAusencias(
         comprobar_datos_uc=comprobar_uc,
         queries=queries,
-        predictor=PredictorAusenciasBaseline(),
+        predictor_baseline=PredictorAusenciasBaseline(),
+        predictor_v2=PredictorAusenciasV2(),
         almacenamiento=almacenamiento,
     )
     return PrediccionAusenciasFacade(

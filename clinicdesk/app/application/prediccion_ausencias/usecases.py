@@ -12,11 +12,17 @@ from clinicdesk.app.application.prediccion_ausencias.dtos import (
     ResultadoComprobacionDatos,
     ResultadoPrevisualizacionPrediccion,
 )
+from clinicdesk.app.application.prediccion_ausencias.seleccion_modelo import (
+    ResultadoMetricasModelo,
+    seleccionar_mejor_modelo,
+)
 from clinicdesk.app.bootstrap_logging import get_logger
 from clinicdesk.app.domain.prediccion_ausencias import CitaParaPrediccion, RegistroEntrenamiento
 from clinicdesk.app.infrastructure.prediccion_ausencias import (
     AlmacenamientoModeloPrediccion,
     ModeloPrediccionNoDisponibleError,
+    PredictorAusenciasBaseline,
+    PredictorAusenciasV2,
 )
 from clinicdesk.app.queries.prediccion_ausencias_queries import (
     PrediccionAusenciasQueries,
@@ -77,12 +83,14 @@ class EntrenarPrediccionAusencias:
         self,
         comprobar_datos_uc: ComprobarDatosPrediccionAusencias,
         queries: PrediccionAusenciasQueries,
-        predictor,
+        predictor_baseline: PredictorAusenciasBaseline | None,
+        predictor_v2: PredictorAusenciasV2 | None,
         almacenamiento: AlmacenamientoModeloPrediccion,
     ) -> None:
         self._comprobar_datos_uc = comprobar_datos_uc
         self._queries = queries
-        self._predictor = predictor
+        self._predictor_baseline = predictor_baseline or PredictorAusenciasBaseline()
+        self._predictor_v2 = predictor_v2 or PredictorAusenciasV2()
         self._almacenamiento = almacenamiento
 
     def ejecutar(self) -> ResultadoEntrenamientoPrediccion:
@@ -95,26 +103,54 @@ class EntrenarPrediccionAusencias:
             raise EntrenamientoPrediccionError("dataset_empty")
 
         dataset_train, dataset_validacion = _split_determinista_train_validacion(dataset)
-        predictor_entrenado = self._predictor.entrenar(dataset_train)
-        evaluacion = _evaluar_predictor(
-            predictor_entrenado=predictor_entrenado,
+        predictor_baseline_entrenado = self._predictor_baseline.entrenar(dataset_train)
+        predictor_v2_entrenado = self._predictor_v2.entrenar(dataset_train)
+        evaluacion_baseline = _evaluar_predictor(
+            predictor_entrenado=predictor_baseline_entrenado,
             dataset_train=dataset_train,
             dataset_validacion=dataset_validacion,
         )
+        evaluacion_v2 = _evaluar_predictor(
+            predictor_entrenado=predictor_v2_entrenado,
+            dataset_train=dataset_train,
+            dataset_validacion=dataset_validacion,
+        )
+        seleccion = seleccionar_mejor_modelo(
+            baseline=ResultadoMetricasModelo(
+                model_type="PredictorAusenciasBaseline",
+                accuracy=evaluacion_baseline.accuracy,
+                recall_no_show=evaluacion_baseline.recall_no_show,
+                f1_no_show=evaluacion_baseline.f1_no_show,
+            ),
+            candidato_v2=ResultadoMetricasModelo(
+                model_type="PredictorAusenciasV2",
+                accuracy=evaluacion_v2.accuracy,
+                recall_no_show=evaluacion_v2.recall_no_show,
+                f1_no_show=evaluacion_v2.f1_no_show,
+            ),
+        )
+        predictor_ganador = (
+            predictor_v2_entrenado
+            if seleccion.ganador.model_type == "PredictorAusenciasV2"
+            else predictor_baseline_entrenado
+        )
+        evaluacion_ganador = (
+            evaluacion_v2 if seleccion.ganador.model_type == "PredictorAusenciasV2" else evaluacion_baseline
+        )
         try:
             metadata = self._almacenamiento.guardar(
-                predictor_entrenado,
+                predictor_ganador,
                 citas_usadas=len(dataset),
                 version="prediccion_ausencias_v1",
-                model_type=type(self._predictor).__name__,
-                muestras_train=evaluacion.muestras_train,
-                muestras_validacion=evaluacion.muestras_validacion,
-                tasa_no_show_train=evaluacion.tasa_no_show_train,
-                tasa_no_show_validacion=evaluacion.tasa_no_show_validacion,
-                accuracy=evaluacion.accuracy,
-                precision_no_show=evaluacion.precision_no_show,
-                recall_no_show=evaluacion.recall_no_show,
-                f1_no_show=evaluacion.f1_no_show,
+                model_type=seleccion.ganador.model_type,
+                muestras_train=evaluacion_ganador.muestras_train,
+                muestras_validacion=evaluacion_ganador.muestras_validacion,
+                tasa_no_show_train=evaluacion_ganador.tasa_no_show_train,
+                tasa_no_show_validacion=evaluacion_ganador.tasa_no_show_validacion,
+                accuracy=evaluacion_ganador.accuracy,
+                precision_no_show=evaluacion_ganador.precision_no_show,
+                recall_no_show=evaluacion_ganador.recall_no_show,
+                f1_no_show=evaluacion_ganador.f1_no_show,
             )
         except OSError as exc:
             LOGGER.error(
@@ -122,6 +158,24 @@ class EntrenarPrediccionAusencias:
                 extra={"reason_code": "save_failed", "error": str(exc)},
             )
             raise EntrenamientoPrediccionError("save_failed") from exc
+
+        LOGGER.info(
+            "prediccion_entrenar_modelo_seleccionado",
+            extra={
+                "model_type_ganador": seleccion.ganador.model_type,
+                "criterio_decision": seleccion.criterio,
+                "baseline": {
+                    "accuracy": evaluacion_baseline.accuracy,
+                    "recall_no_show": evaluacion_baseline.recall_no_show,
+                    "f1_no_show": evaluacion_baseline.f1_no_show,
+                },
+                "v2": {
+                    "accuracy": evaluacion_v2.accuracy,
+                    "recall_no_show": evaluacion_v2.recall_no_show,
+                    "f1_no_show": evaluacion_v2.f1_no_show,
+                },
+            },
+        )
 
         if not metadata.fecha_entrenamiento:
             raise EntrenamientoPrediccionError("metadata_invalid")

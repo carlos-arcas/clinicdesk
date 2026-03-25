@@ -7,6 +7,10 @@ from clinicdesk.app.infrastructure.prediccion_ausencias.predictor_baseline impor
     PredictorAusenciasBaseline,
     PredictorAusenciasEntrenadoBaseline,
 )
+from clinicdesk.app.infrastructure.prediccion_ausencias.predictor_v2 import (
+    PredictorAusenciasEntrenadoV2,
+    PredictorAusenciasV2,
+)
 
 __all__ = [
     "AlmacenamientoModeloPrediccion",
@@ -14,4 +18,6 @@ __all__ = [
     "ModeloPrediccionNoDisponibleError",
     "PredictorAusenciasBaseline",
     "PredictorAusenciasEntrenadoBaseline",
+    "PredictorAusenciasV2",
+    "PredictorAusenciasEntrenadoV2",
 ]

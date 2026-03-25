@@ -6,6 +6,11 @@ from pathlib import Path
 
 import pytest
 
+import clinicdesk.app.application.prediccion_ausencias.usecases as usecases_module
+from clinicdesk.app.application.prediccion_ausencias.seleccion_modelo import (
+    ResultadoMetricasModelo,
+    ResultadoSeleccionModelo,
+)
 from clinicdesk.app.application.prediccion_ausencias.usecases import (
     ComprobarDatosPrediccionAusencias,
     EntrenamientoPrediccionError,
@@ -19,6 +24,7 @@ from clinicdesk.app.domain.prediccion_ausencias import RegistroEntrenamiento
 from clinicdesk.app.infrastructure.prediccion_ausencias import (
     AlmacenamientoModeloPrediccion,
     PredictorAusenciasBaseline,
+    PredictorAusenciasV2,
 )
 from clinicdesk.app.queries.prediccion_ausencias_queries import PrediccionAusenciasQueries
 
@@ -88,7 +94,13 @@ def test_entrenar_guarda_modelo_actualiza_metadata_y_recarga_predice(db_connecti
     queries = PrediccionAusenciasQueries(db_connection)
     almacenamiento = AlmacenamientoModeloPrediccion(tmp_path)
     comprobar_uc = ComprobarDatosPrediccionAusencias(queries, minimo_requerido=50)
-    entrenar_uc = EntrenarPrediccionAusencias(comprobar_uc, queries, PredictorAusenciasBaseline(), almacenamiento)
+    entrenar_uc = EntrenarPrediccionAusencias(
+        comprobar_uc,
+        queries,
+        PredictorAusenciasBaseline(),
+        PredictorAusenciasV2(),
+        almacenamiento,
+    )
 
     resultado = entrenar_uc.ejecutar()
     predictor, metadata = almacenamiento.cargar()
@@ -98,7 +110,7 @@ def test_entrenar_guarda_modelo_actualiza_metadata_y_recarga_predice(db_connecti
 
     assert resultado.citas_usadas == 60
     assert metadata.citas_usadas == 60
-    assert metadata.model_type == "PredictorAusenciasBaseline"
+    assert metadata.model_type in {"PredictorAusenciasBaseline", "PredictorAusenciasV2"}
     assert metadata.muestras_train == 48
     assert metadata.muestras_validacion == 12
     assert metadata.accuracy is not None
@@ -117,7 +129,13 @@ def test_entrenar_sin_datos_lanza_error_funcional_tipado(db_connection, tmp_path
     queries = PrediccionAusenciasQueries(db_connection)
     almacenamiento = AlmacenamientoModeloPrediccion(tmp_path)
     comprobar_uc = ComprobarDatosPrediccionAusencias(queries, minimo_requerido=50)
-    entrenar_uc = EntrenarPrediccionAusencias(comprobar_uc, queries, PredictorAusenciasBaseline(), almacenamiento)
+    entrenar_uc = EntrenarPrediccionAusencias(
+        comprobar_uc,
+        queries,
+        PredictorAusenciasBaseline(),
+        PredictorAusenciasV2(),
+        almacenamiento,
+    )
 
     with pytest.raises(EntrenamientoPrediccionError) as exc_info:
         entrenar_uc.ejecutar()
@@ -141,7 +159,7 @@ def test_entrenar_io_error_lanza_reason_code_save_failed(db_connection, tmp_path
     queries = PrediccionAusenciasQueries(db_connection)
     comprobar_uc = ComprobarDatosPrediccionAusencias(queries, minimo_requerido=50)
     entrenar_uc = EntrenarPrediccionAusencias(
-        comprobar_uc, queries, PredictorAusenciasBaseline(), _AlmacenamientoQueFalla()
+        comprobar_uc, queries, PredictorAusenciasBaseline(), PredictorAusenciasV2(), _AlmacenamientoQueFalla()
     )
 
     with pytest.raises(EntrenamientoPrediccionError) as exc_info:
@@ -182,7 +200,13 @@ def test_previsualizar_sin_y_con_modelo(db_connection, tmp_path: Path) -> None:
     db_connection.commit()
 
     comprobar_uc = ComprobarDatosPrediccionAusencias(queries, minimo_requerido=50)
-    entrenar_uc = EntrenarPrediccionAusencias(comprobar_uc, queries, PredictorAusenciasBaseline(), almacenamiento)
+    entrenar_uc = EntrenarPrediccionAusencias(
+        comprobar_uc,
+        queries,
+        PredictorAusenciasBaseline(),
+        PredictorAusenciasV2(),
+        almacenamiento,
+    )
     entrenar_uc.ejecutar()
 
     con_modelo = previsualizar.ejecutar(limite=5)
@@ -318,3 +342,87 @@ def test_obtener_resumen_ultimo_entrenamiento_sin_modelo(tmp_path: Path) -> None
     assert resumen.disponible is False
     assert resumen.reason_code == "sin_metadata"
     assert resumen.fecha_entrenamiento is None
+
+
+def test_entrenar_persiste_model_type_ganador_v2(
+    db_connection, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    paciente_id, medico_id, sala_id = _seed_base_tablas(db_connection)
+    for idx in range(60):
+        _insert_cita(
+            db_connection,
+            paciente_id=paciente_id,
+            medico_id=medico_id,
+            sala_id=sala_id,
+            inicio=datetime.now() - timedelta(days=80 - idx),
+            estado="NO_PRESENTADO" if idx % 4 == 0 else "REALIZADA",
+        )
+    db_connection.commit()
+
+    def _forzar_v2(
+        *, baseline: ResultadoMetricasModelo, candidato_v2: ResultadoMetricasModelo
+    ) -> ResultadoSeleccionModelo:
+        return ResultadoSeleccionModelo(
+            ganador=candidato_v2,
+            baseline=baseline,
+            candidato_v2=candidato_v2,
+            criterio="test_forzado",
+        )
+
+    monkeypatch.setattr(usecases_module, "seleccionar_mejor_modelo", _forzar_v2)
+    queries = PrediccionAusenciasQueries(db_connection)
+    almacenamiento = AlmacenamientoModeloPrediccion(tmp_path)
+    entrenar_uc = EntrenarPrediccionAusencias(
+        ComprobarDatosPrediccionAusencias(queries, minimo_requerido=50),
+        queries,
+        PredictorAusenciasBaseline(),
+        PredictorAusenciasV2(),
+        almacenamiento,
+    )
+
+    entrenar_uc.ejecutar()
+    _, metadata = almacenamiento.cargar()
+
+    assert metadata.model_type == "PredictorAusenciasV2"
+
+
+def test_entrenar_empate_o_mejora_insuficiente_mantiene_baseline(
+    db_connection, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    paciente_id, medico_id, sala_id = _seed_base_tablas(db_connection)
+    for idx in range(60):
+        _insert_cita(
+            db_connection,
+            paciente_id=paciente_id,
+            medico_id=medico_id,
+            sala_id=sala_id,
+            inicio=datetime.now() - timedelta(days=100 - idx),
+            estado="NO_PRESENTADO" if idx % 3 == 0 else "REALIZADA",
+        )
+    db_connection.commit()
+
+    def _forzar_baseline(
+        *, baseline: ResultadoMetricasModelo, candidato_v2: ResultadoMetricasModelo
+    ) -> ResultadoSeleccionModelo:
+        return ResultadoSeleccionModelo(
+            ganador=baseline,
+            baseline=baseline,
+            candidato_v2=candidato_v2,
+            criterio="test_empate_baseline",
+        )
+
+    monkeypatch.setattr(usecases_module, "seleccionar_mejor_modelo", _forzar_baseline)
+    queries = PrediccionAusenciasQueries(db_connection)
+    almacenamiento = AlmacenamientoModeloPrediccion(tmp_path)
+    entrenar_uc = EntrenarPrediccionAusencias(
+        ComprobarDatosPrediccionAusencias(queries, minimo_requerido=50),
+        queries,
+        PredictorAusenciasBaseline(),
+        PredictorAusenciasV2(),
+        almacenamiento,
+    )
+
+    entrenar_uc.ejecutar()
+    _, metadata = almacenamiento.cargar()
+
+    assert metadata.model_type == "PredictorAusenciasBaseline"
