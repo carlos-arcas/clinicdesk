@@ -39,6 +39,8 @@ El doctor, el preflight del gate y las validaciones específicas de Ruff consume
 `rc=20` en `python -m scripts.gate_pr` significa **bloqueo operativo del entorno local o del job**. El proyecto todavía no fue validado por el gate funcional. Si el problema era ejecutar con un Python ajeno al repo y `.venv` existe, el comando ya se habrá reejecutado automáticamente antes de llegar a ese punto.
 
 ## Glosario breve de `reason_code` operativo
+Fuente de verdad de códigos documentables del contrato operativo: `scripts.gate_pr.reason_codes_operativos_documentables()`.
+
 | `reason_code` | Significado corto | Acción sugerida |
 | --- | --- | --- |
 | `VENV_REPO_NO_DISPONIBLE` | El comando canónico no puede usar el Python esperado del repo (`.venv`). | `python scripts/setup.py` y reintentar el comando canónico. |

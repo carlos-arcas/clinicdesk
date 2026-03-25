@@ -25,6 +25,13 @@ from .toolchain import (
 )
 
 PATRON_VERSION = re.compile(r"(?P<version>\d+\.\d+(?:\.\d+)?)")
+REASON_CODES_OPERATIVOS_DOCTOR = (
+    "TOOLCHAIN_LOCK_INVALIDO",
+    "DEPENDENCIAS_FALTANTES",
+    "TOOLCHAIN_DESALINEADO",
+    "WHEELHOUSE_REQUERIDO_NO_DISPONIBLE",
+    "RED_PROXY_REQUERIDA_SIN_WHEELHOUSE",
+)
 
 
 @dataclass(frozen=True)
@@ -142,35 +149,35 @@ def clasificar_bloqueo_entorno(
 ) -> ClasificacionBloqueoEntorno | None:
     if diagnostico.toolchain_error is not None:
         return ClasificacionBloqueoEntorno(
-            reason_code="TOOLCHAIN_LOCK_INVALIDO",
+            reason_code=REASON_CODES_OPERATIVOS_DOCTOR[0],
             categoria="toolchain",
             accion_sugerida=COMANDO_REGENERAR_LOCK,
             detalle="El lock dev no es válido/coherente y el gate no puede validar el repositorio.",
         )
     if diagnostico.tiene_faltantes:
         return ClasificacionBloqueoEntorno(
-            reason_code="DEPENDENCIAS_FALTANTES",
+            reason_code=REASON_CODES_OPERATIVOS_DOCTOR[1],
             categoria="toolchain",
             accion_sugerida=COMANDO_REINSTALAR_LOCK,
             detalle="Faltan herramientas del gate en el intérprete activo.",
         )
     if diagnostico.tiene_desalineaciones:
         return ClasificacionBloqueoEntorno(
-            reason_code="TOOLCHAIN_DESALINEADO",
+            reason_code=REASON_CODES_OPERATIVOS_DOCTOR[2],
             categoria="toolchain",
             accion_sugerida=COMANDO_REINSTALAR_LOCK,
             detalle="Hay versiones desalineadas respecto a requirements-dev.txt.",
         )
     if exigir_wheelhouse and not diagnostico.wheelhouse_disponible:
         return ClasificacionBloqueoEntorno(
-            reason_code="WHEELHOUSE_REQUERIDO_NO_DISPONIBLE",
+            reason_code=REASON_CODES_OPERATIVOS_DOCTOR[3],
             categoria="wheelhouse",
             accion_sugerida=COMANDO_BUILD_WHEELHOUSE,
             detalle="El modo offline está exigido y el wheelhouse no cubre el lock.",
         )
     if not diagnostico.wheelhouse_disponible and diagnostico.proxy_configurado:
         return ClasificacionBloqueoEntorno(
-            reason_code="RED_PROXY_REQUERIDA_SIN_WHEELHOUSE",
+            reason_code=REASON_CODES_OPERATIVOS_DOCTOR[4],
             categoria="red_proxy",
             accion_sugerida=COMANDO_DOCTOR,
             detalle="Sin wheelhouse, la reinstalación depende de proxy/red y puede bloquearse.",
