@@ -23,6 +23,8 @@ def test_main_invoca_entrypoint_report_only(monkeypatch):
 
     monkeypatch.delenv("CLINICDESK_SANDBOX_MODE", raising=False)
     monkeypatch.setattr(gate_rapido, "resolver_ejecucion_canonica", lambda *_args, **_kwargs: DecisionEjecucionCanonica("continuar"))
+    monkeypatch.setattr(gate_rapido, "diagnosticar_entorno_calidad", lambda _repo_root: object())
+    monkeypatch.setattr(gate_rapido, "codigo_salida_estable", lambda _diag: 0)
     monkeypatch.setattr(gate_rapido.os, "chdir", fake_chdir)
     monkeypatch.setattr(gate_rapido.subprocess, "run", fake_run)
 
@@ -91,6 +93,8 @@ def test_main_inyecta_sandbox_mode_si_no_existe(monkeypatch):
 
     monkeypatch.delenv("CLINICDESK_SANDBOX_MODE", raising=False)
     monkeypatch.setattr(gate_rapido, "resolver_ejecucion_canonica", lambda *_args, **_kwargs: DecisionEjecucionCanonica("continuar"))
+    monkeypatch.setattr(gate_rapido, "diagnosticar_entorno_calidad", lambda _repo_root: object())
+    monkeypatch.setattr(gate_rapido, "codigo_salida_estable", lambda _diag: 0)
     monkeypatch.setattr(gate_rapido.os, "chdir", lambda *_: None)
     monkeypatch.setattr(gate_rapido.subprocess, "run", fake_run)
 
@@ -109,6 +113,8 @@ def test_main_respeta_sandbox_mode_preexistente(monkeypatch):
 
     monkeypatch.setenv("CLINICDESK_SANDBOX_MODE", "0")
     monkeypatch.setattr(gate_rapido, "resolver_ejecucion_canonica", lambda *_args, **_kwargs: DecisionEjecucionCanonica("continuar"))
+    monkeypatch.setattr(gate_rapido, "diagnosticar_entorno_calidad", lambda _repo_root: object())
+    monkeypatch.setattr(gate_rapido, "codigo_salida_estable", lambda _diag: 0)
     monkeypatch.setattr(gate_rapido.os, "chdir", lambda *_: None)
     monkeypatch.setattr(gate_rapido.subprocess, "run", fake_run)
 
@@ -120,6 +126,8 @@ def test_main_respeta_sandbox_mode_preexistente(monkeypatch):
 
 def test_main_propaga_returncode(monkeypatch):
     monkeypatch.setattr(gate_rapido, "resolver_ejecucion_canonica", lambda *_args, **_kwargs: DecisionEjecucionCanonica("continuar"))
+    monkeypatch.setattr(gate_rapido, "diagnosticar_entorno_calidad", lambda _repo_root: object())
+    monkeypatch.setattr(gate_rapido, "codigo_salida_estable", lambda _diag: 0)
     monkeypatch.setattr(gate_rapido.os, "chdir", lambda *_: None)
     monkeypatch.setattr(
         gate_rapido.subprocess,
@@ -128,3 +136,22 @@ def test_main_propaga_returncode(monkeypatch):
     )
 
     assert gate_rapido.main() == 11
+
+
+def test_main_bloqueo_doctor_preflight_usa_mismo_rc_operativo(monkeypatch, capsys):
+    monkeypatch.setattr(gate_rapido, "resolver_ejecucion_canonica", lambda *_args, **_kwargs: DecisionEjecucionCanonica("continuar"))
+    monkeypatch.setattr(gate_rapido, "diagnosticar_entorno_calidad", lambda _repo_root: object())
+    monkeypatch.setattr(gate_rapido, "codigo_salida_estable", lambda _diag: 3)
+    monkeypatch.setattr(
+        gate_rapido,
+        "reportar_bloqueo_operativo_doctor",
+        lambda **kwargs: kwargs,
+    )
+
+    salida = gate_rapido.main()
+
+    assert salida["etiqueta_gate"] == "gate-rapido"
+    assert salida["returncode_doctor"] == 3
+    assert salida["comando_reintento"] == "python -m scripts.gate_rapido"
+    assert salida["validaciones_no_ejecutadas"] == gate_rapido.VALIDACIONES_NO_EJECUTADAS
+    assert capsys.readouterr().err == ""
