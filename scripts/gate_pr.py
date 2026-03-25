@@ -18,7 +18,11 @@ from scripts.quality_gate_components.doctor_entorno_calidad_core import (
     diagnosticar_entorno_calidad,
     renderizar_reporte,
 )
-from scripts.quality_gate_components.contrato_reason_codes_doc import cargar_reason_codes_documentados
+from scripts.quality_gate_components.contrato_reason_codes_doc import (
+    ErrorContratoReasonCodesDoc,
+    cargar_reason_codes_documentados,
+    validar_coherencia_reason_codes_doc,
+)
 from scripts.quality_gate_components.ejecucion_canonica import (
     REASON_CODES_OPERATIVOS_CANONICO,
     reejecutar_en_python_objetivo,
@@ -30,6 +34,7 @@ from scripts.quality_gate_components.toolchain import COMANDO_DOCTOR, COMANDO_SE
 REPO_ROOT = Path(__file__).resolve().parents[1]
 EXIT_ENTORNO_BLOQUEADO = 20
 VALIDACIONES_NO_EJECUTADAS = "lint, typecheck, pytest, cobertura, golden, i18n, seguridad"
+RUTA_DOC_CI_QUALITY_GATE = REPO_ROOT / "docs" / "ci_quality_gate.md"
 
 
 def reason_codes_operativos_documentables() -> tuple[str, ...]:
@@ -38,6 +43,16 @@ def reason_codes_operativos_documentables() -> tuple[str, ...]:
 
 def reason_codes_operativos_documentados_en_docs(ruta_doc: Path) -> tuple[str, ...]:
     return cargar_reason_codes_documentados(ruta_doc)
+
+
+def validar_contrato_reason_codes_doc(ruta_doc: Path = RUTA_DOC_CI_QUALITY_GATE) -> None:
+    canonicos = reason_codes_operativos_documentables()
+    try:
+        validar_coherencia_reason_codes_doc(ruta_doc=ruta_doc, canonicos=canonicos)
+    except ErrorContratoReasonCodesDoc as exc:
+        raise ErrorContratoReasonCodesDoc(
+            f"Check documental reason_code falló en {ruta_doc}: {exc}"
+        ) from None
 
 
 def _preflight_entorno(repo_root: Path) -> int:

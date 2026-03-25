@@ -67,3 +67,27 @@ def test_comparador_reporta_faltantes_y_sobrantes() -> None:
     )
     assert resultado.faltantes_en_doc == ("A",)
     assert resultado.sobrantes_en_doc == ("C",)
+
+
+def test_check_documental_reutilizable_falla_con_detalle_claro(tmp_path) -> None:
+    ruta_doc = tmp_path / "ci_quality_gate.md"
+    ruta_doc.write_text(
+        _render_doc_glosario(
+            (
+                "| `TOOLCHAIN_LOCK_INVALIDO` | x | y |",
+                "| `EXTRA_DESCONOCIDO` | x | y |",
+            )
+        ),
+        encoding="utf-8",
+    )
+
+    try:
+        gate_pr.validar_contrato_reason_codes_doc(ruta_doc)
+    except ErrorContratoReasonCodesDoc as exc:
+        mensaje = str(exc)
+        assert "Check documental reason_code falló" in mensaje
+        assert "sin documentar" in mensaje
+        assert "sin fuente canonica" in mensaje
+        assert "EXTRA_DESCONOCIDO" in mensaje
+    else:  # pragma: no cover
+        raise AssertionError("Se esperaba ErrorContratoReasonCodesDoc por divergencia doc↔código.")

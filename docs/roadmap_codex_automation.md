@@ -459,3 +459,26 @@ Endurecer el contrato de coherencia doc↔código de `reason_code` operativos de
 
 ## Siguiente paso recomendado
 - Reusar `validar_coherencia_reason_codes_doc(...)` en un check documental liviano del flujo canónico cuando se priorice enforcement fuera de tests.
+
+## Ciclo 15
+
+## Objetivo
+Integrar la validación doc↔`reason_code` como check documental liviano dentro del flujo canónico de calidad, reutilizando la lógica existente sin duplicaciones.
+
+## Cambios aplicados
+- `scripts.gate_pr` ahora expone `validar_contrato_reason_codes_doc(...)` como punto reutilizable de ejecución explícita del contrato documental.
+- El quality gate canónico (`scripts/quality_gate_components/entrypoint.py`) ejecuta ese check en la etapa documental antes de seguridad/changelog.
+- La salida de error del check documental se normaliza con contexto de ruta y motivo (`sin documentar`, `sin fuente canonica`, delimitadores ausentes/rotos).
+- Se añadieron tests de integración liviana del nuevo enganche documental y test directo del check reutilizable.
+- Se actualizó `docs/ci_quality_gate.md` para documentar el nuevo punto de entrada reutilizable del check.
+
+## Tests ejecutados
+- `pytest -q tests/test_gate_reason_codes_docs_sync.py tests/test_quality_gate_reason_codes_doc_check.py`
+- `ruff check scripts/gate_pr.py scripts/quality_gate_components/entrypoint.py tests/test_gate_reason_codes_docs_sync.py tests/test_quality_gate_reason_codes_doc_check.py`
+
+## Riesgos abiertos
+- El contrato sigue acotado al glosario delimitado por marcadores; si el formato de tabla cambia intencionalmente, hay que ajustar el parser del helper.
+- El check documental se ejecuta dentro del gate completo; si se quiere enforcement también en gate rápido, se puede reutilizar la misma función sin abrir una segunda implementación.
+
+## Siguiente paso recomendado
+- Reusar el mismo check en `gate_rapido` solo si se prioriza detección más temprana, manteniendo `gate_pr.validar_contrato_reason_codes_doc(...)` como única lógica invocable.

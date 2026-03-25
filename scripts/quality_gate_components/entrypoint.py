@@ -5,9 +5,11 @@ import logging
 from pathlib import Path
 
 from clinicdesk.app.bootstrap_logging import configure_logging, set_run_context
+from scripts import gate_pr
 from scripts.structural_gate import run_structural_gate
 from scripts.check_changelog import check_changelog
 from scripts.check_security_docs import check_security_docs
+from scripts.quality_gate_components.contrato_reason_codes_doc import ErrorContratoReasonCodesDoc
 
 from . import config
 from .basic_repo_checks import check_forbidden_artifacts, check_no_print_calls, check_secret_patterns
@@ -62,6 +64,12 @@ def _run_pre_checks() -> int:
 
 
 def _run_docs_checks() -> int:
+    try:
+        gate_pr.validar_contrato_reason_codes_doc()
+    except ErrorContratoReasonCodesDoc as exc:
+        _LOGGER.error("[quality-gate] ❌ Contrato documental reason_code inválido: %s", exc)
+        return 2
+
     docs_rc = check_security_docs(repo_root=config.REPO_ROOT)
     if docs_rc != 0:
         return docs_rc
