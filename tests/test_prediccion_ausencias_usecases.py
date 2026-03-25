@@ -11,7 +11,10 @@ from clinicdesk.app.application.prediccion_ausencias.usecases import (
     EntrenamientoPrediccionError,
     EntrenarPrediccionAusencias,
     PrevisualizarPrediccionAusencias,
+    _evaluar_predictor,
+    _split_determinista_train_validacion,
 )
+from clinicdesk.app.domain.prediccion_ausencias import RegistroEntrenamiento
 from clinicdesk.app.infrastructure.prediccion_ausencias import (
     AlmacenamientoModeloPrediccion,
     PredictorAusenciasBaseline,
@@ -94,7 +97,16 @@ def test_entrenar_guarda_modelo_actualiza_metadata_y_recarga_predice(db_connecti
 
     assert resultado.citas_usadas == 60
     assert metadata.citas_usadas == 60
+    assert metadata.model_type == "PredictorAusenciasBaseline"
+    assert metadata.muestras_train == 48
+    assert metadata.muestras_validacion == 12
+    assert metadata.accuracy is not None
+    assert metadata.precision_no_show is not None
+    assert metadata.recall_no_show is not None
+    assert metadata.f1_no_show is not None
     assert metadata_json["citas_usadas"] == 60
+    assert metadata_json["muestras_train"] == 48
+    assert metadata_json["muestras_validacion"] == 12
     assert datetime.fromisoformat(metadata_json["fecha_entrenamiento"])
     assert predicciones == []
 
@@ -179,5 +191,65 @@ def test_previsualizar_sin_y_con_modelo(db_connection, tmp_path: Path) -> None:
 
 
 class _AlmacenamientoQueFalla:
-    def guardar(self, predictor_entrenado, *, citas_usadas: int, version: str):  # noqa: ARG002
+    def guardar(self, predictor_entrenado, *, citas_usadas: int, version: str, **kwargs):  # noqa: ARG002
         raise OSError("disk_full")
+
+
+def test_split_determinista_separa_train_y_validacion_en_orden_temporal() -> None:
+    dataset = [
+        RegistroEntrenamiento(paciente_id=1, no_vino=0, dias_antelacion=3),
+        RegistroEntrenamiento(paciente_id=2, no_vino=1, dias_antelacion=4),
+        RegistroEntrenamiento(paciente_id=3, no_vino=0, dias_antelacion=5),
+        RegistroEntrenamiento(paciente_id=4, no_vino=1, dias_antelacion=6),
+        RegistroEntrenamiento(paciente_id=5, no_vino=0, dias_antelacion=7),
+    ]
+
+    train, validacion = _split_determinista_train_validacion(dataset, proporcion_validacion=0.4)
+
+    assert train == dataset[:3]
+    assert validacion == dataset[3:]
+
+
+def test_evaluacion_predictor_es_determinista_y_sin_nan(db_connection, tmp_path: Path) -> None:
+    dataset_train = [RegistroEntrenamiento(paciente_id=1, no_vino=0, dias_antelacion=10)] * 3
+    dataset_validacion = [
+        RegistroEntrenamiento(paciente_id=1, no_vino=0, dias_antelacion=9),
+        RegistroEntrenamiento(paciente_id=1, no_vino=1, dias_antelacion=1),
+    ]
+    predictor = PredictorAusenciasBaseline().entrenar(dataset_train)
+
+    evaluacion = _evaluar_predictor(
+        predictor_entrenado=predictor,
+        dataset_train=dataset_train,
+        dataset_validacion=dataset_validacion,
+    )
+
+    assert evaluacion.muestras_train == 3
+    assert evaluacion.muestras_validacion == 2
+    assert 0.0 <= evaluacion.accuracy <= 1.0
+    assert 0.0 <= evaluacion.precision_no_show <= 1.0
+    assert 0.0 <= evaluacion.recall_no_show <= 1.0
+    assert 0.0 <= evaluacion.f1_no_show <= 1.0
+
+
+def test_cargar_metadata_antigua_mantiene_compatibilidad(tmp_path: Path) -> None:
+    almacenamiento = AlmacenamientoModeloPrediccion(tmp_path)
+    metadata_path = almacenamiento.carpeta_modelo / "metadata.json"
+    metadata_path.parent.mkdir(parents=True, exist_ok=True)
+    metadata_path.write_text(
+        json.dumps(
+            {
+                "fecha_entrenamiento": "2026-03-20T12:00:00+00:00",
+                "citas_usadas": 50,
+                "version": "prediccion_ausencias_v1",
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    metadata = almacenamiento.cargar_metadata()
+
+    assert metadata is not None
+    assert metadata.citas_usadas == 50
+    assert metadata.model_type == "PredictorAusenciasBaseline"
+    assert metadata.accuracy is None

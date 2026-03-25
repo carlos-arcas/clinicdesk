@@ -8,6 +8,7 @@ from clinicdesk.app.application.prediccion_ausencias.dtos import (
     MetadataExplicacionRiesgoDTO,
     MotivoRiesgoDTO,
     PrediccionCitaDTO,
+    ResumenEntrenamientoModeloDTO,
     ResultadoComprobacionDatos,
     ResultadoPrevisualizacionPrediccion,
 )
@@ -32,6 +33,20 @@ _MAX_MOTIVOS = 4
 class ResultadoEntrenamientoPrediccion:
     citas_usadas: int
     fecha_entrenamiento: str
+    accuracy: float
+    recall_no_show: float
+
+
+@dataclass(frozen=True, slots=True)
+class ResultadoEvaluacionEntrenamiento:
+    muestras_train: int
+    muestras_validacion: int
+    tasa_no_show_train: float
+    tasa_no_show_validacion: float
+    accuracy: float
+    precision_no_show: float
+    recall_no_show: float
+    f1_no_show: float
 
 
 class EntrenamientoPrediccionError(Exception):
@@ -79,12 +94,27 @@ class EntrenarPrediccionAusencias:
         if not dataset:
             raise EntrenamientoPrediccionError("dataset_empty")
 
-        predictor_entrenado = self._predictor.entrenar(dataset)
+        dataset_train, dataset_validacion = _split_determinista_train_validacion(dataset)
+        predictor_entrenado = self._predictor.entrenar(dataset_train)
+        evaluacion = _evaluar_predictor(
+            predictor_entrenado=predictor_entrenado,
+            dataset_train=dataset_train,
+            dataset_validacion=dataset_validacion,
+        )
         try:
             metadata = self._almacenamiento.guardar(
                 predictor_entrenado,
                 citas_usadas=len(dataset),
                 version="prediccion_ausencias_v1",
+                model_type=type(self._predictor).__name__,
+                muestras_train=evaluacion.muestras_train,
+                muestras_validacion=evaluacion.muestras_validacion,
+                tasa_no_show_train=evaluacion.tasa_no_show_train,
+                tasa_no_show_validacion=evaluacion.tasa_no_show_validacion,
+                accuracy=evaluacion.accuracy,
+                precision_no_show=evaluacion.precision_no_show,
+                recall_no_show=evaluacion.recall_no_show,
+                f1_no_show=evaluacion.f1_no_show,
             )
         except OSError as exc:
             LOGGER.error(
@@ -98,6 +128,8 @@ class EntrenarPrediccionAusencias:
         return ResultadoEntrenamientoPrediccion(
             citas_usadas=metadata.citas_usadas,
             fecha_entrenamiento=metadata.fecha_entrenamiento,
+            accuracy=metadata.accuracy or 0.0,
+            recall_no_show=metadata.recall_no_show or 0.0,
         )
 
     @staticmethod
@@ -256,3 +288,104 @@ class ObtenerExplicacionRiesgoAusenciaCita:
                 )
             )
         return motivos
+
+
+class ObtenerResumenUltimoEntrenamientoPrediccion:
+    def __init__(self, almacenamiento: AlmacenamientoModeloPrediccion) -> None:
+        self._almacenamiento = almacenamiento
+
+    def ejecutar(self) -> ResumenEntrenamientoModeloDTO:
+        metadata = self._almacenamiento.cargar_metadata()
+        if metadata is None:
+            return ResumenEntrenamientoModeloDTO(
+                fecha_entrenamiento=None,
+                model_type=None,
+                muestras_train=None,
+                muestras_validacion=None,
+                accuracy=None,
+                recall_no_show=None,
+            )
+        return ResumenEntrenamientoModeloDTO(
+            fecha_entrenamiento=metadata.fecha_entrenamiento,
+            model_type=metadata.model_type,
+            muestras_train=metadata.muestras_train,
+            muestras_validacion=metadata.muestras_validacion,
+            accuracy=metadata.accuracy,
+            recall_no_show=metadata.recall_no_show,
+        )
+
+
+def _split_determinista_train_validacion(
+    dataset: list[RegistroEntrenamiento],
+    proporcion_validacion: float = 0.2,
+) -> tuple[list[RegistroEntrenamiento], list[RegistroEntrenamiento]]:
+    if len(dataset) <= 1:
+        return dataset, []
+    muestras_validacion = max(1, int(len(dataset) * proporcion_validacion))
+    if muestras_validacion >= len(dataset):
+        muestras_validacion = len(dataset) - 1
+    corte = len(dataset) - muestras_validacion
+    return dataset[:corte], dataset[corte:]
+
+
+def _evaluar_predictor(
+    *,
+    predictor_entrenado,
+    dataset_train: list[RegistroEntrenamiento],
+    dataset_validacion: list[RegistroEntrenamiento],
+) -> ResultadoEvaluacionEntrenamiento:
+    etiquetas_reales = [item.no_vino for item in dataset_validacion]
+    predicciones = predictor_entrenado.predecir(
+        [
+            CitaParaPrediccion(cita_id=idx, paciente_id=item.paciente_id, dias_antelacion=item.dias_antelacion)
+            for idx, item in enumerate(dataset_validacion)
+        ]
+    )
+    etiquetas_predichas = [1 if item.riesgo.value in {"MEDIO", "ALTO"} else 0 for item in predicciones]
+    return ResultadoEvaluacionEntrenamiento(
+        muestras_train=len(dataset_train),
+        muestras_validacion=len(dataset_validacion),
+        tasa_no_show_train=_tasa_no_show(dataset_train),
+        tasa_no_show_validacion=_ratio(sum(etiquetas_reales), len(etiquetas_reales)),
+        accuracy=_accuracy(etiquetas_reales, etiquetas_predichas),
+        precision_no_show=_precision(etiquetas_reales, etiquetas_predichas),
+        recall_no_show=_recall(etiquetas_reales, etiquetas_predichas),
+        f1_no_show=_f1(etiquetas_reales, etiquetas_predichas),
+    )
+
+
+def _tasa_no_show(dataset: list[RegistroEntrenamiento]) -> float:
+    return _ratio(sum(item.no_vino for item in dataset), len(dataset))
+
+
+def _ratio(numerador: int, denominador: int) -> float:
+    if denominador <= 0:
+        return 0.0
+    return round(numerador / denominador, 4)
+
+
+def _accuracy(y_true: list[int], y_pred: list[int]) -> float:
+    if not y_true:
+        return 0.0
+    aciertos = sum(1 for real, pred in zip(y_true, y_pred, strict=False) if real == pred)
+    return round(aciertos / len(y_true), 4)
+
+
+def _precision(y_true: list[int], y_pred: list[int]) -> float:
+    verdaderos_positivos = sum(1 for real, pred in zip(y_true, y_pred, strict=False) if pred == 1 and real == 1)
+    falsos_positivos = sum(1 for real, pred in zip(y_true, y_pred, strict=False) if pred == 1 and real == 0)
+    return _ratio(verdaderos_positivos, verdaderos_positivos + falsos_positivos)
+
+
+def _recall(y_true: list[int], y_pred: list[int]) -> float:
+    verdaderos_positivos = sum(1 for real, pred in zip(y_true, y_pred, strict=False) if pred == 1 and real == 1)
+    falsos_negativos = sum(1 for real, pred in zip(y_true, y_pred, strict=False) if pred == 0 and real == 1)
+    return _ratio(verdaderos_positivos, verdaderos_positivos + falsos_negativos)
+
+
+def _f1(y_true: list[int], y_pred: list[int]) -> float:
+    precision = _precision(y_true, y_pred)
+    recall = _recall(y_true, y_pred)
+    if precision + recall == 0:
+        return 0.0
+    return round((2 * precision * recall) / (precision + recall), 4)

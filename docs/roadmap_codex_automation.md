@@ -117,3 +117,32 @@ Unificar el entrenamiento de `prediccion_ausencias` con el contrato canónico de
 ## Siguiente paso recomendado
 - Extraer un coordinador adicional para “post-entrenamiento refresh” (salud + resultados + preview) y reducir tamaño de `page.py` sin cambiar comportamiento.
 - Añadir telemetría de duración por job `prediccion_ausencias_entrenar` para observar rendimiento y timeouts en cierre.
+
+## Ciclo 4
+
+## Objetivo
+Endurecer el contrato ML de `prediccion_ausencias` sin cambiar el algoritmo baseline: evaluación determinista, metadata rica persistida y resumen compacto de calidad en UI.
+
+## Cambios aplicados
+- Entrenamiento con split determinista reproducible (orden temporal del dataset) y cálculo de métricas básicas (`accuracy`, `precision_no_show`, `recall_no_show`, `f1_no_show`).
+- Persistencia extendida del artefacto de modelo con metadata ML útil:
+  - `model_type`, `muestras_train`, `muestras_validacion`,
+  - `tasa_no_show_train`, `tasa_no_show_validacion`,
+  - métricas de evaluación.
+- Compatibilidad hacia atrás para metadata antigua (`fecha_entrenamiento`, `citas_usadas`, `version`) sin romper carga.
+- UI de `PagePrediccionAusencias` con bloque compacto de “último entrenamiento”:
+  - fecha, tipo de modelo, split train/validación, accuracy, recall no-show y estado de calidad.
+- Coordinador puro de calidad UX (`VERDE/AMARILLO/ROJO`) desacoplado de Qt para mantener testeo determinista.
+- Logging de entrenamiento exitoso con métricas clave en el evento `prediccion_entrenar_ok`.
+
+## Tests ejecutados
+- `pytest -q tests/test_prediccion_ausencias_usecases.py tests/test_prediccion_ausencias_resumen_modelo.py`
+- `python -m scripts.gate_rapido`
+
+## Riesgos abiertos
+- El umbral UX (`VERDE/AMARILLO/ROJO`) es deliberadamente simple; puede requerir calibración posterior con evidencia operativa real.
+- La evaluación usa holdout temporal fijo (20% final); aún no hay comparación multi-split ni tracking histórico de drift para este módulo.
+
+## Siguiente paso recomendado
+- Mantener este contrato y, en ciclo posterior, introducir predictor más fuerte detrás de `model_type` sin rehacer UI ni persistencia.
+- Añadir vista histórica de entrenamientos (últimas N corridas) y tendencias de métricas para detectar degradación.

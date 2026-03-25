@@ -19,6 +19,15 @@ class MetadataModeloPrediccion:
     fecha_entrenamiento: str
     citas_usadas: int
     version: str
+    model_type: str = "PredictorAusenciasBaseline"
+    muestras_train: int | None = None
+    muestras_validacion: int | None = None
+    tasa_no_show_train: float | None = None
+    tasa_no_show_validacion: float | None = None
+    accuracy: float | None = None
+    precision_no_show: float | None = None
+    recall_no_show: float | None = None
+    f1_no_show: float | None = None
 
 
 class ModeloPrediccionNoDisponibleError(FileNotFoundError):
@@ -35,11 +44,35 @@ class AlmacenamientoModeloPrediccion:
     def carpeta_modelo(self) -> Path:
         return self._dir
 
-    def guardar(self, predictor_entrenado: Any, *, citas_usadas: int, version: str) -> MetadataModeloPrediccion:
+    def guardar(
+        self,
+        predictor_entrenado: Any,
+        *,
+        citas_usadas: int,
+        version: str,
+        model_type: str = "PredictorAusenciasBaseline",
+        muestras_train: int | None = None,
+        muestras_validacion: int | None = None,
+        tasa_no_show_train: float | None = None,
+        tasa_no_show_validacion: float | None = None,
+        accuracy: float | None = None,
+        precision_no_show: float | None = None,
+        recall_no_show: float | None = None,
+        f1_no_show: float | None = None,
+    ) -> MetadataModeloPrediccion:
         metadata = MetadataModeloPrediccion(
             fecha_entrenamiento=datetime.now(timezone.utc).isoformat(),
             citas_usadas=citas_usadas,
             version=version,
+            model_type=model_type,
+            muestras_train=muestras_train,
+            muestras_validacion=muestras_validacion,
+            tasa_no_show_train=tasa_no_show_train,
+            tasa_no_show_validacion=tasa_no_show_validacion,
+            accuracy=accuracy,
+            precision_no_show=precision_no_show,
+            recall_no_show=recall_no_show,
+            f1_no_show=f1_no_show,
         )
         with self._modelo_path().open("wb") as handle:
             pickle.dump(predictor_entrenado, handle)
