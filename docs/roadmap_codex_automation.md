@@ -243,3 +243,37 @@ Agregar observabilidad temporal liviana al módulo `prediccion_ausencias` manten
 ## Siguiente paso recomendado
 - Añadir una señal de tendencia mínima (delta contra entrenamiento previo) en el mismo bloque compacto, reutilizando `history.json`.
 - Evaluar alertas de degradación cuando se acumulen N snapshots consecutivos con calidad `ROJO`.
+
+## Ciclo 8
+
+## Objetivo
+Cerrar el valor operativo del histórico ligero (`history.json`) con tendencia mínima y alerta simple de degradación, saneando además i18n en el área tocada.
+
+## Cambios aplicados
+- Se añadió cálculo puro y determinista de tendencia en `application/prediccion_ausencias/tendencia_entrenamientos.py`:
+  - comparación último vs anterior para `accuracy` y `recall_no_show`,
+  - etiquetas `MEJORA | EMPEORA | ESTABLE | NO_DISPONIBLE`,
+  - tolerancia explícita `0.005` para evitar ruido.
+- Se incorporó alerta operativa simple por histórico:
+  - activa cuando hay `3` corridas consecutivas en `ROJO`,
+  - inactiva en cualquier otro patrón.
+- El coordinador de resumen de página ahora traduce ese estado a contrato UI i18n (`derivar_estado_tendencia_historial`) sin mover lógica a la página.
+- `PagePrediccionAusencias` muestra en modo compacto:
+  - “Tendencia reciente” (accuracy + recall),
+  - “Alerta operativa” (activa/inactiva).
+- Se saneó `clinicdesk/app/i18n_catalogos/pred.py` en el alcance afectado:
+  - eliminación de bloque duplicado de claves `demo_ml.playbook.*` que dejaba `ruff` en rojo,
+  - alta de claves ES/EN para tendencia/alerta del historial.
+
+## Tests ejecutados
+- `pytest -q tests/test_tendencia_entrenamientos.py tests/test_prediccion_ausencias_resumen_modelo.py tests/test_prediccion_ausencias_page_estabilidad.py`
+- `ruff check clinicdesk/app/application/prediccion_ausencias/dtos.py clinicdesk/app/application/prediccion_ausencias/tendencia_entrenamientos.py clinicdesk/app/pages/prediccion_ausencias/coordinador_resumen_modelo.py clinicdesk/app/pages/prediccion_ausencias/page.py clinicdesk/app/i18n_catalogos/pred.py tests/test_tendencia_entrenamientos.py tests/test_prediccion_ausencias_resumen_modelo.py`
+- `python -m scripts.gate_pr`
+
+## Riesgos abiertos
+- La tendencia usa sólo las dos últimas corridas; no detecta estacionalidad ni cambios por cohorte (decisión intencional de alcance).
+- La alerta por `3` rojos consecutivos es deliberadamente simple y puede requerir ajuste futuro con evidencia real de operación.
+
+## Siguiente paso recomendado
+- Añadir una recomendación operativa contextual (acción sugerida) cuando la alerta esté activa, manteniendo el mismo contrato compacto.
+- Evaluar si conviene registrar también delta numérico (además de etiqueta) en telemetry interna, sin añadir complejidad visual.

@@ -130,3 +130,11 @@ class HistorialEntrenamientoModeloDTO:
     ganador_criterio: str | None
     baseline_f1: float | None
     v2_f1: float | None
+
+
+@dataclass(frozen=True, slots=True)
+class ResumenTendenciaHistorialDTO:
+    tendencia_accuracy: str
+    tendencia_recall_no_show: str
+    alerta_rojo_consecutivo: bool
+    rojos_consecutivos: int
