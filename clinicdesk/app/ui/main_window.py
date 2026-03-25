@@ -29,6 +29,7 @@ from clinicdesk.app.pages.pages_registry import get_pages
 from clinicdesk.app.ui.navigation_intent_store import IntentConsumible
 from clinicdesk.app.ui.widgets.toast_manager import ToastManager, ToastPayload
 from clinicdesk.app.ui.jobs.job_manager import JobManager, JobState
+from clinicdesk.app.ui.lifecycle.controlador_cierre_app import ControladorCierreApp, DecisionCierre
 from clinicdesk.app.ui.widgets.quick_search_dialog import ContextoBusquedaRapida, QuickSearchDialog
 
 
@@ -73,7 +74,13 @@ _PAGE_TITLES_BY_LANG = {
 
 
 class MainWindow(QMainWindow):
-    def __init__(self, container: AppContainer, i18n: I18nManager, on_logout: Callable[[], None]) -> None:
+    def __init__(
+        self,
+        container: AppContainer,
+        i18n: I18nManager,
+        on_logout: Callable[[], None],
+        shutdown_timeout_ms: int = 8_000,
+    ) -> None:
         super().__init__()
         self.container = container
         self._i18n = i18n
@@ -117,8 +124,11 @@ class MainWindow(QMainWindow):
         self._job_toast_fail_by_id: dict[str, str] = {}
         self._job_toast_cancel_by_id: dict[str, str] = {}
         self._job_success_cb_by_id: dict[str, Callable[[object], None]] = {}
+        self._shutdown_timeout_ms = max(shutdown_timeout_ms, 0)
+        self._controlador_cierre = ControladorCierreApp(timeout_ms=self._shutdown_timeout_ms)
         self._cierre_controlado_en_progreso = False
         self._permitir_cierre_directo = False
+        self._shutdown_timeout_timer: QTimer | None = None
 
         for p in get_pages(container, self._i18n):
             self._factory_by_key[p.key] = p.factory
@@ -501,20 +511,21 @@ class MainWindow(QMainWindow):
         self._job_manager.cancel_job(self._active_job_id)
 
     def closeEvent(self, event: QCloseEvent) -> None:  # noqa: N802
-        if self._permitir_cierre_directo:
+        decision = self._controlador_cierre.solicitar_cierre(ids_jobs_activos=self._job_manager.ids_jobs_activos())
+        self._sincronizar_estado_cierre()
+        if decision.permitir_cierre:
             super().closeEvent(event)
             return
-        if self._job_manager.tiene_jobs_activos():
+        if decision.iniciar_shutdown:
             self._iniciar_cierre_controlado()
             event.ignore()
             return
-        self._permitir_cierre_directo = True
+        if decision.ignorar_evento:
+            event.ignore()
+            return
         super().closeEvent(event)
 
     def _iniciar_cierre_controlado(self) -> None:
-        if self._cierre_controlado_en_progreso:
-            return
-        self._cierre_controlado_en_progreso = True
         self.sidebar.setEnabled(False)
         self._job_cancel_btn.setEnabled(False)
         self._busy_indicator.show()
@@ -522,13 +533,50 @@ class MainWindow(QMainWindow):
         self._busy_label.setText(self._i18n.t("job.shutdown.status"))
         self.toast_info("job.shutdown.requested")
         self._job_manager.solicitar_cierre_seguro()
+        self._armar_timeout_cierre()
+
+    def _armar_timeout_cierre(self) -> None:
+        if self._shutdown_timeout_timer is not None:
+            return
+        timer = QTimer(self)
+        timer.setSingleShot(True)
+        timer.timeout.connect(self._on_shutdown_timeout)
+        timer.start(self._shutdown_timeout_ms)
+        self._shutdown_timeout_timer = timer
+
+    def _cancelar_timeout_cierre(self) -> None:
+        if self._shutdown_timeout_timer is None:
+            return
+        self._shutdown_timeout_timer.stop()
+        self._shutdown_timeout_timer.deleteLater()
+        self._shutdown_timeout_timer = None
+
+    def _on_shutdown_timeout(self) -> None:
+        decision = self._controlador_cierre.intentar_timeout(ids_jobs_activos=self._job_manager.ids_jobs_activos())
+        self._shutdown_timeout_timer = None
+        self._aplicar_timeout_si_corresponde(decision)
+
+    def _aplicar_timeout_si_corresponde(self, decision: DecisionCierre) -> None:
+        if not decision.restaurar_estado_ui:
+            return
+        self.sidebar.setEnabled(True)
+        self._job_cancel_btn.setEnabled(True)
+        self._busy_indicator.hide()
+        self._busy_label.setText(self._i18n.t(self._busy_default_key))
+        if decision.toast_key is not None:
+            self.toast_error(decision.toast_key)
+        self._sincronizar_estado_cierre()
 
     def _on_cierre_seguro_completado(self) -> None:
-        if not self._cierre_controlado_en_progreso:
-            return
-        self._cierre_controlado_en_progreso = False
-        self._permitir_cierre_directo = True
-        self.close()
+        self._cancelar_timeout_cierre()
+        decision = self._controlador_cierre.registrar_cierre_completado()
+        self._sincronizar_estado_cierre()
+        if decision.completar_cierre:
+            self.close()
+
+    def _sincronizar_estado_cierre(self) -> None:
+        self._cierre_controlado_en_progreso = self._controlador_cierre.cierre_en_progreso
+        self._permitir_cierre_directo = self._controlador_cierre.permitir_cierre_directo
 
     def _reset_job_status(self) -> None:
         self._active_job_id = None
