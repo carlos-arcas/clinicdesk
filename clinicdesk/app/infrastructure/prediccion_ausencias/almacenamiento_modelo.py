@@ -12,6 +12,7 @@ from clinicdesk.app.infrastructure.prediccion_ausencias.rutas_app import carpeta
 
 
 LOGGER = get_logger(__name__)
+MAX_SNAPSHOTS_HISTORIAL = 20
 
 
 @dataclass(frozen=True, slots=True)
@@ -28,6 +29,24 @@ class MetadataModeloPrediccion:
     precision_no_show: float | None = None
     recall_no_show: float | None = None
     f1_no_show: float | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class SnapshotEntrenamientoModelo:
+    fecha_entrenamiento: str
+    model_type: str
+    version: str
+    citas_usadas: int
+    muestras_train: int | None = None
+    muestras_validacion: int | None = None
+    accuracy: float | None = None
+    precision_no_show: float | None = None
+    recall_no_show: float | None = None
+    f1_no_show: float | None = None
+    calidad_ux: str = "ROJO"
+    ganador_criterio: str | None = None
+    baseline_f1: float | None = None
+    v2_f1: float | None = None
 
 
 class ModeloPrediccionNoDisponibleError(FileNotFoundError):
@@ -59,6 +78,9 @@ class AlmacenamientoModeloPrediccion:
         precision_no_show: float | None = None,
         recall_no_show: float | None = None,
         f1_no_show: float | None = None,
+        ganador_criterio: str | None = None,
+        baseline_f1: float | None = None,
+        v2_f1: float | None = None,
     ) -> MetadataModeloPrediccion:
         metadata = MetadataModeloPrediccion(
             fecha_entrenamiento=datetime.now(timezone.utc).isoformat(),
@@ -78,6 +100,24 @@ class AlmacenamientoModeloPrediccion:
             pickle.dump(predictor_entrenado, handle)
         with self._metadata_path().open("w", encoding="utf-8") as handle:
             json.dump(asdict(metadata), handle, ensure_ascii=False, indent=2)
+        self._guardar_snapshot_historial(
+            SnapshotEntrenamientoModelo(
+                fecha_entrenamiento=metadata.fecha_entrenamiento,
+                model_type=metadata.model_type,
+                version=metadata.version,
+                citas_usadas=metadata.citas_usadas,
+                muestras_train=metadata.muestras_train,
+                muestras_validacion=metadata.muestras_validacion,
+                accuracy=metadata.accuracy,
+                precision_no_show=metadata.precision_no_show,
+                recall_no_show=metadata.recall_no_show,
+                f1_no_show=metadata.f1_no_show,
+                calidad_ux=self._calcular_calidad_ux(metadata.accuracy, metadata.recall_no_show),
+                ganador_criterio=ganador_criterio,
+                baseline_f1=baseline_f1,
+                v2_f1=v2_f1,
+            )
+        )
         return metadata
 
     def cargar(self) -> tuple[Any, MetadataModeloPrediccion]:
@@ -100,6 +140,22 @@ class AlmacenamientoModeloPrediccion:
             )
             return None
 
+    def cargar_historial(self) -> list[SnapshotEntrenamientoModelo]:
+        if not self._historial_path().exists():
+            return []
+        try:
+            data = json.loads(self._historial_path().read_text(encoding="utf-8"))
+            if not isinstance(data, list):
+                raise ValueError("history_not_a_list")
+            snapshots = [SnapshotEntrenamientoModelo(**row) for row in data]
+        except Exception as exc:  # noqa: BLE001
+            LOGGER.warning(
+                "prediccion_history_no_legible",
+                extra={"reason_code": "history_load_failed", "error": str(exc)},
+            )
+            return []
+        return sorted(snapshots, key=lambda item: item.fecha_entrenamiento, reverse=True)
+
     def _leer_metadata(self) -> MetadataModeloPrediccion:
         data = json.loads(self._metadata_path().read_text(encoding="utf-8"))
         return MetadataModeloPrediccion(**data)
@@ -109,3 +165,24 @@ class AlmacenamientoModeloPrediccion:
 
     def _metadata_path(self) -> Path:
         return self._dir / "metadata.json"
+
+    def _historial_path(self) -> Path:
+        return self._dir / "history.json"
+
+    def _guardar_snapshot_historial(self, snapshot: SnapshotEntrenamientoModelo) -> None:
+        historial = self.cargar_historial()
+        historial.append(snapshot)
+        historial_truncado = sorted(historial, key=lambda item: item.fecha_entrenamiento, reverse=True)[
+            :MAX_SNAPSHOTS_HISTORIAL
+        ]
+        payload = [asdict(item) for item in historial_truncado]
+        with self._historial_path().open("w", encoding="utf-8") as handle:
+            json.dump(payload, handle, ensure_ascii=False, indent=2)
+
+    @staticmethod
+    def _calcular_calidad_ux(accuracy: float | None, recall_no_show: float | None) -> str:
+        if (accuracy or 0.0) >= 0.65 and (recall_no_show or 0.0) >= 0.6:
+            return "VERDE"
+        if (accuracy or 0.0) >= 0.5 and (recall_no_show or 0.0) >= 0.4:
+            return "AMARILLO"
+        return "ROJO"

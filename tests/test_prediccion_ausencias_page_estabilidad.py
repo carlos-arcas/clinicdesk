@@ -76,3 +76,10 @@ def test_resumen_modelo_usa_contrato_explicito_del_facade() -> None:
     attrs = [n.attr for n in ast.walk(metodo) if isinstance(n, ast.Attribute)]
     assert "obtener_resumen_ultimo_entrenamiento_uc" in attrs
     assert "cargar_metadata" not in attrs
+
+
+def test_historial_modelo_usa_contrato_explicito_del_facade() -> None:
+    metodo = _obtener_metodo("_actualizar_historial_entrenamientos")
+    attrs = [n.attr for n in ast.walk(metodo) if isinstance(n, ast.Attribute)]
+    assert "obtener_historial_entrenamientos_uc" in attrs
+    assert "cargar_historial" not in attrs

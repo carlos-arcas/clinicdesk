@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from clinicdesk.app.application.prediccion_ausencias.dtos import (
     DatosEntrenamientoPrediccion,
     ExplicacionRiesgoAusenciaDTO,
+    HistorialEntrenamientoModeloDTO,
     MetadataExplicacionRiesgoDTO,
     MotivoRiesgoDTO,
     PrediccionCitaDTO,
@@ -151,6 +152,9 @@ class EntrenarPrediccionAusencias:
                 precision_no_show=evaluacion_ganador.precision_no_show,
                 recall_no_show=evaluacion_ganador.recall_no_show,
                 f1_no_show=evaluacion_ganador.f1_no_show,
+                ganador_criterio=seleccion.criterio,
+                baseline_f1=evaluacion_baseline.f1_no_show,
+                v2_f1=evaluacion_v2.f1_no_show,
             )
         except OSError as exc:
             LOGGER.error(
@@ -410,6 +414,35 @@ class ObtenerResumenUltimoEntrenamientoPrediccion:
             recall_no_show=getattr(metadata, "recall_no_show", None),
             f1_no_show=getattr(metadata, "f1_no_show", None),
         )
+
+
+class ObtenerHistorialEntrenamientosPrediccion:
+    def __init__(self, almacenamiento: AlmacenamientoModeloPrediccion) -> None:
+        self._almacenamiento = almacenamiento
+
+    def ejecutar(self, limite: int = 5) -> list[HistorialEntrenamientoModeloDTO]:
+        snapshots = self._almacenamiento.cargar_historial()
+        if limite <= 0:
+            return []
+        return [
+            HistorialEntrenamientoModeloDTO(
+                fecha_entrenamiento=item.fecha_entrenamiento,
+                model_type=item.model_type,
+                version=item.version,
+                citas_usadas=item.citas_usadas,
+                muestras_train=item.muestras_train,
+                muestras_validacion=item.muestras_validacion,
+                accuracy=item.accuracy,
+                precision_no_show=item.precision_no_show,
+                recall_no_show=item.recall_no_show,
+                f1_no_show=item.f1_no_show,
+                calidad_ux=item.calidad_ux,
+                ganador_criterio=item.ganador_criterio,
+                baseline_f1=item.baseline_f1,
+                v2_f1=item.v2_f1,
+            )
+            for item in snapshots[:limite]
+        ]
 
 
 def _split_determinista_train_validacion(
