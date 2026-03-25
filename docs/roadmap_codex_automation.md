@@ -176,3 +176,41 @@ Cerrar la deuda de lectura de estado ML en `prediccion_ausencias` con un contrat
 ## Siguiente paso recomendado
 - Mantener este contrato y avanzar al cambio de predictor detrás de `model_type` sin tocar presentación.
 - Introducir histórico de entrenamientos consumiendo este DTO como base de compatibilidad.
+
+## Ciclo 6
+
+## Objetivo
+Introducir un predictor v2 dependency-free para `prediccion_ausencias` con comparación reproducible frente a baseline y selección determinista de `model_type` ganador, sin romper el contrato ML/UI de ciclos 4-5.
+
+## Cambios aplicados
+- Se incorporó `PredictorAusenciasV2` (probabilístico jerárquico) con suavizado bayesiano ligero y mezcla por soporte entre:
+  - tasa global,
+  - tasa por paciente,
+  - tasa por bucket de antelación.
+- Se añadió selector puro de modelo (`seleccion_modelo.py`) con criterio explícito y estable:
+  - `f1_no_show` > `recall_no_show` > `accuracy` > baseline en empate total.
+- `EntrenarPrediccionAusencias` ahora:
+  - entrena baseline y v2 sobre el mismo split determinista existente;
+  - evalúa ambos con las métricas ya estandarizadas;
+  - selecciona ganador por criterio reproducible;
+  - persiste predictor y `model_type` ganador en metadata.
+- Se agregó logging estructurado de cierre de entrenamiento con:
+  - `model_type_ganador`,
+  - métricas baseline,
+  - métricas v2,
+  - criterio de decisión.
+- La UI no requirió rediseño: continúa leyendo `model_type` y resumen del último entrenamiento con el contrato existente.
+
+## Tests ejecutados
+- `pytest -q tests/test_prediccion_ausencias_model_selection.py`
+- `pytest -q tests/test_prediccion_ausencias_usecases.py tests/test_prediccion_ausencias_resumen_modelo.py tests/test_prediccion_ausencias_facade_wiring.py`
+- `python -m scripts.gate_pr`
+
+## Riesgos abiertos
+- El predictor v2 está limitado por features disponibles (`paciente_id`, `no_vino`, `dias_antelacion`); sin señales adicionales, la ganancia esperada puede saturar.
+- El criterio prioriza recall/f1 de no-show (intencional), lo que puede sesgar ligeramente falsos positivos en cohorts particulares.
+- No existe histórico de entrenamientos aún; sólo último snapshot, por decisión de alcance del ciclo.
+
+## Siguiente paso recomendado
+- Añadir histórico acotado de entrenamientos (últimas N corridas) reutilizando el contrato de resumen actual.
+- Monitorear drift temporal por bucket de antelación y calibrar umbrales de riesgo si aparece degradación operacional.
