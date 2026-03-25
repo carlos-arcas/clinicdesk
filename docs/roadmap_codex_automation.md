@@ -77,3 +77,43 @@ Cerrar el hueco de workers no cooperativos sin forzar kill de hilos: timeout no 
 ## Siguiente paso recomendado
 - Añadir telemetría histórica de tiempos de shutdown por tipo de job y alertas operativas de timeouts repetidos.
 - Extender pruebas a escenarios multi-job no cooperativos con mezcla de jobs cooperativos.
+
+## Ciclo 3
+
+## Objetivo
+Unificar el entrenamiento de `prediccion_ausencias` con el contrato canónico de jobs premium (`MainWindow.run_premium_job` + `JobManager`) y eliminar el `QThread` local en la página.
+
+## Cambios aplicados
+- `PagePrediccionAusencias`:
+  - dejó de crear `QThread`/worker local para entrenar;
+  - ahora delega el arranque a un coordinador de entrenamiento premium;
+  - mantiene callbacks explícitos de éxito/fallo con `refresh` de salud/resultados/previsualización y limpieza de recordatorio.
+- Nueva pieza `CoordinadorEntrenamientoPrediccionAusencias`:
+  - encapsula el wiring de `run_premium_job`;
+  - construye `worker_factory(cancel_token, report_progress)` con progreso i18n (`preflight`, `entrenando`, `refrescando`, `done`);
+  - respeta cancelación cooperativa y normaliza fallos a `reason_code`.
+- `MainWindow`:
+  - `run_premium_job` ahora acepta `on_failed` opcional para notificar a la página y evitar estado atascado tras error.
+- i18n UX:
+  - nuevas claves de título/progreso para el entrenamiento de predicción de ausencias.
+- Guardarraíles/tests:
+  - tests unitarios para coordinador/worker premium;
+  - tests de handlers de página para no doble arranque, éxito y fallo normalizado;
+  - test AST estructural para congelar “sin `QThread` local” en la página.
+
+## Tests ejecutados
+- `pytest -q tests/ui/test_prediccion_ausencias_coordinador_entrenamiento.py`
+- `pytest -q tests/test_prediccion_ausencias_page_entrenamiento_handlers.py`
+- `pytest -q tests/guardrails/test_prediccion_ausencias_page_entrenamiento_job_manager_ast.py`
+- `python -m scripts.gate_pr`
+
+## Deuda cerrada en este ciclo
+- Entrenamiento de `prediccion_ausencias` fuera del carril de lifecycle común por uso de `QThread` local.
+
+## Riesgos abiertos
+- El caso de uso de entrenamiento sigue sin cancelación interna granular; la cancelación es cooperativa en bordes del worker y no interrumpe cómputo interno no cooperativo.
+- La página todavía concentra responsabilidades de presentación amplias fuera del flujo de entrenamiento (pendiente para iteraciones futuras pequeñas).
+
+## Siguiente paso recomendado
+- Extraer un coordinador adicional para “post-entrenamiento refresh” (salud + resultados + preview) y reducir tamaño de `page.py` sin cambiar comportamiento.
+- Añadir telemetría de duración por job `prediccion_ausencias_entrenar` para observar rendimiento y timeouts en cierre.
