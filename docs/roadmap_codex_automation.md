@@ -401,3 +401,29 @@ Congelar mejor el contrato operativo del gate con un glosario breve y smoke test
 ## Siguiente paso recomendado
 - Añadir una verificación ligera que falle si aparece un `reason_code` operativo nuevo sin entrada correspondiente en el glosario.
 - Mantener el contrato textual mínimo y evitar crecerlo con snapshots completos para no introducir fragilidad de wording.
+
+## Ciclo 13
+
+## Objetivo
+Cerrar fuga de mantenimiento del contrato operativo del gate para evitar desincronización entre `reason_code` reales y glosario documental.
+
+## Cambios aplicados
+- Se definió una fuente explícita y estable de `reason_code` operativos documentables:
+  - `REASON_CODES_OPERATIVOS_DOCTOR` en `doctor_entorno_calidad_core.py`.
+  - `REASON_CODES_OPERATIVOS_CANONICO` en `ejecucion_canonica.py`.
+  - `reason_codes_operativos_documentables()` en `scripts/gate_pr.py` como agregador canónico para documentación/chequeos.
+- Se agregó verificación de coherencia código↔docs en `tests/test_gate_reason_codes_docs_sync.py`:
+  - falla si aparece un `reason_code` operativo nuevo no documentado,
+  - falla si el glosario contiene códigos inexistentes.
+- Se mantuvo breve la documentación en `docs/ci_quality_gate.md`, referenciando la fuente de verdad en código sin ampliar el glosario.
+
+## Tests ejecutados
+- `pytest -q tests/test_doctor_entorno_calidad.py tests/test_ejecucion_canonica.py tests/test_gate_pr.py tests/test_gate_reason_codes_docs_sync.py`
+- `ruff check scripts/gate_pr.py scripts/quality_gate_components/doctor_entorno_calidad_core.py scripts/quality_gate_components/ejecucion_canonica.py tests/test_doctor_entorno_calidad.py tests/test_ejecucion_canonica.py tests/test_gate_reason_codes_docs_sync.py`
+
+## Riesgos abiertos
+- La sincronización depende de mantener el encabezado del glosario en `docs/ci_quality_gate.md`; si cambia, el test debe ajustar el selector de sección.
+- El alcance está acotado al contrato operativo gate/doctor/canónico (intencional); otros `reason_code` fuera de ese contrato no entran en este chequeo.
+
+## Siguiente paso recomendado
+- Exponer un check dedicado dentro del flujo de gate documental (si se decide), reutilizando la misma función canónica para no duplicar fuentes.

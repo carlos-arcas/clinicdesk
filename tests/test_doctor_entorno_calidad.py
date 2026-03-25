@@ -49,6 +49,16 @@ def test_doctor_entorno_alineado(monkeypatch: pytest.MonkeyPatch, tmp_path: Path
     assert Path(diagnostico.python_path) == Path(sys.executable).resolve()
 
 
+def test_reason_codes_operativos_doctor_registrados() -> None:
+    assert doctor.REASON_CODES_OPERATIVOS_DOCTOR == (
+        "TOOLCHAIN_LOCK_INVALIDO",
+        "DEPENDENCIAS_FALTANTES",
+        "TOOLCHAIN_DESALINEADO",
+        "WHEELHOUSE_REQUERIDO_NO_DISPONIBLE",
+        "RED_PROXY_REQUERIDA_SIN_WHEELHOUSE",
+    )
+
+
 def test_doctor_reporta_herramienta_faltante_con_comando_accionable(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:

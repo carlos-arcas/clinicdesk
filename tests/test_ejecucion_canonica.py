@@ -28,6 +28,10 @@ def test_resolver_ejecucion_canonica_reejecuta_con_venv_repo(monkeypatch: pytest
     assert decision.python_objetivo == python_venv
 
 
+def test_reason_codes_operativos_canonico_registrados() -> None:
+    assert ejecucion_canonica.REASON_CODES_OPERATIVOS_CANONICO == ("VENV_REPO_NO_DISPONIBLE",)
+
+
 def test_resolver_ejecucion_canonica_bloquea_si_falta_venv(monkeypatch: pytest.MonkeyPatch, repo_root: Path) -> None:
     monkeypatch.setattr(ejecucion_canonica.sys, "executable", "/usr/bin/python3")
     monkeypatch.delenv("CI", raising=False)

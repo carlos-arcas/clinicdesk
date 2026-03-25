@@ -9,6 +9,7 @@ import sys
 from .toolchain import COMANDO_SETUP, cargar_interprete_esperado
 
 MARCADOR_REEJECUCION = "CLINICDESK_REEJECUTADO_DESDE_VENV"
+REASON_CODES_OPERATIVOS_CANONICO = ("VENV_REPO_NO_DISPONIBLE",)
 
 
 @dataclass(frozen=True)
@@ -79,7 +80,7 @@ def renderizar_bloqueo(decision: DecisionEjecucionCanonica) -> tuple[str, ...]:
 
 def _mensaje_bloqueo(repo_root: Path, python_actual: Path, python_venv: Path) -> tuple[str, ...]:
     return (
-        "[canonico][reason_code] VENV_REPO_NO_DISPONIBLE",
+        f"[canonico][reason_code] {REASON_CODES_OPERATIVOS_CANONICO[0]}",
         "[canonico][estado] Bloqueo operativo local: el proyecto todavía no se validó funcionalmente.",
         "[canonico][error] El comando canónico requiere el Python del .venv del repo y no puede usar el intérprete actual.",
         f"[canonico][error] Intérprete actual: {python_actual}",

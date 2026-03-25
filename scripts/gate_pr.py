@@ -12,12 +12,14 @@ import subprocess
 import sys
 
 from scripts.quality_gate_components.doctor_entorno_calidad_core import (
+    REASON_CODES_OPERATIVOS_DOCTOR,
     clasificar_bloqueo_entorno,
     codigo_salida_estable,
     diagnosticar_entorno_calidad,
     renderizar_reporte,
 )
 from scripts.quality_gate_components.ejecucion_canonica import (
+    REASON_CODES_OPERATIVOS_CANONICO,
     reejecutar_en_python_objetivo,
     renderizar_bloqueo,
     resolver_ejecucion_canonica,
@@ -27,6 +29,10 @@ from scripts.quality_gate_components.toolchain import COMANDO_DOCTOR, COMANDO_SE
 REPO_ROOT = Path(__file__).resolve().parents[1]
 EXIT_ENTORNO_BLOQUEADO = 20
 VALIDACIONES_NO_EJECUTADAS = "lint, typecheck, pytest, cobertura, golden, i18n, seguridad"
+
+
+def reason_codes_operativos_documentables() -> tuple[str, ...]:
+    return tuple(sorted({*REASON_CODES_OPERATIVOS_CANONICO, *REASON_CODES_OPERATIVOS_DOCTOR}))
 
 
 def _preflight_entorno(repo_root: Path) -> int:
