@@ -1,31 +1,69 @@
 from __future__ import annotations
 
-from pathlib import Path
+import textwrap
 
 from scripts import gate_pr
+from scripts.quality_gate_components.contrato_reason_codes_doc import (
+    ErrorContratoReasonCodesDoc,
+    comparar_reason_codes,
+    extraer_reason_codes_documentados,
+)
 
 
-def _reason_codes_documentados_en_glosario(ruta_doc: Path) -> tuple[str, ...]:
-    lineas = ruta_doc.read_text(encoding="utf-8").splitlines()
-    inicio = lineas.index("## Glosario breve de `reason_code` operativo")
-    codigos: list[str] = []
-    for linea in lineas[inicio + 1 :]:
-        if linea.startswith("## "):
-            break
-        if not linea.startswith("| `"):
-            continue
-        partes = [parte.strip() for parte in linea.split("|")]
-        if len(partes) < 3:
-            continue
-        codigo = partes[1].strip("`")
-        if codigo == "reason_code":
-            continue
-        codigos.append(codigo)
-    return tuple(sorted(codigos))
+def _render_doc_glosario(
+    filas: tuple[str, ...],
+    *,
+    titulo: str = "## Glosario breve de `reason_code` operativo",
+) -> str:
+    tabla = "\n".join(filas)
+    return textwrap.dedent(
+        f"""
+        # Documento
+
+        {titulo}
+        <!-- GATE_REASON_CODES_GLOSARIO:START -->
+        | `reason_code` | Significado corto | Acción sugerida |
+        | --- | --- | --- |
+        {tabla}
+        <!-- GATE_REASON_CODES_GLOSARIO:END -->
+        """
+    ).strip()
 
 
 def test_glosario_reason_codes_sincronizado_con_codigo() -> None:
     ruta_doc = gate_pr.REPO_ROOT / "docs" / "ci_quality_gate.md"
-    codigos_documentados = _reason_codes_documentados_en_glosario(ruta_doc)
+    codigos_documentados = gate_pr.reason_codes_operativos_documentados_en_docs(ruta_doc)
     codigos_registrados = gate_pr.reason_codes_operativos_documentables()
-    assert codigos_documentados == codigos_registrados
+    resultado = comparar_reason_codes(canonicos=codigos_registrados, documentados=codigos_documentados)
+    assert resultado.en_sync
+
+
+def test_parser_no_depende_del_titulo_humano() -> None:
+    doc = _render_doc_glosario(
+        (
+            "| `TOOLCHAIN_LOCK_INVALIDO` | x | y |",
+            "| `DEPENDENCIAS_FALTANTES` | x | y |",
+        ),
+        titulo="## Título editado por humanos",
+    )
+    codigos = extraer_reason_codes_documentados(doc)
+    assert codigos == ("DEPENDENCIAS_FALTANTES", "TOOLCHAIN_LOCK_INVALIDO")
+
+
+def test_parser_falla_si_glosario_no_tiene_marcadores() -> None:
+    doc = "# Documento\n\n## Glosario\n| `reason_code` | a | b |"
+    try:
+        extraer_reason_codes_documentados(doc)
+    except ErrorContratoReasonCodesDoc as exc:
+        assert "marcador de inicio" in str(exc)
+    else:  # pragma: no cover
+        raise AssertionError("Se esperaba ErrorContratoReasonCodesDoc por glosario sin delimitadores.")
+
+
+def test_comparador_reporta_faltantes_y_sobrantes() -> None:
+    resultado = comparar_reason_codes(
+        canonicos=("A", "B"),
+        documentados=("B", "C"),
+    )
+    assert resultado.faltantes_en_doc == ("A",)
+    assert resultado.sobrantes_en_doc == ("C",)

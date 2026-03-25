@@ -427,3 +427,35 @@ Cerrar fuga de mantenimiento del contrato operativo del gate para evitar desincr
 
 ## Siguiente paso recomendado
 - Exponer un check dedicado dentro del flujo de gate documental (si se decide), reutilizando la misma función canónica para no duplicar fuentes.
+
+## Ciclo 14
+
+## Objetivo
+Endurecer el contrato de coherencia doc↔código de `reason_code` operativos del gate, eliminando dependencia de títulos frágiles y encapsulando verificación reutilizable.
+
+## Cambios aplicados
+- Se introdujo un anclaje documental estable en `docs/ci_quality_gate.md` con marcadores explícitos:
+  - `<!-- GATE_REASON_CODES_GLOSARIO:START -->`
+  - `<!-- GATE_REASON_CODES_GLOSARIO:END -->`
+- Se agregó helper reutilizable `scripts/quality_gate_components/contrato_reason_codes_doc.py` para:
+  - extraer `reason_code` documentados desde bloque delimitado,
+  - comparar contra códigos canónicos,
+  - fallar con error claro ante delimitación ausente/rota o divergencia doc↔código.
+- `scripts.gate_pr` expone `reason_codes_operativos_documentados_en_docs(ruta_doc)` para reutilización limpia por tests y futuras verificaciones documentales, manteniendo única fuente canónica en `reason_codes_operativos_documentables()`.
+- Se reforzó la suite de contrato en `tests/test_gate_reason_codes_docs_sync.py` con cobertura de:
+  - sincronización nominal,
+  - independencia de wording del título,
+  - fallo por glosario sin marcadores,
+  - diffs explícitos de faltantes/sobrantes.
+
+## Tests ejecutados
+- `pytest -q tests/test_gate_reason_codes_docs_sync.py`
+- `pytest -q tests/test_gate_pr.py tests/test_doctor_entorno_calidad.py tests/test_ejecucion_canonica.py`
+- `ruff check scripts/gate_pr.py scripts/quality_gate_components/contrato_reason_codes_doc.py tests/test_gate_reason_codes_docs_sync.py`
+
+## Riesgos abiertos
+- El parser asume formato de tabla markdown para filas (`| \`CODE\` | ... | ... |`); si cambia ese formato, habrá que ajustar el helper (intencional para mantenerlo pequeño y explícito).
+- La validación sigue en capa de tests; si se requiere enforcement en ejecución de gate documental, se puede reutilizar el helper sin duplicar lógica.
+
+## Siguiente paso recomendado
+- Reusar `validar_coherencia_reason_codes_doc(...)` en un check documental liviano del flujo canónico cuando se priorice enforcement fuera de tests.
