@@ -27,6 +27,7 @@ from clinicdesk.app.application.prediccion_ausencias.usecases import (
     EntrenamientoPrediccionError,
     EntrenarPrediccionAusencias,
     ObtenerExplicacionRiesgoAusenciaCita,
+    ObtenerResumenUltimoEntrenamientoPrediccion,
     PrevisualizarPrediccionAusencias,
     ResultadoEntrenamientoPrediccion,
 )
@@ -57,6 +58,7 @@ __all__ = [
     "EntrenarPrediccionAusencias",
     "MotivoRiesgoDTO",
     "ObtenerExplicacionRiesgoAusenciaCita",
+    "ObtenerResumenUltimoEntrenamientoPrediccion",
     "ObtenerRiesgoAusenciaParaCitas",
     "ListadoCitasPendientesCierreDTO",
     "ListarCitasPendientesCierre",

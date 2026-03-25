@@ -17,7 +17,7 @@ from PySide6.QtWidgets import (
     QWidget,
     QMessageBox,
 )
-from clinicdesk.app.application.prediccion_ausencias import ResumenEntrenamientoModeloDTO, ResultadoEntrenamientoPrediccion
+from clinicdesk.app.application.prediccion_ausencias import ResultadoEntrenamientoPrediccion
 from clinicdesk.app.application.prediccion_ausencias.resultados_recientes import DiagnosticoResultadosRecientes
 from clinicdesk.app.application.prediccion_ausencias.preferencias_recordatorio_entrenar import (
     DIAS_SNOOZE_POR_DEFECTO,
@@ -605,18 +605,7 @@ class PagePrediccionAusencias(QWidget):
         self.btn_salud_entrenar.setEnabled(habilitar)
 
     def _actualizar_resumen_modelo(self) -> None:
-        metadata = self._facade.obtener_salud_uc.lector_metadata.cargar_metadata()
-        if metadata is None:
-            resumen = ResumenEntrenamientoModeloDTO(None, None, None, None, None, None)
-        else:
-            resumen = ResumenEntrenamientoModeloDTO(
-                fecha_entrenamiento=metadata.fecha_entrenamiento,
-                model_type=getattr(metadata, "model_type", None),
-                muestras_train=getattr(metadata, "muestras_train", None),
-                muestras_validacion=getattr(metadata, "muestras_validacion", None),
-                accuracy=getattr(metadata, "accuracy", None),
-                recall_no_show=getattr(metadata, "recall_no_show", None),
-            )
+        resumen = self._facade.obtener_resumen_ultimo_entrenamiento_uc.ejecutar()
         estado_calidad = derivar_estado_calidad_modelo(resumen)
         self.lbl_resumen_fecha.setText(resumen.fecha_entrenamiento or "—")
         self.lbl_resumen_tipo.setText(resumen.model_type or "—")

@@ -98,9 +98,17 @@ class ResultadoCierreCitasDTO:
 
 @dataclass(frozen=True, slots=True)
 class ResumenEntrenamientoModeloDTO:
+    disponible: bool
+    reason_code: str | None
     fecha_entrenamiento: str | None
     model_type: str | None
+    version: str | None
+    citas_usadas: int | None
     muestras_train: int | None
     muestras_validacion: int | None
+    tasa_no_show_train: float | None
+    tasa_no_show_validacion: float | None
     accuracy: float | None
+    precision_no_show: float | None
     recall_no_show: float | None
+    f1_no_show: float | None

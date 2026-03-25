@@ -298,20 +298,63 @@ class ObtenerResumenUltimoEntrenamientoPrediccion:
         metadata = self._almacenamiento.cargar_metadata()
         if metadata is None:
             return ResumenEntrenamientoModeloDTO(
+                disponible=False,
+                reason_code="sin_metadata",
                 fecha_entrenamiento=None,
                 model_type=None,
+                version=None,
+                citas_usadas=None,
                 muestras_train=None,
                 muestras_validacion=None,
+                tasa_no_show_train=None,
+                tasa_no_show_validacion=None,
                 accuracy=None,
+                precision_no_show=None,
                 recall_no_show=None,
+                f1_no_show=None,
+            )
+        fecha_entrenamiento = getattr(metadata, "fecha_entrenamiento", None)
+        if not isinstance(fecha_entrenamiento, str) or not fecha_entrenamiento.strip():
+            LOGGER.warning(
+                "prediccion_resumen_metadata_incompleta",
+                extra={"reason_code": "fecha_entrenamiento_invalida", "metadata_type": type(metadata).__name__},
+            )
+            return ResumenEntrenamientoModeloDTO(
+                disponible=False,
+                reason_code="metadata_incompleta",
+                fecha_entrenamiento=None,
+                model_type=getattr(metadata, "model_type", None),
+                version=getattr(metadata, "version", None),
+                citas_usadas=getattr(metadata, "citas_usadas", None),
+                muestras_train=getattr(metadata, "muestras_train", None),
+                muestras_validacion=getattr(metadata, "muestras_validacion", None),
+                tasa_no_show_train=getattr(metadata, "tasa_no_show_train", None),
+                tasa_no_show_validacion=getattr(metadata, "tasa_no_show_validacion", None),
+                accuracy=getattr(metadata, "accuracy", None),
+                precision_no_show=getattr(metadata, "precision_no_show", None),
+                recall_no_show=getattr(metadata, "recall_no_show", None),
+                f1_no_show=getattr(metadata, "f1_no_show", None),
+            )
+        if getattr(metadata, "precision_no_show", None) is None or getattr(metadata, "f1_no_show", None) is None:
+            LOGGER.info(
+                "prediccion_resumen_metadata_legacy",
+                extra={"reason_code": "legacy_metadata", "fecha_entrenamiento": fecha_entrenamiento},
             )
         return ResumenEntrenamientoModeloDTO(
-            fecha_entrenamiento=metadata.fecha_entrenamiento,
-            model_type=metadata.model_type,
-            muestras_train=metadata.muestras_train,
-            muestras_validacion=metadata.muestras_validacion,
-            accuracy=metadata.accuracy,
-            recall_no_show=metadata.recall_no_show,
+            disponible=True,
+            reason_code=None,
+            fecha_entrenamiento=fecha_entrenamiento,
+            model_type=getattr(metadata, "model_type", None),
+            version=getattr(metadata, "version", None),
+            citas_usadas=getattr(metadata, "citas_usadas", None),
+            muestras_train=getattr(metadata, "muestras_train", None),
+            muestras_validacion=getattr(metadata, "muestras_validacion", None),
+            tasa_no_show_train=getattr(metadata, "tasa_no_show_train", None),
+            tasa_no_show_validacion=getattr(metadata, "tasa_no_show_validacion", None),
+            accuracy=getattr(metadata, "accuracy", None),
+            precision_no_show=getattr(metadata, "precision_no_show", None),
+            recall_no_show=getattr(metadata, "recall_no_show", None),
+            f1_no_show=getattr(metadata, "f1_no_show", None),
         )
 
 
