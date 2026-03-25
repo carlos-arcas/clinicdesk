@@ -309,3 +309,37 @@ Cerrar el bucle entre observabilidad ML y acción sugerida en `prediccion_ausenc
 ## Siguiente paso recomendado
 - Añadir agregación mínima de eventos del monitor (por sesión o por ventana temporal) para reducir ruido y observar cambios de estado.
 - Mantener la recomendación compacta y, si se requiere, incorporar en ciclo futuro una razón corta i18n (“por qué”) sin ampliar UI.
+
+## Ciclo 10
+
+## Objetivo
+Rematar el monitor ML compacto eliminando ruido de telemetría en recargas frecuentes y haciendo la recomendación operativa más explicable con una razón corta i18n.
+
+## Cambios aplicados
+- Se introdujo deduplicación ligera por sesión para `prediccion_monitor_ml_estado`:
+  - fingerprint estable del estado relevante (`estado_tendencia`, `alerta_activa`, `calidad_ultimo_entrenamiento`, `recomendacion_operativa`, `razon_corta`);
+  - emisión de telemetría sólo cuando ese fingerprint cambia;
+  - sin persistencia adicional y sin distribuir estado por múltiples componentes UI.
+- Se extendió la recomendación operativa con `razon_corta_i18n_key` en el contrato de aplicación.
+- La lógica de “razón corta” quedó en capa de aplicación/coordinador (no en la página), con casos compactos:
+  - alerta fuerte: `3 corridas seguidas en rojo`,
+  - empeora sin alerta: `la tendencia empeora`,
+  - sin acción con señal estable: `sin señales preocupantes`,
+  - sin historial suficiente: `no hay datos suficientes`.
+- `PagePrediccionAusencias` mantiene layout compacto y sólo renderiza:
+  - sigue mostrando recomendación principal;
+  - añade una única línea corta de razón i18n sin crear paneles nuevos.
+- i18n actualizado en ES/EN para etiqueta y motivos cortos del monitor.
+
+## Tests ejecutados
+- `pytest -q tests/test_tendencia_entrenamientos.py tests/test_prediccion_ausencias_resumen_modelo.py tests/test_prediccion_ausencias_page_estabilidad.py`
+- `ruff check clinicdesk/app/application/prediccion_ausencias/dtos.py clinicdesk/app/application/prediccion_ausencias/tendencia_entrenamientos.py clinicdesk/app/pages/prediccion_ausencias/coordinador_resumen_modelo.py clinicdesk/app/pages/prediccion_ausencias/page.py clinicdesk/app/i18n_catalogos/pred.py tests/test_tendencia_entrenamientos.py tests/test_prediccion_ausencias_resumen_modelo.py tests/test_prediccion_ausencias_page_estabilidad.py`
+- `python -m scripts.gate_pr`
+
+## Riesgos abiertos
+- La deduplicación es por sesión de página; al recrear la vista, el primer estado vuelve a emitirse (comportamiento esperado por simplicidad de alcance).
+- El fingerprint usa claves compactas i18n y estado operativo; si en futuro cambia la semántica de recomendación podría requerir ajuste de granularidad.
+
+## Siguiente paso recomendado
+- Medir volumen real de eventos tras dedupe para confirmar reducción de ruido en operación.
+- Mantener la razón corta compacta y evaluar sólo ajustes de wording i18n con feedback de uso real, sin ampliar superficie visual.

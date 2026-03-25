@@ -43,7 +43,20 @@ class EstadoMonitorMlDTO:
     calidad_ultimo_entrenamiento: str
     recomendacion_operativa: str
     recomendacion_i18n_key: str
+    recomendacion_razon_corta_i18n_key: str
     recomendacion_fuerte: bool
+
+
+@dataclass(slots=True)
+class DedupeTelemetriaMonitorMLSesion:
+    _ultimo_fingerprint: str | None = None
+
+    def debe_emitir(self, estado: EstadoMonitorMlDTO) -> bool:
+        fingerprint_actual = construir_fingerprint_estado_monitor_ml(estado)
+        if self._ultimo_fingerprint == fingerprint_actual:
+            return False
+        self._ultimo_fingerprint = fingerprint_actual
+        return True
 
 
 def derivar_estado_calidad_modelo(resumen: ResumenEntrenamientoModeloDTO) -> EstadoCalidadModeloDTO:
@@ -101,7 +114,18 @@ def derivar_estado_monitor_ml(
         calidad_ultimo_entrenamiento=_calidad_ultimo_entrenamiento(historial, estado_calidad),
         recomendacion_operativa=recomendacion.codigo,
         recomendacion_i18n_key=recomendacion.i18n_key,
+        recomendacion_razon_corta_i18n_key=recomendacion.razon_corta_i18n_key,
         recomendacion_fuerte=recomendacion.es_fuerte,
+    )
+
+
+def construir_fingerprint_estado_monitor_ml(estado: EstadoMonitorMlDTO) -> str:
+    return (
+        f"estado_tendencia={estado.estado_tendencia};"
+        f"alerta_activa={int(estado.alerta_activa)};"
+        f"calidad_ultimo_entrenamiento={estado.calidad_ultimo_entrenamiento};"
+        f"recomendacion_operativa={estado.recomendacion_operativa};"
+        f"razon_corta={estado.recomendacion_razon_corta_i18n_key}"
     )
 
 

@@ -144,4 +144,5 @@ class ResumenTendenciaHistorialDTO:
 class RecomendacionOperativaMonitorMLDTO:
     codigo: str
     i18n_key: str
+    razon_corta_i18n_key: str
     es_fuerte: bool

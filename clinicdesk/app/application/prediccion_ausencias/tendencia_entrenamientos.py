@@ -69,22 +69,29 @@ def derivar_recomendacion_operativa_monitor_ml(
             return RecomendacionOperativaMonitorMLDTO(
                 codigo=ACCION_REVISAR_DATOS,
                 i18n_key="prediccion_ausencias.recomendacion_operativa.accion_revisar_datos",
+                razon_corta_i18n_key="prediccion_ausencias.recomendacion_operativa.razon.rojos_consecutivos",
                 es_fuerte=True,
             )
         return RecomendacionOperativaMonitorMLDTO(
             codigo=ACCION_REENTRENAR,
             i18n_key="prediccion_ausencias.recomendacion_operativa.accion_reentrenar",
+            razon_corta_i18n_key="prediccion_ausencias.recomendacion_operativa.razon.rojos_consecutivos",
             es_fuerte=True,
         )
     if _tendencia_empeora(resumen_tendencia):
         return RecomendacionOperativaMonitorMLDTO(
             codigo=ACCION_MONITORIZAR,
             i18n_key="prediccion_ausencias.recomendacion_operativa.accion_monitorizar",
+            razon_corta_i18n_key="prediccion_ausencias.recomendacion_operativa.razon.tendencia_empeora",
             es_fuerte=False,
         )
+    razon_corta_i18n_key = "prediccion_ausencias.recomendacion_operativa.razon.sin_senales_preocupantes"
+    if _tendencia_no_disponible(resumen_tendencia):
+        razon_corta_i18n_key = "prediccion_ausencias.recomendacion_operativa.razon.sin_datos_suficientes"
     return RecomendacionOperativaMonitorMLDTO(
         codigo=SIN_ACCION,
         i18n_key="prediccion_ausencias.recomendacion_operativa.sin_accion",
+        razon_corta_i18n_key=razon_corta_i18n_key,
         es_fuerte=False,
     )
 
@@ -93,4 +100,11 @@ def _tendencia_empeora(resumen_tendencia: ResumenTendenciaHistorialDTO) -> bool:
     return (
         resumen_tendencia.tendencia_accuracy == TENDENCIA_EMPEORA
         or resumen_tendencia.tendencia_recall_no_show == TENDENCIA_EMPEORA
+    )
+
+
+def _tendencia_no_disponible(resumen_tendencia: ResumenTendenciaHistorialDTO) -> bool:
+    return (
+        resumen_tendencia.tendencia_accuracy == TENDENCIA_NO_DISPONIBLE
+        and resumen_tendencia.tendencia_recall_no_show == TENDENCIA_NO_DISPONIBLE
     )
