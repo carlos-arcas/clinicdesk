@@ -119,6 +119,10 @@ def test_recomendacion_fuerte_alerta_activa_con_calidad_roja() -> None:
 
     assert recomendacion.codigo == ACCION_REVISAR_DATOS
     assert recomendacion.es_fuerte is True
+    assert (
+        recomendacion.razon_corta_i18n_key
+        == "prediccion_ausencias.recomendacion_operativa.razon.rojos_consecutivos"
+    )
 
 
 def test_recomendacion_suave_si_tendencia_empeora_sin_alerta() -> None:
@@ -135,6 +139,10 @@ def test_recomendacion_suave_si_tendencia_empeora_sin_alerta() -> None:
 
     assert recomendacion.codigo == ACCION_MONITORIZAR
     assert recomendacion.es_fuerte is False
+    assert (
+        recomendacion.razon_corta_i18n_key
+        == "prediccion_ausencias.recomendacion_operativa.razon.tendencia_empeora"
+    )
 
 
 def test_recomendacion_sin_accion_en_mejora_estable_o_no_disponible() -> None:
@@ -156,7 +164,15 @@ def test_recomendacion_sin_accion_en_mejora_estable_o_no_disponible() -> None:
     )
 
     assert recomendacion_mejora.codigo == SIN_ACCION
+    assert (
+        recomendacion_mejora.razon_corta_i18n_key
+        == "prediccion_ausencias.recomendacion_operativa.razon.sin_senales_preocupantes"
+    )
     assert recomendacion_no_disponible.codigo == SIN_ACCION
+    assert (
+        recomendacion_no_disponible.razon_corta_i18n_key
+        == "prediccion_ausencias.recomendacion_operativa.razon.sin_datos_suficientes"
+    )
 
 
 def test_recomendacion_alerta_activa_sin_rojo_en_calidad_sugiere_reentrenar() -> None:
@@ -173,3 +189,7 @@ def test_recomendacion_alerta_activa_sin_rojo_en_calidad_sugiere_reentrenar() ->
     )
 
     assert recomendacion.codigo == ACCION_REENTRENAR
+    assert (
+        recomendacion.razon_corta_i18n_key
+        == "prediccion_ausencias.recomendacion_operativa.razon.rojos_consecutivos"
+    )

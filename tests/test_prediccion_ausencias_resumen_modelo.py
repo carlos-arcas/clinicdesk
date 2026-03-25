@@ -3,6 +3,9 @@ from __future__ import annotations
 from clinicdesk.app.application.prediccion_ausencias.dtos import ResumenEntrenamientoModeloDTO
 from clinicdesk.app.application.prediccion_ausencias.dtos import HistorialEntrenamientoModeloDTO
 from clinicdesk.app.pages.prediccion_ausencias.coordinador_resumen_modelo import (
+    DedupeTelemetriaMonitorMLSesion,
+    EstadoMonitorMlDTO,
+    construir_fingerprint_estado_monitor_ml,
     derivar_estado_calidad_modelo,
     derivar_estado_monitor_ml,
     derivar_estado_tendencia_historial,
@@ -83,6 +86,10 @@ def test_estado_monitor_ml_prioriza_alerta_y_recomendacion_fuerte() -> None:
     assert estado_monitor.alerta_activa is True
     assert estado_monitor.recomendacion_operativa == "ACCION_REVISAR_DATOS"
     assert estado_monitor.recomendacion_fuerte is True
+    assert (
+        estado_monitor.recomendacion_razon_corta_i18n_key
+        == "prediccion_ausencias.recomendacion_operativa.razon.rojos_consecutivos"
+    )
 
 
 def test_estado_monitor_ml_recomendacion_suave_si_empeora_sin_alerta() -> None:
@@ -112,6 +119,10 @@ def test_estado_monitor_ml_recomendacion_suave_si_empeora_sin_alerta() -> None:
     assert estado_monitor.alerta_activa is False
     assert estado_monitor.estado_tendencia == "EMPEORA"
     assert estado_monitor.recomendacion_operativa == "ACCION_MONITORIZAR"
+    assert (
+        estado_monitor.recomendacion_razon_corta_i18n_key
+        == "prediccion_ausencias.recomendacion_operativa.razon.tendencia_empeora"
+    )
 
 
 def test_estado_monitor_ml_sin_accion_si_no_hay_historial() -> None:
@@ -121,3 +132,49 @@ def test_estado_monitor_ml_sin_accion_si_no_hay_historial() -> None:
 
     assert estado_monitor.estado_tendencia == "NO_DISPONIBLE"
     assert estado_monitor.recomendacion_operativa == "SIN_ACCION"
+    assert (
+        estado_monitor.recomendacion_razon_corta_i18n_key
+        == "prediccion_ausencias.recomendacion_operativa.razon.sin_datos_suficientes"
+    )
+
+
+def _estado_monitor_base() -> EstadoMonitorMlDTO:
+    return EstadoMonitorMlDTO(
+        estado_tendencia="EMPEORA",
+        alerta_activa=False,
+        calidad_ultimo_entrenamiento="AMARILLO",
+        recomendacion_operativa="ACCION_MONITORIZAR",
+        recomendacion_i18n_key="prediccion_ausencias.recomendacion_operativa.accion_monitorizar",
+        recomendacion_razon_corta_i18n_key="prediccion_ausencias.recomendacion_operativa.razon.tendencia_empeora",
+        recomendacion_fuerte=False,
+    )
+
+
+def test_dedupe_telemetria_no_emite_si_fingerprint_no_cambia() -> None:
+    dedupe = DedupeTelemetriaMonitorMLSesion()
+    estado = _estado_monitor_base()
+
+    assert dedupe.debe_emitir(estado) is True
+    assert dedupe.debe_emitir(estado) is False
+
+
+def test_dedupe_telemetria_emite_si_fingerprint_cambia() -> None:
+    dedupe = DedupeTelemetriaMonitorMLSesion()
+    estado = _estado_monitor_base()
+    estado_actualizado = EstadoMonitorMlDTO(
+        estado_tendencia="ESTABLE",
+        alerta_activa=False,
+        calidad_ultimo_entrenamiento="AMARILLO",
+        recomendacion_operativa="SIN_ACCION",
+        recomendacion_i18n_key="prediccion_ausencias.recomendacion_operativa.sin_accion",
+        recomendacion_razon_corta_i18n_key=(
+            "prediccion_ausencias.recomendacion_operativa.razon.sin_senales_preocupantes"
+        ),
+        recomendacion_fuerte=False,
+    )
+
+    assert dedupe.debe_emitir(estado) is True
+    assert dedupe.debe_emitir(estado_actualizado) is True
+    assert construir_fingerprint_estado_monitor_ml(estado) != construir_fingerprint_estado_monitor_ml(
+        estado_actualizado
+    )

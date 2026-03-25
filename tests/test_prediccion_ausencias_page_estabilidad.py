@@ -83,3 +83,16 @@ def test_historial_modelo_usa_contrato_explicito_del_facade() -> None:
     attrs = [n.attr for n in ast.walk(metodo) if isinstance(n, ast.Attribute)]
     assert "obtener_historial_entrenamientos_uc" in attrs
     assert "cargar_historial" not in attrs
+
+
+def test_historial_modelo_renderiza_razon_corta_i18n() -> None:
+    metodo = _obtener_metodo("_actualizar_historial_entrenamientos")
+    attrs = [n.attr for n in ast.walk(metodo) if isinstance(n, ast.Attribute)]
+    assert "recomendacion_razon_corta_i18n_key" in attrs
+
+
+def test_registro_telemetria_monitor_aplica_dedupe() -> None:
+    metodo = _obtener_metodo("_registrar_telemetria_monitor_ml")
+    attrs = [n.attr for n in ast.walk(metodo) if isinstance(n, ast.Attribute)]
+    assert "_dedupe_telemetria_monitor_ml" in attrs
+    assert "debe_emitir" in attrs
