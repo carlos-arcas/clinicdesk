@@ -17,7 +17,7 @@ from PySide6.QtWidgets import (
     QWidget,
     QMessageBox,
 )
-from clinicdesk.app.application.prediccion_ausencias import ResultadoEntrenamientoPrediccion
+from clinicdesk.app.application.prediccion_ausencias import ResumenEntrenamientoModeloDTO, ResultadoEntrenamientoPrediccion
 from clinicdesk.app.application.prediccion_ausencias.resultados_recientes import DiagnosticoResultadosRecientes
 from clinicdesk.app.application.prediccion_ausencias.preferencias_recordatorio_entrenar import (
     DIAS_SNOOZE_POR_DEFECTO,
@@ -40,6 +40,7 @@ from clinicdesk.app.pages.prediccion_ausencias.cerrar_citas_antiguas_dialog impo
 from clinicdesk.app.pages.prediccion_ausencias.coordinador_entrenamiento import (
     CoordinadorEntrenamientoPrediccionAusencias,
 )
+from clinicdesk.app.pages.prediccion_ausencias.coordinador_resumen_modelo import derivar_estado_calidad_modelo
 from clinicdesk.app.pages.prediccion_ausencias.entrenar_worker import EntrenamientoFailPayload
 from clinicdesk.app.pages.prediccion_ausencias.error_handling import normalizar_error_entrenamiento
 from clinicdesk.app.pages.prediccion_ausencias.persistencia_recordatorio_entrenar_settings import (
@@ -107,6 +108,7 @@ class PagePrediccionAusencias(QWidget):
         root.addWidget(self._build_resultados_recientes())
         root.addWidget(self._build_paso_1())
         root.addWidget(self._build_paso_2())
+        root.addWidget(self._build_resumen_modelo())
         root.addWidget(self._build_paso_3())
         root.addWidget(self._build_activacion())
 
@@ -224,6 +226,23 @@ class PagePrediccionAusencias(QWidget):
         layout.addWidget(self.tabla)
         return self.box_paso_3
 
+    def _build_resumen_modelo(self) -> QWidget:
+        self.box_resumen_modelo = QGroupBox()
+        layout = QFormLayout(self.box_resumen_modelo)
+        self.lbl_resumen_fecha = QLabel("—")
+        self.lbl_resumen_tipo = QLabel("—")
+        self.lbl_resumen_split = QLabel("—")
+        self.lbl_resumen_accuracy = QLabel("—")
+        self.lbl_resumen_recall = QLabel("—")
+        self.lbl_resumen_calidad = QLabel("—")
+        layout.addRow(self._i18n.t("prediccion_ausencias.resumen_modelo.fecha"), self.lbl_resumen_fecha)
+        layout.addRow(self._i18n.t("prediccion_ausencias.resumen_modelo.tipo"), self.lbl_resumen_tipo)
+        layout.addRow(self._i18n.t("prediccion_ausencias.resumen_modelo.split"), self.lbl_resumen_split)
+        layout.addRow(self._i18n.t("prediccion_ausencias.resumen_modelo.accuracy"), self.lbl_resumen_accuracy)
+        layout.addRow(self._i18n.t("prediccion_ausencias.resumen_modelo.recall"), self.lbl_resumen_recall)
+        layout.addRow(self._i18n.t("prediccion_ausencias.resumen_modelo.calidad"), self.lbl_resumen_calidad)
+        return self.box_resumen_modelo
+
     def _build_activacion(self) -> QWidget:
         panel = QWidget()
         row = QHBoxLayout(panel)
@@ -239,6 +258,7 @@ class PagePrediccionAusencias(QWidget):
     def _comprobar_datos(self) -> None:
         self._actualizar_salud()
         self._actualizar_resultados_recientes()
+        self._actualizar_resumen_modelo()
         result = self._facade.comprobar_datos_uc.ejecutar()
         self._datos_aptos = result.apto_para_entrenar
         self.lbl_paso_1_estado.setText(
@@ -463,6 +483,7 @@ class PagePrediccionAusencias(QWidget):
             self._limpiar_recordatorio_por_entrenamiento()
             self._actualizar_salud()
             self._actualizar_resultados_recientes()
+            self._actualizar_resumen_modelo()
             self._cargar_previsualizacion()
             LOGGER.info(
                 "prediccion_entrenar_ok",
@@ -471,6 +492,8 @@ class PagePrediccionAusencias(QWidget):
                     "page": "prediccion_ausencias",
                     "citas_usadas": resultado.citas_usadas,
                     "fecha_metadata": resultado.fecha_entrenamiento,
+                    "accuracy": resultado.accuracy,
+                    "recall_no_show": resultado.recall_no_show,
                 },
             )
             self._registrar_telemetria("prediccion_entrenar", "ok")
@@ -581,6 +604,29 @@ class PagePrediccionAusencias(QWidget):
         self.btn_entrenar.setEnabled(habilitar)
         self.btn_salud_entrenar.setEnabled(habilitar)
 
+    def _actualizar_resumen_modelo(self) -> None:
+        metadata = self._facade.obtener_salud_uc.lector_metadata.cargar_metadata()
+        if metadata is None:
+            resumen = ResumenEntrenamientoModeloDTO(None, None, None, None, None, None)
+        else:
+            resumen = ResumenEntrenamientoModeloDTO(
+                fecha_entrenamiento=metadata.fecha_entrenamiento,
+                model_type=getattr(metadata, "model_type", None),
+                muestras_train=getattr(metadata, "muestras_train", None),
+                muestras_validacion=getattr(metadata, "muestras_validacion", None),
+                accuracy=getattr(metadata, "accuracy", None),
+                recall_no_show=getattr(metadata, "recall_no_show", None),
+            )
+        estado_calidad = derivar_estado_calidad_modelo(resumen)
+        self.lbl_resumen_fecha.setText(resumen.fecha_entrenamiento or "—")
+        self.lbl_resumen_tipo.setText(resumen.model_type or "—")
+        muestras_train = resumen.muestras_train if resumen.muestras_train is not None else 0
+        muestras_validacion = resumen.muestras_validacion if resumen.muestras_validacion is not None else 0
+        self.lbl_resumen_split.setText(f"{muestras_train}/{muestras_validacion}")
+        self.lbl_resumen_accuracy.setText(_formatear_porcentaje(resumen.accuracy))
+        self.lbl_resumen_recall.setText(_formatear_porcentaje(resumen.recall_no_show))
+        self.lbl_resumen_calidad.setText(self._i18n.t(estado_calidad.i18n_key))
+
     def _cargar_previsualizacion(self) -> None:
         result = self._facade.previsualizar_uc.ejecutar(limite=30)
         if result.estado == "SIN_MODELO":
@@ -690,6 +736,7 @@ class PagePrediccionAusencias(QWidget):
         self.box_resultados.setTitle(self._i18n.t("prediccion_ausencias.resultados.titulo"))
         self.box_paso_1.setTitle(self._i18n.t("prediccion_ausencias.paso_1.titulo"))
         self.box_paso_2.setTitle(self._i18n.t("prediccion_ausencias.paso_2.titulo"))
+        self.box_resumen_modelo.setTitle(self._i18n.t("prediccion_ausencias.resumen_modelo.titulo"))
         self.box_paso_3.setTitle(self._i18n.t("prediccion_ausencias.paso_3.titulo"))
         self.btn_salud_entrenar.setText(self._i18n.t("prediccion_ausencias.accion.entrenar"))
         self.btn_recordatorio_entrenar.setText(self._i18n.t("prediccion_ausencias.accion.entrenar"))
@@ -725,6 +772,7 @@ class PagePrediccionAusencias(QWidget):
                 self._i18n.t("prediccion_ausencias.tabla.riesgo"),
             ]
         )
+        self._actualizar_resumen_modelo()
         self._actualizar_resultados_recientes()
 
     def _recargar_opciones_periodo(self) -> None:
@@ -747,3 +795,9 @@ class PagePrediccionAusencias(QWidget):
             self._actualizar_salud()
             self._actualizar_resultados_recientes()
             self._comprobar_datos()
+
+
+def _formatear_porcentaje(valor: float | None) -> str:
+    if valor is None:
+        return "—"
+    return f"{valor * 100:.1f}%"

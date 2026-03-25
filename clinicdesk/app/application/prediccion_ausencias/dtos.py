@@ -94,3 +94,13 @@ class ResultadoCierreCitasDTO:
     actualizadas: int
     ignoradas: int
     errores: int
+
+
+@dataclass(frozen=True, slots=True)
+class ResumenEntrenamientoModeloDTO:
+    fecha_entrenamiento: str | None
+    model_type: str | None
+    muestras_train: int | None
+    muestras_validacion: int | None
+    accuracy: float | None
+    recall_no_show: float | None
