@@ -343,3 +343,35 @@ Rematar el monitor ML compacto eliminando ruido de telemetría en recargas frecu
 ## Siguiente paso recomendado
 - Medir volumen real de eventos tras dedupe para confirmar reducción de ruido en operación.
 - Mantener la razón corta compacta y evaluar sólo ajustes de wording i18n con feedback de uso real, sin ampliar superficie visual.
+
+## Ciclo 11
+
+## Objetivo
+Hacer explícito y trazable el bloqueo operativo del gate canónico para reducir tiempo perdido en entornos con `.venv` roto, toolchain incompleto o dependencia de red/proxy.
+
+## Cambios aplicados
+- `scripts.gate_pr` ahora emite un bloque de diagnóstico estable cuando aborta por entorno:
+  - `reason_code` y `categoria` de bloqueo operativo,
+  - detalle legible y `accion_sugerida`,
+  - lista explícita de validaciones que **no** se ejecutaron (para evitar falsos negativos funcionales).
+- Se introdujo una clasificación pequeña y estable en el doctor (`clasificar_bloqueo_entorno`) para distinguir:
+  - lock/toolchain inválido,
+  - dependencias faltantes,
+  - versiones desalineadas,
+  - wheelhouse requerido no disponible,
+  - dependencia de red/proxy sin wheelhouse.
+- El bloqueo canónico por `.venv` ausente/no utilizable ahora incluye `reason_code` explícito (`VENV_REPO_NO_DISPONIBLE`) en la salida.
+- Se reforzó cobertura de tests en gate/doctor/ejecución canónica para validar no solo `rc` sino también clasificación y mensaje.
+
+## Tests ejecutados
+- `pytest -q tests/test_gate_pr.py tests/test_doctor_entorno_calidad.py tests/test_ejecucion_canonica.py`
+- `ruff check scripts/gate_pr.py scripts/quality_gate_components/doctor_entorno_calidad_core.py scripts/quality_gate_components/ejecucion_canonica.py tests/test_gate_pr.py tests/test_doctor_entorno_calidad.py tests/test_ejecucion_canonica.py`
+- `python -m scripts.gate_pr` (reintento local para verificar contrato de bloqueo operativo según entorno actual)
+
+## Riesgos abiertos
+- La clasificación de red/proxy es diagnóstica (dependencia de red) y no confirma por sí sola un `403` remoto específico; se mantiene intencionalmente sin heurísticas intrusivas.
+- El contrato nuevo mejora trazabilidad local, pero no reemplaza observabilidad de CI remota cuando hay diferencias de infraestructura.
+
+## Siguiente paso recomendado
+- Añadir un mini “glosario de reason_code” en docs del gate para mapear cada código a acciones de remediación rápidas por perfil (dev local vs sandbox CI).
+- Consolidar en un smoke test adicional el texto de “validaciones no ejecutadas” para preservar el contrato ante futuros refactors de scripts.

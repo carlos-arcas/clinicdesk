@@ -186,6 +186,10 @@ def test_doctor_reporta_interprete_y_red_para_proxy(monkeypatch: pytest.MonkeyPa
     assert any("Python esperado .venv" in linea for linea in lineas)
     assert any("proxy configurado" in linea.lower() or "proxy detectado: sí" in linea.lower() for linea in lineas)
     assert "proxy" in diagnostico.diagnostico_red
+    clasificacion = doctor.clasificar_bloqueo_entorno(diagnostico)
+    assert clasificacion is not None
+    assert clasificacion.reason_code == "RED_PROXY_REQUERIDA_SIN_WHEELHOUSE"
+    assert any("[doctor][reason_code] RED_PROXY_REQUERIDA_SIN_WHEELHOUSE" in linea for linea in lineas)
 
 
 def test_doctor_explica_wheelhouse_invalido_por_variable_entorno(
@@ -226,8 +230,12 @@ def test_doctor_detecta_wheelhouse_incompleto(monkeypatch: pytest.MonkeyPatch, t
     def fake_run(command, **_kwargs):
         if command[:5] == [sys.executable, "-m", "pip", "cache", "dir"]:
             return _Resultado(0, stdout="/tmp/pip-cache")
-        if command[2] in {"ruff", "pytest", "mypy"}:
-            return _Resultado(0, stdout="ok 1.0.0")
+        if command[2] == "ruff":
+            return _Resultado(0, stdout="ruff 0.8.4")
+        if command[2] == "pytest":
+            return _Resultado(0, stdout="pytest 8.3.2")
+        if command[2] == "mypy":
+            return _Resultado(0, stdout="mypy 1.13.0")
         raise AssertionError(f"Comando inesperado: {command}")
 
     monkeypatch.setattr(doctor.subprocess, "run", fake_run)
@@ -238,3 +246,26 @@ def test_doctor_detecta_wheelhouse_incompleto(monkeypatch: pytest.MonkeyPatch, t
     assert any("Wheelhouse detalle" in linea for linea in lineas)
     assert any("pytest==8.3.2" in linea.lower() for linea in lineas)
     assert any("Faltan al menos" in linea for linea in lineas)
+
+
+def test_doctor_clasifica_wheelhouse_requerido_no_disponible(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    _escribir_lock_dev(tmp_path)
+    monkeypatch.setattr(doctor.metadata, "version", lambda nombre: "2.7.3" if nombre == "pip-audit" else "0.0.0")
+
+    def fake_run(command, **_kwargs):
+        if command[:5] == [sys.executable, "-m", "pip", "cache", "dir"]:
+            return _Resultado(0, stdout="/tmp/pip-cache")
+        if command[2] == "ruff":
+            return _Resultado(0, stdout="ruff 0.8.4")
+        if command[2] == "pytest":
+            return _Resultado(0, stdout="pytest 8.3.2")
+        if command[2] == "mypy":
+            return _Resultado(0, stdout="mypy 1.13.0")
+        raise AssertionError(f"Comando inesperado: {command}")
+
+    monkeypatch.setattr(doctor.subprocess, "run", fake_run)
+    diagnostico = doctor.diagnosticar_entorno_calidad(tmp_path, wheelhouse=tmp_path / "wheelhouse")
+    clasificacion = doctor.clasificar_bloqueo_entorno(diagnostico, exigir_wheelhouse=True)
+
+    assert clasificacion is not None
+    assert clasificacion.reason_code == "WHEELHOUSE_REQUERIDO_NO_DISPONIBLE"

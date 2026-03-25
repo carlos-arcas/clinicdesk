@@ -80,6 +80,16 @@ def test_preflight_entorno_explica_rc_20(monkeypatch, capsys) -> None:
 
     monkeypatch.setattr(gate_pr, "diagnosticar_entorno_calidad", lambda _root: _Diag())
     monkeypatch.setattr(gate_pr, "codigo_salida_estable", lambda _diag: 2)
+    monkeypatch.setattr(
+        gate_pr,
+        "clasificar_bloqueo_entorno",
+        lambda _diag: SimpleNamespace(
+            reason_code="DEPENDENCIAS_FALTANTES",
+            categoria="toolchain",
+            detalle="Faltan herramientas del gate en el intérprete activo.",
+            accion_sugerida="python -m pip install -r requirements-dev.txt",
+        ),
+    )
     monkeypatch.setattr(gate_pr, "renderizar_reporte", lambda _diag: ["[doctor][error] ruff ausente"])
 
     rc = gate_pr._preflight_entorno(gate_pr.REPO_ROOT)
@@ -88,4 +98,6 @@ def test_preflight_entorno_explica_rc_20(monkeypatch, capsys) -> None:
     assert rc == gate_pr.EXIT_ENTORNO_BLOQUEADO
     assert "rc=20" in err
     assert "todavía no se validó el proyecto" in err
+    assert "reason_code=DEPENDENCIAS_FALTANTES" in err
+    assert "Validaciones no ejecutadas" in err
     assert "scripts/setup.py" in err

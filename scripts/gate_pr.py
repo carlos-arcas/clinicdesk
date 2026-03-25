@@ -12,6 +12,7 @@ import subprocess
 import sys
 
 from scripts.quality_gate_components.doctor_entorno_calidad_core import (
+    clasificar_bloqueo_entorno,
     codigo_salida_estable,
     diagnosticar_entorno_calidad,
     renderizar_reporte,
@@ -38,11 +39,21 @@ def _preflight_entorno(repo_root: Path) -> int:
     if returncode_doctor == 0:
         return 0
 
+    clasificacion = clasificar_bloqueo_entorno(diagnostico)
     sys.stderr.write(
         "[gate-pr][entorno] Gate abortado por bloqueo del toolchain local; todavía no se validó el proyecto.\n"
     )
     sys.stderr.write(
         f"[gate-pr][entorno] rc={EXIT_ENTORNO_BLOQUEADO} significa bloqueo operativo local (doctor rc={returncode_doctor}), no fallo funcional del repositorio.\n"
+    )
+    if clasificacion is not None:
+        sys.stderr.write(
+            f"[gate-pr][diagnostico] reason_code={clasificacion.reason_code}; categoria={clasificacion.categoria}\n"
+        )
+        sys.stderr.write(f"[gate-pr][diagnostico] detalle={clasificacion.detalle}\n")
+        sys.stderr.write(f"[gate-pr][accion] Paso sugerido: {clasificacion.accion_sugerida}\n")
+    sys.stderr.write(
+        "[gate-pr][entorno] Validaciones no ejecutadas: lint, typecheck, pytest, cobertura, golden, i18n, seguridad.\n"
     )
     for linea in renderizar_reporte(diagnostico):
         sys.stderr.write(f"{linea}\n")
