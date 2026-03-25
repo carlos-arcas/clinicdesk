@@ -36,6 +36,7 @@ def test_resolver_ejecucion_canonica_bloquea_si_falta_venv(monkeypatch: pytest.M
 
     assert decision.accion == "bloquear"
     assert any("VENV_REPO_NO_DISPONIBLE" in linea for linea in decision.mensaje)
+    assert any("todavía no se validó funcionalmente" in linea for linea in decision.mensaje)
     assert any("python scripts/setup.py" in linea for linea in decision.mensaje)
     assert any("red/proxy/wheelhouse" in linea for linea in decision.mensaje)
 

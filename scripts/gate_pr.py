@@ -26,6 +26,7 @@ from scripts.quality_gate_components.toolchain import COMANDO_DOCTOR, COMANDO_SE
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 EXIT_ENTORNO_BLOQUEADO = 20
+VALIDACIONES_NO_EJECUTADAS = "lint, typecheck, pytest, cobertura, golden, i18n, seguridad"
 
 
 def _preflight_entorno(repo_root: Path) -> int:
@@ -53,7 +54,7 @@ def _preflight_entorno(repo_root: Path) -> int:
         sys.stderr.write(f"[gate-pr][diagnostico] detalle={clasificacion.detalle}\n")
         sys.stderr.write(f"[gate-pr][accion] Paso sugerido: {clasificacion.accion_sugerida}\n")
     sys.stderr.write(
-        "[gate-pr][entorno] Validaciones no ejecutadas: lint, typecheck, pytest, cobertura, golden, i18n, seguridad.\n"
+        f"[gate-pr][entorno] Validaciones no ejecutadas: {VALIDACIONES_NO_EJECUTADAS}.\n"
     )
     for linea in renderizar_reporte(diagnostico):
         sys.stderr.write(f"{linea}\n")

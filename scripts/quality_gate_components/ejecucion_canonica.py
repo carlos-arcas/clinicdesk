@@ -80,6 +80,7 @@ def renderizar_bloqueo(decision: DecisionEjecucionCanonica) -> tuple[str, ...]:
 def _mensaje_bloqueo(repo_root: Path, python_actual: Path, python_venv: Path) -> tuple[str, ...]:
     return (
         "[canonico][reason_code] VENV_REPO_NO_DISPONIBLE",
+        "[canonico][estado] Bloqueo operativo local: el proyecto todavía no se validó funcionalmente.",
         "[canonico][error] El comando canónico requiere el Python del .venv del repo y no puede usar el intérprete actual.",
         f"[canonico][error] Intérprete actual: {python_actual}",
         f"[canonico][error] Intérprete esperado: {python_venv}",

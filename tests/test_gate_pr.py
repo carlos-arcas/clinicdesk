@@ -101,3 +101,51 @@ def test_preflight_entorno_explica_rc_20(monkeypatch, capsys) -> None:
     assert "reason_code=DEPENDENCIAS_FALTANTES" in err
     assert "Validaciones no ejecutadas" in err
     assert "scripts/setup.py" in err
+
+
+def test_preflight_entorno_smoke_contrato_bloqueo_operativo(monkeypatch, capsys) -> None:
+    class _Interprete:
+        usa_python_repo = True
+
+    class _Diag:
+        toolchain_error = None
+        herramientas = ()
+        wheelhouse_disponible = False
+        wheelhouse = None
+        python_activo = "3.12.0"
+        python_path = "/tmp/python"
+        venv_activo = False
+        cache_pip = None
+        indice_pip = None
+        proxy_configurado = True
+        diagnostico_red = "proxy configurado"
+        source_of_truth = "requirements-dev.txt"
+        tiene_faltantes = False
+        tiene_desalineaciones = True
+        entorno_bloqueado = True
+        interprete = _Interprete()
+
+    monkeypatch.setattr(gate_pr, "diagnosticar_entorno_calidad", lambda _root: _Diag())
+    monkeypatch.setattr(gate_pr, "codigo_salida_estable", lambda _diag: 3)
+    monkeypatch.setattr(
+        gate_pr,
+        "clasificar_bloqueo_entorno",
+        lambda _diag: SimpleNamespace(
+            reason_code="TOOLCHAIN_DESALINEADO",
+            categoria="toolchain",
+            detalle="Hay versiones desalineadas respecto a requirements-dev.txt.",
+            accion_sugerida="python -m pip install -r requirements-dev.txt",
+        ),
+    )
+    monkeypatch.setattr(gate_pr, "renderizar_reporte", lambda _diag: ["[doctor][reason_code] TOOLCHAIN_DESALINEADO"])
+
+    rc = gate_pr._preflight_entorno(gate_pr.REPO_ROOT)
+
+    err = capsys.readouterr().err
+    assert rc == gate_pr.EXIT_ENTORNO_BLOQUEADO
+    assert "[gate-pr][entorno] rc=20" in err
+    assert "bloqueo operativo local" in err
+    assert "no fallo funcional del repositorio" in err
+    assert "reason_code=TOOLCHAIN_DESALINEADO" in err
+    assert "Paso sugerido: python -m pip install -r requirements-dev.txt" in err
+    assert f"Validaciones no ejecutadas: {gate_pr.VALIDACIONES_NO_EJECUTADAS}" in err
