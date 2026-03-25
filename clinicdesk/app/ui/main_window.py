@@ -124,6 +124,7 @@ class MainWindow(QMainWindow):
         self._job_toast_fail_by_id: dict[str, str] = {}
         self._job_toast_cancel_by_id: dict[str, str] = {}
         self._job_success_cb_by_id: dict[str, Callable[[object], None]] = {}
+        self._job_failed_cb_by_id: dict[str, Callable[[str], None]] = {}
         self._shutdown_timeout_ms = max(shutdown_timeout_ms, 0)
         self._controlador_cierre = ControladorCierreApp(timeout_ms=self._shutdown_timeout_ms)
         self._cierre_controlado_en_progreso = False
@@ -463,12 +464,15 @@ class MainWindow(QMainWindow):
         toast_failed_key: str,
         toast_cancelled_key: str,
         on_success=None,
+        on_failed=None,
     ) -> None:
         self._job_toast_success_by_id[job_id] = toast_success_key
         self._job_toast_fail_by_id[job_id] = toast_failed_key
         self._job_toast_cancel_by_id[job_id] = toast_cancelled_key
         if callable(on_success):
             self._job_success_cb_by_id[job_id] = on_success
+        if callable(on_failed):
+            self._job_failed_cb_by_id[job_id] = on_failed
         self._job_manager.run_job(job_id, title_key, worker_factory, cancellable=cancellable)
 
     def _on_job_started(self, state: JobState) -> None:
@@ -488,15 +492,19 @@ class MainWindow(QMainWindow):
         self._job_toast_fail_by_id.pop(state.id, None)
         self._job_toast_cancel_by_id.pop(state.id, None)
         callback = self._job_success_cb_by_id.pop(state.id, None)
+        self._job_failed_cb_by_id.pop(state.id, None)
         if callback is not None:
             callback(result)
 
-    def _on_job_failed(self, state: JobState, _error: str) -> None:
+    def _on_job_failed(self, state: JobState, error: str) -> None:
         self._reset_job_status()
         self.toast_error(self._job_toast_fail_by_id.pop(state.id, "job.failed"))
         self._job_toast_success_by_id.pop(state.id, None)
         self._job_toast_cancel_by_id.pop(state.id, None)
         self._job_success_cb_by_id.pop(state.id, None)
+        callback = self._job_failed_cb_by_id.pop(state.id, None)
+        if callback is not None:
+            callback(error)
 
     def _on_job_cancelled(self, state: JobState) -> None:
         self._reset_job_status()
@@ -504,6 +512,7 @@ class MainWindow(QMainWindow):
         self._job_toast_success_by_id.pop(state.id, None)
         self._job_toast_fail_by_id.pop(state.id, None)
         self._job_success_cb_by_id.pop(state.id, None)
+        self._job_failed_cb_by_id.pop(state.id, None)
 
     def _on_cancel_active_job(self) -> None:
         if self._active_job_id is None:

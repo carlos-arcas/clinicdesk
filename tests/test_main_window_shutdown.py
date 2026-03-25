@@ -96,3 +96,30 @@ def test_main_window_timeout_no_cierra_app_y_permite_reintento(qtbot, container)
     assert window._shutdown_timeout_timer is not None
     liberar_worker["ok"] = True
     qtbot.waitUntil(lambda: not window._job_manager.tiene_jobs_activos())
+
+
+def test_main_window_run_premium_job_invoca_callback_on_failed(qtbot, container) -> None:
+    window = MainWindow(container, I18nManager("es"), on_logout=lambda: None)
+    qtbot.addWidget(window)
+    window.show()
+    errores: list[str] = []
+
+    def worker_factory():
+        def _worker(_cancel_token, report_progress):
+            report_progress(15, "job.seed_demo.progress.preflight")
+            raise RuntimeError("fallo_controlado")
+
+        return _worker
+
+    window.run_premium_job(
+        job_id="job-fail-callback",
+        title_key="job.rotate_crypto.title",
+        worker_factory=worker_factory,
+        cancellable=True,
+        toast_success_key="job.done",
+        toast_failed_key="job.failed",
+        toast_cancelled_key="job.cancelled",
+        on_failed=errores.append,
+    )
+
+    qtbot.waitUntil(lambda: errores == ["fallo_controlado"])

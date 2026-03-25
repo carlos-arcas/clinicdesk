@@ -1,7 +1,7 @@
 from __future__ import annotations
 from datetime import date
 from pathlib import Path
-from PySide6.QtCore import QSettings, QThread, QTimer, Qt
+from PySide6.QtCore import QSettings, QTimer, Qt
 from PySide6.QtWidgets import (
     QComboBox,
     QCheckBox,
@@ -37,10 +37,10 @@ from clinicdesk.app.application.security import UserContext
 from clinicdesk.app.application.usecases.registrar_telemetria import RegistrarTelemetria
 from clinicdesk.app.infrastructure.prediccion_ausencias.incidentes import escribir_incidente_entrenamiento
 from clinicdesk.app.pages.prediccion_ausencias.cerrar_citas_antiguas_dialog import CerrarCitasAntiguasDialog
-from clinicdesk.app.pages.prediccion_ausencias.entrenar_worker import (
-    EntrenamientoFailPayload,
-    EntrenarPrediccionWorker,
+from clinicdesk.app.pages.prediccion_ausencias.coordinador_entrenamiento import (
+    CoordinadorEntrenamientoPrediccionAusencias,
 )
+from clinicdesk.app.pages.prediccion_ausencias.entrenar_worker import EntrenamientoFailPayload
 from clinicdesk.app.pages.prediccion_ausencias.error_handling import normalizar_error_entrenamiento
 from clinicdesk.app.pages.prediccion_ausencias.persistencia_recordatorio_entrenar_settings import (
     leer_preferencia_recordatorio_entrenar,
@@ -71,8 +71,10 @@ class PagePrediccionAusencias(QWidget):
         self._contexto_usuario = contexto_usuario
         self._datos_aptos = False
         self._entrenamiento_activo = False
-        self._entrenar_thread: QThread | None = None
-        self._entrenar_worker: EntrenarPrediccionWorker | None = None
+        self._coordinador_entrenamiento = CoordinadorEntrenamientoPrediccionAusencias(
+            entrenar_uc=self._facade.entrenar_uc,
+            proveedor_conexion=self._facade.proveedor_conexion,
+        )
         self._settings_key = "prediccion_ausencias/mostrar_riesgo_agenda"
         self._ventana_resultados_semanas = VENTANA_RESULTADOS_POR_DEFECTO
         self._token_resultados_diferidos = 0
@@ -416,7 +418,7 @@ class PagePrediccionAusencias(QWidget):
             if reason_code is not None:
                 self._set_estado_error(reason_code)
                 return
-            self._iniciar_entrenamiento_async()
+            self._iniciar_entrenamiento_premium()
         except Exception:  # noqa: BLE001
             LOGGER.exception(
                 "prediccion_entrenar_click_fail",
@@ -424,22 +426,29 @@ class PagePrediccionAusencias(QWidget):
             )
             self._set_estado_error("unexpected_error")
 
-    def _iniciar_entrenamiento_async(self) -> None:
+    def _iniciar_entrenamiento_premium(self) -> None:
         self._set_estado_running()
-        thread = QThread(self)
-        worker = EntrenarPrediccionWorker(self._facade.entrenar_uc, self._facade.proveedor_conexion)
-        worker.moveToThread(thread)
-        thread.started.connect(worker.run)
-        worker.ok.connect(self._on_entrenar_ok)
-        worker.fail.connect(self._on_entrenar_fail)
-        worker.ok.connect(thread.quit)
-        worker.fail.connect(thread.quit)
-        thread.finished.connect(worker.deleteLater)
-        thread.finished.connect(thread.deleteLater)
-        thread.finished.connect(self._on_entrenar_finish)
-        self._entrenar_thread = thread
-        self._entrenar_worker = worker
-        thread.start()
+
+        def on_success(resultado: object) -> None:
+            try:
+                self._on_entrenar_ok(resultado)
+            finally:
+                self._on_entrenar_finish()
+
+        def on_failed(error: str) -> None:
+            try:
+                self._on_entrenar_fail(error)
+            finally:
+                self._on_entrenar_finish()
+
+        lanzado = self._coordinador_entrenamiento.iniciar(
+            parent_window=self.window(),
+            on_success=on_success,
+            on_failed=on_failed,
+        )
+        if not lanzado:
+            self._set_estado_error("unexpected_error")
+            self._on_entrenar_finish()
 
     def _validar_entrenamiento(self) -> str | None:
         if self._entrenamiento_activo:
@@ -548,8 +557,6 @@ class PagePrediccionAusencias(QWidget):
     def _on_entrenar_finish(self) -> None:
         self._entrenamiento_activo = False
         self._actualizar_estado_botones()
-        self._entrenar_worker = None
-        self._entrenar_thread = None
 
     def _set_estado_running(self) -> None:
         self._entrenamiento_activo = True
