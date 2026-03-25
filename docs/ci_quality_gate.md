@@ -41,6 +41,7 @@ El doctor, el preflight del gate y las validaciones específicas de Ruff consume
 ## Glosario breve de `reason_code` operativo
 Fuente de verdad de códigos documentables del contrato operativo: `scripts.gate_pr.reason_codes_operativos_documentables()`.
 El bloque se ancla con marcadores estables para verificación automatizada (no depende del título humano).
+Check documental liviano reutilizable: `scripts.gate_pr.validar_contrato_reason_codes_doc(...)` (lo usa el quality gate canónico y también los tests de contrato).
 
 <!-- GATE_REASON_CODES_GLOSARIO:START -->
 | `reason_code` | Significado corto | Acción sugerida |
