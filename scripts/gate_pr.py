@@ -11,12 +11,11 @@ from pathlib import Path
 import subprocess
 import sys
 
+from scripts.quality_gate_components.bloqueo_operativo import reportar_bloqueo_operativo_doctor
 from scripts.quality_gate_components.doctor_entorno_calidad_core import (
     REASON_CODES_OPERATIVOS_DOCTOR,
-    clasificar_bloqueo_entorno,
     codigo_salida_estable,
     diagnosticar_entorno_calidad,
-    renderizar_reporte,
 )
 from scripts.quality_gate_components.contrato_reason_codes_doc import (
     ErrorContratoReasonCodesDoc,
@@ -30,7 +29,7 @@ from scripts.quality_gate_components.ejecucion_canonica import (
     renderizar_bloqueo,
     resolver_ejecucion_canonica,
 )
-from scripts.quality_gate_components.toolchain import COMANDO_DOCTOR, COMANDO_SETUP
+from scripts.quality_gate_components.toolchain import COMANDO_DOCTOR
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 VALIDACIONES_NO_EJECUTADAS = "lint, typecheck, pytest, cobertura, golden, i18n, seguridad"
@@ -66,32 +65,13 @@ def _preflight_entorno(repo_root: Path) -> int:
     if returncode_doctor == 0:
         return 0
 
-    clasificacion = clasificar_bloqueo_entorno(diagnostico)
-    sys.stderr.write(
-        "[gate-pr][entorno] Gate abortado por bloqueo del toolchain local; todavía no se validó el proyecto.\n"
+    return reportar_bloqueo_operativo_doctor(
+        etiqueta_gate="gate-pr",
+        returncode_doctor=returncode_doctor,
+        diagnostico=diagnostico,
+        comando_reintento=COMANDO_DOCTOR,
+        validaciones_no_ejecutadas=VALIDACIONES_NO_EJECUTADAS,
     )
-    sys.stderr.write(
-        f"[gate-pr][entorno] rc={EXIT_ENTORNO_BLOQUEADO} significa bloqueo operativo local (doctor rc={returncode_doctor}), no fallo funcional del repositorio.\n"
-    )
-    if clasificacion is not None:
-        sys.stderr.write(
-            f"[gate-pr][diagnostico] reason_code={clasificacion.reason_code}; categoria={clasificacion.categoria}\n"
-        )
-        sys.stderr.write(f"[gate-pr][diagnostico] detalle={clasificacion.detalle}\n")
-        sys.stderr.write(f"[gate-pr][accion] Paso sugerido: {clasificacion.accion_sugerida}\n")
-    sys.stderr.write(
-        f"[gate-pr][entorno] Validaciones no ejecutadas: {VALIDACIONES_NO_EJECUTADAS}.\n"
-    )
-    for linea in renderizar_reporte(diagnostico):
-        sys.stderr.write(f"{linea}\n")
-    sys.stderr.write(
-        f"[gate-pr][accion] Corrige el entorno con la guía anterior y reintenta: {COMANDO_DOCTOR}\n"
-    )
-    if hasattr(diagnostico, "interprete") and not diagnostico.interprete.usa_python_repo:
-        sys.stderr.write(
-            f"[gate-pr][accion] Si el venv del repo no está activo o quedó corrupto, recréalo con: {COMANDO_SETUP}\n"
-        )
-    return EXIT_ENTORNO_BLOQUEADO
 
 
 def main() -> int:

@@ -12,6 +12,11 @@ import subprocess
 import sys
 from pathlib import Path
 
+from scripts.quality_gate_components.bloqueo_operativo import reportar_bloqueo_operativo_doctor
+from scripts.quality_gate_components.doctor_entorno_calidad_core import (
+    codigo_salida_estable,
+    diagnosticar_entorno_calidad,
+)
 from scripts.quality_gate_components.ejecucion_canonica import (
     EXIT_ENTORNO_BLOQUEADO,
     reejecutar_en_python_objetivo,
@@ -21,6 +26,7 @@ from scripts.quality_gate_components.ejecucion_canonica import (
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 LOGGER = logging.getLogger(__name__)
+VALIDACIONES_NO_EJECUTADAS = "lint, typecheck, pytest, cobertura, golden, i18n, seguridad"
 
 
 def _build_env() -> dict[str, str]:
@@ -50,6 +56,23 @@ def main() -> int:
             "[gate-rapido][accion] Repara el entorno (.venv/toolchain) y reintenta `python -m scripts.gate_rapido`.\n"
         )
         return EXIT_ENTORNO_BLOQUEADO
+
+    try:
+        diagnostico = diagnosticar_entorno_calidad(REPO_ROOT)
+    except Exception:  # pragma: no cover
+        LOGGER.exception("[gate-rapido] Error inesperado ejecutando doctor de entorno previo al gate rápido.")
+        diagnostico = None
+        returncode_doctor = 0
+    else:
+        returncode_doctor = codigo_salida_estable(diagnostico)
+    if returncode_doctor != 0:
+        return reportar_bloqueo_operativo_doctor(
+            etiqueta_gate="gate-rapido",
+            returncode_doctor=returncode_doctor,
+            diagnostico=diagnostico,
+            comando_reintento="python -m scripts.gate_rapido",
+            validaciones_no_ejecutadas=VALIDACIONES_NO_EJECUTADAS,
+        )
 
     os.chdir(REPO_ROOT)
     comando = [

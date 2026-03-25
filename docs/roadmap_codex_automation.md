@@ -5,6 +5,32 @@
 - `MainWindow` ahora usa una ruta explícita de cierre controlado cuando detecta jobs activos.
 - `JobManager` tiene API pública para inspección/cancelación masiva/cierre seguro y limpieza integral de recursos.
 
+## Ciclo 17
+
+## Objetivo
+Cerrar la brecha de contrato operativo entre `python -m scripts.gate_pr` y `python -m scripts.gate_rapido` para bloqueos de doctor/preflight.
+
+## Cambios aplicados
+- Se agregó un helper pequeño compartido (`reportar_bloqueo_operativo_doctor`) para normalizar salida/rc de bloqueo operativo del doctor en ambos entrypoints canónicos.
+- `gate_pr` reutiliza el helper y conserva `EXIT_ENTORNO_BLOQUEADO=20` con semántica explícita de “todavía no se validó el proyecto”.
+- `gate_rapido` ahora ejecuta preflight de doctor antes de delegar al entrypoint report-only; cuando detecta bloqueo operativo retorna también `rc=20` con mensaje equivalente y acción sugerida.
+- Se añadieron tests de consistencia para cubrir:
+  - bloqueo doctor/preflight en `gate_rapido`,
+  - continuidad del flujo normal sin bloqueo,
+  - consistencia base de semántica/rc con `gate_pr`.
+
+## Tests ejecutados
+- `pytest -q tests/test_gate_rapido.py tests/test_gate_pr.py`
+- `ruff check scripts/gate_rapido.py scripts/gate_pr.py scripts/quality_gate_components/bloqueo_operativo.py tests/test_gate_rapido.py tests/test_gate_pr.py`
+- `python -m scripts.gate_pr`
+
+## Riesgos abiertos
+- El modo `report-only` de `entrypoint` conserva su `returncode` histórico; la normalización a `rc=20` ocurre en los entrypoints canónicos.
+- Si aparecen nuevos `reason_code` operativos en doctor, deben seguir documentándose y cubrirse en tests de contrato documental.
+
+## Siguiente paso recomendado
+- Añadir un test transversal ligero que ejerza explícitamente ambos entrypoints con el mismo diagnóstico simulado para reforzar la trazabilidad del contrato operativo compartido.
+
 ## Ciclo 1
 
 ## Objetivo
