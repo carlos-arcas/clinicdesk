@@ -45,6 +45,11 @@ I18N_CATALOGO_PREDICCION = {
         "prediccion_ausencias.historial.alerta.rojo_activa": "3 corridas seguidas en ROJO.",
         "prediccion_ausencias.historial.alerta.rojo_inactiva": "Sin alerta: no hay 3 corridas seguidas en ROJO.",
         "prediccion_ausencias.historial.alerta.sin_rojos": "Sin alerta: no hay corridas recientes en ROJO.",
+        "prediccion_ausencias.recomendacion_operativa.titulo": "Recomendación operativa",
+        "prediccion_ausencias.recomendacion_operativa.accion_reentrenar": "Reentrena pronto y revisa drift.",
+        "prediccion_ausencias.recomendacion_operativa.accion_revisar_datos": "Revisa calidad de datos y reentrena.",
+        "prediccion_ausencias.recomendacion_operativa.accion_monitorizar": "Seguimiento cercano; programa entrenamiento pronto.",
+        "prediccion_ausencias.recomendacion_operativa.sin_accion": "Sin acción inmediata.",
         "prediccion_ausencias.paso_1.total": "Citas válidas encontradas: {total}",
         "prediccion_ausencias.estado.datos_ok": "Listo para continuar.",
         "prediccion_ausencias.estado.datos_insuficientes": "Necesitamos al menos {minimo} citas con estado 'Asistió' o "
@@ -483,6 +488,11 @@ I18N_CATALOGO_PREDICCION = {
         "prediccion_ausencias.historial.alerta.rojo_activa": "3 consecutive RED runs.",
         "prediccion_ausencias.historial.alerta.rojo_inactiva": "No alert: there are not 3 consecutive RED runs.",
         "prediccion_ausencias.historial.alerta.sin_rojos": "No alert: there are no recent RED runs.",
+        "prediccion_ausencias.recomendacion_operativa.titulo": "Operational recommendation",
+        "prediccion_ausencias.recomendacion_operativa.accion_reentrenar": "Retrain soon and review drift.",
+        "prediccion_ausencias.recomendacion_operativa.accion_revisar_datos": "Review data quality and retrain.",
+        "prediccion_ausencias.recomendacion_operativa.accion_monitorizar": "Monitor closely and schedule retraining soon.",
+        "prediccion_ausencias.recomendacion_operativa.sin_accion": "No immediate action.",
 
         "demo_ml.playbook.panel.titulo": "Operational playbooks by goal",
         "demo_ml.playbook.panel.objetivo": "Goal",

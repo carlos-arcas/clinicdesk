@@ -41,8 +41,11 @@ from clinicdesk.app.pages.prediccion_ausencias.coordinador_entrenamiento import 
     CoordinadorEntrenamientoPrediccionAusencias,
 )
 from clinicdesk.app.pages.prediccion_ausencias.coordinador_resumen_modelo import (
+    EstadoCalidadModeloDTO,
+    EstadoMonitorMlDTO,
     construir_filas_historial_compacto,
     derivar_estado_calidad_modelo,
+    derivar_estado_monitor_ml,
     derivar_estado_tendencia_historial,
 )
 from clinicdesk.app.pages.prediccion_ausencias.entrenar_worker import EntrenamientoFailPayload
@@ -242,6 +245,8 @@ class PagePrediccionAusencias(QWidget):
         self.lbl_resumen_calidad = QLabel("—")
         self.lbl_resumen_tendencia = QLabel("—")
         self.lbl_resumen_alerta = QLabel("—")
+        self.lbl_resumen_recomendacion = QLabel("—")
+        self.lbl_resumen_recomendacion.setWordWrap(True)
         layout.addRow(self._i18n.t("prediccion_ausencias.resumen_modelo.fecha"), self.lbl_resumen_fecha)
         layout.addRow(self._i18n.t("prediccion_ausencias.resumen_modelo.tipo"), self.lbl_resumen_tipo)
         layout.addRow(self._i18n.t("prediccion_ausencias.resumen_modelo.split"), self.lbl_resumen_split)
@@ -250,6 +255,10 @@ class PagePrediccionAusencias(QWidget):
         layout.addRow(self._i18n.t("prediccion_ausencias.resumen_modelo.calidad"), self.lbl_resumen_calidad)
         layout.addRow(self._i18n.t("prediccion_ausencias.historial.tendencia.titulo"), self.lbl_resumen_tendencia)
         layout.addRow(self._i18n.t("prediccion_ausencias.historial.alerta.titulo"), self.lbl_resumen_alerta)
+        layout.addRow(
+            self._i18n.t("prediccion_ausencias.recomendacion_operativa.titulo"),
+            self.lbl_resumen_recomendacion,
+        )
         return self.box_resumen_modelo
 
     def _build_activacion(self) -> QWidget:
@@ -635,11 +644,12 @@ class PagePrediccionAusencias(QWidget):
         self.lbl_resumen_accuracy.setText(_formatear_porcentaje(resumen.accuracy))
         self.lbl_resumen_recall.setText(_formatear_porcentaje(resumen.recall_no_show))
         self.lbl_resumen_calidad.setText(self._i18n.t(estado_calidad.i18n_key))
-        self._actualizar_historial_entrenamientos()
+        self._actualizar_historial_entrenamientos(estado_calidad=estado_calidad)
 
-    def _actualizar_historial_entrenamientos(self) -> None:
+    def _actualizar_historial_entrenamientos(self, *, estado_calidad: EstadoCalidadModeloDTO) -> None:
         historial = self._facade.obtener_historial_entrenamientos_uc.ejecutar(limite=5)
         estado_tendencia = derivar_estado_tendencia_historial(historial)
+        estado_monitor_ml = derivar_estado_monitor_ml(historial, estado_calidad=estado_calidad)
         self.lbl_resumen_tendencia.setText(
             self._i18n.t("prediccion_ausencias.historial.tendencia.texto").format(
                 accuracy=self._i18n.t(estado_tendencia.tendencia_accuracy_i18n_key),
@@ -647,6 +657,8 @@ class PagePrediccionAusencias(QWidget):
             )
         )
         self.lbl_resumen_alerta.setText(self._i18n.t(estado_tendencia.alerta_i18n_key))
+        self.lbl_resumen_recomendacion.setText(self._i18n.t(estado_monitor_ml.recomendacion_i18n_key))
+        self._registrar_telemetria_monitor_ml(estado_monitor_ml)
         filas = construir_filas_historial_compacto(historial, limite=5)
         if not filas:
             self.lbl_historial_vacio.setText(self._i18n.t("prediccion_ausencias.historial.empty"))
@@ -768,6 +780,22 @@ class PagePrediccionAusencias(QWidget):
         self._recordatorio_oculto_sesion = False
         self._ultimo_motivo_recordatorio_log = None
         LOGGER.info("prediccion_recordatorio_clear", extra={"action": "prediccion_recordatorio_clear"})
+
+    def _registrar_telemetria_monitor_ml(self, estado_monitor_ml: EstadoMonitorMlDTO) -> None:
+        try:
+            self._telemetria_uc.ejecutar(
+                contexto_usuario=self._contexto_usuario,
+                evento="prediccion_monitor_ml_estado",
+                contexto=(
+                    "page=prediccion_ausencias;"
+                    f"estado_tendencia={estado_monitor_ml.estado_tendencia};"
+                    f"alerta_activa={int(estado_monitor_ml.alerta_activa)};"
+                    f"calidad_ultimo_entrenamiento={estado_monitor_ml.calidad_ultimo_entrenamiento};"
+                    f"recomendacion_operativa={estado_monitor_ml.recomendacion_operativa}"
+                ),
+            )
+        except Exception:
+            return
 
     def _retranslate(self) -> None:
         self.box_salud.setTitle(self._i18n.t("prediccion_ausencias.salud.titulo"))

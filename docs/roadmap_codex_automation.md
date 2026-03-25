@@ -277,3 +277,35 @@ Cerrar el valor operativo del histórico ligero (`history.json`) con tendencia m
 ## Siguiente paso recomendado
 - Añadir una recomendación operativa contextual (acción sugerida) cuando la alerta esté activa, manteniendo el mismo contrato compacto.
 - Evaluar si conviene registrar también delta numérico (además de etiqueta) en telemetry interna, sin añadir complejidad visual.
+
+## Ciclo 9
+
+## Objetivo
+Cerrar el bucle entre observabilidad ML y acción sugerida en `prediccion_ausencias` con una recomendación operativa compacta y telemetría mínima de estado de monitor.
+
+## Cambios aplicados
+- Se añadió una regla pura y testeable de recomendación operativa en `tendencia_entrenamientos.py` con prioridad explícita:
+  - alerta activa (`3` rojos consecutivos) ⇒ recomendación fuerte (`ACCION_REVISAR_DATOS` o `ACCION_REENTRENAR`),
+  - sin alerta + tendencia en empeoramiento ⇒ recomendación suave (`ACCION_MONITORIZAR`),
+  - estable/mejora/no disponible ⇒ `SIN_ACCION`.
+- Se extendió el coordinador de resumen para derivar `EstadoMonitorMlDTO` (estado_tendencia, alerta_activa, calidad_ultimo_entrenamiento, recomendacion_operativa).
+- `PagePrediccionAusencias` incorporó un único bloque compacto de “Recomendación operativa” y delega toda la lógica de decisión al coordinador/helper puro (sin lógica en la página).
+- Se añadió telemetría ligera del monitor ML con evento `prediccion_monitor_ml_estado`, registrando:
+  - `estado_tendencia`,
+  - `alerta_activa`,
+  - `calidad_ultimo_entrenamiento`,
+  - `recomendacion_operativa`.
+- i18n actualizado con claves ES/EN para el bloque y los textos de recomendación operativa.
+
+## Tests ejecutados
+- `pytest -q tests/test_tendencia_entrenamientos.py tests/test_prediccion_ausencias_resumen_modelo.py tests/test_prediccion_ausencias_page_estabilidad.py`
+- `ruff check clinicdesk/app/application/prediccion_ausencias/dtos.py clinicdesk/app/application/prediccion_ausencias/tendencia_entrenamientos.py clinicdesk/app/pages/prediccion_ausencias/coordinador_resumen_modelo.py clinicdesk/app/pages/prediccion_ausencias/page.py clinicdesk/app/i18n_catalogos/pred.py tests/test_tendencia_entrenamientos.py tests/test_prediccion_ausencias_resumen_modelo.py tests/test_prediccion_ausencias_page_estabilidad.py`
+- `python -m scripts.gate_pr`
+
+## Riesgos abiertos
+- La recomendación operativa sigue una regla pequeña intencional; puede necesitar ajuste fino de umbrales con evidencia real.
+- La telemetría se registra al refrescar el bloque de resumen, por lo que puede generar eventos repetidos si la vista se recarga frecuentemente.
+
+## Siguiente paso recomendado
+- Añadir agregación mínima de eventos del monitor (por sesión o por ventana temporal) para reducir ruido y observar cambios de estado.
+- Mantener la recomendación compacta y, si se requiere, incorporar en ciclo futuro una razón corta i18n (“por qué”) sin ampliar UI.

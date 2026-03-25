@@ -138,3 +138,10 @@ class ResumenTendenciaHistorialDTO:
     tendencia_recall_no_show: str
     alerta_rojo_consecutivo: bool
     rojos_consecutivos: int
+
+
+@dataclass(frozen=True, slots=True)
+class RecomendacionOperativaMonitorMLDTO:
+    codigo: str
+    i18n_key: str
+    es_fuerte: bool
