@@ -84,6 +84,14 @@ class DiagnosticoEntornoCalidad:
         return self.toolchain_error is not None or self.tiene_faltantes or self.tiene_desalineaciones
 
 
+@dataclass(frozen=True)
+class ClasificacionBloqueoEntorno:
+    reason_code: str
+    categoria: str
+    accion_sugerida: str
+    detalle: str
+
+
 def diagnosticar_entorno_calidad(repo_root: Path, wheelhouse: Path | None = None) -> DiagnosticoEntornoCalidad:
     wheelhouse_path = resolver_wheelhouse(repo_root) if wheelhouse is None else wheelhouse
     indice_pip = _indice_pip()
@@ -129,7 +137,49 @@ def codigo_salida_estable(diagnostico: DiagnosticoEntornoCalidad, exigir_wheelho
     return 0
 
 
+def clasificar_bloqueo_entorno(
+    diagnostico: DiagnosticoEntornoCalidad, exigir_wheelhouse: bool = False
+) -> ClasificacionBloqueoEntorno | None:
+    if diagnostico.toolchain_error is not None:
+        return ClasificacionBloqueoEntorno(
+            reason_code="TOOLCHAIN_LOCK_INVALIDO",
+            categoria="toolchain",
+            accion_sugerida=COMANDO_REGENERAR_LOCK,
+            detalle="El lock dev no es válido/coherente y el gate no puede validar el repositorio.",
+        )
+    if diagnostico.tiene_faltantes:
+        return ClasificacionBloqueoEntorno(
+            reason_code="DEPENDENCIAS_FALTANTES",
+            categoria="toolchain",
+            accion_sugerida=COMANDO_REINSTALAR_LOCK,
+            detalle="Faltan herramientas del gate en el intérprete activo.",
+        )
+    if diagnostico.tiene_desalineaciones:
+        return ClasificacionBloqueoEntorno(
+            reason_code="TOOLCHAIN_DESALINEADO",
+            categoria="toolchain",
+            accion_sugerida=COMANDO_REINSTALAR_LOCK,
+            detalle="Hay versiones desalineadas respecto a requirements-dev.txt.",
+        )
+    if exigir_wheelhouse and not diagnostico.wheelhouse_disponible:
+        return ClasificacionBloqueoEntorno(
+            reason_code="WHEELHOUSE_REQUERIDO_NO_DISPONIBLE",
+            categoria="wheelhouse",
+            accion_sugerida=COMANDO_BUILD_WHEELHOUSE,
+            detalle="El modo offline está exigido y el wheelhouse no cubre el lock.",
+        )
+    if not diagnostico.wheelhouse_disponible and diagnostico.proxy_configurado:
+        return ClasificacionBloqueoEntorno(
+            reason_code="RED_PROXY_REQUERIDA_SIN_WHEELHOUSE",
+            categoria="red_proxy",
+            accion_sugerida=COMANDO_DOCTOR,
+            detalle="Sin wheelhouse, la reinstalación depende de proxy/red y puede bloquearse.",
+        )
+    return None
+
+
 def renderizar_reporte(diagnostico: DiagnosticoEntornoCalidad, exigir_wheelhouse: bool = False) -> list[str]:
+    clasificacion = clasificar_bloqueo_entorno(diagnostico, exigir_wheelhouse=exigir_wheelhouse)
     interprete = diagnostico.interprete
     lineas = [
         "[doctor] Diagnóstico de entorno de calidad",
@@ -150,6 +200,14 @@ def renderizar_reporte(diagnostico: DiagnosticoEntornoCalidad, exigir_wheelhouse
         f"[doctor] Wheelhouse: {diagnostico.wheelhouse} ({_estado_wheelhouse(diagnostico)})",
         f"[doctor] Wheelhouse detalle: {diagnostico.wheelhouse_detalle}",
     ]
+    if clasificacion is not None:
+        lineas.extend(
+            [
+                f"[doctor][reason_code] {clasificacion.reason_code}",
+                f"[doctor][clasificacion] categoria={clasificacion.categoria}; detalle={clasificacion.detalle}",
+                f"[doctor][accion] Siguiente paso sugerido: {clasificacion.accion_sugerida}",
+            ]
+        )
     if diagnostico.toolchain_error is not None:
         lineas.extend(
             [
