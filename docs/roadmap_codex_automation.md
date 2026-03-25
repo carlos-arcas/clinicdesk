@@ -482,3 +482,30 @@ Integrar la validación doc↔`reason_code` como check documental liviano dentro
 
 ## Siguiente paso recomendado
 - Reusar el mismo check en `gate_rapido` solo si se prioriza detección más temprana, manteniendo `gate_pr.validar_contrato_reason_codes_doc(...)` como única lógica invocable.
+
+## Ciclo 16
+
+## Objetivo
+Alinear el contrato operativo de bloqueo por entorno entre `python -m scripts.gate_pr` y `python -m scripts.gate_rapido`, manteniendo cambio mínimo y trazabilidad clara sin alterar el flujo funcional del gate.
+
+## Cambios aplicados
+- Se consolidó el `rc` operativo estable de bloqueo en la capa canónica compartida (`scripts.quality_gate_components.ejecucion_canonica.EXIT_ENTORNO_BLOQUEADO = 20`) y `gate_pr` pasó a reutilizar esa constante.
+- `scripts.gate_rapido` ahora devuelve `rc=20` cuando `resolver_ejecucion_canonica(...)` decide `bloquear`, en lugar de `1` genérico.
+- En el bloqueo canónico de `gate_rapido` se añadió salida trazable mínima para evitar confusión con fallo funcional:
+  - identifica bloqueo operativo local;
+  - explicita que no equivale a fallo funcional del repositorio;
+  - sugiere reparar `.venv/toolchain` y reintentar el comando canónico.
+- Se agregó prueba específica de contrato para `gate_rapido` bloqueado por canónico (`rc`, semántica de mensaje y acción sugerida).
+- Se actualizó documentación corta del gate para indicar que `rc=20` tiene la misma semántica en gate completo y gate rápido.
+
+## Tests ejecutados
+- `pytest -q tests/test_gate_rapido.py`
+- `pytest -q tests/test_gate_pr.py tests/test_ejecucion_canonica.py`
+- `ruff check scripts/gate_rapido.py scripts/gate_pr.py scripts/quality_gate_components/ejecucion_canonica.py tests/test_gate_rapido.py`
+
+## Riesgos abiertos
+- La coherencia de `rc=20` queda alineada para bloqueo canónico, pero futuros tipos de bloqueo operativo nuevos deben seguir reutilizando la misma constante compartida para evitar drift.
+- El mensaje de `gate_rapido` se mantiene deliberadamente breve; si se amplía en ciclos futuros conviene conservar smoke tests de semántica mínima (no wording exacto).
+
+## Siguiente paso recomendado
+- Añadir un smoke test transversal de consistencia `gate_pr`/`gate_rapido` sobre `rc` operativo compartido para prevenir regresiones al tocar entrypoints canónicos.
