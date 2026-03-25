@@ -40,7 +40,9 @@ El doctor, el preflight del gate y las validaciones específicas de Ruff consume
 
 ## Glosario breve de `reason_code` operativo
 Fuente de verdad de códigos documentables del contrato operativo: `scripts.gate_pr.reason_codes_operativos_documentables()`.
+El bloque se ancla con marcadores estables para verificación automatizada (no depende del título humano).
 
+<!-- GATE_REASON_CODES_GLOSARIO:START -->
 | `reason_code` | Significado corto | Acción sugerida |
 | --- | --- | --- |
 | `VENV_REPO_NO_DISPONIBLE` | El comando canónico no puede usar el Python esperado del repo (`.venv`). | `python scripts/setup.py` y reintentar el comando canónico. |
@@ -49,6 +51,7 @@ Fuente de verdad de códigos documentables del contrato operativo: `scripts.gate
 | `TOOLCHAIN_DESALINEADO` | Hay tooling instalado con versión distinta al lock. | `python -m pip install -r requirements-dev.txt`. |
 | `WHEELHOUSE_REQUERIDO_NO_DISPONIBLE` | Se exigió modo offline y el wheelhouse no cubre el lock. | `python -m scripts.build_wheelhouse` y repetir doctor/gate. |
 | `RED_PROXY_REQUERIDA_SIN_WHEELHOUSE` | Sin wheelhouse utilizable, la reparación depende de red/proxy. | `python -m scripts.doctor_entorno_calidad` y corregir proxy/red o generar wheelhouse. |
+<!-- GATE_REASON_CODES_GLOSARIO:END -->
 
 ## Entornos con proxy/red restringida
 - Si no hay wheelhouse, `setup.py` deja claro que la instalación depende de red/proxy reales.
