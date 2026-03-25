@@ -15,6 +15,7 @@ from clinicdesk.app.application.prediccion_ausencias.usecases import (
     ComprobarDatosPrediccionAusencias,
     EntrenamientoPrediccionError,
     EntrenarPrediccionAusencias,
+    ObtenerHistorialEntrenamientosPrediccion,
     ObtenerResumenUltimoEntrenamientoPrediccion,
     PrevisualizarPrediccionAusencias,
     _evaluar_predictor,
@@ -23,6 +24,7 @@ from clinicdesk.app.application.prediccion_ausencias.usecases import (
 from clinicdesk.app.domain.prediccion_ausencias import RegistroEntrenamiento
 from clinicdesk.app.infrastructure.prediccion_ausencias import (
     AlmacenamientoModeloPrediccion,
+    MAX_SNAPSHOTS_HISTORIAL,
     PredictorAusenciasBaseline,
     PredictorAusenciasV2,
 )
@@ -106,7 +108,9 @@ def test_entrenar_guarda_modelo_actualiza_metadata_y_recarga_predice(db_connecti
     predictor, metadata = almacenamiento.cargar()
     predicciones = predictor.predecir([])
     metadata_path = almacenamiento.carpeta_modelo / "metadata.json"
+    history_path = almacenamiento.carpeta_modelo / "history.json"
     metadata_json = json.loads(metadata_path.read_text(encoding="utf-8"))
+    history_json = json.loads(history_path.read_text(encoding="utf-8"))
 
     assert resultado.citas_usadas == 60
     assert metadata.citas_usadas == 60
@@ -121,6 +125,10 @@ def test_entrenar_guarda_modelo_actualiza_metadata_y_recarga_predice(db_connecti
     assert metadata_json["muestras_train"] == 48
     assert metadata_json["muestras_validacion"] == 12
     assert datetime.fromisoformat(metadata_json["fecha_entrenamiento"])
+    assert len(history_json) == 1
+    assert history_json[0]["fecha_entrenamiento"] == metadata_json["fecha_entrenamiento"]
+    assert history_json[0]["model_type"] == metadata_json["model_type"]
+    assert history_json[0]["calidad_ux"] in {"VERDE", "AMARILLO", "ROJO"}
     assert predicciones == []
 
 
@@ -426,3 +434,61 @@ def test_entrenar_empate_o_mejora_insuficiente_mantiene_baseline(
     _, metadata = almacenamiento.cargar()
 
     assert metadata.model_type == "PredictorAusenciasBaseline"
+
+
+def test_historial_se_trunca_a_maximo_snapshots(tmp_path: Path) -> None:
+    almacenamiento = AlmacenamientoModeloPrediccion(tmp_path)
+    predictor = PredictorAusenciasBaseline().entrenar([])
+    for idx in range(MAX_SNAPSHOTS_HISTORIAL + 3):
+        almacenamiento.guardar(
+            predictor,
+            citas_usadas=50 + idx,
+            version="prediccion_ausencias_v1",
+            model_type="PredictorAusenciasBaseline",
+            accuracy=0.51,
+            recall_no_show=0.41,
+        )
+
+    historial = almacenamiento.cargar_historial()
+
+    assert len(historial) == MAX_SNAPSHOTS_HISTORIAL
+    assert historial == sorted(historial, key=lambda item: item.fecha_entrenamiento, reverse=True)
+
+
+def test_cargar_historial_ausente_devuelve_lista_vacia(tmp_path: Path) -> None:
+    almacenamiento = AlmacenamientoModeloPrediccion(tmp_path)
+
+    historial = almacenamiento.cargar_historial()
+
+    assert historial == []
+
+
+def test_cargar_historial_corrupto_no_rompe_y_devuelve_lista_vacia(tmp_path: Path) -> None:
+    almacenamiento = AlmacenamientoModeloPrediccion(tmp_path)
+    history_path = almacenamiento.carpeta_modelo / "history.json"
+    history_path.write_text("{invalid_json", encoding="utf-8")
+
+    historial = almacenamiento.cargar_historial()
+
+    assert historial == []
+
+
+def test_obtener_historial_entrenamientos_uc_lee_snapshots_existentes(tmp_path: Path) -> None:
+    almacenamiento = AlmacenamientoModeloPrediccion(tmp_path)
+    predictor = PredictorAusenciasBaseline().entrenar([])
+    for idx in range(3):
+        almacenamiento.guardar(
+            predictor,
+            citas_usadas=60 + idx,
+            version="prediccion_ausencias_v1",
+            model_type="PredictorAusenciasV2" if idx % 2 else "PredictorAusenciasBaseline",
+            accuracy=0.66,
+            recall_no_show=0.61,
+        )
+    uc = ObtenerHistorialEntrenamientosPrediccion(almacenamiento)
+
+    historial = uc.ejecutar(limite=2)
+
+    assert len(historial) == 2
+    assert historial[0].fecha_entrenamiento >= historial[1].fecha_entrenamiento
+    assert historial[0].calidad_ux == "VERDE"

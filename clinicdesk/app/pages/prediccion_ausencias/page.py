@@ -41,6 +41,7 @@ from clinicdesk.app.pages.prediccion_ausencias.coordinador_entrenamiento import 
     CoordinadorEntrenamientoPrediccionAusencias,
 )
 from clinicdesk.app.pages.prediccion_ausencias.coordinador_resumen_modelo import derivar_estado_calidad_modelo
+from clinicdesk.app.pages.prediccion_ausencias.coordinador_resumen_modelo import construir_filas_historial_compacto
 from clinicdesk.app.pages.prediccion_ausencias.entrenar_worker import EntrenamientoFailPayload
 from clinicdesk.app.pages.prediccion_ausencias.error_handling import normalizar_error_entrenamiento
 from clinicdesk.app.pages.prediccion_ausencias.persistencia_recordatorio_entrenar_settings import (
@@ -109,6 +110,7 @@ class PagePrediccionAusencias(QWidget):
         root.addWidget(self._build_paso_1())
         root.addWidget(self._build_paso_2())
         root.addWidget(self._build_resumen_modelo())
+        root.addWidget(self._build_historial_entrenamientos())
         root.addWidget(self._build_paso_3())
         root.addWidget(self._build_activacion())
 
@@ -254,6 +256,17 @@ class PagePrediccionAusencias(QWidget):
         row.addWidget(self.chk_activar_estimaciones)
         row.addStretch(1)
         return panel
+
+    def _build_historial_entrenamientos(self) -> QWidget:
+        self.box_historial_entrenamientos = QGroupBox()
+        layout = QVBoxLayout(self.box_historial_entrenamientos)
+        self.lbl_historial_vacio = QLabel()
+        self.lbl_historial_vacio.setWordWrap(True)
+        self.tabla_historial = QTableWidget(0, 5)
+        self.tabla_historial.horizontalHeader().setStretchLastSection(True)
+        layout.addWidget(self.lbl_historial_vacio)
+        layout.addWidget(self.tabla_historial)
+        return self.box_historial_entrenamientos
 
     def _comprobar_datos(self) -> None:
         self._actualizar_salud()
@@ -615,6 +628,27 @@ class PagePrediccionAusencias(QWidget):
         self.lbl_resumen_accuracy.setText(_formatear_porcentaje(resumen.accuracy))
         self.lbl_resumen_recall.setText(_formatear_porcentaje(resumen.recall_no_show))
         self.lbl_resumen_calidad.setText(self._i18n.t(estado_calidad.i18n_key))
+        self._actualizar_historial_entrenamientos()
+
+    def _actualizar_historial_entrenamientos(self) -> None:
+        historial = self._facade.obtener_historial_entrenamientos_uc.ejecutar(limite=5)
+        filas = construir_filas_historial_compacto(historial, limite=5)
+        if not filas:
+            self.lbl_historial_vacio.setText(self._i18n.t("prediccion_ausencias.historial.empty"))
+            self.tabla_historial.setRowCount(0)
+            return
+        self.lbl_historial_vacio.setText("")
+        self.tabla_historial.setRowCount(len(filas))
+        for row, item in enumerate(filas):
+            valores = [
+                item.fecha_entrenamiento,
+                item.model_type,
+                _formatear_porcentaje(item.accuracy),
+                _formatear_porcentaje(item.recall_no_show),
+                self._i18n.t(f"prediccion_ausencias.historial.calidad.{item.calidad_ux.lower()}"),
+            ]
+            for col, valor in enumerate(valores):
+                self.tabla_historial.setItem(row, col, QTableWidgetItem(valor))
 
     def _cargar_previsualizacion(self) -> None:
         result = self._facade.previsualizar_uc.ejecutar(limite=30)
@@ -726,6 +760,7 @@ class PagePrediccionAusencias(QWidget):
         self.box_paso_1.setTitle(self._i18n.t("prediccion_ausencias.paso_1.titulo"))
         self.box_paso_2.setTitle(self._i18n.t("prediccion_ausencias.paso_2.titulo"))
         self.box_resumen_modelo.setTitle(self._i18n.t("prediccion_ausencias.resumen_modelo.titulo"))
+        self.box_historial_entrenamientos.setTitle(self._i18n.t("prediccion_ausencias.historial.titulo"))
         self.box_paso_3.setTitle(self._i18n.t("prediccion_ausencias.paso_3.titulo"))
         self.btn_salud_entrenar.setText(self._i18n.t("prediccion_ausencias.accion.entrenar"))
         self.btn_recordatorio_entrenar.setText(self._i18n.t("prediccion_ausencias.accion.entrenar"))
@@ -759,6 +794,15 @@ class PagePrediccionAusencias(QWidget):
                 self._i18n.t("prediccion_ausencias.tabla.paciente"),
                 self._i18n.t("prediccion_ausencias.tabla.medico"),
                 self._i18n.t("prediccion_ausencias.tabla.riesgo"),
+            ]
+        )
+        self.tabla_historial.setHorizontalHeaderLabels(
+            [
+                self._i18n.t("prediccion_ausencias.historial.columna.fecha"),
+                self._i18n.t("prediccion_ausencias.historial.columna.modelo"),
+                self._i18n.t("prediccion_ausencias.historial.columna.accuracy"),
+                self._i18n.t("prediccion_ausencias.historial.columna.recall"),
+                self._i18n.t("prediccion_ausencias.historial.columna.calidad"),
             ]
         )
         self._actualizar_resumen_modelo()

@@ -214,3 +214,32 @@ Introducir un predictor v2 dependency-free para `prediccion_ausencias` con compa
 ## Siguiente paso recomendado
 - Añadir histórico acotado de entrenamientos (últimas N corridas) reutilizando el contrato de resumen actual.
 - Monitorear drift temporal por bucket de antelación y calibrar umbrales de riesgo si aparece degradación operacional.
+
+## Ciclo 7
+
+## Objetivo
+Agregar observabilidad temporal liviana al módulo `prediccion_ausencias` manteniendo un único modelo activo (`predictor.pkl`) y sin introducir artefactos pesados históricos.
+
+## Cambios aplicados
+- Persistencia extendida en `AlmacenamientoModeloPrediccion` con `history.json` ligero:
+  - snapshot por entrenamiento exitoso (metadata + métricas),
+  - truncado determinista a `MAX_SNAPSHOTS_HISTORIAL=20`,
+  - orden consistente más reciente primero,
+  - compatibilidad degradada si `history.json` no existe o está corrupto (con logging estructurado).
+- Entrenamiento conserva contrato actual de modelo activo + metadata y añade contexto de selección al snapshot histórico (`ganador_criterio`, `baseline_f1`, `v2_f1` cuando disponible).
+- Nuevo caso de uso explícito `ObtenerHistorialEntrenamientosPrediccion` y wiring en facade/composición (`obtener_historial_entrenamientos_uc`).
+- `PagePrediccionAusencias` incorpora bloque compacto “Últimos entrenamientos” (fecha, modelo ganador, accuracy, recall no-show, calidad) consumiendo el facade; sin acceso directo a storage.
+- Coordinador puro de resumen extiende normalización para filas compactas de historial, manteniendo la lógica fuera de la página.
+- i18n actualizado (ES/EN) para nuevo bloque UI.
+
+## Tests ejecutados
+- `pytest -q tests/test_prediccion_ausencias_usecases.py tests/test_prediccion_ausencias_facade_wiring.py tests/test_prediccion_ausencias_page_estabilidad.py tests/test_prediccion_ausencias_resumen_modelo.py`
+- `python -m scripts.gate_pr`
+
+## Riesgos abiertos
+- `history.json` mantiene snapshots compactos (sin dataset ni artefactos binarios), por lo que no cubre análisis profundos de drift por cohorte.
+- La calidad UX se deriva de umbrales actuales de `accuracy/recall`; puede requerir recalibración con más evidencia operativa.
+
+## Siguiente paso recomendado
+- Añadir una señal de tendencia mínima (delta contra entrenamiento previo) en el mismo bloque compacto, reutilizando `history.json`.
+- Evaluar alertas de degradación cuando se acumulen N snapshots consecutivos con calidad `ROJO`.

@@ -15,6 +15,7 @@ from clinicdesk.app.application.prediccion_ausencias.usecases import (
     ComprobarDatosPrediccionAusencias,
     EntrenarPrediccionAusencias,
     ObtenerExplicacionRiesgoAusenciaCita,
+    ObtenerHistorialEntrenamientosPrediccion,
     ObtenerResumenUltimoEntrenamientoPrediccion,
     PrevisualizarPrediccionAusencias,
 )
@@ -34,6 +35,7 @@ class PrediccionAusenciasFacade:
     obtener_riesgo_agenda_uc: ObtenerRiesgoAusenciaParaCitas
     obtener_explicacion_riesgo_uc: ObtenerExplicacionRiesgoAusenciaCita
     obtener_resumen_ultimo_entrenamiento_uc: ObtenerResumenUltimoEntrenamientoPrediccion
+    obtener_historial_entrenamientos_uc: ObtenerHistorialEntrenamientosPrediccion
     obtener_salud_uc: ObtenerSaludPrediccionAusencias
     registrar_predicciones_agenda_uc: RegistrarPrediccionesAusenciasAgenda
     obtener_resultados_recientes_uc: ObtenerResultadosRecientesPrediccionAusencias

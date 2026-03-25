@@ -112,3 +112,21 @@ class ResumenEntrenamientoModeloDTO:
     precision_no_show: float | None
     recall_no_show: float | None
     f1_no_show: float | None
+
+
+@dataclass(frozen=True, slots=True)
+class HistorialEntrenamientoModeloDTO:
+    fecha_entrenamiento: str
+    model_type: str
+    version: str
+    citas_usadas: int
+    muestras_train: int | None
+    muestras_validacion: int | None
+    accuracy: float | None
+    precision_no_show: float | None
+    recall_no_show: float | None
+    f1_no_show: float | None
+    calidad_ux: str
+    ganador_criterio: str | None
+    baseline_f1: float | None
+    v2_f1: float | None
