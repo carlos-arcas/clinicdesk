@@ -375,3 +375,29 @@ Hacer explícito y trazable el bloqueo operativo del gate canónico para reducir
 ## Siguiente paso recomendado
 - Añadir un mini “glosario de reason_code” en docs del gate para mapear cada código a acciones de remediación rápidas por perfil (dev local vs sandbox CI).
 - Consolidar en un smoke test adicional el texto de “validaciones no ejecutadas” para preservar el contrato ante futuros refactors de scripts.
+
+## Ciclo 12
+
+## Objetivo
+Congelar mejor el contrato operativo del gate con un glosario breve y smoke tests de trazabilidad que detecten regresiones sin depender de snapshots frágiles.
+
+## Cambios aplicados
+- Se añadió un glosario corto y accionable de `reason_code` operativo en `docs/ci_quality_gate.md`, con mapeo directo `código -> significado -> acción sugerida`.
+- Se estabilizó el listado de validaciones omitidas del preflight en `scripts.gate_pr` mediante constante explícita (`VALIDACIONES_NO_EJECUTADAS`) para evitar drift accidental de contrato.
+- El bloqueo canónico por `.venv` no disponible ahora explicita que el proyecto todavía **no** se validó funcionalmente, reforzando la separación entre bloqueo operativo y fallo funcional.
+- Se añadieron smoke tests de contrato textual mínimo:
+  - preflight de `gate_pr` valida presencia de `rc=20`, `reason_code`, acción sugerida y bloque de validaciones no ejecutadas;
+  - ejecución canónica valida la pieza de “no validado funcionalmente” en el bloqueo por entorno.
+
+## Tests ejecutados
+- `pytest -q tests/test_gate_pr.py tests/test_ejecucion_canonica.py`
+- `ruff check scripts/gate_pr.py scripts/quality_gate_components/ejecucion_canonica.py tests/test_gate_pr.py tests/test_ejecucion_canonica.py`
+- `python -m scripts.gate_pr` (esperable `rc=20` en entorno bloqueado; se verifica contrato operativo, no validación funcional completa)
+
+## Riesgos abiertos
+- El glosario es intencionalmente corto y cubre los códigos operativos actuales; si se agregan nuevos `reason_code`, hay que actualizar esta tabla para mantener trazabilidad.
+- El smoke test textual protege estructura mínima, pero no valida semántica profunda del diagnóstico del doctor (se mantiene como alcance deliberadamente acotado).
+
+## Siguiente paso recomendado
+- Añadir una verificación ligera que falle si aparece un `reason_code` operativo nuevo sin entrada correspondiente en el glosario.
+- Mantener el contrato textual mínimo y evitar crecerlo con snapshots completos para no introducir fragilidad de wording.

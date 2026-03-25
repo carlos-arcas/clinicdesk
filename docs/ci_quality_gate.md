@@ -38,6 +38,16 @@ El doctor, el preflight del gate y las validaciones específicas de Ruff consume
 ## Significado de `rc=20`
 `rc=20` en `python -m scripts.gate_pr` significa **bloqueo operativo del entorno local o del job**. El proyecto todavía no fue validado por el gate funcional. Si el problema era ejecutar con un Python ajeno al repo y `.venv` existe, el comando ya se habrá reejecutado automáticamente antes de llegar a ese punto.
 
+## Glosario breve de `reason_code` operativo
+| `reason_code` | Significado corto | Acción sugerida |
+| --- | --- | --- |
+| `VENV_REPO_NO_DISPONIBLE` | El comando canónico no puede usar el Python esperado del repo (`.venv`). | `python scripts/setup.py` y reintentar el comando canónico. |
+| `TOOLCHAIN_LOCK_INVALIDO` | El lock de desarrollo no es coherente con lo requerido por el gate. | `python -m scripts.lock_deps` y luego `python scripts/setup.py`. |
+| `DEPENDENCIAS_FALTANTES` | Faltan herramientas del gate en el intérprete activo. | `python -m pip install -r requirements-dev.txt`. |
+| `TOOLCHAIN_DESALINEADO` | Hay tooling instalado con versión distinta al lock. | `python -m pip install -r requirements-dev.txt`. |
+| `WHEELHOUSE_REQUERIDO_NO_DISPONIBLE` | Se exigió modo offline y el wheelhouse no cubre el lock. | `python -m scripts.build_wheelhouse` y repetir doctor/gate. |
+| `RED_PROXY_REQUERIDA_SIN_WHEELHOUSE` | Sin wheelhouse utilizable, la reparación depende de red/proxy. | `python -m scripts.doctor_entorno_calidad` y corregir proxy/red o generar wheelhouse. |
+
 ## Entornos con proxy/red restringida
 - Si no hay wheelhouse, `setup.py` deja claro que la instalación depende de red/proxy reales.
 - Si `CLINICDESK_WHEELHOUSE` apunta a una ruta inválida o incompleta, doctor/setup lo reportan de forma inmediata.
