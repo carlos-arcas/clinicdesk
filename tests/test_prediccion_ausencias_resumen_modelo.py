@@ -6,12 +6,20 @@ from clinicdesk.app.pages.prediccion_ausencias.coordinador_resumen_modelo import
 
 def _resumen(*, accuracy: float | None, recall: float | None) -> ResumenEntrenamientoModeloDTO:
     return ResumenEntrenamientoModeloDTO(
+        disponible=True,
+        reason_code=None,
         fecha_entrenamiento="2026-03-25T10:00:00+00:00",
         model_type="PredictorAusenciasBaseline",
+        version="prediccion_ausencias_v1",
+        citas_usadas=60,
         muestras_train=48,
         muestras_validacion=12,
+        tasa_no_show_train=0.3,
+        tasa_no_show_validacion=0.25,
         accuracy=accuracy,
+        precision_no_show=0.6,
         recall_no_show=recall,
+        f1_no_show=0.57,
     )
 
 

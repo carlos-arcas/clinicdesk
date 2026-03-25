@@ -146,3 +146,33 @@ Endurecer el contrato ML de `prediccion_ausencias` sin cambiar el algoritmo base
 ## Siguiente paso recomendado
 - Mantener este contrato y, en ciclo posterior, introducir predictor más fuerte detrás de `model_type` sin rehacer UI ni persistencia.
 - Añadir vista histórica de entrenamientos (últimas N corridas) y tendencias de métricas para detectar degradación.
+
+## Ciclo 5
+
+## Objetivo
+Cerrar la deuda de lectura de estado ML en `prediccion_ausencias` con un contrato explícito de resumen del último entrenamiento, desacoplando la UI de accesos indirectos a metadata.
+
+## Cambios aplicados
+- Se endureció `ResumenEntrenamientoModeloDTO` como contrato explícito para presentación con estado de disponibilidad/reason code y metadata ML completa (versionado, split, tasas y métricas principales).
+- `ObtenerResumenUltimoEntrenamientoPrediccion` pasó a ser el punto único de lectura para resumen:
+  - devuelve estado explícito cuando no existe metadata;
+  - mantiene compatibilidad con metadata legacy;
+  - registra logging estructurado en degradación por metadata incompleta o legacy.
+- `PrediccionAusenciasFacade` ahora expone `obtener_resumen_ultimo_entrenamiento_uc` y la composición lo cablea de forma explícita.
+- `PagePrediccionAusencias` dejó de leer metadata por `obtener_salud_uc.lector_metadata` y consume sólo el nuevo contrato del facade.
+- Se añadieron pruebas para contrato de resumen (metadata nueva, legacy y ausencia de modelo), wiring del facade y guardarraíl AST de desacople en página.
+
+## Tests ejecutados
+- `pytest -q tests/test_prediccion_ausencias_usecases.py tests/test_prediccion_ausencias_resumen_modelo.py tests/test_prediccion_ausencias_page_estabilidad.py tests/test_prediccion_ausencias_facade_wiring.py`
+- `python -m scripts.gate_pr`
+
+## Deuda cerrada en este ciclo
+- Lectura de resumen ML por ruta indirecta/acoplada desde la página (`obtener_salud_uc.lector_metadata.cargar_metadata`).
+
+## Riesgos abiertos
+- El contrato nuevo sigue leyendo “último entrenamiento” únicamente; aún no modela histórico ni comparación temporal.
+- `reason_code` queda preparado para UX futura, pero actualmente la vista compacta sigue degradando con placeholders neutrales.
+
+## Siguiente paso recomendado
+- Mantener este contrato y avanzar al cambio de predictor detrás de `model_type` sin tocar presentación.
+- Introducir histórico de entrenamientos consumiendo este DTO como base de compatibilidad.

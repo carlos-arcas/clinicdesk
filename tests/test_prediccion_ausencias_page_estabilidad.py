@@ -69,3 +69,10 @@ def test_on_hide_invalida_contexto_diferido() -> None:
         and nodo.target.attr == "_token_resultados_vigente"
     ]
     assert len(incrementos) == 1
+
+
+def test_resumen_modelo_usa_contrato_explicito_del_facade() -> None:
+    metodo = _obtener_metodo("_actualizar_resumen_modelo")
+    attrs = [n.attr for n in ast.walk(metodo) if isinstance(n, ast.Attribute)]
+    assert "obtener_resumen_ultimo_entrenamiento_uc" in attrs
+    assert "cargar_metadata" not in attrs

@@ -10,6 +10,7 @@ from clinicdesk.app.application.prediccion_ausencias.usecases import (
     ComprobarDatosPrediccionAusencias,
     EntrenamientoPrediccionError,
     EntrenarPrediccionAusencias,
+    ObtenerResumenUltimoEntrenamientoPrediccion,
     PrevisualizarPrediccionAusencias,
     _evaluar_predictor,
     _split_determinista_train_validacion,
@@ -253,3 +254,67 @@ def test_cargar_metadata_antigua_mantiene_compatibilidad(tmp_path: Path) -> None
     assert metadata.citas_usadas == 50
     assert metadata.model_type == "PredictorAusenciasBaseline"
     assert metadata.accuracy is None
+
+
+def test_obtener_resumen_ultimo_entrenamiento_con_metadata_completa(tmp_path: Path) -> None:
+    almacenamiento = AlmacenamientoModeloPrediccion(tmp_path)
+    almacenamiento.guardar(
+        PredictorAusenciasBaseline().entrenar([]),
+        citas_usadas=55,
+        version="prediccion_ausencias_v1",
+        model_type="PredictorAusenciasBaseline",
+        muestras_train=44,
+        muestras_validacion=11,
+        tasa_no_show_train=0.3,
+        tasa_no_show_validacion=0.27,
+        accuracy=0.67,
+        precision_no_show=0.51,
+        recall_no_show=0.62,
+        f1_no_show=0.56,
+    )
+    uc = ObtenerResumenUltimoEntrenamientoPrediccion(almacenamiento)
+
+    resumen = uc.ejecutar()
+
+    assert resumen.disponible is True
+    assert resumen.reason_code is None
+    assert resumen.model_type == "PredictorAusenciasBaseline"
+    assert resumen.citas_usadas == 55
+    assert resumen.precision_no_show == 0.51
+
+
+def test_obtener_resumen_ultimo_entrenamiento_metadata_legacy(tmp_path: Path) -> None:
+    almacenamiento = AlmacenamientoModeloPrediccion(tmp_path)
+    metadata_path = almacenamiento.carpeta_modelo / "metadata.json"
+    metadata_path.parent.mkdir(parents=True, exist_ok=True)
+    metadata_path.write_text(
+        json.dumps(
+            {
+                "fecha_entrenamiento": "2026-03-20T12:00:00+00:00",
+                "citas_usadas": 50,
+                "version": "prediccion_ausencias_v1",
+            }
+        ),
+        encoding="utf-8",
+    )
+    uc = ObtenerResumenUltimoEntrenamientoPrediccion(almacenamiento)
+
+    resumen = uc.ejecutar()
+
+    assert resumen.disponible is True
+    assert resumen.reason_code is None
+    assert resumen.fecha_entrenamiento == "2026-03-20T12:00:00+00:00"
+    assert resumen.model_type == "PredictorAusenciasBaseline"
+    assert resumen.accuracy is None
+    assert resumen.f1_no_show is None
+
+
+def test_obtener_resumen_ultimo_entrenamiento_sin_modelo(tmp_path: Path) -> None:
+    almacenamiento = AlmacenamientoModeloPrediccion(tmp_path)
+    uc = ObtenerResumenUltimoEntrenamientoPrediccion(almacenamiento)
+
+    resumen = uc.ejecutar()
+
+    assert resumen.disponible is False
+    assert resumen.reason_code == "sin_metadata"
+    assert resumen.fecha_entrenamiento is None
