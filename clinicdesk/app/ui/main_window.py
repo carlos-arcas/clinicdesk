@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Any, Callable, Dict
 
 from PySide6.QtCore import QTimer, Qt
-from PySide6.QtGui import QAction, QKeySequence, QShortcut
+from PySide6.QtGui import QAction, QCloseEvent, QKeySequence, QShortcut
 from PySide6.QtWidgets import (
     QLabel,
     QHBoxLayout,
@@ -117,6 +117,8 @@ class MainWindow(QMainWindow):
         self._job_toast_fail_by_id: dict[str, str] = {}
         self._job_toast_cancel_by_id: dict[str, str] = {}
         self._job_success_cb_by_id: dict[str, Callable[[object], None]] = {}
+        self._cierre_controlado_en_progreso = False
+        self._permitir_cierre_directo = False
 
         for p in get_pages(container, self._i18n):
             self._factory_by_key[p.key] = p.factory
@@ -346,6 +348,7 @@ class MainWindow(QMainWindow):
         self._job_manager.finished.connect(self._on_job_finished)
         self._job_manager.failed.connect(self._on_job_failed)
         self._job_manager.cancelled.connect(self._on_job_cancelled)
+        self._job_manager.cierre_seguro_completado.connect(self._on_cierre_seguro_completado)
 
     def _retranslate(self) -> None:
         self.setWindowTitle(self._i18n.t("app.title"))
@@ -497,10 +500,44 @@ class MainWindow(QMainWindow):
             return
         self._job_manager.cancel_job(self._active_job_id)
 
+    def closeEvent(self, event: QCloseEvent) -> None:  # noqa: N802
+        if self._permitir_cierre_directo:
+            super().closeEvent(event)
+            return
+        if self._job_manager.tiene_jobs_activos():
+            self._iniciar_cierre_controlado()
+            event.ignore()
+            return
+        self._permitir_cierre_directo = True
+        super().closeEvent(event)
+
+    def _iniciar_cierre_controlado(self) -> None:
+        if self._cierre_controlado_en_progreso:
+            return
+        self._cierre_controlado_en_progreso = True
+        self.sidebar.setEnabled(False)
+        self._job_cancel_btn.setEnabled(False)
+        self._busy_indicator.show()
+        self._busy_indicator.setValue(0)
+        self._busy_label.setText(self._i18n.t("job.shutdown.status"))
+        self.toast_info("job.shutdown.requested")
+        self._job_manager.solicitar_cierre_seguro()
+
+    def _on_cierre_seguro_completado(self) -> None:
+        if not self._cierre_controlado_en_progreso:
+            return
+        self._cierre_controlado_en_progreso = False
+        self._permitir_cierre_directo = True
+        self.close()
+
     def _reset_job_status(self) -> None:
         self._active_job_id = None
         self._busy_indicator.hide()
         self._job_cancel_btn.hide()
+        if self._cierre_controlado_en_progreso:
+            self._busy_indicator.show()
+            self._busy_label.setText(self._i18n.t("job.shutdown.status"))
+            return
         self._busy_label.setText(self._i18n.t(self._busy_default_key))
 
     def _format_job_status(self, state: JobState) -> str:

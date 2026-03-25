@@ -51,10 +51,15 @@ def test_job_manager_progress_and_finish() -> None:
     assert terminado == [True]
     assert eventos[0][1] == 30
     assert eventos[-1][1] == 70
-    _wait_until(lambda: "job-ok" not in manager._threads)
-    assert "job-ok" not in manager._threads
-    assert "job-ok" not in manager._workers
-    assert "job-ok" not in manager._tokens
+    _wait_until(lambda: not manager.tiene_jobs_activos())
+    assert manager.ids_jobs_activos() == ()
+    assert manager.resumen_recursos_activos() == {
+        "threads": 0,
+        "workers": 0,
+        "relays": 0,
+        "tokens": 0,
+        "states": 0,
+    }
 
 
 def test_job_manager_cancel_emite_cancelled() -> None:
@@ -98,3 +103,49 @@ def test_job_manager_failed_no_emite_finished() -> None:
 
     assert errores == ["boom"]
     assert finalizados == []
+
+
+def test_job_manager_solicitar_cierre_seguro_emite_cierre_completado() -> None:
+    _get_app()
+    manager = JobManager()
+    cierre_completado: list[bool] = []
+    cancelado: list[bool] = []
+    manager.cierre_seguro_completado.connect(lambda: cierre_completado.append(True))
+    manager.cancelled.connect(lambda _state: cancelado.append(True))
+
+    def worker_factory():
+        def _worker(cancel_token, report_progress):
+            report_progress(10, "job.seed_demo.progress.preflight")
+            while not cancel_token.is_cancelled:
+                QCoreApplication.processEvents()
+            raise JobCancelledError()
+
+        return _worker
+
+    manager.run_job("job-shutdown", "job.rotate_crypto.title", worker_factory, cancellable=True)
+    ids = manager.solicitar_cierre_seguro()
+
+    assert ids == ("job-shutdown",)
+    _wait_until(lambda: bool(cierre_completado))
+    assert cancelado == [True]
+    assert cierre_completado == [True]
+    assert manager.resumen_recursos_activos()["threads"] == 0
+
+
+def test_job_manager_ignora_finalizacion_duplicada() -> None:
+    _get_app()
+    manager = JobManager()
+    estados: list[str] = []
+    manager.finished.connect(lambda state, _result: estados.append(state.status))
+
+    def worker_factory():
+        def _worker(_cancel_token, _report_progress):
+            return {"ok": True}
+
+        return _worker
+
+    manager.run_job("job-dup", "job.export_auditoria.title", worker_factory, cancellable=True)
+    _wait_until(lambda: bool(estados))
+    manager._on_finished("job-dup", {"ok": True})
+
+    assert estados == ["finished"]
