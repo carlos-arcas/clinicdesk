@@ -107,6 +107,8 @@ class JobManager(QObject):
     finished = Signal(object, object)
     failed = Signal(object, str)
     cancelled = Signal(object)
+    cierre_seguro_completado = Signal()
+    jobs_activos_cambiaron = Signal(int)
 
     def __init__(self, parent: QObject | None = None) -> None:
         super().__init__(parent)
@@ -115,6 +117,7 @@ class JobManager(QObject):
         self._relays: dict[str, _JobRelay] = {}
         self._states: dict[str, JobState] = {}
         self._tokens: dict[str, CancelToken] = {}
+        self._cierre_solicitado = False
 
     def run_job(self, job_id: str, title_key: str, worker_factory: WorkerFactory, cancellable: bool = True) -> JobState:
         if job_id in self._threads:
@@ -155,6 +158,7 @@ class JobManager(QObject):
         self._states[job_id] = state
         self._tokens[job_id] = cancel_token
         self.started.emit(state)
+        self.jobs_activos_cambiaron.emit(len(self._threads))
         thread.start()
         return state
 
@@ -165,6 +169,35 @@ class JobManager(QObject):
         token.cancel()
         return True
 
+    def tiene_jobs_activos(self) -> bool:
+        return bool(self._threads)
+
+    def ids_jobs_activos(self) -> tuple[str, ...]:
+        return tuple(self._threads.keys())
+
+    def cancelar_todos(self) -> tuple[str, ...]:
+        ids = self.ids_jobs_activos()
+        for job_id in ids:
+            self.cancel_job(job_id)
+        return ids
+
+    def solicitar_cierre_seguro(self) -> tuple[str, ...]:
+        self._cierre_solicitado = True
+        ids_cancelados = self.cancelar_todos()
+        if not ids_cancelados:
+            self._cierre_solicitado = False
+            self.cierre_seguro_completado.emit()
+        return ids_cancelados
+
+    def resumen_recursos_activos(self) -> dict[str, int]:
+        return {
+            "threads": len(self._threads),
+            "workers": len(self._workers),
+            "relays": len(self._relays),
+            "tokens": len(self._tokens),
+            "states": len(self._states),
+        }
+
     def get_state(self, job_id: str) -> JobState | None:
         return self._states.get(job_id)
 
@@ -173,6 +206,9 @@ class JobManager(QObject):
         state = self._states.get(job_id)
         if state is None:
             LOGGER.info("job_progress_omitido", extra={"job_id": job_id, "razon": "job_no_vigente"})
+            return
+        if state.status in {"finished", "failed", "cancelled"}:
+            LOGGER.info("job_progress_omitido", extra={"job_id": job_id, "razon": "job_ya_finalizado"})
             return
         actualizado = replace(state, progress=progress, message_key=message_key)
         self._states[job_id] = actualizado
@@ -187,6 +223,9 @@ class JobManager(QObject):
         if state.status == "cancelled":
             LOGGER.info("job_finished_omitido", extra={"job_id": job_id, "razon": "job_cancelado"})
             return
+        if state.status in {"finished", "failed"}:
+            LOGGER.info("job_finished_omitido", extra={"job_id": job_id, "razon": "job_ya_finalizado"})
+            return
         actualizado = replace(state, progress=100, status="finished")
         self._states[job_id] = actualizado
         self.finished.emit(actualizado, result)
@@ -200,6 +239,13 @@ class JobManager(QObject):
         if state.status == "cancelled":
             LOGGER.info("job_failed_omitido", extra={"job_id": job_id, "razon": "job_cancelado"})
             return
+        if state.status in {"finished", "failed"}:
+            LOGGER.info("job_failed_omitido", extra={"job_id": job_id, "razon": "job_ya_finalizado"})
+            return
+        LOGGER.error(
+            "job_failed",
+            extra={"job_id": job_id, "reason_code": "worker_exception", "error": error},
+        )
         actualizado = replace(state, status="failed")
         self._states[job_id] = actualizado
         self.failed.emit(actualizado, error)
@@ -210,6 +256,12 @@ class JobManager(QObject):
         if state is None:
             LOGGER.info("job_cancelled_omitido", extra={"job_id": job_id, "razon": "job_no_vigente"})
             return
+        if state.status == "cancelled":
+            LOGGER.info("job_cancelled_omitido", extra={"job_id": job_id, "razon": "job_ya_cancelado"})
+            return
+        if state.status in {"finished", "failed"}:
+            LOGGER.info("job_cancelled_omitido", extra={"job_id": job_id, "razon": "job_ya_finalizado"})
+            return
         actualizado = replace(state, status="cancelled")
         self._states[job_id] = actualizado
         self.cancelled.emit(actualizado)
@@ -218,6 +270,14 @@ class JobManager(QObject):
     def _cleanup(self, job_id: str) -> None:
         LOGGER.info("job_cleanup", extra={"job_id": job_id})
         self._threads.pop(job_id, None)
+        self._workers.pop(job_id, None)
+        self._relays.pop(job_id, None)
+        self._tokens.pop(job_id, None)
+        self._states.pop(job_id, None)
+        self.jobs_activos_cambiaron.emit(len(self._threads))
+        if self._cierre_solicitado and not self._threads:
+            self._cierre_solicitado = False
+            self.cierre_seguro_completado.emit()
         self._workers.pop(job_id, None)
         self._relays.pop(job_id, None)
         self._tokens.pop(job_id, None)
