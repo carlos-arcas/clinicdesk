@@ -13,6 +13,7 @@ import sys
 from pathlib import Path
 
 from scripts.quality_gate_components.ejecucion_canonica import (
+    EXIT_ENTORNO_BLOQUEADO,
     reejecutar_en_python_objetivo,
     renderizar_bloqueo,
     resolver_ejecucion_canonica,
@@ -37,9 +38,18 @@ def main() -> int:
             env_extra={"CLINICDESK_SANDBOX_MODE": _build_env()["CLINICDESK_SANDBOX_MODE"]},
         )
     if decision.accion == "bloquear":
+        sys.stderr.write(
+            "[gate-rapido][entorno] Bloqueo operativo local detectado; todavía no se validó el proyecto.\n"
+        )
+        sys.stderr.write(
+            f"[gate-rapido][entorno] rc={EXIT_ENTORNO_BLOQUEADO} indica bloqueo operativo, no fallo funcional del repositorio.\n"
+        )
         for linea in renderizar_bloqueo(decision):
             sys.stderr.write(f"{linea}\n")
-        return 1
+        sys.stderr.write(
+            "[gate-rapido][accion] Repara el entorno (.venv/toolchain) y reintenta `python -m scripts.gate_rapido`.\n"
+        )
+        return EXIT_ENTORNO_BLOQUEADO
 
     os.chdir(REPO_ROOT)
     comando = [

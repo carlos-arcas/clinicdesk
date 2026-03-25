@@ -59,6 +59,29 @@ def test_main_reejecuta_en_python_del_repo(monkeypatch):
     assert observado["env_extra"] == {"CLINICDESK_SANDBOX_MODE": "1"}
 
 
+def test_main_bloqueo_canonico_usa_rc_operativo_estable(monkeypatch, capsys):
+    monkeypatch.setattr(
+        gate_rapido,
+        "resolver_ejecucion_canonica",
+        lambda *_args, **_kwargs: DecisionEjecucionCanonica(
+            "bloquear",
+            mensaje=(
+                "[canonico][reason_code] VENV_REPO_NO_DISPONIBLE",
+                "[canonico][estado] Bloqueo operativo local: el proyecto todavía no se validó funcionalmente.",
+            ),
+        ),
+    )
+
+    rc = gate_rapido.main()
+    stderr = capsys.readouterr().err
+
+    assert rc == gate_rapido.EXIT_ENTORNO_BLOQUEADO
+    assert "[gate-rapido][entorno] Bloqueo operativo local detectado" in stderr
+    assert "no fallo funcional del repositorio" in stderr
+    assert "[canonico][reason_code] VENV_REPO_NO_DISPONIBLE" in stderr
+    assert "python -m scripts.gate_rapido" in stderr
+
+
 def test_main_inyecta_sandbox_mode_si_no_existe(monkeypatch):
     observado: dict[str, object] = {}
 

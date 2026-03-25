@@ -37,6 +37,7 @@ El doctor, el preflight del gate y las validaciones específicas de Ruff consume
 
 ## Significado de `rc=20`
 `rc=20` en `python -m scripts.gate_pr` significa **bloqueo operativo del entorno local o del job**. El proyecto todavía no fue validado por el gate funcional. Si el problema era ejecutar con un Python ajeno al repo y `.venv` existe, el comando ya se habrá reejecutado automáticamente antes de llegar a ese punto.
+`rc=20` en `python -m scripts.gate_rapido` mantiene la misma semántica operativa: bloqueo local de entorno/toolchain y validación funcional todavía no ejecutada.
 
 ## Glosario breve de `reason_code` operativo
 Fuente de verdad de códigos documentables del contrato operativo: `scripts.gate_pr.reason_codes_operativos_documentables()`.

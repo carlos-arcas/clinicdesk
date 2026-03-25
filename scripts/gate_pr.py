@@ -24,6 +24,7 @@ from scripts.quality_gate_components.contrato_reason_codes_doc import (
     validar_coherencia_reason_codes_doc,
 )
 from scripts.quality_gate_components.ejecucion_canonica import (
+    EXIT_ENTORNO_BLOQUEADO,
     REASON_CODES_OPERATIVOS_CANONICO,
     reejecutar_en_python_objetivo,
     renderizar_bloqueo,
@@ -32,7 +33,6 @@ from scripts.quality_gate_components.ejecucion_canonica import (
 from scripts.quality_gate_components.toolchain import COMANDO_DOCTOR, COMANDO_SETUP
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-EXIT_ENTORNO_BLOQUEADO = 20
 VALIDACIONES_NO_EJECUTADAS = "lint, typecheck, pytest, cobertura, golden, i18n, seguridad"
 RUTA_DOC_CI_QUALITY_GATE = REPO_ROOT / "docs" / "ci_quality_gate.md"
 
