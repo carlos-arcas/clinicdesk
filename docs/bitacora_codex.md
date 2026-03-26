@@ -53,3 +53,30 @@ Reglas:
 - **bloqueo o siguiente paso exacto**:
   - Bloqueo operativo: falta `/workspace/clinicdesk/.venv/bin/python`.
   - Ejecutar `python scripts/setup.py` y luego reintentar `python -m scripts.gate_rapido` sobre esta misma tarea antes de promoverla a `DONE`.
+
+## Entrada
+- **fecha/hora**: 2026-03-26 12:05:00Z
+- **tarea**: RCDX-002 — Enlazar ejecución diaria con disciplina de una tarea
+- **estado final**: BLOCKED
+- **archivos tocados**:
+  - `docs/roadmap_codex.md`
+  - `docs/bitacora_codex.md`
+- **decisiones**:
+  - Se ejecutó el flujo canónico de recuperación de entorno definido en `docs/TESTING.md` para destrabar validación de RCDX-002.
+  - No se aplicaron cambios de producto ni ajustes de lógica: el bloqueo actual es operativo externo (proxy/red) y no un defecto del setup/doctor del repo.
+  - Se mantiene política de metadata de validación/PR en `N/A por bloqueo operativo` hasta recuperar conectividad o wheelhouse válido.
+- **checks ejecutados**:
+  - `python scripts/setup.py`
+  - `python -m scripts.doctor_entorno_calidad`
+  - `python -m scripts.gate_rapido`
+  - `python -m pip install -r requirements-dev.txt`
+  - `git status --short`
+- **resultado**:
+  - `.venv` del repo se recreó y quedó detectable (`python esperado .venv: /workspace/clinicdesk/.venv/bin/python`, `Intérprete repo activo: sí`).
+  - El doctor quedó en `reason_code=DEPENDENCIAS_FALTANTES` por toolchain desalineado/faltante (ruff/pytest/mypy/pip-audit).
+  - `python scripts/setup.py` y la instalación manual del lock fallan contra índice remoto por proxy (`Tunnel connection failed: 403 Forbidden`) y no existe wheelhouse local utilizable.
+  - `python -m scripts.gate_rapido` devuelve `rc=20` (bloqueo operativo local), por lo que RCDX-002 no puede pasar a `DONE`.
+  - Metadata de validación/PR: `N/A por bloqueo operativo`.
+- **bloqueo o siguiente paso exacto**:
+  - Bloqueo operativo externo: acceso a dependencias bloqueado por proxy/red y sin wheelhouse del repo.
+  - Siguiente paso exacto: habilitar conectividad del proxy/índice para `pip install` o proveer wheelhouse completo y válido; luego reejecutar en orden `python scripts/setup.py`, `python -m scripts.doctor_entorno_calidad`, `python -m scripts.gate_rapido` sobre RCDX-002.

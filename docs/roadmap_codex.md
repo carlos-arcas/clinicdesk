@@ -52,7 +52,7 @@
   - queda explícito cómo proceder ante bloqueo y parada,
   - queda explícita la regla `DONE` vs `BLOCKED` cuando no se pueden completar checks obligatorios,
   - roadmap y bitácora documentan `N/A por bloqueo operativo` para metadata de commit/PR cuando corresponda.
-- **dependencias o bloqueo**: RCDX-001 DONE. Bloqueo operativo activo de validación: `VENV_REPO_NO_DISPONIBLE` al ejecutar `python -m scripts.gate_rapido`.
+- **dependencias o bloqueo**: RCDX-001 DONE. Bloqueo operativo activo de validación: `DEPENDENCIAS_FALTANTES` al ejecutar `python -m scripts.gate_rapido`; la instalación del lock (`python -m pip install -r requirements-dev.txt`) y `python scripts/setup.py` falla por proxy/red (`Tunnel connection failed: 403 Forbidden`) sin wheelhouse local, por lo que no se puede completar el toolchain en este entorno.
 
 ### RCDX-003 — Mantener trazabilidad entre roadmap operativo e histórico
 - **estado**: TODO
