@@ -13,7 +13,7 @@
 
 ## Estado seleccionable actual
 
-- 2026-03-26 20:11:48Z: backlog operativo cerrado. No existe ninguna tarea `TODO` no bloqueada tras el cierre de `RCDX-006`; la siguiente ejecución automática debe detenerse hasta que exista nueva priorización humana.
+- 2026-03-26 21:36:42Z: backlog operativo reabierto. La primera tarea `TODO` no bloqueada es `RCDX-007 — Retirar o alinear launcher Windows legado`, porque `launch.bat` sigue versionado en la raíz, exige `main.py` inexistente y conserva branding `Horas Sindicales`, mientras los entrypoints soportados del repo son `scripts/run_app.py`, `START_APP.bat` y `launcher.bat`.
 
 ## Tareas
 
@@ -117,7 +117,7 @@
 - **criterios de cierre**:
   - existe al menos una tarea `TODO` no bloqueada en el roadmap, o
   - se declara explícitamente que el backlog operativo queda cerrado.
-- **dependencias o bloqueo**: El roadmap vigente solo contiene `RCDX-001` DONE, `RCDX-002` BLOCKED, `RCDX-003` DONE y `RCDX-004` BLOCKED; no existe ninguna entrada `TODO` seleccionable. Revalidación 2026-03-26 16:02Z: la ejecución sigue en la rama aislada `codex/radar-inspector-20260326` y `python -m scripts.gate_rapido` aborta con `rc=20`/`reason_code=DEPENDENCIAS_FALTANTES` porque faltan `ruff`, `pytest`, `mypy` y `pip-audit` en `.venv`; además `wheelhouse/` sigue ausente, por lo que tampoco hay validación automática disponible para promover este cierre documental a `DONE`. Revalidación 2026-03-26 18:02Z: persiste la misma ausencia de tarea `TODO` elegible y el gate vuelve a abortar en preflight con `reason_code=DEPENDENCIAS_FALTANTES`; el doctor confirma que el intérprete del repo sí es utilizable, pero siguen faltando `ruff`, `pytest`, `mypy` y `pip-audit` y no existe `wheelhouse/`, por lo que continúa el doble bloqueo de gobernanza y toolchain. Revalidación 2026-03-26 18:02:28Z: la rama activa sigue siendo `codex/radar-inspector-20260326`, el selector continúa sin ninguna `TODO` elegible y `python -m scripts.gate_rapido` vuelve a abortar con `rc=20`/`reason_code=DEPENDENCIAS_FALTANTES`; faltan `ruff`, `pytest`, `mypy` y `pip-audit` en `.venv` y `wheelhouse/` permanece ausente, así que el bloqueo contractual y el del toolchain siguen sin cambios. Revalidación 2026-03-26 19:01:50Z: la ejecución permanece en la rama aislada `codex/radar-inspector-20260326`, `git status --short --untracked-files=no` solo muestra cambios documentales en `docs/roadmap_codex.md` y `docs/bitacora_codex.md`, el selector sigue sin ninguna `TODO` elegible y `python -m scripts.gate_rapido` vuelve a abortar con `rc=20`/`reason_code=DEPENDENCIAS_FALTANTES`; el doctor confirma de nuevo que faltan `ruff`, `pytest`, `mypy` y `pip-audit` en `.venv` y que `wheelhouse/` sigue ausente. Revalidación 2026-03-26 20:01:16Z: la ejecución sigue en la rama aislada `codex/radar-inspector-20260326`, `git status --short --untracked-files=no` estaba limpio antes de documentar, el selector continúa sin ninguna `TODO` elegible y `python -m scripts.gate_rapido` vuelve a abortar con `rc=20`/`reason_code=DEPENDENCIAS_FALTANTES`; el doctor confirma otra vez que faltan `ruff`, `pytest`, `mypy` y `pip-audit` en `.venv` y que `wheelhouse/` permanece ausente.
+- **dependencias o bloqueo**: El roadmap vigente solo contiene `RCDX-001` DONE, `RCDX-002` BLOCKED, `RCDX-003` DONE y `RCDX-004` BLOCKED; no existe ninguna entrada `TODO` seleccionable. Revalidación 2026-03-26 16:02Z: la ejecución sigue en la rama aislada `codex/radar-inspector-20260326` y `python -m scripts.gate_rapido` aborta con `rc=20`/`reason_code=DEPENDENCIAS_FALTANTES` porque faltan `ruff`, `pytest`, `mypy` y `pip-audit` en `.venv`; además `wheelhouse/` sigue ausente, por lo que tampoco hay validación automática disponible para promover este cierre documental a `DONE`. Revalidación 2026-03-26 18:02Z: persiste la misma ausencia de tarea `TODO` elegible y el gate vuelve a abortar en preflight con `reason_code=DEPENDENCIAS_FALTANTES`; el doctor confirma que el intérprete del repo sí es utilizable, pero siguen faltando `ruff`, `pytest`, `mypy` y `pip-audit` y no existe `wheelhouse/`, por lo que continúa el doble bloqueo de gobernanza y toolchain. Revalidación 2026-03-26 18:02:28Z: la rama activa sigue siendo `codex/radar-inspector-20260326`, el selector continúa sin ninguna `TODO` elegible y `python -m scripts.gate_rapido` vuelve a abortar con `rc=20`/`reason_code=DEPENDENCIAS_FALTANTES`; faltan `ruff`, `pytest`, `mypy` y `pip-audit` en `.venv` y `wheelhouse/` permanece ausente, así que el bloqueo contractual y el del toolchain siguen sin cambios. Revalidación 2026-03-26 19:01:50Z: la ejecución permanece en la rama aislada `codex/radar-inspector-20260326`, `git status --short --untracked-files=no` solo muestra cambios documentales en `docs/roadmap_codex.md` y `docs/bitacora_codex.md`, el selector sigue sin ninguna `TODO` elegible y `python -m scripts.gate_rapido` vuelve a abortar con `rc=20`/`reason_code=DEPENDENCIAS_FALTANTES`; el doctor confirma de nuevo que faltan `ruff`, `pytest`, `mypy` y `pip-audit` en `.venv` y que `wheelhouse/` sigue ausente. Revalidación 2026-03-26 20:01:16Z: la ejecución sigue en la rama aislada `codex/radar-inspector-20260326`, `git status --short --untracked-files=no` estaba limpio antes de documentar, el selector continúa sin ninguna `TODO` elegible y `python -m scripts.gate_rapido` vuelve a abortar con `rc=20`/`reason_code=DEPENDENCIAS_FALTANTES`; el doctor confirma otra vez que faltan `ruff`, `pytest`, `mypy` y `pip-audit` en `.venv` y que `wheelhouse/` permanece ausente. Revalidación 2026-03-26 21:36:42Z: deja de aplicar el cierre total del backlog porque se detecta `launch.bat` versionado en la raíz como entrypoint Windows legado roto; el archivo exige `main.py` inexistente, ejecuta `main.py` y muestra `Launcher Horas Sindicales iniciado`, mientras `README.md`, `scripts/run_app.py`, `START_APP.bat` y `launcher.bat` ya apuntan al entrypoint real `clinicdesk.app.main`. Se materializa `RCDX-007` como primera `TODO` no bloqueada; `python -m scripts.gate_rapido` sigue abortando con `rc=20`/`reason_code=DEPENDENCIAS_FALTANTES` por ausencia de `ruff`, `pytest`, `mypy` y `pip-audit` en `.venv`.
 
 ### RCDX-006 — Saneamiento contractual Bootstrap 1
 - **estado**: BLOCKED
@@ -144,3 +144,29 @@
   - el roadmap deja explícito si existe tarea seleccionable o backlog cerrado,
   - la bitácora registra decisiones, checks y bloqueo real de entorno si aplica.
 - **dependencias o bloqueo**: Priorización humana 2026-03-26: `BOOTSTRAP CONTRATO 1`. Revalidación 2026-03-26 20:11:48Z: `python -m scripts.gate_rapido` vuelve a abortar con `rc=20`/`reason_code=DEPENDENCIAS_FALTANTES`; el intérprete de `.venv` es utilizable, pero siguen ausentes `ruff`, `pytest`, `mypy` y `pip-audit`, `wheelhouse/` permanece ausente y el check obligatorio no queda en verde. La tarea debe cerrarse en `BLOCKED` y el backlog operativo vuelve a quedar cerrado hasta nueva priorización humana.
+
+### RCDX-007 — Retirar o alinear launcher Windows legado
+- **estado**: TODO
+- **objetivo**: Eliminar el entrypoint Windows versionado que hoy no puede arrancar la app y contradice el branding y los entrypoints soportados del repo.
+- **alcance permitido**:
+  - corregir `launch.bat` para que delegue al entrypoint real soportado o retirarlo si se confirma que es legado no soportado,
+  - mantener consistencia mínima con `START_APP.bat`, `launcher.bat` y `README.md`,
+  - añadir guardarraíl o verificación mínima si hace falta para evitar la reintroducción del launcher legado roto.
+- **fuera de alcance**:
+  - cambios de lógica de negocio o UI,
+  - cambios de packaging/release más allá del launcher raíz,
+  - cambios de CI, dependencias o setup.
+- **archivos o zonas probables**:
+  - `launch.bat`
+  - `START_APP.bat`
+  - `launcher.bat`
+  - `README.md`
+  - `tests/guardrails/test_saneamiento_legacy_repo.py`
+- **checks obligatorios**:
+  - `python -m scripts.gate_rapido`
+  - `pytest -q tests/guardrails/test_saneamiento_legacy_repo.py tests/test_build_release.py`
+- **criterios de cierre**:
+  - `launch.bat` deja de apuntar a `main.py` inexistente y ya no conserva branding ajeno,
+  - los launchers Windows soportados quedan alineados con `clinicdesk.app.main` o `scripts/run_app.py`,
+  - existe una protección mínima para que el launcher legado roto no reaparezca.
+- **dependencias o bloqueo**: Evidencia 2026-03-26 21:36:42Z: `launch.bat` versionado en la raíz comprueba `main.py`, ejecuta `"%VENV_PY%" main.py` y muestra `Launcher Horas Sindicales iniciado`; `main.py` no existe en la raíz del repo y el README documenta `python scripts/run_app.py`, mientras `START_APP.bat` y `launcher.bat` sí delegan a `clinicdesk.app.main`.
