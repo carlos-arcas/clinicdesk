@@ -93,3 +93,24 @@
 - **criterios de cierre**:
   - plantilla clara, reutilizable y append-only.
 - **dependencias o bloqueo**: RCDX-001 DONE. Revalidación 2026-03-26: `python -m scripts.gate_rapido` aborta con `rc=20`/`reason_code=VENV_REPO_NO_DISPONIBLE`; `python scripts/setup.py` y `python -m venv .venv` fallan al ejecutar `ensurepip`; además `python -c "import tempfile, pathlib; d=tempfile.TemporaryDirectory(dir='.tmp'); p=pathlib.Path(d.name)/'probe.txt'; p.write_text('ok', encoding='utf-8')"` reproduce `PermissionError [Errno 13]`/`WinError 5` incluso dentro de `.tmp` del worktree, por lo que `.venv` queda parcial sin `pip` y no se puede instalar el toolchain obligatorio (`ruff`, `pytest`, `mypy`, `pip-audit`) ni completar la validación.
+
+### RCDX-005 — Registrar backlog sin tarea seleccionable
+- **estado**: BLOCKED
+- **objetivo**: Hacer explícito el bloqueo contractual cuando el roadmap operativo queda sin ninguna tarea `TODO` elegible para automations.
+- **alcance permitido**:
+  - documentar el agotamiento o bloqueo total del backlog seleccionable,
+  - exigir definición de la siguiente tarea priorizada o cierre explícito del backlog,
+  - mantener trazabilidad entre roadmap y bitácora sin inventar trabajo funcional.
+- **fuera de alcance**:
+  - crear prioridad funcional nueva sin decisión humana,
+  - ejecutar cambios de producto sin tarea seleccionable,
+  - reordenar tareas ya registradas.
+- **archivos o zonas probables**:
+  - `docs/roadmap_codex.md`
+  - `docs/bitacora_codex.md`
+- **checks obligatorios**:
+  - `python -m scripts.gate_rapido`
+- **criterios de cierre**:
+  - existe al menos una tarea `TODO` no bloqueada en el roadmap, o
+  - se declara explícitamente que el backlog operativo queda cerrado.
+- **dependencias o bloqueo**: El roadmap vigente solo contiene `RCDX-001` DONE, `RCDX-002` BLOCKED, `RCDX-003` DONE y `RCDX-004` BLOCKED; no existe ninguna entrada `TODO` seleccionable. Revalidación 2026-03-26: `python -m scripts.gate_rapido` aborta con `rc=20`/`reason_code=DEPENDENCIAS_FALTANTES` porque faltan `ruff`, `pytest`, `mypy` y `pip-audit` en `.venv`, por lo que tampoco hay validación automática disponible para promover este cierre documental a `DONE`.
