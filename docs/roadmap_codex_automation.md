@@ -7,6 +7,28 @@
 - `MainWindow` ahora usa una ruta explícita de cierre controlado cuando detecta jobs activos.
 - `JobManager` tiene API pública para inspección/cancelación masiva/cierre seguro y limpieza integral de recursos.
 
+## Ciclo 19
+
+## Objetivo
+Cerrar el enlace mínimo doc ↔ smoke transversal para congelar la semántica compartida de bloqueo operativo sin listas hardcodeadas dispersas.
+
+## Cambios aplicados
+- Se añadió en `docs/ci_quality_gate.md` un bloque mínimo y estable delimitado por marcadores `GATE_BLOQUEO_OPERATIVO_SEMANTICA:START/END` con los snippets contractuales de bloqueo operativo.
+- Se extendió `scripts/quality_gate_components/contrato_reason_codes_doc.py` con helper reutilizable para extraer esos snippets desde el bloque marcado, reutilizando un extractor genérico por marcadores.
+- El smoke transversal `tests/test_gate_operational_contract_smoke.py` dejó de hardcodear tokens semánticos y ahora consume la semántica mínima desde el helper documental único.
+- Se añadieron tests de parser del bloque semántico en `tests/test_gate_reason_codes_docs_sync.py` para cubrir caso bien formado y fallo claro cuando el bloque falta.
+
+## Tests ejecutados
+- `pytest -q tests/test_gate_operational_contract_smoke.py tests/test_gate_reason_codes_docs_sync.py`
+- `ruff check docs/ci_quality_gate.md scripts/quality_gate_components/contrato_reason_codes_doc.py tests/test_gate_operational_contract_smoke.py tests/test_gate_reason_codes_docs_sync.py docs/roadmap_codex_automation.md`
+
+## Riesgos abiertos
+- El contrato semántico sigue siendo intencionalmente mínimo; no congela wording completo de todos los mensajes operativos.
+- Si se cambia intencionalmente la semántica compartida, debe actualizarse el bloque marcado para mantener sincronía con el smoke.
+
+## Siguiente paso recomendado
+- Reutilizar el mismo helper documental en cualquier test adicional de contrato operativo para evitar reintroducir listas paralelas.
+
 ## Ciclo 18
 
 ## Objetivo

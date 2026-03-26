@@ -5,6 +5,7 @@ from types import SimpleNamespace
 from scripts import gate_pr
 from scripts import gate_rapido
 from scripts.quality_gate_components import bloqueo_operativo
+from scripts.quality_gate_components.contrato_reason_codes_doc import cargar_snippets_semantica_bloqueo_operativo
 from scripts.quality_gate_components.ejecucion_canonica import DecisionEjecucionCanonica
 
 
@@ -49,17 +50,19 @@ def _parches_bloqueo_operativo(monkeypatch) -> None:
     )
 
 
-def _assert_contrato_bloqueo_operativo(stderr: str, etiqueta_gate: str) -> None:
+def _assert_contrato_bloqueo_operativo(
+    stderr: str,
+    etiqueta_gate: str,
+    snippets_semantica: tuple[str, ...],
+) -> None:
     assert f"[{etiqueta_gate}][entorno] rc=20" in stderr
-    assert "bloqueo operativo local" in stderr
-    assert "todavía no se validó el proyecto" in stderr
-    assert "no fallo funcional del repositorio" in stderr
-    assert "Paso sugerido" in stderr
-    assert "reintenta" in stderr
+    for snippet in snippets_semantica:
+        assert snippet in stderr
 
 
 def test_smoke_transversal_contrato_operativo_compartido(monkeypatch, capsys) -> None:
     _parches_bloqueo_operativo(monkeypatch)
+    snippets_semantica = cargar_snippets_semantica_bloqueo_operativo(gate_pr.RUTA_DOC_CI_QUALITY_GATE)
 
     monkeypatch.setattr(gate_pr, "resolver_ejecucion_canonica", lambda *_args, **_kwargs: DecisionEjecucionCanonica("continuar"))
     monkeypatch.setattr(gate_pr, "diagnosticar_entorno_calidad", lambda _root: _DiagnosticoBloqueado())
@@ -89,5 +92,5 @@ def test_smoke_transversal_contrato_operativo_compartido(monkeypatch, capsys) ->
 
     assert rc_pr == gate_pr.EXIT_ENTORNO_BLOQUEADO == 20
     assert rc_rapido == gate_rapido.EXIT_ENTORNO_BLOQUEADO == 20
-    _assert_contrato_bloqueo_operativo(err_pr, "gate-pr")
-    _assert_contrato_bloqueo_operativo(err_rapido, "gate-rapido")
+    _assert_contrato_bloqueo_operativo(err_pr, "gate-pr", snippets_semantica)
+    _assert_contrato_bloqueo_operativo(err_rapido, "gate-rapido", snippets_semantica)
