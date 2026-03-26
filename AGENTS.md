@@ -35,10 +35,14 @@ Reglas:
 
 Capas y límites:
 
-- `dominio/`: reglas de negocio puras, sin dependencias externas.
-- `aplicacion/`: casos de uso y puertos; depende de `dominio`.
-- `infraestructura/`: adaptadores concretos; implementa puertos.
-- `presentacion/`: UI/API/CLI; orquesta entrada/salida, sin negocio.
+- Este repo no usa carpetas top-level `dominio/`, `aplicacion/`, `infraestructura/` y `presentacion/`.
+- La variante real y obligatoria vive en `clinicdesk/app/`:
+  - `clinicdesk/app/domain`: reglas de negocio puras, sin dependencias externas.
+  - `clinicdesk/app/application`: casos de uso, DTOs y puertos; depende de `domain`.
+  - `clinicdesk/app/infrastructure`: adaptadores concretos; implementa puertos.
+  - `clinicdesk/app/ui` y `clinicdesk/app/pages`: presentación desktop, wiring visual y coordinación de entrada/salida, sin lógica de negocio.
+- Cuando este contrato hable de `dominio`, `aplicacion`, `infraestructura` y `presentacion`, debe interpretarse sobre esas rutas reales del repo.
+- La composición de infraestructura concreta solo puede resolverse en `clinicdesk/app/container.py` y `clinicdesk/app/composicion/**`, en línea con `docs/architecture_contract.md`.
 
 Prohibiciones duras:
 - mezclar reglas de negocio en UI/controladores/adaptadores de entrada,
@@ -132,5 +136,6 @@ Si el entorno impide ejecutar checks obligatorios:
 La planificación activa y seleccionable por automations vive en `docs/roadmap_codex.md`.
 
 ## Changelog del contrato
+- v2.1: el contrato deja explícita la variante real de capas del repo (`clinicdesk/app/domain|application|infrastructure|ui/pages`) y los puntos válidos de composición.
 - v2.0: contrato operativo específico para Codex Automations en ClinicDesk (fuente de verdad, selección única de tarea, política de bloqueo, roadmap/bitácora obligatorios, prohibición explícita de binarios).
 - v1.x: contrato genérico previo (arquitectura, gates, calidad, i18n, seguridad y DoD).
