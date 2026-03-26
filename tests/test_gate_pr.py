@@ -3,7 +3,6 @@ from __future__ import annotations
 from types import SimpleNamespace
 
 from scripts import gate_pr
-from scripts import gate_rapido
 from scripts.quality_gate_components import bloqueo_operativo
 from scripts.quality_gate_components.ejecucion_canonica import DecisionEjecucionCanonica
 
@@ -153,47 +152,3 @@ def test_preflight_entorno_smoke_contrato_bloqueo_operativo(monkeypatch, capsys)
     assert "reason_code=TOOLCHAIN_DESALINEADO" in err
     assert "Paso sugerido: python -m pip install -r requirements-dev.txt" in err
     assert f"Validaciones no ejecutadas: {gate_pr.VALIDACIONES_NO_EJECUTADAS}" in err
-
-
-def test_gate_pr_gate_rapido_comparten_semantica_base_rc_20(monkeypatch, capsys) -> None:
-    class _Interprete:
-        usa_python_repo = True
-
-    class _Diag:
-        toolchain_error = None
-        herramientas = ()
-        wheelhouse_disponible = False
-        wheelhouse = None
-        python_activo = "3.12.0"
-        python_path = "/tmp/python"
-        venv_activo = False
-        cache_pip = None
-        indice_pip = None
-        proxy_configurado = False
-        diagnostico_red = "sin wheelhouse"
-        source_of_truth = "requirements-dev.txt"
-        tiene_faltantes = True
-        tiene_desalineaciones = False
-        entorno_bloqueado = True
-        interprete = _Interprete()
-
-    monkeypatch.setattr(gate_pr, "diagnosticar_entorno_calidad", lambda _root: _Diag())
-    monkeypatch.setattr(gate_pr, "codigo_salida_estable", lambda _diag: 2)
-    monkeypatch.setattr(
-        bloqueo_operativo,
-        "clasificar_bloqueo_entorno",
-        lambda _diag: SimpleNamespace(
-            reason_code="DEPENDENCIAS_FALTANTES",
-            categoria="toolchain",
-            detalle="Faltan herramientas del gate en el intérprete activo.",
-            accion_sugerida="python -m pip install -r requirements-dev.txt",
-        ),
-    )
-    monkeypatch.setattr(bloqueo_operativo, "renderizar_reporte", lambda _diag: ["[doctor][error] ruff ausente"])
-
-    rc_pr = gate_pr._preflight_entorno(gate_pr.REPO_ROOT)
-    err_pr = capsys.readouterr().err
-
-    assert rc_pr == gate_pr.EXIT_ENTORNO_BLOQUEADO == gate_rapido.EXIT_ENTORNO_BLOQUEADO
-    assert "todavía no se validó el proyecto" in err_pr
-    assert "no fallo funcional del repositorio" in err_pr

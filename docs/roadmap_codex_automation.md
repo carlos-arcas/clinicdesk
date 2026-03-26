@@ -5,6 +5,28 @@
 - `MainWindow` ahora usa una ruta explícita de cierre controlado cuando detecta jobs activos.
 - `JobManager` tiene API pública para inspección/cancelación masiva/cierre seguro y limpieza integral de recursos.
 
+## Ciclo 18
+
+## Objetivo
+Congelar el contrato compartido de bloqueo operativo entre `python -m scripts.gate_pr` y `python -m scripts.gate_rapido` con un smoke test transversal estable.
+
+## Cambios aplicados
+- Se añadió el smoke test transversal `tests/test_gate_operational_contract_smoke.py` para ejecutar ambos entrypoints bajo el mismo diagnóstico simulado de bloqueo operativo.
+- El smoke valida contrato mínimo compartido sin snapshot frágil: `rc=20`, semántica de bloqueo local, confirmación de “todavía no se validó el proyecto”, y presencia de acción sugerida/reintento.
+- Se eliminó una aserción transversal parcial en `tests/test_gate_pr.py` para dejar el contrato centralizado en el smoke test único.
+
+## Tests ejecutados
+- `pytest -q tests/test_gate_operational_contract_smoke.py tests/test_gate_pr.py tests/test_gate_rapido.py`
+- `ruff check scripts/gate_pr.py scripts/gate_rapido.py scripts/quality_gate_components/bloqueo_operativo.py tests/test_gate_pr.py tests/test_gate_rapido.py tests/test_gate_operational_contract_smoke.py`
+- `python -m scripts.gate_pr`
+
+## Riesgos abiertos
+- El contrato smoke congela semántica mínima (intención + piezas clave), no equivalencia literal de wording completo entre ambos entrypoints.
+- Cambios futuros en mensajes operativos deben preservar tokens semánticos mínimos del smoke para evitar regresión transversal accidental.
+
+## Siguiente paso recomendado
+- Añadir una verificación documental mínima que vincule explícitamente el smoke transversal con el contrato de `reason_code` operativo para detectar drift de texto/causa en un solo lugar.
+
 ## Ciclo 17
 
 ## Objetivo
