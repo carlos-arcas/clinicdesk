@@ -5,6 +5,31 @@ Reglas:
 - no reescribir entradas previas salvo corrección factual mínima y explícita,
 - cada entrada debe mapear a una tarea del `docs/roadmap_codex.md`.
 
+## Plantilla de cierre
+
+Usar esta plantilla para cada nueva entrada agregada al final del archivo. Si un campo no aplica, registrar `N/A`. Si la validación o la apertura de PR quedan bloqueadas por entorno o contrato, registrar `N/A por bloqueo operativo` de forma literal.
+
+```md
+## Entrada
+- **fecha/hora**: YYYY-MM-DD HH:MM:SSZ
+- **tarea**: RCDX-### — Título exacto
+- **estado final**: DONE | BLOCKED
+- **archivos tocados**:
+  - `ruta/archivo`
+- **decisiones**:
+  - decisión tomada con evidencia
+- **checks ejecutados**:
+  - `comando`
+- **resultado**:
+  - evidencia objetiva del run
+- **riesgo detectado**:
+  - `Sin riesgo adicional.` | riesgo concreto
+- **metadata de validación/PR**:
+  - referencia verificable o `N/A por bloqueo operativo`
+- **bloqueo o siguiente paso exacto**:
+  - siguiente acción única y verificable
+```
+
 ---
 
 ## Entrada
@@ -131,3 +156,33 @@ Reglas:
 - **bloqueo o siguiente paso exacto**:
   - Sin bloqueo para RCDX-003.
   - Siguiente paso exacto: tomar `RCDX-004` como primera tarea `TODO` no bloqueada en `docs/roadmap_codex.md`.
+
+## Entrada
+- **fecha/hora**: 2026-03-26 14:23:11Z
+- **tarea**: RCDX-004 — Estandarizar plantilla de cierre en bitácora
+- **estado final**: BLOCKED
+- **archivos tocados**:
+  - `docs/roadmap_codex.md`
+  - `docs/bitacora_codex.md`
+- **decisiones**:
+  - Se añadió una plantilla explícita y reutilizable de cierre en `docs/bitacora_codex.md`, con campos obligatorios para checks, decisiones, resultado, riesgo y metadata de validación/PR.
+  - Se mantuvo el alcance estrictamente documental y append-only, sin tocar `features` ni otras áreas del repositorio.
+- **checks ejecutados**:
+  - `git -c safe.directory=C:/Users/arcas/.codex/worktrees/e60f/clinicdesk diff --numstat -- docs/roadmap_codex.md docs/bitacora_codex.md`
+  - `python -m scripts.gate_rapido`
+  - `python scripts/setup.py`
+  - `python -m scripts.doctor_entorno_calidad`
+  - `.\.venv\Scripts\python.exe -m pip install -r requirements-dev.txt`
+  - `.\.venv\Scripts\python.exe -m ensurepip --upgrade`
+  - `git -c safe.directory=C:/Users/arcas/.codex/worktrees/e60f/clinicdesk status --short`
+- **resultado**:
+  - La bitácora queda con una plantilla de cierre clara y reutilizable para futuras ejecuciones.
+  - La verificación manual del diff quedó acotada a cambios de texto en `docs/roadmap_codex.md` y `docs/bitacora_codex.md`; no hay binarios ni compilados en el cambio.
+  - `python -m scripts.gate_rapido` no pudo validar el repositorio: primero falló por `.venv` ausente y, tras `python scripts/setup.py`, volvió a abortar con `rc=20`/`reason_code=DEPENDENCIAS_FALTANTES`.
+  - `python scripts/setup.py` dejó `.venv` parcial sin `pip`; `.\.venv\Scripts\python.exe -m pip install -r requirements-dev.txt` falla con `No module named pip` y `.\.venv\Scripts\python.exe -m ensurepip --upgrade` falla con `PermissionError [Errno 13]` sobre `%LOCALAPPDATA%\Temp`.
+- **riesgo detectado**:
+  - Riesgo operativo: la mejora documental quedó sin validación automática porque el toolchain local del worktree no puede completarse.
+- **metadata de validación/PR**:
+  - `N/A por bloqueo operativo`
+- **bloqueo o siguiente paso exacto**:
+  - Corregir permisos de escritura sobre `%LOCALAPPDATA%\\Temp` o recrear `.venv` con `pip` funcional en este worktree; después ejecutar en orden `python scripts/setup.py`, `python -m scripts.doctor_entorno_calidad` y `python -m scripts.gate_rapido` para reevaluar el cierre de `RCDX-004`.

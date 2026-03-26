@@ -79,7 +79,7 @@
 - **dependencias o bloqueo**: RCDX-001 DONE.
 
 ### RCDX-004 — Estandarizar plantilla de cierre en bitácora
-- **estado**: TODO
+- **estado**: BLOCKED
 - **objetivo**: Consolidar formato de evidencia para cierres de ejecución (checks, decisión, siguiente paso).
 - **alcance permitido**:
   - ajustar únicamente estructura documental de `docs/bitacora_codex.md`.
@@ -92,4 +92,4 @@
   - `python -m scripts.gate_rapido`
 - **criterios de cierre**:
   - plantilla clara, reutilizable y append-only.
-- **dependencias o bloqueo**: RCDX-001 DONE.
+- **dependencias o bloqueo**: RCDX-001 DONE. Revalidación 2026-03-26: `python -m scripts.gate_rapido` aborta con `rc=20`/`reason_code=DEPENDENCIAS_FALTANTES`; `python scripts/setup.py` deja `.venv` parcial sin `pip`; `.\.venv\Scripts\python.exe -m ensurepip --upgrade` falla con `PermissionError [Errno 13]` sobre `%LOCALAPPDATA%\Temp`, por lo que no se puede instalar el toolchain obligatorio (`ruff`, `pytest`, `mypy`, `pip-audit`) ni completar la validación.
