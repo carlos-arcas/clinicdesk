@@ -275,6 +275,34 @@ Usar esta plantilla para cada nueva entrada agregada al final del archivo. Si un
   - Añadir en `docs/roadmap_codex.md` la siguiente tarea priorizada en estado `TODO` o declarar explícitamente backlog cerrado; después ejecutar `python -m pip install -r requirements-dev.txt` y reintentar `python -m scripts.gate_rapido`.
 
 ## Entrada
+- **fecha/hora**: 2026-03-26 20:01:16Z
+- **tarea**: RCDX-005 — Registrar backlog sin tarea seleccionable
+- **estado final**: BLOCKED
+- **archivos tocados**:
+  - `docs/roadmap_codex.md`
+  - `docs/bitacora_codex.md`
+- **decisiones**:
+  - Se revalidó el bloqueo contractual existente sin abrir una tarea nueva ni alterar el orden del roadmap, porque sigue sin existir ninguna entrada `TODO` elegible.
+  - El alcance se mantuvo estrictamente documental y se evitó tocar `docs/features.json` y `docs/features.md` por no haber cambio funcional ni evidencia nueva de producto.
+  - No se intentó instalar dependencias fuera del check obligatorio, porque corregir el toolchain sin una tarea seleccionable seguiría expandiendo el alcance del run.
+- **checks ejecutados**:
+  - `git -c safe.directory=C:/Users/arcas/.codex/worktrees/80e1/clinicdesk branch --show-current`
+  - `git -c safe.directory=C:/Users/arcas/.codex/worktrees/80e1/clinicdesk status --short --untracked-files=no`
+  - `python -m scripts.gate_rapido`
+  - `git -c safe.directory=C:/Users/arcas/.codex/worktrees/80e1/clinicdesk diff --numstat -- docs/roadmap_codex.md docs/bitacora_codex.md`
+- **resultado**:
+  - La ejecución sigue en la rama aislada `codex/radar-inspector-20260326`, no sobre `main`.
+  - Antes de documentar, `git status --short --untracked-files=no` no devolvía cambios; el roadmap operativo sigue sin ninguna tarea `TODO` seleccionable.
+  - `python -m scripts.gate_rapido` vuelve a abortar con `rc=20`/`reason_code=DEPENDENCIAS_FALTANTES`; el doctor confirma que faltan `ruff`, `pytest`, `mypy` y `pip-audit` en `.venv`, y `wheelhouse/` sigue ausente.
+  - La verificación manual del diff queda limitada a `docs/roadmap_codex.md` y `docs/bitacora_codex.md`; no se incorporan binarios ni compilados versionados.
+- **riesgo detectado**:
+  - Riesgo operativo y de gobernanza: mientras no exista una tarea `TODO` priorizada y el toolchain siga incompleto, la automatización no puede avanzar ni validar el repositorio.
+- **metadata de validación/PR**:
+  - `N/A por bloqueo operativo`
+- **bloqueo o siguiente paso exacto**:
+  - Añadir en `docs/roadmap_codex.md` la siguiente tarea priorizada en estado `TODO` o declarar explícitamente backlog cerrado; después ejecutar `python -m pip install -r requirements-dev.txt` y reintentar `python -m scripts.gate_rapido`.
+
+## Entrada
 - **fecha/hora**: 2026-03-26 16:02:55Z
 - **tarea**: RCDX-005 — Registrar backlog sin tarea seleccionable
 - **estado final**: BLOCKED
@@ -388,3 +416,34 @@ Usar esta plantilla para cada nueva entrada agregada al final del archivo. Si un
   - `N/A por bloqueo operativo`
 - **bloqueo o siguiente paso exacto**:
   - Añadir en `docs/roadmap_codex.md` la siguiente tarea priorizada en estado `TODO` o declarar explícitamente backlog cerrado; después ejecutar `python -m pip install -r requirements-dev.txt` y reintentar `python -m scripts.gate_rapido`.
+
+## Entrada
+- **fecha/hora**: 2026-03-26 20:11:48Z
+- **tarea**: RCDX-006 — Saneamiento contractual Bootstrap 1
+- **estado final**: BLOCKED
+- **archivos tocados**:
+  - `AGENTS.md`
+  - `docs/roadmap_codex.md`
+  - `docs/bitacora_codex.md`
+- **decisiones**:
+  - Se materializó la priorización humana `BOOTSTRAP CONTRATO 1` como `RCDX-006` para salir del estado sin `TODO` seleccionable sin inventar backlog paralelo.
+  - Se corrigió `AGENTS.md` para mapear Clean Architecture a la variante real del repo (`clinicdesk/app/domain`, `clinicdesk/app/application`, `clinicdesk/app/infrastructure`, `clinicdesk/app/ui` y `clinicdesk/app/pages`) y a sus puntos válidos de composición.
+  - Se dejó explícito en `docs/roadmap_codex.md` que, tras cerrar `RCDX-006` en `BLOCKED`, el backlog operativo vuelve a quedar cerrado hasta nueva priorización humana.
+  - No fue necesario tocar `docs/roadmap_codex_automation.md`, porque su rol histórico sigue alineado con el roadmap operativo vigente.
+- **checks ejecutados**:
+  - `git -c safe.directory=C:/Users/arcas/.codex/worktrees/80e1/clinicdesk branch --show-current`
+  - `git -c safe.directory=C:/Users/arcas/.codex/worktrees/80e1/clinicdesk status --short --untracked-files=no`
+  - `python -m scripts.gate_rapido`
+  - `git -c safe.directory=C:/Users/arcas/.codex/worktrees/80e1/clinicdesk diff --numstat -- AGENTS.md docs/roadmap_codex.md docs/bitacora_codex.md`
+- **resultado**:
+  - La ejecución sigue en la rama aislada `codex/radar-inspector-20260326`, no sobre `main`.
+  - `AGENTS.md` ya no apunta a carpetas top-level inexistentes y queda alineado con la arquitectura real del repo y con `docs/architecture_contract.md`.
+  - `docs/roadmap_codex.md` vuelve a expresar de forma explícita el estado seleccionable del backlog: tras este cierre no queda ninguna tarea `TODO` no bloqueada.
+  - `python -m scripts.gate_rapido` vuelve a abortar con `rc=20`/`reason_code=DEPENDENCIAS_FALTANTES`; faltan `ruff`, `pytest`, `mypy` y `pip-audit` en `.venv`, y `wheelhouse/` sigue ausente.
+  - La verificación manual del diff queda limitada a `AGENTS.md`, `docs/roadmap_codex.md` y `docs/bitacora_codex.md`; no se incorporan binarios ni compilados versionados.
+- **riesgo detectado**:
+  - Riesgo operativo y de gobernanza: mientras el toolchain siga incompleto y no exista una nueva tarea `TODO` priorizada, la automatización debe detenerse sin intentar trabajo adicional.
+- **metadata de validación/PR**:
+  - `N/A por bloqueo operativo`
+- **bloqueo o siguiente paso exacto**:
+  - Añadir una nueva tarea priorizada en estado `TODO` en `docs/roadmap_codex.md`; después instalar el toolchain con `python -m pip install -r requirements-dev.txt` o proveer `wheelhouse/` utilizable, y reintentar `python -m scripts.gate_rapido`.
