@@ -8,7 +8,7 @@ Es un contrato ejecutable: si hay duda, prevalece este archivo.
 1. **Fuente de verdad operativa**: `docs/roadmap_codex.md`.
 2. En cada ejecución, el agente debe:
    - tomar **solo una** tarea,
-   - elegir la **primera tarea en `TODO` que no esté bloqueada**,
+   - elegir la **primera tarea en `TODO` que no esté bloqueada** (orden textual, de arriba hacia abajo, sin saltos),
    - moverla a `WIP` al iniciar y a `DONE`/`BLOCKED` al cerrar.
 3. **Prohibido expandir alcance**: no incluir mejoras “ya que estamos”.
 4. Si detectas bloqueo real (técnico, de dependencia o de contrato):
@@ -56,6 +56,10 @@ No hay tarea terminada sin cumplir lo siguiente:
 - guardarraíl de arquitectura activo,
 - check de i18n/hardcodes activo,
 - checks documentales sincronizados.
+
+Regla de cierre sin ambigüedad:
+- `DONE` solo si los checks obligatorios de la tarea se ejecutaron y quedaron en verde.
+- Si un check obligatorio no puede ejecutarse o falla por bloqueo operativo de entorno/contrato, el estado de cierre obligatorio es `BLOCKED`.
 
 Para cambios de ejecución normal:
 1. ejecutar `python -m scripts.gate_rapido`,
@@ -120,6 +124,7 @@ Si el entorno impide ejecutar checks obligatorios:
 - se documentan comandos exactos intentados,
 - se deja diagnóstico concreto,
 - no se inventa PASS ni se abre PR fuera de política.
+- no se registra metadata de commit/PR como evidencia de validación (usar `N/A por bloqueo operativo`), hasta destrabar y revalidar.
 
 ## 11) Relación con documentación histórica
 

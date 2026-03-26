@@ -30,3 +30,26 @@ Reglas:
 - **bloqueo o siguiente paso exacto**:
   - Bloqueo de validación: falta `/workspace/clinicdesk/.venv/bin/python`; acción de remediación indicada por gate: `python scripts/setup.py` y reintentar.
   - Tras remediar entorno, siguiente paso de producto documental: ejecutar RCDX-002 (primera `TODO` no bloqueada) sin ampliar alcance.
+
+## Entrada
+- **fecha/hora**: 2026-03-26 11:38:00Z
+- **tarea**: RCDX-002 — Enlazar ejecución diaria con disciplina de una tarea
+- **estado final**: BLOCKED
+- **archivos tocados**:
+  - `AGENTS.md`
+  - `docs/roadmap_codex.md`
+  - `docs/bitacora_codex.md`
+- **decisiones**:
+  - Se eliminó ambigüedad sobre selección diaria: una sola tarea por ejecución y elección estricta de la primera `TODO` no bloqueada en orden textual.
+  - Se explicitó regla de cierre: `DONE` solo con checks obligatorios en verde; bloqueo operativo en checks obliga cierre `BLOCKED`.
+  - Se explicitó trazabilidad cuando no hay validación completa: metadata de commit/PR debe registrarse como `N/A por bloqueo operativo` hasta destrabar.
+- **checks ejecutados**:
+  - `python -m scripts.gate_rapido`
+  - `git status --short`
+- **resultado**:
+  - Contrato y roadmap quedaron alineados para disciplina de una tarea por run, bloqueo y parada.
+  - `python -m scripts.gate_rapido` quedó bloqueado por entorno (`rc=20`, `reason_code=VENV_REPO_NO_DISPONIBLE`), sin validación funcional del repositorio.
+  - Metadata de commit/PR para validación: `N/A por bloqueo operativo`.
+- **bloqueo o siguiente paso exacto**:
+  - Bloqueo operativo: falta `/workspace/clinicdesk/.venv/bin/python`.
+  - Ejecutar `python scripts/setup.py` y luego reintentar `python -m scripts.gate_rapido` sobre esta misma tarea antes de promoverla a `DONE`.

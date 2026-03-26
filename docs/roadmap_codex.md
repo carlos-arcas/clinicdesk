@@ -33,7 +33,7 @@
 - **dependencias o bloqueo**: ninguna.
 
 ### RCDX-002 — Enlazar ejecución diaria con disciplina de una tarea
-- **estado**: TODO
+- **estado**: BLOCKED
 - **objetivo**: Asegurar que cada run mantenga disciplina de una única tarea y sin expansión de alcance.
 - **alcance permitido**:
   - reforzar texto operativo en docs si hay ambigüedad residual,
@@ -49,8 +49,10 @@
   - `python -m scripts.gate_rapido`
 - **criterios de cierre**:
   - no hay contradicciones entre contrato y operación diaria,
-  - queda explícito cómo proceder ante bloqueo y parada.
-- **dependencias o bloqueo**: RCDX-001 DONE.
+  - queda explícito cómo proceder ante bloqueo y parada,
+  - queda explícita la regla `DONE` vs `BLOCKED` cuando no se pueden completar checks obligatorios,
+  - roadmap y bitácora documentan `N/A por bloqueo operativo` para metadata de commit/PR cuando corresponda.
+- **dependencias o bloqueo**: RCDX-001 DONE. Bloqueo operativo activo de validación: `VENV_REPO_NO_DISPONIBLE` al ejecutar `python -m scripts.gate_rapido`.
 
 ### RCDX-003 — Mantener trazabilidad entre roadmap operativo e histórico
 - **estado**: TODO
