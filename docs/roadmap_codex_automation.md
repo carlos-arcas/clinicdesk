@@ -2,6 +2,13 @@
 
 > Nota (2026-03-26): este documento se mantiene como histórico narrativo de ciclos. La planificación operativa seleccionable por automations vive en `docs/roadmap_codex.md`.
 
+## Vinculación mínima con el roadmap operativo
+
+- Este documento es narrativo y append-only; no introduce trabajo seleccionable por sí mismo.
+- Toda tarea nueva, reabierta o priorizada debe existir primero en `docs/roadmap_codex.md` con su estado canónico.
+- Los apartados “Siguiente paso recomendado” son contexto histórico hasta que se trasladen explícitamente al roadmap operativo.
+- En futuras entradas o ciclos nuevos, si el trabajo proviene del roadmap operativo, debe citarse el identificador `RCDX-###` correspondiente cuando aplique.
+
 ## Estado actual
 - Se endureció el ciclo de vida de jobs UI para evitar cierres abruptos durante ejecución en `QThread`.
 - `MainWindow` ahora usa una ruta explícita de cierre controlado cuando detecta jobs activos.

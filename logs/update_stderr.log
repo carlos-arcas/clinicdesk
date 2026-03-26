@@ -1,0 +1,27 @@
+From https://github.com/carlos-arcas/clinicdesk
+   ce21720..ef15c64  main       -> origin/main
+ * [new branch]      codex/add-lightweight-training-history-to-predictions -> origin/codex/add-lightweight-training-history-to-predictions
+ * [new branch]      codex/align-operational-contract-for-gate_pr-and-gate_rapido -> origin/codex/align-operational-contract-for-gate_pr-and-gate_rapido
+ * [new branch]      codex/align-operational-contract-for-gate_rapido -> origin/codex/align-operational-contract-for-gate_rapido
+ * [new branch]      codex/consolidate-operational-blocking-contract -> origin/codex/consolidate-operational-blocking-contract
+ * [new branch]      codex/enhance-app-shutdown-process -> origin/codex/enhance-app-shutdown-process
+ * [new branch]      codex/enhance-documentation-contract-for-reason_code -> origin/codex/enhance-documentation-contract-for-reason_code
+ * [new branch]      codex/enhance-ml-training-pipeline-for-predictability -> origin/codex/enhance-ml-training-pipeline-for-predictability
+ * [new branch]      codex/implement-alert-and-trend-for-prediccion_ausencias -> origin/codex/implement-alert-and-trend-for-prediccion_ausencias
+ * [new branch]      codex/implement-contextual-operational-recommendation -> origin/codex/implement-contextual-operational-recommendation
+ * [new branch]      codex/implement-explicit-use-case-for-training-summary -> origin/codex/implement-explicit-use-case-for-training-summary
+ * [new branch]      codex/implement-lifecycle-hardening-for-app -> origin/codex/implement-lifecycle-hardening-for-app
+ * [new branch]      codex/implement-lightweight-document-check-integration -> origin/codex/implement-lightweight-document-check-integration
+ * [new branch]      codex/implement-minimum-documentation-link-for-smoke-test -> origin/codex/implement-minimum-documentation-link-for-smoke-test
+ * [new branch]      codex/implement-ml-monitor-telemetry-deduplication -> origin/codex/implement-ml-monitor-telemetry-deduplication
+ * [new branch]      codex/implement-reason-code-coherence-check -> origin/codex/implement-reason-code-coherence-check
+ * [new branch]      codex/implement-smoke-test-for-operational-contract -> origin/codex/implement-smoke-test-for-operational-contract
+ * [new branch]      codex/improve-gate-diagnostics-and-messaging -> origin/codex/improve-gate-diagnostics-and-messaging
+ * [new branch]      codex/improve-predictor-for-prediction_absences -> origin/codex/improve-predictor-for-prediction_absences
+ * [new branch]      codex/migrate-prediction-training-to-jobmanager -> origin/codex/migrate-prediction-training-to-jobmanager
+From https://github.com/carlos-arcas/clinicdesk
+   ef15c64..24fda13  main       -> origin/main
+ * [new branch]      codex/document-rcdx-002-execution-discipline -> origin/codex/document-rcdx-002-execution-discipline
+ * [new branch]      codex/prepare-agents.md-for-codex-automations -> origin/codex/prepare-agents.md-for-codex-automations
+ * [new branch]      codex/revalidate-rcdx-002-and-update-documentation -> origin/codex/revalidate-rcdx-002-and-update-documentation
+ * [new branch]      codex/unlock-and-revalidate-rcdx-002 -> origin/codex/unlock-and-revalidate-rcdx-002

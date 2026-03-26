@@ -4,6 +4,13 @@
 > Regla de selección: tomar siempre la primera tarea `TODO` no bloqueada.
 > Histórico narrativo complementario: `docs/roadmap_codex_automation.md`.
 
+## Relación con el histórico narrativo
+
+- `docs/roadmap_codex.md` define el backlog seleccionable y el estado vigente de cada tarea.
+- `docs/roadmap_codex_automation.md` conserva contexto narrativo de ciclos previos, pero no reordena ni sustituye este roadmap.
+- Si un “Siguiente paso recomendado” del histórico sigue vigente, primero debe materializarse aquí como tarea `TODO` antes de poder ejecutarse.
+- Si ambos documentos divergen, prevalece este roadmap operativo.
+
 ## Tareas
 
 ### RCDX-001 — Fundar contrato operativo de automations
@@ -55,7 +62,7 @@
 - **dependencias o bloqueo**: RCDX-001 DONE. Revalidación 2026-03-26: persiste bloqueo operativo de validación con `reason_code=DEPENDENCIAS_FALTANTES` en `python -m scripts.doctor_entorno_calidad` y `rc=20` en `python -m scripts.gate_rapido`; `python scripts/setup.py` no logra instalar dependencias runtime por proxy/red (`Tunnel connection failed: 403 Forbidden` y `No matching distribution found for PySide6==6.8.3`) sin wheelhouse local, por lo que no se puede alinear el toolchain en este entorno.
 
 ### RCDX-003 — Mantener trazabilidad entre roadmap operativo e histórico
-- **estado**: TODO
+- **estado**: DONE
 - **objetivo**: Evitar deriva entre roadmap operativo actual e histórico narrativo de automatizaciones.
 - **alcance permitido**:
   - añadir notas de enlace cruzado y reglas de actualización mínima.

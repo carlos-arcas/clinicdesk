@@ -105,3 +105,29 @@ Reglas:
 - **bloqueo o siguiente paso exacto**:
   - Bloqueo operativo externo vigente: conectividad/proxy e índice no permiten completar instalación del lock, y no existe wheelhouse local utilizable.
   - Siguiente paso exacto: restaurar acceso efectivo al índice (o proveer wheelhouse completo compatible con `requirements-dev.txt` y `requirements.txt`), luego reejecutar en orden `python scripts/setup.py`, `python -m scripts.doctor_entorno_calidad`, `python -m scripts.gate_rapido` para reevaluar cierre de RCDX-002.
+
+## Entrada
+- **fecha/hora**: 2026-03-26 12:32:33Z
+- **tarea**: RCDX-003 — Mantener trazabilidad entre roadmap operativo e histórico
+- **estado final**: DONE
+- **archivos tocados**:
+  - `docs/roadmap_codex.md`
+  - `docs/roadmap_codex_automation.md`
+  - `docs/bitacora_codex.md`
+- **decisiones**:
+  - Se reforzó la precedencia del roadmap operativo como backlog seleccionable y estado canónico.
+  - Se dejó explícito que el histórico narrativo no introduce trabajo ejecutable por sí mismo y que sus “Siguiente paso recomendado” solo se vuelven accionables al materializarse en `docs/roadmap_codex.md`.
+  - Se fijó una regla mínima de trazabilidad futura: cuando un ciclo nuevo nazca del roadmap operativo, debe citar el identificador `RCDX-###` correspondiente cuando aplique.
+- **checks ejecutados**:
+  - `python -m scripts.gate_rapido`
+  - `.\.venv\Scripts\python.exe -m scripts.gate_rapido`
+  - `git diff --numstat -- docs/roadmap_codex.md docs/roadmap_codex_automation.md`
+  - `git status --short`
+- **resultado**:
+  - `docs/roadmap_codex.md` ahora explicita la precedencia del backlog operativo frente al histórico narrativo.
+  - `docs/roadmap_codex_automation.md` ahora explicita su carácter append-only/narrativo y la regla de traslado al roadmap antes de ejecutar trabajo nuevo.
+  - `python -m scripts.gate_rapido` quedó en verde al reejecutarse con el Python del repo; la verificación directa con `.\.venv\Scripts\python.exe -m scripts.gate_rapido` también devolvió `rc=0`.
+  - La verificación manual del diff quedó acotada a archivos `.md`; no se tocaron binarios ni artefactos compilados.
+- **bloqueo o siguiente paso exacto**:
+  - Sin bloqueo para RCDX-003.
+  - Siguiente paso exacto: tomar `RCDX-004` como primera tarea `TODO` no bloqueada en `docs/roadmap_codex.md`.
