@@ -447,3 +447,34 @@ Usar esta plantilla para cada nueva entrada agregada al final del archivo. Si un
   - `N/A por bloqueo operativo`
 - **bloqueo o siguiente paso exacto**:
   - Añadir una nueva tarea priorizada en estado `TODO` en `docs/roadmap_codex.md`; después instalar el toolchain con `python -m pip install -r requirements-dev.txt` o proveer `wheelhouse/` utilizable, y reintentar `python -m scripts.gate_rapido`.
+
+## Entrada
+- **fecha/hora**: 2026-03-26 21:36:42Z
+- **tarea**: RCDX-005 — Registrar backlog sin tarea seleccionable
+- **estado final**: BLOCKED
+- **archivos tocados**:
+  - `docs/roadmap_codex.md`
+  - `docs/bitacora_codex.md`
+- **decisiones**:
+  - Se invalidó el cierre total del backlog al detectar un trabajo real y verificable antes de cualquier feature nueva: `launch.bat` sigue versionado en la raíz como launcher Windows legado roto.
+  - Se materializó `RCDX-007 — Retirar o alinear launcher Windows legado` como primera `TODO` no bloqueada del roadmap, sin tocar código de aplicación.
+  - El saneamiento quedó limitado a roadmap y bitácora canónicos; no fue necesario tocar `AGENTS.md` ni `docs/roadmap_codex_automation.md`.
+- **checks ejecutados**:
+  - `git -c safe.directory=C:/Users/arcas/.codex/worktrees/80e1/clinicdesk branch --show-current`
+  - `git -c safe.directory=C:/Users/arcas/.codex/worktrees/80e1/clinicdesk status --short --untracked-files=no`
+  - `python -m scripts.gate_rapido`
+  - `Get-Content -Raw -Encoding utf8 launch.bat`
+  - `if (Test-Path "main.py") { Write-Output 'MAIN_EXISTS' } else { Write-Output 'MAIN_MISSING' }`
+  - `git -c safe.directory=C:/Users/arcas/.codex/worktrees/80e1/clinicdesk diff --numstat -- docs/roadmap_codex.md docs/bitacora_codex.md`
+- **resultado**:
+  - La ejecución sigue en la rama aislada `codex/radar-inspector-20260326`, no sobre `main`.
+  - `python -m scripts.gate_rapido` vuelve a abortar con `rc=20`/`reason_code=DEPENDENCIAS_FALTANTES`; faltan `ruff`, `pytest`, `mypy` y `pip-audit` en `.venv`, y `wheelhouse/` sigue ausente.
+  - `launch.bat` mantiene branding `Launcher Horas Sindicales iniciado`, exige `main.py` inexistente y ejecuta `main.py`, por lo que el backlog no podía seguir declarado como cerrado.
+  - `README.md`, `scripts/run_app.py`, `START_APP.bat` y `launcher.bat` ya apuntan al entrypoint real `clinicdesk.app.main`, de modo que la contradicción quedó acotada a un launcher legado root-level no materializado en el roadmap.
+  - La verificación manual del diff queda limitada a `docs/roadmap_codex.md` y `docs/bitacora_codex.md`; no se incorporan binarios ni compilados versionados.
+- **riesgo detectado**:
+  - Riesgo de entrada en falso para usuarios Windows: mientras `launch.bat` siga tracked y roto, puede fallar antes de arrancar la app y comunicar branding ajeno al producto real.
+- **metadata de validación/PR**:
+  - `N/A por bloqueo operativo`
+- **bloqueo o siguiente paso exacto**:
+  - Ejecutar `RCDX-007` corrigiendo o retirando `launch.bat`; después reintentar `python -m scripts.gate_rapido`.
