@@ -186,3 +186,35 @@ Usar esta plantilla para cada nueva entrada agregada al final del archivo. Si un
   - `N/A por bloqueo operativo`
 - **bloqueo o siguiente paso exacto**:
   - Corregir permisos de escritura sobre `%LOCALAPPDATA%\\Temp` o recrear `.venv` con `pip` funcional en este worktree; después ejecutar en orden `python scripts/setup.py`, `python -m scripts.doctor_entorno_calidad` y `python -m scripts.gate_rapido` para reevaluar el cierre de `RCDX-004`.
+
+## Entrada
+- **fecha/hora**: 2026-03-26 14:27:41Z
+- **tarea**: RCDX-004 — Estandarizar plantilla de cierre en bitácora
+- **estado final**: BLOCKED
+- **archivos tocados**:
+  - `docs/roadmap_codex.md`
+  - `docs/bitacora_codex.md`
+- **decisiones**:
+  - Se revalidó `RCDX-004` sin abrir trabajo nuevo de roadmap, porque la validación obligatoria sigue bloqueada por entorno en este worktree.
+  - Se dejó el trabajo en una rama aislada local (`codex/radar-inspector-20260326`) para no inspeccionar sobre `main`.
+  - Se refinó el diagnóstico operativo: el fallo ocurre antes del toolchain del repo y se reproduce en directorios creados por `tempfile`/`ensurepip`, no solo en `%LOCALAPPDATA%\\Temp`.
+- **checks ejecutados**:
+  - `python -m scripts.gate_rapido`
+  - `python scripts/setup.py`
+  - `python -m venv .venv`
+  - `python -m venv .venv_probe --without-pip; .\\.venv_probe\\Scripts\\python.exe -m ensurepip --upgrade --default-pip`
+  - `New-Item -ItemType Directory -Force '.tmp' | Out-Null; $env:TEMP=(Resolve-Path '.tmp').Path; $env:TMP=$env:TEMP; .\\.venv\\Scripts\\python.exe -m ensurepip --upgrade --default-pip`
+  - `python -c "from pathlib import Path; p=Path('.tmp/manual_write.txt'); p.write_text('ok', encoding='utf-8'); print(p.read_text(encoding='utf-8'))"`
+  - `python -c "import tempfile, pathlib; d=tempfile.TemporaryDirectory(dir='.tmp'); p=pathlib.Path(d.name)/'probe.txt'; p.write_text('ok', encoding='utf-8'); print(p.read_text(encoding='utf-8')); d.cleanup()"`
+  - `git -c safe.directory=C:/Users/arcas/.codex/worktrees/80e1/clinicdesk status --short --ignored`
+- **resultado**:
+  - `python -m scripts.gate_rapido` sigue bloqueado en preflight con `rc=20`/`reason_code=VENV_REPO_NO_DISPONIBLE` porque `.venv` no está completo.
+  - `python scripts/setup.py` y `python -m venv .venv` fallan dentro de `ensurepip`; el worktree queda con `.venv` parcial sin `pip`.
+  - La escritura directa en un directorio preexistente del repo sí funciona, pero el probe con `tempfile.TemporaryDirectory(dir='.tmp')` falla con `PermissionError [Errno 13]` y `WinError 5`, confirmando un bloqueo externo del sandbox/host sobre directorios temporales creados por Python 3.13.
+  - La verificación manual del cambio sigue acotada a texto en `docs/roadmap_codex.md` y `docs/bitacora_codex.md`; no se tocaron binarios ni compilados versionados.
+- **riesgo detectado**:
+  - Riesgo operativo: mientras el sandbox no permita escribir dentro de directorios creados por `tempfile`, ningún bootstrap de `.venv` basado en `ensurepip` podrá completar el gate canónico en este worktree.
+- **metadata de validación/PR**:
+  - `N/A por bloqueo operativo`
+- **bloqueo o siguiente paso exacto**:
+  - Ejecutar fuera de este sandbox o tras corregir ACL/política del host la sonda `python -c "import tempfile, pathlib; d=tempfile.TemporaryDirectory(dir='.tmp'); p=pathlib.Path(d.name)/'probe.txt'; p.write_text('ok', encoding='utf-8'); print(p.read_text(encoding='utf-8')); d.cleanup()"` hasta obtener `ok`; después reejecutar en orden `python scripts/setup.py`, `python -m scripts.doctor_entorno_calidad` y `python -m scripts.gate_rapido` para reevaluar el cierre de `RCDX-004`.
