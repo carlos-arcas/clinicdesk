@@ -80,3 +80,28 @@ Reglas:
 - **bloqueo o siguiente paso exacto**:
   - Bloqueo operativo externo: acceso a dependencias bloqueado por proxy/red y sin wheelhouse del repo.
   - Siguiente paso exacto: habilitar conectividad del proxy/índice para `pip install` o proveer wheelhouse completo y válido; luego reejecutar en orden `python scripts/setup.py`, `python -m scripts.doctor_entorno_calidad`, `python -m scripts.gate_rapido` sobre RCDX-002.
+
+## Entrada
+- **fecha/hora**: 2026-03-26 12:22:00Z
+- **tarea**: RCDX-002 — Enlazar ejecución diaria con disciplina de una tarea
+- **estado final**: BLOCKED
+- **archivos tocados**:
+  - `docs/roadmap_codex.md`
+  - `docs/bitacora_codex.md`
+- **decisiones**:
+  - Se ejecutó la secuencia canónica de revalidación solicitada (`setup` → `doctor` → `gate_rapido`) sin abrir trabajo nuevo de roadmap.
+  - RCDX-002 no puede pasar a `DONE` porque el check obligatorio (`python -m scripts.gate_rapido`) no quedó en verde.
+  - Se actualizó la trazabilidad del bloqueo con evidencia vigente de esta ejecución.
+- **checks ejecutados**:
+  - `python scripts/setup.py`
+  - `python -m scripts.doctor_entorno_calidad`
+  - `python -m scripts.gate_rapido`
+  - `git status --short`
+- **resultado**:
+  - `python scripts/setup.py` crea/repara `.venv`, pero falla al instalar dependencias runtime por proxy/red (`Tunnel connection failed: 403 Forbidden`) y sin wheelhouse local; termina con `No matching distribution found for PySide6==6.8.3`.
+  - `python -m scripts.doctor_entorno_calidad` queda en `reason_code=DEPENDENCIAS_FALTANTES` (toolchain desalineado/faltante: ruff, pytest, mypy, pip-audit).
+  - `python -m scripts.gate_rapido` aborta con `rc=20` por bloqueo operativo local y no ejecuta validaciones funcionales del repositorio.
+  - Metadata de validación/PR: `N/A por bloqueo operativo`.
+- **bloqueo o siguiente paso exacto**:
+  - Bloqueo operativo externo vigente: conectividad/proxy e índice no permiten completar instalación del lock, y no existe wheelhouse local utilizable.
+  - Siguiente paso exacto: restaurar acceso efectivo al índice (o proveer wheelhouse completo compatible con `requirements-dev.txt` y `requirements.txt`), luego reejecutar en orden `python scripts/setup.py`, `python -m scripts.doctor_entorno_calidad`, `python -m scripts.gate_rapido` para reevaluar cierre de RCDX-002.
