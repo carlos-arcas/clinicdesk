@@ -6,6 +6,7 @@ from scripts import gate_pr
 from scripts.quality_gate_components.contrato_reason_codes_doc import (
     ErrorContratoReasonCodesDoc,
     comparar_reason_codes,
+    extraer_snippets_semantica_bloqueo_operativo,
     extraer_reason_codes_documentados,
 )
 
@@ -91,3 +92,28 @@ def test_check_documental_reutilizable_falla_con_detalle_claro(tmp_path) -> None
         assert "EXTRA_DESCONOCIDO" in mensaje
     else:  # pragma: no cover
         raise AssertionError("Se esperaba ErrorContratoReasonCodesDoc por divergencia doc↔código.")
+
+
+def test_parser_snippets_semantica_bloqueo_operativo_por_marcadores() -> None:
+    doc = textwrap.dedent(
+        """
+        # Documento
+        ## Sección editable
+        <!-- GATE_BLOQUEO_OPERATIVO_SEMANTICA:START -->
+        - `bloqueo operativo local`
+        - `todavía no se validó el proyecto`
+        <!-- GATE_BLOQUEO_OPERATIVO_SEMANTICA:END -->
+        """
+    ).strip()
+    snippets = extraer_snippets_semantica_bloqueo_operativo(doc)
+    assert snippets == ("bloqueo operativo local", "todavía no se validó el proyecto")
+
+
+def test_parser_snippets_falla_si_bloque_semantico_no_existe() -> None:
+    doc = "# Documento\n\nSin markers de semántica."
+    try:
+        extraer_snippets_semantica_bloqueo_operativo(doc)
+    except ErrorContratoReasonCodesDoc as exc:
+        assert "semántica mínima de bloqueo operativo" in str(exc)
+    else:  # pragma: no cover
+        raise AssertionError("Se esperaba ErrorContratoReasonCodesDoc por semántica sin delimitadores.")
