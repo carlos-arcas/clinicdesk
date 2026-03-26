@@ -1,5 +1,7 @@
 # Roadmap Codex Automation
 
+> Nota (2026-03-26): este documento se mantiene como histórico narrativo de ciclos. La planificación operativa seleccionable por automations vive en `docs/roadmap_codex.md`.
+
 ## Estado actual
 - Se endureció el ciclo de vida de jobs UI para evitar cierres abruptos durante ejecución en `QThread`.
 - `MainWindow` ahora usa una ruta explícita de cierre controlado cuando detecta jobs activos.
