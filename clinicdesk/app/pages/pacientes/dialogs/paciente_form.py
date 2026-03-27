@@ -76,9 +76,13 @@ class PacienteFormDialog(QDialog):
         self._labels_error: dict[str, QLabel] = {}
         form = QFormLayout()
         form.addRow(required_label(self._i18n.t("form.tipo_documento")), self.cbo_tipo_documento)
-        form.addRow(required_label(self._i18n.t("form.documento")), self._campo_con_error("documento", self.txt_documento))
+        form.addRow(
+            required_label(self._i18n.t("form.documento")), self._campo_con_error("documento", self.txt_documento)
+        )
         form.addRow(required_label(self._i18n.t("form.nombre")), self._campo_con_error("nombre", self.txt_nombre))
-        form.addRow(required_label(self._i18n.t("form.apellidos")), self._campo_con_error("apellidos", self.txt_apellidos))
+        form.addRow(
+            required_label(self._i18n.t("form.apellidos")), self._campo_con_error("apellidos", self.txt_apellidos)
+        )
         form.addRow(self._i18n.t("form.telefono"), self._campo_con_error("telefono", self.txt_telefono))
         form.addRow(self._i18n.t("form.email"), self._campo_con_error("email", self.txt_email))
         fecha_layout = QHBoxLayout()
@@ -150,7 +154,9 @@ class PacienteFormDialog(QDialog):
         self.txt_telefono.setText(paciente.telefono or "")
         self.txt_email.setText(paciente.email or "")
         if paciente.fecha_nacimiento:
-            self.date_fecha_nacimiento.setDate(QDate(paciente.fecha_nacimiento.year, paciente.fecha_nacimiento.month, paciente.fecha_nacimiento.day))
+            self.date_fecha_nacimiento.setDate(
+                QDate(paciente.fecha_nacimiento.year, paciente.fecha_nacimiento.month, paciente.fecha_nacimiento.day)
+            )
             self.chk_sin_fecha.setChecked(False)
         else:
             self.chk_sin_fecha.setChecked(True)
@@ -188,9 +194,7 @@ class PacienteFormDialog(QDialog):
     def _aplicar_estado(self) -> None:
         estado = self._control_estado.estado
         self._btn_guardar.setEnabled(estado.listo_para_enviar and not self._submit_en_curso)
-        self._btn_guardar.setText(
-            self._i18n.t("form.guardando") if estado.guardando else self._i18n.t("comun.guardar")
-        )
+        self._btn_guardar.setText(self._i18n.t("form.guardando") if estado.guardando else self._i18n.t("comun.guardar"))
         self.lbl_error_general.setText(estado.error_guardado or "")
         for clave, label in self._labels_error.items():
             mensaje = estado.errores_validacion.get(clave, "")

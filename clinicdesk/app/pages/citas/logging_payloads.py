@@ -3,7 +3,9 @@ from __future__ import annotations
 from clinicdesk.app.application.citas import FiltrosCitasDTO
 
 
-def payload_log_error_calendario(filtros: FiltrosCitasDTO, *, fecha_calendario: str, exc: Exception) -> dict[str, object]:
+def payload_log_error_calendario(
+    filtros: FiltrosCitasDTO, *, fecha_calendario: str, exc: Exception
+) -> dict[str, object]:
     return {
         "action": "citas_calendario_error",
         "error": exc.__class__.__name__,

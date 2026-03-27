@@ -115,7 +115,6 @@ I18N_CATALOGO_PREDICCION = {
         "citas.riesgo_dialogo.accion.enviar_recordatorio": "Enviar recordatorio.",
         "citas.riesgo_dialogo.accion.confirmar_telefono": "Confirmar la cita por teléfono.",
         "citas.riesgo_dialogo.accion.recordatorio_dia_previo": "Reforzar recordatorio el día previo.",
-
         "demo_ml.nav.titulo": "Centro ML guiado",
         "demo_ml.estado.pipeline_pendiente": "Estado del pipeline: pendiente",
         "demo_ml.estado.pipeline_listo": "Estado del pipeline: listo para continuar con el flujo guiado.",
@@ -335,7 +334,6 @@ I18N_CATALOGO_PREDICCION = {
         "demo_ml.resumen.sin_accion.siguiente_paso": "Mantener monitoreo periódico del pipeline.",
         "demo_ml.resumen.sin_accion.riesgo": "Riesgo de estancamiento si no se revisa evolución.",
         "demo_ml.resumen.sin_accion.utilidad": "Conservar continuidad operativa con control.",
-
         "demo_ml.playbook.panel.titulo": "Playbooks operativos por objetivo",
         "demo_ml.playbook.panel.objetivo": "Objetivo",
         "demo_ml.playbook.panel.resumen": "Resumen del objetivo",
@@ -367,7 +365,6 @@ I18N_CATALOGO_PREDICCION = {
         "demo_ml.playbook.estado.motivo_score_requerido": "Antes debes generar scoring para poder exportar con valor.",
         "demo_ml.playbook.estado.motivo_drift_no_aplica": "Aún no aplica drift: falta una segunda versión de dataset.",
         "demo_ml.playbook.estado.motivo_entrenar_no_aplica": "No conviene reentrenar si todavía no puedes comparar drift.",
-
         "demo_ml.playbook.ejecucion.cta.sin_accion": "Sin acción ejecutable",
         "demo_ml.playbook.ejecucion.bloqueada.sin_pasos": "No hay pasos ejecutables en este objetivo por ahora.",
         "demo_ml.playbook.ejecucion.permiso.directa": "Puedes ejecutar este paso directamente con preset seguro.",
@@ -376,7 +373,6 @@ I18N_CATALOGO_PREDICCION = {
         "demo_ml.playbook.ejecucion.resultado.fallido": "No se pudo completar el paso; revisa y reintenta.",
         "demo_ml.playbook.ejecucion.confirmacion.titulo": "Confirmar reejecución",
         "demo_ml.playbook.ejecucion.confirmacion.mensaje": "Este paso ya estaba completado. ¿Quieres repetirlo de todos modos?",
-
         "demo_ml.playbook.demo_completa.titulo": "Preparar demo ML completa",
         "demo_ml.playbook.demo_completa.descripcion": "Receta integral para generar datos, modelo, scoring, drift y exportables.",
         "demo_ml.playbook.demo_completa.para_que": "Sirve para una demo punta a punta sin saltarte pasos críticos.",
@@ -412,7 +408,6 @@ I18N_CATALOGO_PREDICCION = {
         "demo_ml.playbook.exportar_bi.prerequisito_1": "Scoring generado sobre el dataset vigente.",
         "demo_ml.playbook.exportar_bi.prerequisito_2": "Directorio de exportación accesible para el equipo.",
         "demo_ml.playbook.exportar_bi.finalizacion": "Finaliza cuando los CSV estén listos y validados para consumo externo.",
-
         "demo_ml.playbook.paso.prepare.nombre": "Preparar datos",
         "demo_ml.playbook.paso.prepare.que_hace": "Genera las features para convertir los datos en entradas útiles para el modelo.",
         "demo_ml.playbook.paso.prepare.por_que_importa": "Sin esta base no podrás entrenar ni validar resultados con confianza.",
@@ -447,7 +442,7 @@ I18N_CATALOGO_PREDICCION = {
         "demo_ml.playbook.paso.export.necesitas": "Necesitas scoring previo y carpeta de exportación definida.",
         "demo_ml.playbook.paso.export.resultado": "Obtendrás CSV contractuales de features, métricas, scoring y drift.",
         "demo_ml.playbook.paso.export.mirar_despues": "Verifica que los archivos se hayan generado y abre revisión en BI.",
-        "demo_ml.playbook.paso.export.cta": "Exportar resultados"
+        "demo_ml.playbook.paso.export.cta": "Exportar resultados",
     },
     "en": {
         "prediccion_ausencias.salud.titulo": "Prediction status",
@@ -503,7 +498,6 @@ I18N_CATALOGO_PREDICCION = {
         "prediccion_ausencias.recomendacion_operativa.razon.tendencia_empeora": "Trend is worsening.",
         "prediccion_ausencias.recomendacion_operativa.razon.sin_senales_preocupantes": "No worrying signals.",
         "prediccion_ausencias.recomendacion_operativa.razon.sin_datos_suficientes": "Not enough data.",
-
         "demo_ml.playbook.panel.titulo": "Operational playbooks by goal",
         "demo_ml.playbook.panel.objetivo": "Goal",
         "demo_ml.playbook.panel.resumen": "Goal summary",
@@ -640,7 +634,6 @@ I18N_CATALOGO_PREDICCION = {
         "citas.riesgo_dialogo.accion.enviar_recordatorio": "Send a reminder.",
         "citas.riesgo_dialogo.accion.confirmar_telefono": "Confirm by phone.",
         "citas.riesgo_dialogo.accion.recordatorio_dia_previo": "Send a reminder the day before.",
-
         "demo_ml.nav.titulo": "Guided ML Center",
         "demo_ml.estado.pipeline_pendiente": "Pipeline status: pending",
         "demo_ml.estado.pipeline_listo": "Pipeline status: ready to continue with the guided flow.",
@@ -652,7 +645,6 @@ I18N_CATALOGO_PREDICCION = {
         "demo_ml.estado.siguiente.drift": "Recommended next step: review drift.",
         "demo_ml.estado.siguiente.export": "Recommended next step: export artifacts.",
         "demo_ml.estado.siguiente.summary": "Recommended next step: review summary and decide actions.",
-
         "demo_ml.asistente.panel.titulo": "Asistente de decisiones ML",
         "demo_ml.asistente.panel.principal": "Recomendación principal",
         "demo_ml.asistente.panel.secundarias": "Recomendaciones secundarias",
@@ -809,7 +801,6 @@ I18N_CATALOGO_PREDICCION = {
         "demo_ml.resumen.sin_accion.siguiente_paso": "Mantener monitoreo periódico del pipeline.",
         "demo_ml.resumen.sin_accion.riesgo": "Riesgo de estancamiento si no se revisa evolución.",
         "demo_ml.resumen.sin_accion.utilidad": "Conservar continuidad operativa con control.",
-
         "demo_ml.playbook.ejecucion.cta.sin_accion": "Sin acción ejecutable",
         "demo_ml.playbook.ejecucion.bloqueada.sin_pasos": "No hay pasos ejecutables en este objetivo por ahora.",
         "demo_ml.playbook.ejecucion.permiso.directa": "Puedes ejecutar este paso directamente con preset seguro.",
@@ -818,7 +809,6 @@ I18N_CATALOGO_PREDICCION = {
         "demo_ml.playbook.ejecucion.resultado.fallido": "No se pudo completar el paso; revisa y reintenta.",
         "demo_ml.playbook.ejecucion.confirmacion.titulo": "Confirmar reejecución",
         "demo_ml.playbook.ejecucion.confirmacion.mensaje": "Este paso ya estaba completado. ¿Quieres repetirlo de todos modos?",
-
         "demo_ml.playbook.demo_completa.titulo": "Preparar demo ML completa",
         "demo_ml.playbook.demo_completa.descripcion": "Receta integral para generar datos, modelo, scoring, drift y exportables.",
         "demo_ml.playbook.demo_completa.para_que": "Sirve para una demo punta a punta sin saltarte pasos críticos.",
@@ -854,7 +844,6 @@ I18N_CATALOGO_PREDICCION = {
         "demo_ml.playbook.exportar_bi.prerequisito_1": "Scoring generado sobre el dataset vigente.",
         "demo_ml.playbook.exportar_bi.prerequisito_2": "Directorio de exportación accesible para el equipo.",
         "demo_ml.playbook.exportar_bi.finalizacion": "Finaliza cuando los CSV estén listos y validados para consumo externo.",
-
         "demo_ml.playbook.paso.prepare.nombre": "Preparar datos",
         "demo_ml.playbook.paso.prepare.que_hace": "Genera las features para convertir los datos en entradas útiles para el modelo.",
         "demo_ml.playbook.paso.prepare.por_que_importa": "Sin esta base no podrás entrenar ni validar resultados con confianza.",
@@ -889,6 +878,6 @@ I18N_CATALOGO_PREDICCION = {
         "demo_ml.playbook.paso.export.necesitas": "Necesitas scoring previo y carpeta de exportación definida.",
         "demo_ml.playbook.paso.export.resultado": "Obtendrás CSV contractuales de features, métricas, scoring y drift.",
         "demo_ml.playbook.paso.export.mirar_despues": "Verifica que los archivos se hayan generado y abre revisión en BI.",
-        "demo_ml.playbook.paso.export.cta": "Exportar resultados"
+        "demo_ml.playbook.paso.export.cta": "Exportar resultados",
     },
 }

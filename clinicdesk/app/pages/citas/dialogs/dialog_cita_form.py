@@ -74,8 +74,12 @@ class CitaFormDialog(QDialog):
 
         self._labels_error: dict[str, QLabel] = {}
         form = QFormLayout()
-        form.addRow(required_label(self._i18n.t("form.paciente")), self._build_selector_row(self.ed_paciente, self.btn_paciente))
-        form.addRow(required_label(self._i18n.t("form.medico")), self._build_selector_row(self.ed_medico, self.btn_medico))
+        form.addRow(
+            required_label(self._i18n.t("form.paciente")), self._build_selector_row(self.ed_paciente, self.btn_paciente)
+        )
+        form.addRow(
+            required_label(self._i18n.t("form.medico")), self._build_selector_row(self.ed_medico, self.btn_medico)
+        )
         form.addRow(required_label(self._i18n.t("form.sala")), self._build_selector_row(self.ed_sala, self.btn_sala))
         form.addRow(required_label(self._i18n.t("form.inicio")), self._campo_con_error("inicio", self.ed_inicio))
         form.addRow(required_label(self._i18n.t("form.fin")), self._campo_con_error("fin", self.ed_fin))

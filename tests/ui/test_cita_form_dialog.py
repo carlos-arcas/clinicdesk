@@ -56,7 +56,12 @@ def test_cita_form_prevenir_doble_submit(
     assert llamados["accept"] == 1
 
 
-def test_cita_form_foco_en_primer_error(crear_dialogo_cita) -> None:
+def test_cita_form_foco_en_primer_error(qtbot, crear_dialogo_cita) -> None:
     dialogo = crear_dialogo_cita()
+    dialogo.show()
+    qtbot.waitUntil(dialogo.isVisible)
+    dialogo.ed_fin.setFocus()
+    qtbot.waitUntil(dialogo.ed_fin.hasFocus)
     dialogo._on_ok()
+    qtbot.waitUntil(dialogo.ed_inicio.hasFocus)
     assert dialogo.ed_inicio.hasFocus()
