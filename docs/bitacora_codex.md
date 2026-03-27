@@ -909,3 +909,354 @@ Usar esta plantilla para cada nueva entrada agregada al final del archivo. Si un
   - `N/A: python -m scripts.gate_pr fallo por deuda real de formateo en clinicdesk/app/application/services/ml_playbooks_service.py; no abrir PR.`
 - **bloqueo o siguiente paso exacto**:
   - Ejecutar `RCDX-018` corrigiendo solo `clinicdesk/app/application/services/ml_playbooks_service.py`; despues reintentar `.\.venv\Scripts\python.exe -m ruff format --check clinicdesk/app/application/services/ml_playbooks_service.py`, `.\.venv\Scripts\python.exe -m pytest -q tests/test_ml_playbooks_service.py`, `python -m scripts.gate_rapido` y `python -m scripts.gate_pr`.
+
+## Entrada
+- **fecha/hora**: 2026-03-27 10:22:38Z
+- **tarea**: RCDX-018 - Corregir el formateo Ruff pendiente en clinicdesk/app/application/services/ml_playbooks_service.py
+- **estado final**: BLOCKED
+- **archivos tocados**:
+  - `clinicdesk/app/application/services/ml_playbooks_service.py`
+  - `docs/roadmap_codex.md`
+  - `docs/bitacora_codex.md`
+- **decisiones**:
+  - Se aplico unicamente el ajuste de formato que Ruff exigia en `clinicdesk/app/application/services/ml_playbooks_service.py`, sin cambios funcionales ni ampliacion de alcance.
+  - Se ejecuto la suite mas especifica del area (`tests/test_ml_playbooks_service.py`) para confirmar que el cambio no altera el comportamiento del servicio.
+  - Se mantuvo el cierre en `BLOCKED` porque el contrato exige que los checks obligatorios terminen en verde para promover la tarea a `DONE`, y `python -m scripts.gate_pr` sigue fallando por un bloqueo real posterior.
+  - Se materializo `RCDX-019` como siguiente `TODO` atomica al confirmarse que el nuevo bloqueo queda acotado a `clinicdesk/app/application/services/seguimiento_operativo_ml_service.py`.
+- **checks ejecutados**:
+  - `.\.venv\Scripts\python.exe -m ruff format --diff clinicdesk/app/application/services/ml_playbooks_service.py`
+  - `.\.venv\Scripts\python.exe -m ruff format clinicdesk/app/application/services/ml_playbooks_service.py`
+  - `.\.venv\Scripts\python.exe -m ruff format --check clinicdesk/app/application/services/ml_playbooks_service.py`
+  - `.\.venv\Scripts\python.exe -m pytest -q tests/test_ml_playbooks_service.py`
+  - `python -m scripts.gate_rapido`
+  - `python -m scripts.gate_pr`
+  - `.\.venv\Scripts\python.exe -m ruff format --check clinicdesk/app/application/services/seguimiento_operativo_ml_service.py`
+  - `.\.venv\Scripts\python.exe -m ruff format --diff clinicdesk/app/application/services/seguimiento_operativo_ml_service.py`
+- **resultado**:
+  - `.\.venv\Scripts\python.exe -m ruff format --check clinicdesk/app/application/services/ml_playbooks_service.py` queda en verde (`1 file already formatted`).
+  - `.\.venv\Scripts\python.exe -m pytest -q tests/test_ml_playbooks_service.py` pasa (`..... [100%]`).
+  - `python -m scripts.gate_rapido` devuelve `rc=0`.
+  - `python -m scripts.gate_pr` avanza mas alla del archivo objetivo y revela el siguiente bloqueo real de formato en `clinicdesk/app/application/services/seguimiento_operativo_ml_service.py`.
+  - `.\.venv\Scripts\python.exe -m ruff format --check clinicdesk/app/application/services/seguimiento_operativo_ml_service.py` confirma la nueva deuda (`1 file would be reformatted`).
+  - `.\.venv\Scripts\python.exe -m ruff format --diff clinicdesk/app/application/services/seguimiento_operativo_ml_service.py` acota el cambio a eliminar una linea en blanco final sobrante.
+  - La verificacion manual del diff sobre `clinicdesk/app/application/services/ml_playbooks_service.py` queda limitada a partir en varias lineas la firma larga de `_pasos_playbook(...)`.
+  - Revalidacion final 2026-03-27 10:24:04Z: tras sincronizar `docs/roadmap_codex.md` y `docs/bitacora_codex.md`, `python -m scripts.gate_rapido` se mantiene en `rc=0`.
+- **riesgo detectado**:
+  - Riesgo operativo residual: mientras `clinicdesk/app/application/services/seguimiento_operativo_ml_service.py` siga sin formatear, `python -m scripts.gate_pr` seguira bloqueando el cierre en `DONE`.
+- **metadata de validaciÃƒÂ³n/PR**:
+  - `N/A: python -m scripts.gate_pr fallo por deuda real de formateo en clinicdesk/app/application/services/seguimiento_operativo_ml_service.py; no abrir PR.`
+- **bloqueo o siguiente paso exacto**:
+  - Ejecutar `RCDX-019` corrigiendo solo `clinicdesk/app/application/services/seguimiento_operativo_ml_service.py`; despues reintentar `.\.venv\Scripts\python.exe -m ruff format --check clinicdesk/app/application/services/seguimiento_operativo_ml_service.py`, `.\.venv\Scripts\python.exe -m pytest -q tests/test_seguimiento_operativo_ml_service.py`, `python -m scripts.gate_rapido` y `python -m scripts.gate_pr`.
+
+## Entrada
+- **fecha/hora**: 2026-03-27 10:34:30Z
+- **tarea**: RCDX-019 - Corregir el formateo Ruff pendiente en clinicdesk/app/application/services/seguimiento_operativo_ml_service.py
+- **estado final**: BLOCKED
+- **archivos tocados**:
+  - `clinicdesk/app/application/services/seguimiento_operativo_ml_service.py`
+  - `docs/roadmap_codex.md`
+  - `docs/bitacora_codex.md`
+- **decisiones**:
+  - Se aplico unicamente el ajuste de formato que Ruff exigia en `clinicdesk/app/application/services/seguimiento_operativo_ml_service.py`, sin cambios funcionales ni ampliacion de alcance.
+  - Se ejecuto la suite mas especifica del area (`tests/test_seguimiento_operativo_ml_service.py`) para confirmar que el cambio no altera el comportamiento del servicio.
+  - Se mantuvo el cierre en `BLOCKED` porque el contrato exige que los checks obligatorios terminen en verde para promover la tarea a `DONE`, y `python -m scripts.gate_pr` sigue fallando por un bloqueo real posterior.
+  - Se materializo `RCDX-020` como siguiente `TODO` atomica al confirmarse que el nuevo bloqueo queda acotado primero a `clinicdesk/app/i18n_catalogos/pred.py`, dejando `clinicdesk/app/i18n_catalogos/ux.py` como deuda residual del mismo lote para una ejecucion posterior.
+- **checks ejecutados**:
+  - `.\.venv\Scripts\python.exe -m ruff format --check clinicdesk/app/application/services/seguimiento_operativo_ml_service.py`
+  - `.\.venv\Scripts\python.exe -m pytest -q tests/test_seguimiento_operativo_ml_service.py`
+  - `python -m scripts.gate_rapido`
+  - `python -m scripts.gate_pr`
+  - `.\.venv\Scripts\python.exe -m ruff format --check clinicdesk/app/i18n_catalogos/pred.py`
+  - `.\.venv\Scripts\python.exe -m ruff format --diff clinicdesk/app/i18n_catalogos/pred.py`
+  - `.\.venv\Scripts\python.exe -m ruff format --check clinicdesk/app/i18n_catalogos/ux.py`
+- **resultado**:
+  - `.\.venv\Scripts\python.exe -m ruff format --check clinicdesk/app/application/services/seguimiento_operativo_ml_service.py` queda en verde (`1 file already formatted`).
+  - `.\.venv\Scripts\python.exe -m pytest -q tests/test_seguimiento_operativo_ml_service.py` pasa (`... [100%]`).
+  - `python -m scripts.gate_rapido` devuelve `rc=0`.
+  - `python -m scripts.gate_pr` avanza mas alla del archivo objetivo y revela el siguiente bloqueo real de formato en `clinicdesk/app/i18n_catalogos/pred.py` y `clinicdesk/app/i18n_catalogos/ux.py`.
+  - `.\.venv\Scripts\python.exe -m ruff format --check clinicdesk/app/i18n_catalogos/pred.py` confirma la nueva deuda (`1 file would be reformatted`).
+  - `.\.venv\Scripts\python.exe -m ruff format --diff clinicdesk/app/i18n_catalogos/pred.py` acota el cambio a eliminar lineas en blanco sobrantes y agregar comas finales faltantes dentro del catalogo.
+  - `.\.venv\Scripts\python.exe -m ruff format --check clinicdesk/app/i18n_catalogos/ux.py` confirma la deuda residual del segundo archivo del lote (`1 file would be reformatted`).
+- **riesgo detectado**:
+  - Riesgo operativo residual: mientras `clinicdesk/app/i18n_catalogos/pred.py` y `clinicdesk/app/i18n_catalogos/ux.py` sigan sin formatear, `python -m scripts.gate_pr` seguira bloqueando el cierre en `DONE`.
+- **metadata de validacion/PR**:
+  - `N/A: python -m scripts.gate_pr fallo por deuda real de formateo en clinicdesk/app/i18n_catalogos/pred.py y clinicdesk/app/i18n_catalogos/ux.py; no abrir PR.`
+- **bloqueo o siguiente paso exacto**:
+  - Ejecutar `RCDX-020` corrigiendo solo `clinicdesk/app/i18n_catalogos/pred.py`; despues reintentar `.\.venv\Scripts\python.exe -m ruff format --check clinicdesk/app/i18n_catalogos/pred.py`, `.\.venv\Scripts\python.exe -m pytest -q tests/test_i18n_catalog.py`, `python -m scripts.gate_rapido` y `python -m scripts.gate_pr`.
+
+## Entrada
+- **fecha/hora**: 2026-03-27 10:53:09Z
+- **tarea**: RCDX-020 - Corregir el formateo Ruff pendiente en clinicdesk/app/i18n_catalogos/pred.py
+- **estado final**: BLOCKED
+- **archivos tocados**:
+  - `clinicdesk/app/i18n_catalogos/pred.py`
+  - `docs/roadmap_codex.md`
+  - `docs/bitacora_codex.md`
+- **decisiones**:
+  - Se aplico unicamente el ajuste de formato que Ruff exigia en `clinicdesk/app/i18n_catalogos/pred.py`, sin cambios funcionales ni ampliacion de alcance.
+  - Se ejecuto la suite mas especifica del area (`tests/test_i18n_catalog.py`) para confirmar que el catalogo sigue cargando claves y deteccion de duplicados sin regresion.
+  - Se mantuvo el cierre en `BLOCKED` porque el contrato exige que los checks obligatorios terminen en verde para promover la tarea a `DONE`, y `python -m scripts.gate_pr` sigue fallando por un bloqueo real posterior.
+  - Se materializo `RCDX-021` como siguiente `TODO` atomica al confirmarse que el nuevo bloqueo queda acotado a `clinicdesk/app/i18n_catalogos/ux.py`.
+- **checks ejecutados**:
+  - `.\.venv\Scripts\python.exe -m ruff format clinicdesk/app/i18n_catalogos/pred.py`
+  - `.\.venv\Scripts\python.exe -m ruff format --check clinicdesk/app/i18n_catalogos/pred.py`
+  - `.\.venv\Scripts\python.exe -m pytest -q tests/test_i18n_catalog.py`
+  - `python -m scripts.gate_rapido`
+  - `python -m scripts.gate_pr`
+  - `.\.venv\Scripts\python.exe -m ruff format --check clinicdesk/app/i18n_catalogos/ux.py`
+- **resultado**:
+  - `.\.venv\Scripts\python.exe -m ruff format --check clinicdesk/app/i18n_catalogos/pred.py` queda en verde (`1 file already formatted`).
+  - `.\.venv\Scripts\python.exe -m pytest -q tests/test_i18n_catalog.py` pasa (`2 passed`).
+  - `python -m scripts.gate_rapido` devuelve `rc=0`.
+  - `python -m scripts.gate_pr` avanza mas alla del archivo objetivo y revela el siguiente bloqueo real de formato en `clinicdesk/app/i18n_catalogos/ux.py`.
+  - `.\.venv\Scripts\python.exe -m ruff format --check clinicdesk/app/i18n_catalogos/ux.py` confirma la nueva deuda (`1 file would be reformatted`).
+  - La verificacion manual del diff sobre `clinicdesk/app/i18n_catalogos/pred.py` queda limitada a eliminar lineas en blanco sobrantes y agregar comas finales faltantes dentro del catalogo.
+- **riesgo detectado**:
+  - Riesgo operativo residual: mientras `clinicdesk/app/i18n_catalogos/ux.py` siga sin formatear, `python -m scripts.gate_pr` seguira bloqueando el cierre en `DONE`.
+- **metadata de validacion/PR**:
+  - `N/A: python -m scripts.gate_pr fallo por deuda real de formateo en clinicdesk/app/i18n_catalogos/ux.py; no abrir PR.`
+- **bloqueo o siguiente paso exacto**:
+  - Ejecutar `RCDX-021` corrigiendo solo `clinicdesk/app/i18n_catalogos/ux.py`; despues reintentar `.\.venv\Scripts\python.exe -m ruff format --check clinicdesk/app/i18n_catalogos/ux.py`, `.\.venv\Scripts\python.exe -m pytest -q tests/test_i18n_catalog.py`, `python -m scripts.gate_rapido` y `python -m scripts.gate_pr`.
+
+## Entrada
+- **fecha/hora**: 2026-03-27 11:14:33Z
+- **tarea**: RCDX-021 - Corregir el formateo Ruff pendiente en clinicdesk/app/i18n_catalogos/ux.py
+- **estado final**: BLOCKED
+- **archivos tocados**:
+  - `clinicdesk/app/i18n_catalogos/ux.py`
+  - `docs/roadmap_codex.md`
+  - `docs/bitacora_codex.md`
+- **decisiones**:
+  - Se aplico unicamente el ajuste de formato que Ruff exigia en `clinicdesk/app/i18n_catalogos/ux.py`, limitado a eliminar dos lineas en blanco sobrantes entre grupos de claves del catalogo.
+  - Se ejecuto la suite mas especifica del area (`tests/test_i18n_catalog.py`) para confirmar que el catalogo sigue cargando claves y deteccion de duplicados sin regresion.
+  - Se mantuvo el cierre en `BLOCKED` porque el contrato exige que los checks obligatorios terminen en verde para promover la tarea a `DONE`, y `python -m scripts.gate_pr` sigue fallando por un bloqueo real posterior.
+  - Se materializo `RCDX-022` como siguiente `TODO` atomica al confirmarse que el nuevo bloqueo queda acotado primero a `clinicdesk/app/pages/citas/dialogs/dialog_cita_form.py`, dejando `clinicdesk/app/pages/citas/logging_payloads.py` como deuda residual del mismo lote para una ejecucion posterior.
+- **checks ejecutados**:
+  - `.\.venv\Scripts\python.exe -m ruff format --check clinicdesk/app/i18n_catalogos/ux.py`
+  - `.\.venv\Scripts\python.exe -m pytest -q tests/test_i18n_catalog.py`
+  - `python -m scripts.gate_rapido`
+  - `python -m scripts.gate_pr`
+  - `.\.venv\Scripts\python.exe -m ruff format --check clinicdesk/app/pages/citas/dialogs/dialog_cita_form.py`
+  - `.\.venv\Scripts\python.exe -m ruff format --check clinicdesk/app/pages/citas/logging_payloads.py`
+  - `.\.venv\Scripts\python.exe -m ruff format --diff clinicdesk/app/pages/citas/dialogs/dialog_cita_form.py`
+  - `.\.venv\Scripts\python.exe -m ruff format --diff clinicdesk/app/pages/citas/logging_payloads.py`
+- **resultado**:
+  - `.\.venv\Scripts\python.exe -m ruff format --check clinicdesk/app/i18n_catalogos/ux.py` queda en verde (`1 file already formatted`).
+  - `.\.venv\Scripts\python.exe -m pytest -q tests/test_i18n_catalog.py` pasa (`2 passed`).
+  - `python -m scripts.gate_rapido` devuelve `rc=0`.
+  - `python -m scripts.gate_pr` avanza mas alla del archivo objetivo y revela el siguiente bloqueo real de formato en `clinicdesk/app/pages/citas/dialogs/dialog_cita_form.py` y `clinicdesk/app/pages/citas/logging_payloads.py`.
+  - `.\.venv\Scripts\python.exe -m ruff format --check clinicdesk/app/pages/citas/dialogs/dialog_cita_form.py` confirma la nueva deuda (`1 file would be reformatted`) y `.\.venv\Scripts\python.exe -m ruff format --diff clinicdesk/app/pages/citas/dialogs/dialog_cita_form.py` acota el cambio a partir en varias lineas dos llamadas largas a `form.addRow(...)`.
+  - `.\.venv\Scripts\python.exe -m ruff format --check clinicdesk/app/pages/citas/logging_payloads.py` confirma la deuda residual del segundo archivo del lote (`1 file would be reformatted`) y `.\.venv\Scripts\python.exe -m ruff format --diff clinicdesk/app/pages/citas/logging_payloads.py` la acota a partir en varias lineas la firma de `payload_log_error_calendario(...)`.
+- **riesgo detectado**:
+  - Riesgo operativo residual: mientras `clinicdesk/app/pages/citas/dialogs/dialog_cita_form.py` y `clinicdesk/app/pages/citas/logging_payloads.py` sigan sin formatear, `python -m scripts.gate_pr` seguira bloqueando el cierre en `DONE`.
+- **metadata de validacion/PR**:
+  - `N/A: python -m scripts.gate_pr fallo por deuda real de formateo en clinicdesk/app/pages/citas/dialogs/dialog_cita_form.py y clinicdesk/app/pages/citas/logging_payloads.py; no abrir PR.`
+- **bloqueo o siguiente paso exacto**:
+  - Ejecutar `RCDX-022` corrigiendo solo `clinicdesk/app/pages/citas/dialogs/dialog_cita_form.py`; despues reintentar `.\.venv\Scripts\python.exe -m ruff format --check clinicdesk/app/pages/citas/dialogs/dialog_cita_form.py`, `.\.venv\Scripts\python.exe -m pytest -q tests/ui/test_cita_form_dialog.py`, `python -m scripts.gate_rapido` y `python -m scripts.gate_pr`.
+
+## Entrada
+- **fecha/hora**: 2026-03-27 11:33:25Z
+- **tarea**: RCDX-022 - Corregir el formateo Ruff pendiente en clinicdesk/app/pages/citas/dialogs/dialog_cita_form.py
+- **estado final**: BLOCKED
+- **archivos tocados**:
+  - `clinicdesk/app/pages/citas/dialogs/dialog_cita_form.py`
+  - `docs/roadmap_codex.md`
+  - `docs/bitacora_codex.md`
+- **decisiones**:
+  - Se aplico unicamente el ajuste de formato que Ruff exigia en `clinicdesk/app/pages/citas/dialogs/dialog_cita_form.py`, limitado a partir en varias lineas dos llamadas largas a `form.addRow(...)`.
+  - Se ejecuto la suite mas especifica del area (`tests/ui/test_cita_form_dialog.py`) y esa evidencia cambio la prioridad real: el area mantiene un test roto independiente del formateo.
+  - Se mantuvo el cierre en `BLOCKED` porque el contrato exige checks obligatorios en verde y `test_cita_form_foco_en_primer_error` sigue fallando.
+  - Se materializo `RCDX-023` como siguiente `TODO` atomica para restablecer el foco del primer error antes de volver a priorizar la deuda de formato pendiente en `clinicdesk/app/pages/citas/logging_payloads.py`.
+- **checks ejecutados**:
+  - `.\.venv\Scripts\python.exe -m ruff format clinicdesk/app/pages/citas/dialogs/dialog_cita_form.py`
+  - `.\.venv\Scripts\python.exe -m ruff format --check clinicdesk/app/pages/citas/dialogs/dialog_cita_form.py`
+  - `.\.venv\Scripts\python.exe -m pytest -q tests/ui/test_cita_form_dialog.py`
+  - `python -m scripts.gate_rapido`
+  - `python -m scripts.gate_pr`
+- **resultado**:
+  - `.\.venv\Scripts\python.exe -m ruff format --check clinicdesk/app/pages/citas/dialogs/dialog_cita_form.py` queda en verde (`1 file already formatted`).
+  - `.\.venv\Scripts\python.exe -m pytest -q tests/ui/test_cita_form_dialog.py` falla en `test_cita_form_foco_en_primer_error`; la asercion `dialogo.ed_inicio.hasFocus()` queda en `False` despues de `dialogo._on_ok()`.
+  - `python -m scripts.gate_rapido` devuelve `rc=0`.
+  - `python -m scripts.gate_pr` avanza mas alla del archivo objetivo y revela una deuda real de formato en `clinicdesk/app/pages/citas/logging_payloads.py`.
+- **riesgo detectado**:
+  - Riesgo funcional y operativo: mientras el dialogo no restablezca el foco al primer error, la validacion UI del formulario de citas queda con una regresion y el gate completo sigue ademas bloqueado por la deuda residual de `clinicdesk/app/pages/citas/logging_payloads.py`.
+- **metadata de validacion/PR**:
+  - `N/A: .\.venv\Scripts\python.exe -m pytest -q tests/ui/test_cita_form_dialog.py fallo en test_cita_form_foco_en_primer_error y python -m scripts.gate_pr fallo por deuda real de formateo en clinicdesk/app/pages/citas/logging_payloads.py; no abrir PR.`
+- **bloqueo o siguiente paso exacto**:
+  - Ejecutar `RCDX-023` corrigiendo solo el restablecimiento de foco en `clinicdesk/app/pages/citas/dialogs/dialog_cita_form.py`; despues reintentar `.\.venv\Scripts\python.exe -m pytest -q tests/ui/test_cita_form_dialog.py`, `python -m scripts.gate_rapido` y `python -m scripts.gate_pr`.
+
+## Entrada
+- **fecha/hora**: 2026-03-27 12:57:29Z
+- **tarea**: RCDX-023 - Restablecer el foco del primer error en clinicdesk/app/pages/citas/dialogs/dialog_cita_form.py
+- **estado final**: BLOCKED
+- **archivos tocados**:
+  - `tests/ui/test_cita_form_dialog.py`
+  - `docs/roadmap_codex.md`
+  - `docs/bitacora_codex.md`
+- **decisiones**:
+  - Se verifico con una sonda local y con la suite especifica que el contrato real de foco se cumple cuando el dialogo esta visible; el rojo previo provenia de validar `hasFocus()` sobre un dialogo no mostrado.
+  - Se ajusto unicamente `tests/ui/test_cita_form_dialog.py` para mostrar el dialogo, mover el foco a `ed_fin` y comprobar despues del submit invalido que el foco vuelve a `ed_inicio`, manteniendo intacta la logica de producto.
+  - Se mantuvo el cierre en `BLOCKED` porque el contrato exige checks obligatorios en verde y `python -m scripts.gate_pr` sigue fallando por un bloqueo real posterior.
+  - Se materializo `RCDX-024` como siguiente `TODO` atomica al confirmarse que el nuevo bloqueo queda acotado a `clinicdesk/app/pages/citas/logging_payloads.py`.
+- **checks ejecutados**:
+  - `.\.venv\Scripts\python.exe -m pytest -q tests/ui/test_cita_form_dialog.py`
+  - `python -m scripts.gate_rapido`
+  - `python -m scripts.gate_pr`
+  - `.\.venv\Scripts\python.exe -m ruff format --check clinicdesk/app/pages/citas/logging_payloads.py`
+  - `.\.venv\Scripts\python.exe -m pytest -q tests/test_citas_calendario_logging.py`
+- **resultado**:
+  - `.\.venv\Scripts\python.exe -m pytest -q tests/ui/test_cita_form_dialog.py` pasa (`.... [100%]`) tras validar el foco con el dialogo visible.
+  - `python -m scripts.gate_rapido` devuelve `rc=0`.
+  - `python -m scripts.gate_pr` avanza mas alla del bloqueo del area y ahora falla por deuda real de formato en `clinicdesk/app/pages/citas/logging_payloads.py`.
+  - `.\.venv\Scripts\python.exe -m ruff format --check clinicdesk/app/pages/citas/logging_payloads.py` confirma `1 file would be reformatted`.
+  - `.\.venv\Scripts\python.exe -m pytest -q tests/test_citas_calendario_logging.py` pasa (`. [100%]`).
+- **riesgo detectado**:
+  - Riesgo operativo residual: mientras `clinicdesk/app/pages/citas/logging_payloads.py` siga sin formatear, `python -m scripts.gate_pr` seguira bloqueando el cierre en `DONE`.
+- **metadata de validacion/PR**:
+  - `N/A: python -m scripts.gate_pr fallo por deuda real de formateo en clinicdesk/app/pages/citas/logging_payloads.py; no abrir PR.`
+- **bloqueo o siguiente paso exacto**:
+  - Ejecutar `RCDX-024` corrigiendo solo `clinicdesk/app/pages/citas/logging_payloads.py`; despues reintentar `.\.venv\Scripts\python.exe -m ruff format --check clinicdesk/app/pages/citas/logging_payloads.py`, `.\.venv\Scripts\python.exe -m pytest -q tests/test_citas_calendario_logging.py`, `python -m scripts.gate_rapido` y `python -m scripts.gate_pr`.
+
+## Entrada
+- **fecha/hora**: 2026-03-27 12:13:11Z
+- **tarea**: RCDX-024 - Corregir el formateo Ruff pendiente en clinicdesk/app/pages/citas/logging_payloads.py
+- **estado final**: BLOCKED
+- **archivos tocados**:
+  - `clinicdesk/app/pages/citas/logging_payloads.py`
+  - `docs/roadmap_codex.md`
+  - `docs/bitacora_codex.md`
+- **decisiones**:
+  - Se aplico unicamente el ajuste de formato que Ruff exigia en `clinicdesk/app/pages/citas/logging_payloads.py`, limitado a partir en varias lineas la firma de `payload_log_error_calendario(...)`.
+  - Se ejecuto la suite mas especifica del area (`tests/test_citas_calendario_logging.py`) para confirmar que el payload de logging y sus `reason_code` no cambian.
+  - Se mantuvo el cierre en `BLOCKED` porque el contrato exige checks obligatorios en verde y `python -m scripts.gate_pr` sigue fallando por un bloqueo real posterior.
+  - La prioridad real cambio al inspeccionar el siguiente bloqueo: `tests/ui/test_paciente_form_dialog.py` falla en dos pruebas del area, mientras una sonda local con el dialogo mostrado confirma que el contrato visible del formulario se cumple; por eso se materializo `RCDX-025` antes de retomar la deuda de Ruff en `clinicdesk/app/pages/pacientes/dialogs/paciente_form.py`.
+- **checks ejecutados**:
+  - `.\.venv\Scripts\python.exe -m ruff format clinicdesk/app/pages/citas/logging_payloads.py`
+  - `.\.venv\Scripts\python.exe -m ruff format --check clinicdesk/app/pages/citas/logging_payloads.py`
+  - `.\.venv\Scripts\python.exe -m pytest -q tests/test_citas_calendario_logging.py`
+  - `python -m scripts.gate_rapido`
+  - `python -m scripts.gate_pr`
+  - `.\.venv\Scripts\python.exe -m ruff format --check clinicdesk/app/pages/pacientes/dialogs/paciente_form.py`
+  - `.\.venv\Scripts\python.exe -m ruff format --diff clinicdesk/app/pages/pacientes/dialogs/paciente_form.py`
+  - `.\.venv\Scripts\python.exe -m pytest -q tests/ui/test_paciente_form_dialog.py`
+- **resultado**:
+  - `.\.venv\Scripts\python.exe -m ruff format --check clinicdesk/app/pages/citas/logging_payloads.py` queda en verde (`1 file already formatted`).
+  - `.\.venv\Scripts\python.exe -m pytest -q tests/test_citas_calendario_logging.py` pasa (`. [100%]`).
+  - `python -m scripts.gate_rapido` devuelve `rc=0`.
+  - `python -m scripts.gate_pr` avanza mas alla del archivo objetivo y revela el siguiente bloqueo real en `clinicdesk/app/pages/pacientes/dialogs/paciente_form.py`.
+  - `.\.venv\Scripts\python.exe -m ruff format --check clinicdesk/app/pages/pacientes/dialogs/paciente_form.py` confirma la nueva deuda (`1 file would be reformatted`) y `.\.venv\Scripts\python.exe -m ruff format --diff clinicdesk/app/pages/pacientes/dialogs/paciente_form.py` la acota a partir en varias lineas varias llamadas largas y un `setText(...)`.
+  - `.\.venv\Scripts\python.exe -m pytest -q tests/ui/test_paciente_form_dialog.py` falla en `test_paciente_form_validacion_inline_y_cta` (`dialogo._labels_error["email"].isVisible()` queda en `False`) y `test_paciente_form_foco_en_primer_error` (`dialogo.txt_documento.hasFocus()` queda en `False`).
+  - Una sonda local ejecutada con el dialogo mostrado devuelve `email_visible True` y `documento_focus True`, acotando la siguiente incidencia a la suite UI y no al comportamiento funcional del formulario.
+- **riesgo detectado**:
+  - Riesgo funcional y operativo: mientras `tests/ui/test_paciente_form_dialog.py` siga en rojo y `clinicdesk/app/pages/pacientes/dialogs/paciente_form.py` mantenga deuda de formato, `python -m scripts.gate_pr` seguira bloqueando el cierre en `DONE`.
+- **metadata de validacion/PR**:
+  - `N/A: python -m scripts.gate_pr fallo por deuda real de formateo en clinicdesk/app/pages/pacientes/dialogs/paciente_form.py y .\.venv\Scripts\python.exe -m pytest -q tests/ui/test_paciente_form_dialog.py fallo en dos pruebas del area; no abrir PR.`
+- **bloqueo o siguiente paso exacto**:
+  - Ejecutar `RCDX-025` ajustando solo `tests/ui/test_paciente_form_dialog.py` y, si hace falta para mostrar el dialogo, `tests/ui/conftest.py`; despues reintentar `.\.venv\Scripts\python.exe -m pytest -q tests/ui/test_paciente_form_dialog.py`, `python -m scripts.gate_rapido` y `python -m scripts.gate_pr`.
+
+## Entrada
+- **fecha/hora**: 2026-03-27 12:37:06Z
+- **tarea**: RCDX-025 - Alinear tests/ui/test_paciente_form_dialog.py con el contrato visible de PacienteFormDialog
+- **estado final**: BLOCKED
+- **archivos tocados**:
+  - `tests/ui/test_paciente_form_dialog.py`
+  - `docs/roadmap_codex.md`
+  - `docs/bitacora_codex.md`
+- **decisiones**:
+  - Se ajusto unicamente `tests/ui/test_paciente_form_dialog.py` para mostrar el dialogo antes de validar `isVisible()` y `hasFocus()`, manteniendo intacta la logica de producto.
+  - Se cerro explicitamente el dialogo del test de validacion inline con descarte confirmado para evitar que el teardown abriera el modal de cambios sin guardar y colgara la suite.
+  - Se mantuvo el cierre en `BLOCKED` porque el contrato exige checks obligatorios en verde y `python -m scripts.gate_pr` sigue fallando por un bloqueo real posterior.
+  - Se materializo `RCDX-026` como siguiente `TODO` atomica al confirmarse que el nuevo bloqueo queda acotado a `clinicdesk/app/pages/pacientes/dialogs/paciente_form.py`.
+- **checks ejecutados**:
+  - `.\.venv\Scripts\python.exe -m pytest -q tests/ui/test_paciente_form_dialog.py -k validacion_inline_y_cta`
+  - `.\.venv\Scripts\python.exe -m pytest -q tests/ui/test_paciente_form_dialog.py -k foco_en_primer_error`
+  - `.\.venv\Scripts\python.exe -m pytest -q tests/ui/test_paciente_form_dialog.py`
+  - `python -m scripts.gate_rapido`
+  - `python -m scripts.gate_pr`
+  - `.\.venv\Scripts\python.exe -m ruff format --check clinicdesk/app/pages/pacientes/dialogs/paciente_form.py`
+- **resultado**:
+  - `.\.venv\Scripts\python.exe -m pytest -q tests/ui/test_paciente_form_dialog.py` pasa (`.... [100%]`) tras validar foco y visibilidad con el dialogo visible.
+  - El bloqueo intermedio de teardown queda resuelto: el test ya no cuelga al cerrar porque el modal de descarte se responde dentro de la propia prueba.
+  - `python -m scripts.gate_rapido` devuelve `rc=0`.
+  - `python -m scripts.gate_pr` avanza mas alla del bloqueo del area y revela la siguiente deuda real de formato en `clinicdesk/app/pages/pacientes/dialogs/paciente_form.py`.
+  - `.\.venv\Scripts\python.exe -m ruff format --check clinicdesk/app/pages/pacientes/dialogs/paciente_form.py` confirma la nueva deuda (`1 file would be reformatted`).
+- **riesgo detectado**:
+  - Riesgo operativo residual: mientras `clinicdesk/app/pages/pacientes/dialogs/paciente_form.py` siga sin formatear, `python -m scripts.gate_pr` seguira bloqueando el cierre en `DONE`.
+- **metadata de validacion/PR**:
+  - `N/A: python -m scripts.gate_pr fallo por deuda real de formateo en clinicdesk/app/pages/pacientes/dialogs/paciente_form.py; no abrir PR.`
+- **bloqueo o siguiente paso exacto**:
+  - Ejecutar `RCDX-026` corrigiendo solo `clinicdesk/app/pages/pacientes/dialogs/paciente_form.py`; despues reintentar `.\.venv\Scripts\python.exe -m ruff format --check clinicdesk/app/pages/pacientes/dialogs/paciente_form.py`, `.\.venv\Scripts\python.exe -m pytest -q tests/ui/test_paciente_form_dialog.py`, `python -m scripts.gate_rapido` y `python -m scripts.gate_pr`.
+
+## Entrada
+- **fecha/hora**: 2026-03-27 13:14:04Z
+- **tarea**: RCDX-027 - Corregir el formateo Ruff pendiente en clinicdesk/app/pages/prediccion_ausencias/page.py
+- **estado final**: BLOCKED
+- **archivos tocados**:
+  - `clinicdesk/app/pages/prediccion_ausencias/page.py`
+  - `docs/roadmap_codex.md`
+  - `docs/bitacora_codex.md`
+- **decisiones**:
+  - Se aplico unicamente el ajuste de formato que Ruff exigia en `clinicdesk/app/pages/prediccion_ausencias/page.py`, limitado a una llamada larga de `setText(...)` y a la construccion de `contexto` en `_registrar_telemetria_monitor_ml`.
+  - Se ejecuto la suite mas especifica del area (`tests/test_prediccion_ausencias_page_estabilidad.py`) para confirmar que el contrato UI y la telemetria deduplicada siguen intactos tras el cambio de formato.
+  - Se mantuvo el cierre en `BLOCKED` porque el contrato exige checks obligatorios en verde y `python -m scripts.gate_pr` sigue fallando por un bloqueo real posterior.
+  - La prioridad real cambio al inspeccionar el siguiente bloqueo: `tests/ui/test_contexto_tabla.py` falla en la restauracion de scroll con una expectativa fuera del rango visible de la tabla, mientras `tests/ui/test_contexto_tabla_puro.py` pasa y una sonda local confirma que el valor capturado real es `1`; por eso se materializo `RCDX-028` antes de retomar la deuda de Ruff en `clinicdesk/app/pages/shared/contexto_tabla.py`.
+- **checks ejecutados**:
+  - `.\.venv\Scripts\python.exe -m ruff format --check clinicdesk/app/pages/prediccion_ausencias/page.py`
+  - `.\.venv\Scripts\python.exe -m pytest -q tests/test_prediccion_ausencias_page_estabilidad.py`
+  - `python -m scripts.gate_rapido`
+  - `python -m scripts.gate_pr`
+  - `.\.venv\Scripts\python.exe -m ruff format --check clinicdesk/app/pages/shared/contexto_tabla.py`
+  - `.\.venv\Scripts\python.exe -m pytest -q tests/ui/test_contexto_tabla.py`
+  - `@'...sonda scroll contexto tabla...'@ | .\.venv\Scripts\python.exe -`
+  - `.\.venv\Scripts\python.exe -m pytest -q tests/ui/test_contexto_tabla_puro.py`
+- **resultado**:
+  - `.\.venv\Scripts\python.exe -m ruff format --check clinicdesk/app/pages/prediccion_ausencias/page.py` queda en verde (`1 file already formatted`).
+  - `.\.venv\Scripts\python.exe -m pytest -q tests/test_prediccion_ausencias_page_estabilidad.py` pasa (`......... [100%]`).
+  - `python -m scripts.gate_rapido` devuelve `rc=0`.
+  - `python -m scripts.gate_pr` avanza mas alla del archivo objetivo y revela el siguiente bloqueo real de formato en `clinicdesk/app/pages/shared/contexto_tabla.py`.
+  - `.\.venv\Scripts\python.exe -m ruff format --check clinicdesk/app/pages/shared/contexto_tabla.py` confirma la nueva deuda (`1 file would be reformatted`).
+  - `.\.venv\Scripts\python.exe -m pytest -q tests/ui/test_contexto_tabla.py` falla en `test_contexto_tabla_restaurar_seleccion_y_scroll`; la asercion `tabla.verticalScrollBar().value() == 7` queda en rojo con valor real `1`.
+  - La sonda local con la tabla visible devuelve `scroll_max 1`, `scroll_actual 1` y `scroll_capturado 1`, confirmando que el helper restaura el valor realmente capturado y que el rojo queda acotado a la suite UI.
+  - `.\.venv\Scripts\python.exe -m pytest -q tests/ui/test_contexto_tabla_puro.py` pasa (`... [100%]`).
+  - Revalidacion final 2026-03-27 13:15:23Z: tras sincronizar `docs/roadmap_codex.md` y `docs/bitacora_codex.md`, `python -m scripts.gate_rapido` se mantiene en `rc=0`.
+- **riesgo detectado**:
+  - Riesgo funcional y operativo: mientras `tests/ui/test_contexto_tabla.py` siga validando un scroll fuera de rango y `clinicdesk/app/pages/shared/contexto_tabla.py` mantenga deuda de formato, `python -m scripts.gate_pr` seguira bloqueando el cierre en `DONE`.
+- **metadata de validacion/PR**:
+  - `N/A: python -m scripts.gate_pr fallo por deuda real de formateo en clinicdesk/app/pages/shared/contexto_tabla.py y .\.venv\Scripts\python.exe -m pytest -q tests/ui/test_contexto_tabla.py fallo en test_contexto_tabla_restaurar_seleccion_y_scroll; no abrir PR.`
+- **bloqueo o siguiente paso exacto**:
+  - Ejecutar `RCDX-028` ajustando solo `tests/ui/test_contexto_tabla.py` y, si hace falta para el wiring, `tests/ui/conftest.py`; despues reintentar `.\.venv\Scripts\python.exe -m pytest -q tests/ui/test_contexto_tabla.py`, `.\.venv\Scripts\python.exe -m pytest -q tests/ui/test_contexto_tabla_puro.py`, `python -m scripts.gate_rapido` y `python -m scripts.gate_pr`.
+
+## Entrada
+- **fecha/hora**: 2026-03-27 13:53:25Z
+- **tarea**: RCDX-026 - Corregir el formateo Ruff pendiente en clinicdesk/app/pages/pacientes/dialogs/paciente_form.py
+- **estado final**: BLOCKED
+- **archivos tocados**:
+  - `clinicdesk/app/pages/pacientes/dialogs/paciente_form.py`
+  - `docs/roadmap_codex.md`
+  - `docs/bitacora_codex.md`
+- **decisiones**:
+  - Se aplico unicamente el ajuste de formato que Ruff exigia en `clinicdesk/app/pages/pacientes/dialogs/paciente_form.py`, limitado a partir llamadas largas de `form.addRow(...)`, `QDate(...)` y la asignacion del texto del boton guardar.
+  - Se ejecuto la suite mas especifica del area (`tests/ui/test_paciente_form_dialog.py`) para confirmar que el contrato visible del formulario sigue intacto tras el cambio de formato.
+  - Se mantuvo el cierre en `BLOCKED` porque el contrato exige checks obligatorios en verde y `python -m scripts.gate_pr` sigue fallando por un bloqueo real posterior.
+  - Se materializo `RCDX-027` como siguiente `TODO` atomica al confirmarse que el nuevo bloqueo queda acotado a `clinicdesk/app/pages/prediccion_ausencias/page.py`.
+- **checks ejecutados**:
+  - `.\.venv\Scripts\python.exe -m pytest -q tests/ui/test_paciente_form_dialog.py`
+  - `.\.venv\Scripts\python.exe -m ruff format clinicdesk/app/pages/pacientes/dialogs/paciente_form.py`
+  - `.\.venv\Scripts\python.exe -m ruff format --check clinicdesk/app/pages/pacientes/dialogs/paciente_form.py`
+  - `python -m scripts.gate_rapido`
+  - `python -m scripts.gate_pr`
+  - `.\.venv\Scripts\python.exe -m ruff format --check clinicdesk/app/pages/prediccion_ausencias/page.py`
+  - `.\.venv\Scripts\python.exe -m pytest -q tests/test_prediccion_ausencias_page_estabilidad.py`
+- **resultado**:
+  - `.\.venv\Scripts\python.exe -m ruff format --check clinicdesk/app/pages/pacientes/dialogs/paciente_form.py` queda en verde (`1 file already formatted`).
+  - `.\.venv\Scripts\python.exe -m pytest -q tests/ui/test_paciente_form_dialog.py` pasa (`.... [100%]`).
+  - `python -m scripts.gate_rapido` devuelve `rc=0`.
+  - `python -m scripts.gate_pr` avanza mas alla del archivo objetivo y revela el siguiente bloqueo real de formato en `clinicdesk/app/pages/prediccion_ausencias/page.py`.
+  - `.\.venv\Scripts\python.exe -m ruff format --check clinicdesk/app/pages/prediccion_ausencias/page.py` confirma la nueva deuda (`1 file would be reformatted`) y el diff de Ruff la acota a una llamada larga a `setText(...)` y a la construccion de `contexto` en `_registrar_telemetria_monitor_ml`.
+  - `.\.venv\Scripts\python.exe -m pytest -q tests/test_prediccion_ausencias_page_estabilidad.py` pasa (`......... [100%]`).
+- **riesgo detectado**:
+  - Riesgo operativo residual: mientras `clinicdesk/app/pages/prediccion_ausencias/page.py` siga sin formatear, `python -m scripts.gate_pr` seguira bloqueando el cierre en `DONE`.
+- **metadata de validacion/PR**:
+  - `N/A: python -m scripts.gate_pr fallo por deuda real de formateo en clinicdesk/app/pages/prediccion_ausencias/page.py; no abrir PR.`
+- **bloqueo o siguiente paso exacto**:
+  - Ejecutar `RCDX-027` corrigiendo solo `clinicdesk/app/pages/prediccion_ausencias/page.py`; despues reintentar `.\.venv\Scripts\python.exe -m ruff format --check clinicdesk/app/pages/prediccion_ausencias/page.py`, `.\.venv\Scripts\python.exe -m pytest -q tests/test_prediccion_ausencias_page_estabilidad.py`, `python -m scripts.gate_rapido` y `python -m scripts.gate_pr`.

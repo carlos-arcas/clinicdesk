@@ -667,9 +667,7 @@ class PagePrediccionAusencias(QWidget):
         )
         self.lbl_resumen_alerta.setText(self._i18n.t(estado_tendencia.alerta_i18n_key))
         self.lbl_resumen_recomendacion.setText(self._i18n.t(estado_monitor_ml.recomendacion_i18n_key))
-        self.lbl_resumen_recomendacion_razon.setText(
-            self._i18n.t(estado_monitor_ml.recomendacion_razon_corta_i18n_key)
-        )
+        self.lbl_resumen_recomendacion_razon.setText(self._i18n.t(estado_monitor_ml.recomendacion_razon_corta_i18n_key))
         self._registrar_telemetria_monitor_ml(estado_monitor_ml)
         filas = construir_filas_historial_compacto(historial, limite=5)
         if not filas:
@@ -800,10 +798,7 @@ class PagePrediccionAusencias(QWidget):
             self._telemetria_uc.ejecutar(
                 contexto_usuario=self._contexto_usuario,
                 evento="prediccion_monitor_ml_estado",
-                contexto=(
-                    "page=prediccion_ausencias;"
-                    f"{construir_fingerprint_estado_monitor_ml(estado_monitor_ml)}"
-                ),
+                contexto=("page=prediccion_ausencias;" f"{construir_fingerprint_estado_monitor_ml(estado_monitor_ml)}"),
             )
         except Exception:
             return

@@ -75,7 +75,9 @@ class PlaybooksMLService:
 
         return sorted(playbooks, key=puntaje, reverse=True)[0].codigo
 
-    def _pasos_playbook(self, codigo: str, acciones: tuple[str, ...], estado_pipeline: Any) -> tuple[PasoPlaybookML, ...]:
+    def _pasos_playbook(
+        self, codigo: str, acciones: tuple[str, ...], estado_pipeline: Any
+    ) -> tuple[PasoPlaybookML, ...]:
         pasos: list[PasoPlaybookML] = []
         for accion in acciones:
             estado, habilitado, motivo = self._resolver_estado_paso(codigo, accion, estado_pipeline)

@@ -62,7 +62,6 @@ I18N_CATALOGO_UX = {
         "pacientes.accion.nuevo": "Nuevo",
         "pacientes.accion.editar": "Editar",
         "pacientes.accion.desactivar": "Desactivar",
-
         "comun.buscar": "Buscar…",
         "form.sin_fecha": "Sin fecha",
         "form.registro_activo": "Registro activo",
@@ -162,7 +161,6 @@ I18N_CATALOGO_UX = {
         "pacientes.accion.nuevo": "New",
         "pacientes.accion.editar": "Edit",
         "pacientes.accion.desactivar": "Deactivate",
-
         "comun.buscar": "Search…",
         "form.sin_fecha": "No date",
         "form.registro_activo": "Active record",

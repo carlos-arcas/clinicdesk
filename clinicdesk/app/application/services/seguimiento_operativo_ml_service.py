@@ -118,4 +118,3 @@ class SeguimientoOperativoMLService:
         if len(texto) <= self._MAX_NOTA:
             return texto
         return texto[: self._MAX_NOTA]
-

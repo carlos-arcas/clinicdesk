@@ -1,18 +1,21 @@
-comando: C:\Users\arcas\.codex\worktrees\80e1\clinicdesk\.venv\Scripts\python.exe -m ruff format --diff clinicdesk\app\application\services\ml_playbooks_service.py
+comando: C:\Users\arcas\.codex\worktrees\80e1\clinicdesk\.venv\Scripts\python.exe -m ruff format --diff clinicdesk\app\pages\shared\contexto_tabla.py
 returncode: 1
 --- stdout ---
---- clinicdesk\app\application\services\ml_playbooks_service.py
-+++ clinicdesk\app\application\services\ml_playbooks_service.py
-@@ -75,7 +75,9 @@
+--- clinicdesk\app\pages\shared\contexto_tabla.py
++++ clinicdesk\app\pages\shared\contexto_tabla.py
+@@ -4,7 +4,12 @@
  
-         return sorted(playbooks, key=puntaje, reverse=True)[0].codigo
+ from PySide6.QtCore import Qt
  
--    def _pasos_playbook(self, codigo: str, acciones: tuple[str, ...], estado_pipeline: Any) -> tuple[PasoPlaybookML, ...]:
-+    def _pasos_playbook(
-+        self, codigo: str, acciones: tuple[str, ...], estado_pipeline: Any
-+    ) -> tuple[PasoPlaybookML, ...]:
-         pasos: list[PasoPlaybookML] = []
-         for accion in acciones:
-             estado, habilitado, motivo = self._resolver_estado_paso(codigo, accion, estado_pipeline)
+-from clinicdesk.app.ui.ux.contexto_tabla import ContextoTablaListado, FilaTabla, construir_contexto_tabla, resolver_fila_a_restaurar
++from clinicdesk.app.ui.ux.contexto_tabla import (
++    ContextoTablaListado,
++    FilaTabla,
++    construir_contexto_tabla,
++    resolver_fila_a_restaurar,
++)
+ 
+ if TYPE_CHECKING:
+     from PySide6.QtWidgets import QTableWidget
 --- stderr ---
 1 file would be reformatted
