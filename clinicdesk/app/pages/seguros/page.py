@@ -113,6 +113,7 @@ class PageSeguros(QWidget):
             self.selector_seccion.addItem(texto, seccion)
         self.selector_seccion.blockSignals(False)
         self._restaurar_navegacion_workspace()
+        self._refrescar_cartera()
 
     def _restaurar_navegacion_workspace(self) -> None:
         seccion = restaurar_seccion_preferida(self._estado_workspace)

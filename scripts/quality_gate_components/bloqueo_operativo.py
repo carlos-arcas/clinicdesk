@@ -29,9 +29,7 @@ def reportar_bloqueo_operativo_doctor(
         sys.stderr.write(f"[{etiqueta_gate}][diagnostico] detalle={clasificacion.detalle}\n")
         sys.stderr.write(f"[{etiqueta_gate}][accion] Paso sugerido: {clasificacion.accion_sugerida}\n")
     if validaciones_no_ejecutadas is not None:
-        sys.stderr.write(
-            f"[{etiqueta_gate}][entorno] Validaciones no ejecutadas: {validaciones_no_ejecutadas}.\n"
-        )
+        sys.stderr.write(f"[{etiqueta_gate}][entorno] Validaciones no ejecutadas: {validaciones_no_ejecutadas}.\n")
     for linea in renderizar_reporte(diagnostico):
         sys.stderr.write(f"{linea}\n")
     sys.stderr.write(

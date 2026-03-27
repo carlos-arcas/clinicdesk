@@ -1,21 +1,28 @@
-comando: C:\Users\arcas\.codex\worktrees\80e1\clinicdesk\.venv\Scripts\python.exe -m ruff format --diff clinicdesk\app\pages\shared\contexto_tabla.py
+comando: C:\Users\arcas\.codex\worktrees\80e1\clinicdesk\.venv\Scripts\python.exe -m ruff format --diff tests\guardrails\test_prediccion_ausencias_page_entrenamiento_job_manager_ast.py
 returncode: 1
 --- stdout ---
---- clinicdesk\app\pages\shared\contexto_tabla.py
-+++ clinicdesk\app\pages\shared\contexto_tabla.py
-@@ -4,7 +4,12 @@
- 
- from PySide6.QtCore import Qt
- 
--from clinicdesk.app.ui.ux.contexto_tabla import ContextoTablaListado, FilaTabla, construir_contexto_tabla, resolver_fila_a_restaurar
-+from clinicdesk.app.ui.ux.contexto_tabla import (
-+    ContextoTablaListado,
-+    FilaTabla,
-+    construir_contexto_tabla,
-+    resolver_fila_a_restaurar,
-+)
- 
- if TYPE_CHECKING:
-     from PySide6.QtWidgets import QTableWidget
+--- tests\guardrails\test_prediccion_ausencias_page_entrenamiento_job_manager_ast.py
++++ tests\guardrails\test_prediccion_ausencias_page_entrenamiento_job_manager_ast.py
+@@ -19,9 +19,7 @@
+ def test_page_no_importa_qthread_para_entrenamiento() -> None:
+     tree = ast.parse(RUTA_PAGE.read_text(encoding="utf-8"))
+     imports_qtcore = [
+-        node
+-        for node in tree.body
+-        if isinstance(node, ast.ImportFrom) and node.module == "PySide6.QtCore"
++        node for node in tree.body if isinstance(node, ast.ImportFrom) and node.module == "PySide6.QtCore"
+     ]
+     nombres = {alias.name for node in imports_qtcore for alias in node.names}
+     assert "QThread" not in nombres
+@@ -32,9 +30,7 @@
+     llamadas = [
+         nodo
+         for nodo in ast.walk(metodo)
+-        if isinstance(nodo, ast.Call)
+-        and isinstance(nodo.func, ast.Attribute)
+-        and nodo.func.attr == "iniciar"
++        if isinstance(nodo, ast.Call) and isinstance(nodo.func, ast.Attribute) and nodo.func.attr == "iniciar"
+     ]
+     assert len(llamadas) == 1
 --- stderr ---
 1 file would be reformatted

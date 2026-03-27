@@ -25,7 +25,12 @@ def test_demo_data_seeder_persists_coherent_counts() -> None:
     appointments = generate_appointments(
         patients,
         doctors,
-        AppointmentGenerationConfig(n_appointments=60, from_date=_date("2026-01-01"), to_date=_date("2026-02-28")),
+        AppointmentGenerationConfig(
+            n_appointments=60,
+            from_date=_date("2026-01-01"),
+            to_date=_date("2026-02-28"),
+            reference_date=_date("2026-01-31"),
+        ),
         91,
     )
     incidences = generate_incidences(appointments, rate=0.2, seed=91)
@@ -42,6 +47,13 @@ def test_demo_data_seeder_persists_coherent_counts() -> None:
     assert _count(connection, "personal") == 3
     assert _count(connection, "citas") == 60
     assert _count(connection, "incidencias") == result.incidences
+    assert _count(connection, "recordatorios_citas") > 0
+    assert _count(connection, "predicciones_ausencias_log") == 60
+    assert _count(connection, "ml_acciones_operativas") > 0
+    assert _count_where(connection, "citas", "tipo_cita IS NOT NULL") == 60
+    assert _count_where(connection, "citas", "canal_reserva IS NOT NULL") == 60
+    assert _count_where(connection, "citas", "override_fecha_hora IS NOT NULL") == 60
+    assert _count_where(connection, "citas", "estado IN ('REALIZADA', 'EN_CURSO') AND check_in_at IS NOT NULL") > 0
 
 
 def _apply_schema(connection: sqlite3.Connection) -> None:
@@ -54,6 +66,10 @@ def _apply_schema(connection: sqlite3.Connection) -> None:
 
 def _count(connection: sqlite3.Connection, table: str) -> int:
     return int(connection.execute(f"SELECT COUNT(*) as total FROM {table}").fetchone()["total"])
+
+
+def _count_where(connection: sqlite3.Connection, table: str, where: str) -> int:
+    return int(connection.execute(f"SELECT COUNT(*) as total FROM {table} WHERE {where}").fetchone()["total"])
 
 
 def _date(raw: str):

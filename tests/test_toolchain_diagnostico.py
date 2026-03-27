@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+import sys
 
 from scripts.quality_gate_components.doctor_entorno_calidad_core import (
     DiagnosticoEntornoCalidad,
@@ -52,7 +53,9 @@ def test_cargar_toolchain_esperado_lee_versiones_desde_lock(tmp_path: Path) -> N
     assert toolchain.version_esperada("ruff") == "0.8.4"
     assert toolchain.version_esperada("pip-audit") == "2.7.3"
     assert interprete.version_minima == "3.11"
-    assert interprete.python_repo == tmp_path / ".venv" / "bin" / "python"
+    directorio_python = "Scripts" if sys.platform.startswith("win") else "bin"
+    ejecutable_python = "python.exe" if sys.platform.startswith("win") else "python"
+    assert interprete.python_repo == tmp_path / ".venv" / directorio_python / ejecutable_python
 
 
 def test_renderizar_reporte_muestra_error_accionable_para_tool_faltante(tmp_path: Path) -> None:

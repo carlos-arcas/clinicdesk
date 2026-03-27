@@ -49,9 +49,7 @@ def validar_contrato_reason_codes_doc(ruta_doc: Path = RUTA_DOC_CI_QUALITY_GATE)
     try:
         validar_coherencia_reason_codes_doc(ruta_doc=ruta_doc, canonicos=canonicos)
     except ErrorContratoReasonCodesDoc as exc:
-        raise ErrorContratoReasonCodesDoc(
-            f"Check documental reason_code falló en {ruta_doc}: {exc}"
-        ) from None
+        raise ErrorContratoReasonCodesDoc(f"Check documental reason_code falló en {ruta_doc}: {exc}") from None
 
 
 def _preflight_entorno(repo_root: Path) -> int:

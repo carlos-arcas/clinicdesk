@@ -15,6 +15,10 @@ def _intent_base() -> CitasNavigationIntentDTO:
 def test_coordinador_refresh_descarta_token_obsoleto_e_invisible() -> None:
     coordinador = CoordinadorRefreshCitas()
 
+    assert coordinador.solicitar_token() is None
+    assert not coordinador.pagina_visible()
+
+    coordinador.activar_pagina()
     token_vigente = coordinador.solicitar_token()
     assert token_vigente == 1
     assert coordinador.es_vigente(1)

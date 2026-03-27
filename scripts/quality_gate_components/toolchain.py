@@ -115,7 +115,9 @@ def _leer_versiones_lock(requirements_dev_lock: Path, *, validar_herramientas_ga
         )
 
     versiones = leer_versiones_lock_desde_texto(requirements_dev_lock.read_text(encoding="utf-8"))
-    faltantes = [herramienta.nombre_paquete for herramienta in HERRAMIENTAS_GATE if herramienta.nombre_paquete not in versiones]
+    faltantes = [
+        herramienta.nombre_paquete for herramienta in HERRAMIENTAS_GATE if herramienta.nombre_paquete not in versiones
+    ]
     if validar_herramientas_gate and faltantes:
         faltantes_render = ", ".join(faltantes)
         raise ErrorToolchain(

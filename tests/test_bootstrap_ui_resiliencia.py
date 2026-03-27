@@ -163,3 +163,36 @@ def test_bootstrap_construye_paginas_validas_sin_afectar_flujo_normal(monkeypatc
     assert [page.key for page in pages] == ["ok", "otra"]
     assert [page.title for page in pages] == ["OK", "OTRA"]
     assert [page.factory() for page in pages] == [{"page": "ok"}, {"page": "otra"}]
+
+
+def test_get_pages_reales_medicos_y_personal_no_caen_en_placeholder(container, caplog) -> None:
+    specs = (
+        bootstrap_ui.RegistroPaginaSpec("medicos", "clinicdesk.app.pages.medicos.register", titulo="Médicos"),
+        bootstrap_ui.RegistroPaginaSpec("personal", "clinicdesk.app.pages.personal.register", titulo="Personal"),
+    )
+
+    caplog.set_level(logging.ERROR)
+    pages = bootstrap_ui.get_pages(container=container, i18n=I18nManager("es"), specs_paginas=specs)
+
+    assert [page.key for page in pages] == ["medicos", "personal"]
+    assert not any(record.msg == "page_register_fail" for record in caplog.records)
+
+
+@pytest.mark.ui
+@pytest.mark.uiqt
+def test_page_seguros_arranca_hidratada_en_cartera(monkeypatch, db_connection) -> None:
+    _app()
+    import clinicdesk.app.pages.seguros.page as seguros_page
+
+    monkeypatch.setattr(seguros_page, "obtener_conexion", lambda: db_connection)
+
+    page = seguros_page.PageSeguros(I18nManager("es"))
+
+    assert page.selector_seccion.currentData() == "cartera"
+    assert page.lbl_estado_comercial.text() == page._i18n.t("seguros.comercial.sin_oportunidad")
+    assert page.lbl_renovaciones.text() == page._i18n.t("seguros.comercial.renovaciones_pendientes").format(cantidad=0)
+    assert "Cartera total: 0" in page.lbl_cartera.text()
+    assert page.lbl_recomendacion.text() == page._i18n.t("seguros.recomendacion.sin_dato")
+    assert page.lbl_postventa.text() != "-"
+    assert page.lbl_postventa_economia.text() != "-"
+    assert page.lbl_resultado_campania.text() == page._i18n.t("seguros.campania.sin_dato")

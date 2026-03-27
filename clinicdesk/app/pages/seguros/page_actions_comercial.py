@@ -72,9 +72,14 @@ def cerrar_oportunidad(page) -> None:
 
 def refrescar_cartera(page) -> None:
     resumen, caliente, abiertas = construir_resumen_cartera(page._i18n, page._gestion, page._scoring)
+    renovaciones = page._gestion.listar_renovaciones_pendientes()
     page.lbl_cartera.setText(resumen)
+    page.lbl_renovaciones.setText(
+        page._i18n.t("seguros.comercial.renovaciones_pendientes").format(cantidad=len(renovaciones))
+    )
     _actualizar_recomendacion(page, abiertas, caliente)
     _actualizar_panel_operativo(page)
+    _actualizar_estado_comercial(page, abiertas)
     _actualizar_agenda(page)
     _actualizar_panel_analitico(page)
     refrescar_campanias_ejecutables(page)
@@ -109,6 +114,20 @@ def _actualizar_panel_operativo(page) -> None:
     page.lbl_cola_operativa.setText(cola_txt)
     page.lbl_historial_operativo.setText(historial_txt)
     page._id_oportunidad_activa = activa
+
+
+def _actualizar_estado_comercial(page, abiertas) -> None:
+    oportunidad = next((item for item in abiertas if item.id_oportunidad == page._id_oportunidad_activa), None)
+    if oportunidad is None:
+        page.lbl_estado_comercial.setText(page._i18n.t("seguros.comercial.sin_oportunidad"))
+        return
+    page.lbl_estado_comercial.setText(
+        page._i18n.t("seguros.comercial.estado").format(
+            estado=oportunidad.estado_actual.value,
+            motor=oportunidad.clasificacion_motor,
+            fit=oportunidad.evaluacion_fit.encaje_plan.value if oportunidad.evaluacion_fit else "-",
+        )
+    )
 
 
 def _actualizar_agenda(page) -> None:

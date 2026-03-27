@@ -28,6 +28,7 @@ def test_contexto_tabla_restaurar_seleccion_y_scroll(qtbot) -> None:
     tabla.show()
     tabla.setCurrentCell(4, 0)
     tabla.verticalScrollBar().setValue(7)
+    scroll_capturado = tabla.verticalScrollBar().value()
 
     contexto = capturar_contexto_tabla(tabla, columna_id=0)
 
@@ -39,7 +40,8 @@ def test_contexto_tabla_restaurar_seleccion_y_scroll(qtbot) -> None:
     assert restaurado is True
     assert tabla.currentItem() is not None
     assert tabla.currentItem().data(Qt.UserRole) == 104
-    assert tabla.verticalScrollBar().value() == 7
+    assert contexto.scroll_vertical == scroll_capturado
+    assert tabla.verticalScrollBar().value() == scroll_capturado
 
 
 def test_contexto_tabla_sin_id_retorna_false(qtbot) -> None:

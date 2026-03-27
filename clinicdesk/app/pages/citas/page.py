@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Optional
 
-from PySide6.QtCore import QSettings, Qt, QTimer
+from PySide6.QtCore import QObject, QSettings, Qt, QTimer, Signal
 from PySide6.QtGui import QAction, QColor
 from PySide6.QtWidgets import (
     QCalendarWidget,
@@ -13,7 +13,8 @@ from PySide6.QtWidgets import (
     QMenu,
     QPushButton,
     QMessageBox,
-    QTabWidget,
+    QSizePolicy,
+    QSplitter,
     QTableWidget,
     QTableWidgetItem,
     QVBoxLayout,
@@ -93,6 +94,24 @@ class _RelojSistema:
         return datetime.now().replace(microsecond=0)
 
 
+class _SelectorVistasCitas(QObject):
+    currentChanged = Signal(int)
+
+    def __init__(self, indice_inicial: int = 1, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self._indice_actual = 1 if indice_inicial == 1 else 0
+
+    def currentIndex(self) -> int:
+        return self._indice_actual
+
+    def setCurrentIndex(self, index: int) -> None:
+        indice_normalizado = 1 if index == 1 else 0
+        if indice_normalizado == self._indice_actual:
+            return
+        self._indice_actual = indice_normalizado
+        self.currentChanged.emit(self._indice_actual)
+
+
 def _payload_log_filtros(filtros: FiltrosCitasDTO, contexto: str) -> dict[str, object]:
     return {
         "action": "citas_filtros_aplicados",
@@ -149,13 +168,13 @@ class PageCitas(QWidget):
         self._build_ui()
         self._bind_events()
         self._restaurar_estado_ui()
-        self._refrescar_vistas_principales("init")
 
     def _build_ui(self) -> None:
-        self.tabs = QTabWidget(self)
-        self.tabs.setObjectName("citas_tabs")
+        self.tabs = _SelectorVistasCitas(parent=self)
         self.calendar = QCalendarWidget()
         self.calendar.setObjectName("citas_calendario")
+        self.calendar.setMaximumHeight(260)
+        self.calendar.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         self.lbl_date = QLabel(self)
         self.btn_new = QPushButton(self._i18n.t("citas.acciones.nueva"))
         self.btn_delete = QPushButton(self._i18n.t("citas.acciones.eliminar"))
@@ -167,57 +186,65 @@ class PageCitas(QWidget):
         self.table.setObjectName("citas_tabla_calendario")
         self.table.setHorizontalHeaderLabels(["ID", "", "", "", "", "", "", ""])
         self.table.setColumnHidden(0, True)
+        self.table.horizontalHeader().setStretchLastSection(True)
+        self.table.setMinimumHeight(180)
         self.lbl_aviso_salud_calendario = QLabel(self)
         self.btn_ir_prediccion_calendario = QPushButton(self._i18n.t("estimaciones.ir_a_estimaciones"), self)
         self.btn_ir_prediccion_calendario.clicked.connect(lambda: self._ir_a_estimaciones("calendario"))
         self.lbl_aviso_salud_calendario.setVisible(False)
         self.btn_ir_prediccion_calendario.setVisible(False)
 
-        tab_calendario = QWidget(self)
+        seccion_calendario = QWidget(self)
         izq = QVBoxLayout()
         izq.addWidget(self.calendar)
         izq.addWidget(self.lbl_date)
-        izq.addWidget(self.btn_new)
-        izq.addWidget(self.btn_delete)
+        acciones_calendario = QHBoxLayout()
+        acciones_calendario.addWidget(self.btn_new)
+        acciones_calendario.addWidget(self.btn_delete)
+        acciones_calendario.addStretch(1)
+        izq.addLayout(acciones_calendario)
+        izq.addStretch(1)
         der = QVBoxLayout()
         aviso_cal = QHBoxLayout()
         aviso_cal.addWidget(self.lbl_aviso_salud_calendario, 1)
         aviso_cal.addWidget(self.btn_ir_prediccion_calendario)
         aviso_cal.addStretch(1)
         der.addLayout(aviso_cal)
-        der.addWidget(self.table)
-        lay_cal = QHBoxLayout(tab_calendario)
+        der.addWidget(self.table, 1)
+        lay_cal = QHBoxLayout(seccion_calendario)
+        lay_cal.setContentsMargins(0, 0, 0, 0)
         lay_cal.addLayout(izq, 1)
         lay_cal.addLayout(der, 3)
 
-        tab_lista = QWidget(self)
-        self.panel_filtros = PanelFiltrosCitasWidget(self._i18n, tab_lista)
-        self.btn_columnas = QPushButton(self._i18n.t("citas.lista.columnas.boton"), tab_lista)
-        self.lbl_estado = QLabel("", tab_lista)
-        self.btn_reintentar = QPushButton(self._i18n.t("citas.ux.reintentar"), tab_lista)
+        seccion_lista = QWidget(self)
+        self.panel_filtros = PanelFiltrosCitasWidget(self._i18n, self)
+        self.btn_columnas = QPushButton(self._i18n.t("citas.lista.columnas.boton"), seccion_lista)
+        self.lbl_estado = QLabel("", seccion_lista)
+        self.btn_reintentar = QPushButton(self._i18n.t("citas.ux.reintentar"), seccion_lista)
         self.btn_reintentar.setVisible(False)
-        self.lbl_banner_validacion = QLabel("", tab_lista)
-        self.btn_corregir_filtros = QPushButton(self._i18n.t("citas.validacion.banner.corregir"), tab_lista)
-        self.btn_restablecer_filtros = QPushButton(self._i18n.t("citas.validacion.banner.restablecer"), tab_lista)
-        self.lbl_banner_calidad = QLabel("", tab_lista)
-        self.btn_quitar_filtro_calidad = QPushButton(self._i18n.t("citas.calidad.quitar_filtro"), tab_lista)
+        self.lbl_banner_validacion = QLabel("", seccion_lista)
+        self.btn_corregir_filtros = QPushButton(self._i18n.t("citas.validacion.banner.corregir"), seccion_lista)
+        self.btn_restablecer_filtros = QPushButton(self._i18n.t("citas.validacion.banner.restablecer"), seccion_lista)
+        self.lbl_banner_calidad = QLabel("", seccion_lista)
+        self.btn_quitar_filtro_calidad = QPushButton(self._i18n.t("citas.calidad.quitar_filtro"), seccion_lista)
         self.btn_corregir_filtros.setVisible(False)
         self.btn_restablecer_filtros.setVisible(False)
         self.lbl_banner_calidad.setVisible(False)
         self.btn_quitar_filtro_calidad.setVisible(False)
-        self.lbl_aviso_columnas = QLabel("", tab_lista)
-        self.lbl_aviso_salud_lista = QLabel("", tab_lista)
-        self.btn_ir_prediccion_lista = QPushButton(self._i18n.t("estimaciones.ir_a_estimaciones"), tab_lista)
+        self.lbl_aviso_columnas = QLabel("", seccion_lista)
+        self.lbl_aviso_salud_lista = QLabel("", seccion_lista)
+        self.btn_ir_prediccion_lista = QPushButton(self._i18n.t("estimaciones.ir_a_estimaciones"), seccion_lista)
         self.btn_ir_prediccion_lista.clicked.connect(lambda: self._ir_a_estimaciones("lista"))
         self.lbl_aviso_salud_lista.setVisible(False)
         self.btn_ir_prediccion_lista.setVisible(False)
-        self.table_lista = QTableWidget(0, 0, tab_lista)
+        self.table_lista = QTableWidget(0, 0, seccion_lista)
         self.table_lista.setObjectName("citas_tabla_lista")
         self.table_lista.setEditTriggers(QTableWidget.NoEditTriggers)
         self.table_lista.setContextMenuPolicy(Qt.CustomContextMenu)
-        self.chk_seleccionar_todo = QCheckBox(self._i18n.t("citas.hitos.lote.seleccionar_todo"), tab_lista)
+        self.table_lista.horizontalHeader().setStretchLastSection(True)
+        self.chk_seleccionar_todo = QCheckBox(self._i18n.t("citas.hitos.lote.seleccionar_todo"), seccion_lista)
         self._lote_hitos = GestorLoteHitosCitas(
-            tab_lista,
+            seccion_lista,
             self._i18n,
             self._db_path,
             selected_ids=self._ids_seleccionados_lote,
@@ -232,8 +259,8 @@ class PageCitas(QWidget):
         barra.addWidget(self.lbl_estado)
         barra.addWidget(self.btn_reintentar)
 
-        layout_lista = QVBoxLayout(tab_lista)
-        layout_lista.addWidget(self.panel_filtros)
+        layout_lista = QVBoxLayout(seccion_lista)
+        layout_lista.setContentsMargins(0, 0, 0, 0)
         banner = QHBoxLayout()
         banner.addWidget(self.lbl_banner_validacion)
         banner.addWidget(self.btn_corregir_filtros)
@@ -251,12 +278,20 @@ class PageCitas(QWidget):
         layout_lista.addWidget(self.chk_seleccionar_todo)
         layout_lista.addWidget(self._lote_hitos.barra)
         layout_lista.addWidget(self.lbl_aviso_columnas)
-        layout_lista.addWidget(self.table_lista)
+        layout_lista.addWidget(self.table_lista, 1)
 
-        self.tabs.addTab(tab_calendario, self._i18n.t("citas.tabs.calendario"))
-        self.tabs.addTab(tab_lista, self._i18n.t("citas.tabs.lista"))
+        splitter = QSplitter(Qt.Vertical, self)
+        splitter.setChildrenCollapsible(False)
+        splitter.addWidget(seccion_calendario)
+        splitter.addWidget(seccion_lista)
+        splitter.setStretchFactor(0, 0)
+        splitter.setStretchFactor(1, 1)
+        splitter.setSizes([320, 640])
+
         root = QVBoxLayout(self)
-        root.addWidget(self.tabs)
+        root.setContentsMargins(0, 0, 0, 0)
+        root.addWidget(self.panel_filtros)
+        root.addWidget(splitter, 1)
 
     def _bind_events(self) -> None:
         self.calendar.selectionChanged.connect(self._on_calendario_selection_changed)
@@ -452,6 +487,9 @@ class PageCitas(QWidget):
         self._actualizar_aviso_columnas(restauradas or estado_restauracion_columnas(saved))
 
     def _on_calendario_selection_changed(self) -> None:
+        self.tabs.setCurrentIndex(0)
+        if not self._coordinador_refresh.pagina_visible():
+            return
         token_refresh = self._nuevo_token_refresh("calendario_selection")
         if token_refresh is None:
             return
@@ -464,6 +502,7 @@ class PageCitas(QWidget):
         self._refrescar_vistas_principales("tab_changed")
 
     def _on_reintentar_lista(self) -> None:
+        self.tabs.setCurrentIndex(1)
         self._refrescar_vistas_principales("reintentar")
 
     def _on_filtros_aplicados(self, filtros: object) -> None:
@@ -611,6 +650,7 @@ class PageCitas(QWidget):
                 if col == 0:
                     item_col.setData(Qt.UserRole, cita_id)
                 self.table_lista.setItem(idx, col + offset, item_col)
+        self.table_lista.resizeColumnsToContents()
         self._actualizando_checks_lote = False
         self._actualizar_ui_lote_hitos()
         restaurar_contexto_tabla(self.table_lista, self._contexto_lista_pendiente, columna_id=0)
@@ -787,6 +827,7 @@ class PageCitas(QWidget):
         self.panel_filtros.setEnabled(not loading)
 
     def _abrir_selector_columnas(self) -> None:
+        self.tabs.setCurrentIndex(1)
         dialogo = DialogoSelectorColumnasCitas(self._i18n, self._columnas_lista, self)
         if dialogo.exec() != dialogo.Accepted:
             return
@@ -883,21 +924,25 @@ class PageCitas(QWidget):
         return enriched
 
     def _on_lista_item_double_clicked(self, item: QTableWidgetItem) -> None:
+        self.tabs.setCurrentIndex(1)
         cita_id = self._cita_id_lista(item.row())
         if cita_id and self._riesgo_enabled:
             self._abrir_dialogo_riesgo(cita_id)
 
     def _on_calendario_item_double_clicked(self, item: QTableWidgetItem) -> None:
+        self.tabs.setCurrentIndex(0)
         if self._riesgo_enabled and (cita_id := self._cita_id_calendario(item.row())):
             self._abrir_dialogo_riesgo(cita_id)
 
     def _on_lista_context_menu(self, point) -> None:
+        self.tabs.setCurrentIndex(1)
         item = self.table_lista.itemAt(point)
         if item is None:
             return
         self._abrir_menu_cita(self._cita_id_lista(item.row()), self.table_lista.mapToGlobal(point), "lista")
 
     def _on_lista_item_changed(self, item: QTableWidgetItem) -> None:
+        self.tabs.setCurrentIndex(1)
         if (
             self._actualizando_checks_lote
             or not self._coordinador_banners.hay_filtro_calidad_activo()
@@ -914,6 +959,7 @@ class PageCitas(QWidget):
         self._actualizar_ui_lote_hitos()
 
     def _on_toggle_seleccionar_todo_visible(self, estado: int) -> None:
+        self.tabs.setCurrentIndex(1)
         if self._actualizando_checks_lote or not self._coordinador_banners.hay_filtro_calidad_activo():
             return
         self._actualizando_checks_lote = True
@@ -961,6 +1007,7 @@ class PageCitas(QWidget):
         self._refrescar_vistas_principales("lote_hitos")
 
     def _on_calendario_context_menu(self, point) -> None:
+        self.tabs.setCurrentIndex(0)
         item = self.table.itemAt(point)
         if item is None:
             return
@@ -1040,13 +1087,16 @@ class PageCitas(QWidget):
         return self._cita_id_calendario(self.table.currentRow())
 
     def _on_selection_changed(self) -> None:
+        self.tabs.setCurrentIndex(0)
         self.btn_delete.setEnabled(self._can_write and self._selected_id() is not None)
 
     def _on_new(self) -> None:
+        self.tabs.setCurrentIndex(0)
         if self._can_write and self._controller.create_cita_flow(self.calendar.selectedDate().toString("yyyy-MM-dd")):
             self._refrescar_vistas_principales("new")
 
     def _on_delete(self) -> None:
+        self.tabs.setCurrentIndex(0)
         cita_id = self._selected_id()
         if self._can_write and cita_id and self._controller.delete_cita(cita_id):
             self._refrescar_vistas_principales("delete")

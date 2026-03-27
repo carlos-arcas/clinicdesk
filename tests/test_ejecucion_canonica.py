@@ -14,7 +14,7 @@ def repo_root(tmp_path: Path) -> Path:
 
 
 def test_resolver_ejecucion_canonica_reejecuta_con_venv_repo(monkeypatch: pytest.MonkeyPatch, repo_root: Path) -> None:
-    python_venv = repo_root / ".venv" / "bin" / "python"
+    python_venv = ejecucion_canonica.python_repo(repo_root)
     python_venv.parent.mkdir(parents=True)
     python_venv.write_text("", encoding="utf-8")
     python_venv.chmod(0o755)
@@ -48,11 +48,11 @@ def test_resolver_ejecucion_canonica_bloquea_si_falta_venv(monkeypatch: pytest.M
 def test_resolver_ejecucion_canonica_bloquea_si_python_repo_no_es_ejecutable(
     monkeypatch: pytest.MonkeyPatch, repo_root: Path
 ) -> None:
-    python_venv = repo_root / ".venv" / "bin" / "python"
+    python_venv = ejecucion_canonica.python_repo(repo_root)
     python_venv.parent.mkdir(parents=True)
     python_venv.write_text("", encoding="utf-8")
-    python_venv.chmod(0o644)
     monkeypatch.setattr(ejecucion_canonica.sys, "executable", "/usr/bin/python3")
+    monkeypatch.setattr(ejecucion_canonica.os, "access", lambda _path, _mode: False)
     monkeypatch.delenv("CI", raising=False)
 
     decision = ejecucion_canonica.resolver_ejecucion_canonica(repo_root, exigir_venv_repo=True)
@@ -71,7 +71,7 @@ def test_resolver_ejecucion_canonica_no_afecta_ci(monkeypatch: pytest.MonkeyPatc
 
 
 def test_reejecutar_en_python_objetivo_propagando_entorno(monkeypatch: pytest.MonkeyPatch, repo_root: Path) -> None:
-    python_venv = repo_root / ".venv" / "bin" / "python"
+    python_venv = ejecucion_canonica.python_repo(repo_root)
     decision = ejecucion_canonica.DecisionEjecucionCanonica("reejecutar", python_objetivo=python_venv)
     observado: dict[str, object] = {}
 

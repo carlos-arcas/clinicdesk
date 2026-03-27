@@ -44,6 +44,7 @@ class EstadoPantallaWidget(QWidget):
         self._vista_loading = self._crear_vista_estado()
         self._lbl_loading = QLabel("", self._vista_loading)
         self._vista_loading.layout().addWidget(self._lbl_loading)
+        self._vista_loading.layout().addStretch(1)
 
         self._vista_empty = self._crear_vista_estado()
         self._lbl_empty = QLabel("", self._vista_empty)
@@ -52,6 +53,7 @@ class EstadoPantallaWidget(QWidget):
         self._btn_empty_cta.clicked.connect(self._on_cta_clicked)
         self._vista_empty.layout().addWidget(self._lbl_empty)
         self._vista_empty.layout().addWidget(self._btn_empty_cta)
+        self._vista_empty.layout().addStretch(1)
 
         self._vista_error = self._crear_vista_estado()
         self._lbl_error = QLabel("", self._vista_error)
@@ -63,6 +65,7 @@ class EstadoPantallaWidget(QWidget):
         self._vista_error.layout().addWidget(self._lbl_error)
         self._vista_error.layout().addWidget(self._lbl_error_detalle)
         self._vista_error.layout().addWidget(self._btn_retry)
+        self._vista_error.layout().addStretch(1)
 
         self._vista_processing = self._crear_vista_estado()
         self._lbl_processing = QLabel("", self._vista_processing)
@@ -70,6 +73,7 @@ class EstadoPantallaWidget(QWidget):
         self._progress_processing.setRange(0, 0)
         self._vista_processing.layout().addWidget(self._lbl_processing)
         self._vista_processing.layout().addWidget(self._progress_processing)
+        self._vista_processing.layout().addStretch(1)
 
         self._vista_content = self._crear_vista_estado()
         self._layout_content = QVBoxLayout()
@@ -253,7 +257,7 @@ class EstadoPantallaWidget(QWidget):
     def _crear_vista_estado() -> QWidget:
         vista = QWidget()
         layout = QVBoxLayout(vista)
-        layout.addStretch(1)
+        layout.setContentsMargins(0, 0, 0, 0)
         return vista
 
     def _permitir_mutacion_estado(self, *, accion: str) -> bool:

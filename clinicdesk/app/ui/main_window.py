@@ -13,6 +13,7 @@ from PySide6.QtWidgets import (
     QMessageBox,
     QPushButton,
     QProgressBar,
+    QScrollArea,
     QSizePolicy,
     QStackedWidget,
     QStatusBar,
@@ -107,10 +108,17 @@ class MainWindow(QMainWindow):
         self.sidebar.setSelectionMode(QListWidget.SingleSelection)
 
         self.stack = QStackedWidget()
-        self.stack.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        self.stack.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Maximum)
+        self.stack.currentChanged.connect(self._on_stack_current_changed)
+        self._stack_scroll = QScrollArea()
+        self._stack_scroll.setObjectName("main_window_scroll_area")
+        self._stack_scroll.setWidgetResizable(True)
+        self._stack_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+        self._stack_scroll.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+        self._stack_scroll.setWidget(self.stack)
 
         layout.addWidget(self.sidebar)
-        layout.addWidget(self.stack, 1)
+        layout.addWidget(self._stack_scroll, 1)
 
         self._page_index_by_key: Dict[str, int] = {}
         self._factory_by_key: Dict[str, Callable[[], QWidget]] = {}
@@ -165,6 +173,20 @@ class MainWindow(QMainWindow):
     def _current_page_widget(self) -> QWidget | None:
         return self.stack.currentWidget()
 
+    def _on_stack_current_changed(self, index: int) -> None:
+        if index < 0:
+            return
+        widget = self.stack.widget(index)
+        if widget is not None:
+            self._sync_stack_size(widget)
+
+    def _sync_stack_size(self, widget: QWidget) -> None:
+        hint = widget.sizeHint()
+        ancho = max(self._stack_scroll.viewport().width(), hint.width())
+        alto = max(self._stack_scroll.viewport().height(), hint.height())
+        self.stack.setMinimumSize(ancho, alto)
+        self.stack.adjustSize()
+
     def actualizar_titulo_pagina(self, key: str, titulo: str) -> None:
         item = self._sidebar_item_by_key.get(key)
         if item is not None:
@@ -211,6 +233,26 @@ class MainWindow(QMainWindow):
 
     def open_csv_dialog(self) -> None:
         self._csv_controller.open_dialog()
+
+    def _on_csv_imported(self, entity: str) -> None:
+        key_by_entity = {
+            "Pacientes": "pacientes",
+            "Médicos": "medicos",
+            "Personal": "personal",
+            "Medicamentos": "medicamentos",
+            "Materiales": "materiales",
+            "Salas": "salas",
+        }
+        key = key_by_entity.get(entity)
+        if key is None:
+            return
+        indice = self._page_index_by_key.get(key)
+        if indice is None:
+            return
+        widget = self.stack.widget(indice)
+        on_show = getattr(widget, "on_show", None)
+        if callable(on_show):
+            on_show()
 
     def _crear_pagina_si_hace_falta(self, key: str) -> QWidget:
         indice = self._page_index_by_key.get(key)

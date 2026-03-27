@@ -17,7 +17,7 @@ SECCIONES_WORKSPACE_SEGUROS: tuple[str, ...] = (
 
 @dataclass(slots=True)
 class EstadoWorkspaceSeguros:
-    seccion_activa: str = "preventa"
+    seccion_activa: str = "cartera"
 
     def seleccionar(self, seccion: str) -> str:
         self.seccion_activa = normalizar_seccion_workspace(seccion)

@@ -101,7 +101,11 @@ def db_connection() -> sqlite3.Connection:
 
 @pytest.fixture()
 def container(db_connection: sqlite3.Connection):
-    return build_container(db_connection)
+    app_container = build_container(db_connection)
+    try:
+        yield app_container
+    finally:
+        app_container.close()
 
 
 @pytest.fixture()

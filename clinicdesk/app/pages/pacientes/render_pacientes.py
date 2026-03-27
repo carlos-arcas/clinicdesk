@@ -54,6 +54,7 @@ def render_tabla(
             valor_listado = formatear_valor_listado(descriptor.nombre, valor)
             set_item(ui.table, row, col_idx, valor_listado)
         apply_row_style(ui.table, row, inactive=not paciente.activo, tooltip=obtener_tooltip(paciente))
+    ui.table.resizeColumnsToContents()
 
 
 def apply_selection(ui: PacientesUIRefs, paciente_id: int) -> None:

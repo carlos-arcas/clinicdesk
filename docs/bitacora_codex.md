@@ -1260,3 +1260,658 @@ Usar esta plantilla para cada nueva entrada agregada al final del archivo. Si un
   - `N/A: python -m scripts.gate_pr fallo por deuda real de formateo en clinicdesk/app/pages/prediccion_ausencias/page.py; no abrir PR.`
 - **bloqueo o siguiente paso exacto**:
   - Ejecutar `RCDX-027` corrigiendo solo `clinicdesk/app/pages/prediccion_ausencias/page.py`; despues reintentar `.\.venv\Scripts\python.exe -m ruff format --check clinicdesk/app/pages/prediccion_ausencias/page.py`, `.\.venv\Scripts\python.exe -m pytest -q tests/test_prediccion_ausencias_page_estabilidad.py`, `python -m scripts.gate_rapido` y `python -m scripts.gate_pr`.
+
+## Entrada
+- **fecha/hora**: 2026-03-27 13:34:05Z
+- **tarea**: RCDX-028 - Alinear tests/ui/test_contexto_tabla.py con el contrato visible de restaurar_contexto_tabla
+- **estado final**: BLOCKED
+- **archivos tocados**:
+  - `tests/ui/test_contexto_tabla.py`
+  - `docs/roadmap_codex.md`
+  - `docs/bitacora_codex.md`
+- **decisiones**:
+  - Se ajusto unicamente `tests/ui/test_contexto_tabla.py` para capturar el scroll realmente aplicado por la tabla visible y validar la restauracion contra ese valor observable, sin tocar la logica de `clinicdesk/app/pages/shared/contexto_tabla.py`.
+  - Se reforzo el contrato visible de la prueba comprobando tambien que `capturar_contexto_tabla()` persiste el mismo `contexto.scroll_vertical` que la barra pudo almacenar tras el clamp del widget.
+  - Se mantuvo el cierre en `BLOCKED` porque el contrato exige checks obligatorios en verde y `python -m scripts.gate_pr` sigue fallando por un bloqueo real posterior.
+  - Se materializo `RCDX-029` como siguiente `TODO` atomica al confirmarse que el nuevo bloqueo queda acotado a `clinicdesk/app/pages/shared/contexto_tabla.py`.
+- **checks ejecutados**:
+  - `.\.venv\Scripts\python.exe -m pytest -q tests/ui/test_contexto_tabla.py`
+  - `.\.venv\Scripts\python.exe -m pytest -q tests/ui/test_contexto_tabla_puro.py`
+  - `python -m scripts.gate_rapido`
+  - `python -m scripts.gate_pr`
+  - `.\.venv\Scripts\python.exe -m ruff format --check clinicdesk/app/pages/shared/contexto_tabla.py`
+  - `.\.venv\Scripts\python.exe -m ruff format --diff clinicdesk/app/pages/shared/contexto_tabla.py`
+- **resultado**:
+  - `.\.venv\Scripts\python.exe -m pytest -q tests/ui/test_contexto_tabla.py` pasa (`.. [100%]`) tras validar el scroll restaurado contra el valor realmente capturado por la tabla visible.
+  - `.\.venv\Scripts\python.exe -m pytest -q tests/ui/test_contexto_tabla_puro.py` pasa (`... [100%]`).
+  - `python -m scripts.gate_rapido` devuelve `rc=0`.
+  - `python -m scripts.gate_pr` avanza mas alla del bloqueo del area y revela la siguiente deuda real de formato en `clinicdesk/app/pages/shared/contexto_tabla.py`.
+  - `.\.venv\Scripts\python.exe -m ruff format --check clinicdesk/app/pages/shared/contexto_tabla.py` confirma la nueva deuda (`1 file would be reformatted`) y `.\.venv\Scripts\python.exe -m ruff format --diff clinicdesk/app/pages/shared/contexto_tabla.py` la acota a partir en varias lineas el import largo desde `clinicdesk.app.ui.ux.contexto_tabla`.
+- **riesgo detectado**:
+  - Riesgo operativo residual: mientras `clinicdesk/app/pages/shared/contexto_tabla.py` siga sin formatear, `python -m scripts.gate_pr` seguira bloqueando el cierre en `DONE`.
+- **metadata de validacion/PR**:
+  - `N/A: python -m scripts.gate_pr fallo por deuda real de formateo en clinicdesk/app/pages/shared/contexto_tabla.py; no abrir PR.`
+- **bloqueo o siguiente paso exacto**:
+  - Ejecutar `RCDX-029` corrigiendo solo `clinicdesk/app/pages/shared/contexto_tabla.py`; despues reintentar `.\.venv\Scripts\python.exe -m ruff format --check clinicdesk/app/pages/shared/contexto_tabla.py`, `.\.venv\Scripts\python.exe -m pytest -q tests/ui/test_contexto_tabla.py`, `.\.venv\Scripts\python.exe -m pytest -q tests/ui/test_contexto_tabla_puro.py`, `python -m scripts.gate_rapido` y `python -m scripts.gate_pr`.
+
+## Entrada
+- **fecha/hora**: 2026-03-27 13:53:22Z
+- **tarea**: RCDX-029 - Corregir el formateo Ruff pendiente en clinicdesk/app/pages/shared/contexto_tabla.py
+- **estado final**: BLOCKED
+- **archivos tocados**:
+  - `clinicdesk/app/pages/shared/contexto_tabla.py`
+  - `docs/roadmap_codex.md`
+  - `docs/bitacora_codex.md`
+- **decisiones**:
+  - Se aplico unicamente el ajuste de formato que Ruff exigia en `clinicdesk/app/pages/shared/contexto_tabla.py`, limitado a partir en varias lineas el import largo desde `clinicdesk.app.ui.ux.contexto_tabla`.
+  - Se reutilizaron sin cambios `tests/ui/test_contexto_tabla.py` y `tests/ui/test_contexto_tabla_puro.py` como cobertura especifica del contrato del area ya revalidado en la ejecucion anterior.
+  - Se mantuvo el cierre en `BLOCKED` porque el contrato exige checks obligatorios en verde y `python -m scripts.gate_pr` sigue fallando por un bloqueo real posterior.
+  - Se materializo `RCDX-030` como siguiente `TODO` atomica al confirmarse que el nuevo bloqueo queda acotado a `scripts/gate_pr.py`.
+- **checks ejecutados**:
+  - `.\.venv\Scripts\python.exe -m ruff format --diff clinicdesk/app/pages/shared/contexto_tabla.py`
+  - `.\.venv\Scripts\python.exe -m ruff format --check clinicdesk/app/pages/shared/contexto_tabla.py`
+  - `.\.venv\Scripts\python.exe -m pytest -q tests/ui/test_contexto_tabla.py`
+  - `.\.venv\Scripts\python.exe -m pytest -q tests/ui/test_contexto_tabla_puro.py`
+  - `python -m scripts.gate_rapido`
+  - `python -m scripts.gate_pr`
+  - `.\.venv\Scripts\python.exe -m ruff format --check scripts/gate_pr.py`
+- **resultado**:
+  - `.\.venv\Scripts\python.exe -m ruff format --check clinicdesk/app/pages/shared/contexto_tabla.py` queda en verde (`1 file already formatted`).
+  - `.\.venv\Scripts\python.exe -m pytest -q tests/ui/test_contexto_tabla.py` pasa (`.. [100%]`).
+  - `.\.venv\Scripts\python.exe -m pytest -q tests/ui/test_contexto_tabla_puro.py` pasa (`... [100%]`).
+  - `python -m scripts.gate_rapido` devuelve `rc=0`.
+  - `python -m scripts.gate_pr` avanza mas alla del archivo objetivo y revela la siguiente deuda real de formato en `scripts/gate_pr.py`.
+  - `.\.venv\Scripts\python.exe -m ruff format --check scripts/gate_pr.py` confirma la nueva deuda (`1 file would be reformatted`) y el diff de Ruff del gate completo la acota a colapsar en una sola linea el `raise ErrorContratoReasonCodesDoc(...)` dentro de `validar_contrato_reason_codes_doc`.
+- **riesgo detectado**:
+  - Riesgo operativo residual: mientras `scripts/gate_pr.py` siga sin formatear, `python -m scripts.gate_pr` seguira bloqueando el cierre en `DONE`.
+- **metadata de validacion/PR**:
+  - `N/A: python -m scripts.gate_pr fallo por deuda real de formateo en scripts/gate_pr.py; no abrir PR.`
+- **bloqueo o siguiente paso exacto**:
+  - Ejecutar `RCDX-030` corrigiendo solo `scripts/gate_pr.py`; despues reintentar `.\.venv\Scripts\python.exe -m ruff format --check scripts/gate_pr.py`, `.\.venv\Scripts\python.exe -m pytest -q tests/test_gate_pr.py tests/test_gate_reason_codes_docs_sync.py`, `python -m scripts.gate_rapido` y `python -m scripts.gate_pr`.
+
+## Entrada
+- **fecha/hora**: 2026-03-27 14:14:05Z
+- **tarea**: RCDX-030 - Corregir el formateo Ruff pendiente en scripts/gate_pr.py
+- **estado final**: BLOCKED
+- **archivos tocados**:
+  - `scripts/gate_pr.py`
+  - `docs/roadmap_codex.md`
+  - `docs/bitacora_codex.md`
+- **decisiones**:
+  - Se aplico unicamente el ajuste de formato que Ruff exigia en `scripts/gate_pr.py`, limitado a colapsar en una sola linea el `raise ErrorContratoReasonCodesDoc(...)` dentro de `validar_contrato_reason_codes_doc`.
+  - Se reutilizaron sin cambios `tests/test_gate_pr.py`, `tests/test_gate_reason_codes_docs_sync.py` y `tests/test_quality_gate_reason_codes_doc_check.py` como cobertura especifica del contrato del entrypoint canonico y del check documental de `reason_code`.
+  - Se mantuvo el cierre en `BLOCKED` porque el contrato exige checks obligatorios en verde y `python -m scripts.gate_pr` sigue fallando por un bloqueo real posterior.
+  - Se materializo `RCDX-031` como siguiente `TODO` atomica al confirmarse que el nuevo bloqueo queda acotado a `scripts/quality_gate_components/bloqueo_operativo.py`.
+- **checks ejecutados**:
+  - `.\.venv\Scripts\python.exe -m ruff format scripts/gate_pr.py`
+  - `.\.venv\Scripts\python.exe -m ruff format --check scripts/gate_pr.py`
+  - `.\.venv\Scripts\python.exe -m pytest -q tests/test_gate_pr.py tests/test_gate_reason_codes_docs_sync.py tests/test_quality_gate_reason_codes_doc_check.py`
+  - `python -m scripts.gate_rapido`
+  - `python -m scripts.gate_pr`
+  - `.\.venv\Scripts\python.exe -m ruff format --check scripts/quality_gate_components/bloqueo_operativo.py`
+- **resultado**:
+  - `.\.venv\Scripts\python.exe -m ruff format --check scripts/gate_pr.py` queda en verde (`1 file already formatted`).
+  - `.\.venv\Scripts\python.exe -m pytest -q tests/test_gate_pr.py tests/test_gate_reason_codes_docs_sync.py tests/test_quality_gate_reason_codes_doc_check.py` pasa (`.............. [100%]`).
+  - `python -m scripts.gate_rapido` devuelve `rc=0`.
+  - `python -m scripts.gate_pr` avanza mas alla del archivo objetivo y revela la siguiente deuda real de formato en `scripts/quality_gate_components/bloqueo_operativo.py`.
+  - `.\.venv\Scripts\python.exe -m ruff format --check scripts/quality_gate_components/bloqueo_operativo.py` confirma la nueva deuda (`1 file would be reformatted`) y el diff de Ruff del gate completo la acota a colapsar en una sola linea el `sys.stderr.write(...)` de `validaciones_no_ejecutadas` dentro de `reportar_bloqueo_operativo_doctor`.
+- **riesgo detectado**:
+  - Riesgo operativo residual: mientras `scripts/quality_gate_components/bloqueo_operativo.py` siga sin formatear, `python -m scripts.gate_pr` seguira bloqueando el cierre en `DONE`.
+- **metadata de validacion/PR**:
+  - `N/A: python -m scripts.gate_pr fallo por deuda real de formateo en scripts/quality_gate_components/bloqueo_operativo.py; no abrir PR.`
+- **bloqueo o siguiente paso exacto**:
+  - Ejecutar `RCDX-031` corrigiendo solo `scripts/quality_gate_components/bloqueo_operativo.py`; despues reintentar `.\.venv\Scripts\python.exe -m ruff format --check scripts/quality_gate_components/bloqueo_operativo.py`, `.\.venv\Scripts\python.exe -m pytest -q tests/test_gate_pr.py tests/test_gate_rapido.py tests/test_gate_operational_contract_smoke.py`, `python -m scripts.gate_rapido` y `python -m scripts.gate_pr`.
+
+## Entrada
+- **fecha/hora**: 2026-03-27 14:35:09Z
+- **tarea**: RCDX-031 - Corregir el formateo Ruff pendiente en scripts/quality_gate_components/bloqueo_operativo.py
+- **estado final**: BLOCKED
+- **archivos tocados**:
+  - `scripts/quality_gate_components/bloqueo_operativo.py`
+  - `docs/roadmap_codex.md`
+  - `docs/bitacora_codex.md`
+- **decisiones**:
+  - Se aplico unicamente el ajuste de formato que Ruff exigia en `scripts/quality_gate_components/bloqueo_operativo.py`, limitado a colapsar en una sola linea el `sys.stderr.write(...)` de `validaciones_no_ejecutadas`.
+  - Se reutilizaron sin cambios `tests/test_gate_pr.py`, `tests/test_gate_rapido.py` y `tests/test_gate_operational_contract_smoke.py` como cobertura especifica del contrato compartido de bloqueo operativo entre `gate_pr` y `gate_rapido`.
+  - Se mantuvo el cierre en `BLOCKED` porque el contrato exige checks obligatorios en verde y `python -m scripts.gate_pr` sigue fallando por un bloqueo real posterior.
+  - La prioridad real cambio al inspeccionar el siguiente lote del quality gate: `tests/test_ejecucion_canonica.py` falla en Windows por hardcodear `.venv/bin/python`, mientras el helper canonico resuelve `.venv/Scripts/python.exe`; por eso se materializo `RCDX-032` antes de retomar la siguiente deuda de Ruff.
+- **checks ejecutados**:
+  - `.\.venv\Scripts\python.exe -m ruff format --check scripts/quality_gate_components/bloqueo_operativo.py`
+  - `.\.venv\Scripts\python.exe -m pytest -q tests/test_gate_pr.py tests/test_gate_rapido.py tests/test_gate_operational_contract_smoke.py`
+  - `python -m scripts.gate_rapido`
+  - `python -m scripts.gate_pr`
+  - `.\.venv\Scripts\python.exe -m ruff format --check scripts/quality_gate_components/contrato_reason_codes_doc.py`
+  - `.\.venv\Scripts\python.exe -m ruff format --check scripts/quality_gate_components/ejecucion_canonica.py`
+  - `.\.venv\Scripts\python.exe -m pytest -q tests/test_gate_reason_codes_docs_sync.py tests/test_quality_gate_reason_codes_doc_check.py`
+  - `.\.venv\Scripts\python.exe -m pytest -q tests/test_ejecucion_canonica.py tests/test_gate_rapido.py tests/test_gate_operational_contract_smoke.py`
+- **resultado**:
+  - `.\.venv\Scripts\python.exe -m ruff format --check scripts/quality_gate_components/bloqueo_operativo.py` queda en verde (`1 file already formatted`).
+  - `.\.venv\Scripts\python.exe -m pytest -q tests/test_gate_pr.py tests/test_gate_rapido.py tests/test_gate_operational_contract_smoke.py` pasa (`13 passed`).
+  - `python -m scripts.gate_rapido` devuelve `rc=0`.
+  - `python -m scripts.gate_pr` avanza mas alla del archivo objetivo y revela deuda real de formato en `scripts/quality_gate_components/contrato_reason_codes_doc.py` y `scripts/quality_gate_components/ejecucion_canonica.py`.
+  - `.\.venv\Scripts\python.exe -m ruff format --check scripts/quality_gate_components/contrato_reason_codes_doc.py` y `.\.venv\Scripts\python.exe -m ruff format --check scripts/quality_gate_components/ejecucion_canonica.py` confirman `1 file would be reformatted` en cada archivo.
+  - `.\.venv\Scripts\python.exe -m pytest -q tests/test_gate_reason_codes_docs_sync.py tests/test_quality_gate_reason_codes_doc_check.py` pasa (`9 passed`).
+  - `.\.venv\Scripts\python.exe -m pytest -q tests/test_ejecucion_canonica.py tests/test_gate_rapido.py tests/test_gate_operational_contract_smoke.py` falla en `test_resolver_ejecucion_canonica_reejecuta_con_venv_repo` y `test_resolver_ejecucion_canonica_bloquea_si_python_repo_no_es_ejecutable`.
+  - La inspeccion estatica de `tests/test_ejecucion_canonica.py`, `scripts/quality_gate_components/ejecucion_canonica.py` y `scripts/quality_gate_components/toolchain.py` acota la regresion a la suite: las pruebas crean/esperan `.venv/bin/python` mientras `_python_repo()` resuelve `.venv/Scripts/python.exe` en Windows.
+- **riesgo detectado**:
+  - Riesgo operativo y de gobernanza: mientras `tests/test_ejecucion_canonica.py` siga desalineado del helper canonico por plataforma y permanezca la deuda de Ruff en el lote siguiente, `python -m scripts.gate_pr` seguira bloqueando el cierre en `DONE`.
+- **metadata de validacion/PR**:
+  - `N/A: python -m scripts.gate_pr fallo por deuda real de formateo en scripts/quality_gate_components/contrato_reason_codes_doc.py y scripts/quality_gate_components/ejecucion_canonica.py, y .\.venv\Scripts\python.exe -m pytest -q tests/test_ejecucion_canonica.py tests/test_gate_rapido.py tests/test_gate_operational_contract_smoke.py fallo en dos tests de compatibilidad de ruta del .venv; no abrir PR.`
+- **bloqueo o siguiente paso exacto**:
+  - Ejecutar `RCDX-032` ajustando solo `tests/test_ejecucion_canonica.py`; despues reintentar `.\.venv\Scripts\python.exe -m pytest -q tests/test_ejecucion_canonica.py`, `.\.venv\Scripts\python.exe -m pytest -q tests/test_gate_rapido.py tests/test_gate_operational_contract_smoke.py`, `python -m scripts.gate_rapido` y `python -m scripts.gate_pr`.
+
+## Entrada
+- **fecha/hora**: 2026-03-27 14:54:48Z
+- **tarea**: RCDX-032 - Alinear tests/test_ejecucion_canonica.py con el interprete esperado por plataforma
+- **estado final**: BLOCKED
+- **archivos tocados**:
+  - `tests/test_ejecucion_canonica.py`
+  - `docs/roadmap_codex.md`
+  - `docs/bitacora_codex.md`
+- **decisiones**:
+  - Se ajusto unicamente `tests/test_ejecucion_canonica.py` para reutilizar `ejecucion_canonica.python_repo(repo_root)` en lugar de hardcodear `.venv/bin/python`.
+  - Se sustituyo la dependencia a permisos POSIX del test de no ejecutable por un `monkeypatch` explicito de `os.access`, manteniendo intacta la logica productiva de `scripts/quality_gate_components/ejecucion_canonica.py`.
+  - Se mantuvo el cierre en `BLOCKED` porque el contrato exige checks obligatorios en verde y `python -m scripts.gate_pr` sigue fallando por un bloqueo real posterior.
+  - Se materializo `RCDX-033` como siguiente `TODO` atomica al confirmarse que el nuevo bloqueo queda acotado a `scripts/quality_gate_components/contrato_reason_codes_doc.py`.
+- **checks ejecutados**:
+  - `.\.venv\Scripts\python.exe -m pytest -q tests/test_ejecucion_canonica.py`
+  - `.\.venv\Scripts\python.exe -m pytest -q tests/test_gate_rapido.py tests/test_gate_operational_contract_smoke.py`
+  - `python -m scripts.gate_rapido`
+  - `python -m scripts.gate_pr`
+  - `.\.venv\Scripts\python.exe -m ruff format --check scripts/quality_gate_components/contrato_reason_codes_doc.py`
+  - `.\.venv\Scripts\python.exe -m ruff format --check scripts/quality_gate_components/ejecucion_canonica.py`
+  - `.\.venv\Scripts\python.exe -m pytest -q tests/test_gate_reason_codes_docs_sync.py tests/test_quality_gate_reason_codes_doc_check.py`
+- **resultado**:
+  - `.\.venv\Scripts\python.exe -m pytest -q tests/test_ejecucion_canonica.py` pasa (`...... [100%]`).
+  - `.\.venv\Scripts\python.exe -m pytest -q tests/test_gate_rapido.py tests/test_gate_operational_contract_smoke.py` pasa (`........ [100%]`).
+  - `python -m scripts.gate_rapido` devuelve `rc=0`.
+  - `python -m scripts.gate_pr` avanza mas alla de la suite corregida y revela deuda real de formato en `scripts/quality_gate_components/contrato_reason_codes_doc.py` y `scripts/quality_gate_components/ejecucion_canonica.py`.
+  - `.\.venv\Scripts\python.exe -m ruff format --check scripts/quality_gate_components/contrato_reason_codes_doc.py` y `.\.venv\Scripts\python.exe -m ruff format --check scripts/quality_gate_components/ejecucion_canonica.py` confirman `1 file would be reformatted` en cada archivo.
+  - `.\.venv\Scripts\python.exe -m pytest -q tests/test_gate_reason_codes_docs_sync.py tests/test_quality_gate_reason_codes_doc_check.py` pasa (`......... [100%]`).
+- **riesgo detectado**:
+  - Riesgo operativo residual: mientras `scripts/quality_gate_components/contrato_reason_codes_doc.py` y `scripts/quality_gate_components/ejecucion_canonica.py` sigan sin formatear, `python -m scripts.gate_pr` seguira bloqueando el cierre en `DONE`.
+- **metadata de validacion/PR**:
+  - `N/A: python -m scripts.gate_pr fallo por deuda real de formateo en scripts/quality_gate_components/contrato_reason_codes_doc.py y scripts/quality_gate_components/ejecucion_canonica.py; no abrir PR.`
+- **bloqueo o siguiente paso exacto**:
+  - Ejecutar `RCDX-033` corrigiendo solo `scripts/quality_gate_components/contrato_reason_codes_doc.py`; despues reintentar `.\.venv\Scripts\python.exe -m ruff format --check scripts/quality_gate_components/contrato_reason_codes_doc.py`, `.\.venv\Scripts\python.exe -m pytest -q tests/test_gate_reason_codes_docs_sync.py tests/test_quality_gate_reason_codes_doc_check.py`, `python -m scripts.gate_rapido` y `python -m scripts.gate_pr`.
+
+## Entrada
+- **fecha/hora**: 2026-03-27 15:14:14Z
+- **tarea**: RCDX-033 - Corregir el formateo Ruff pendiente en scripts/quality_gate_components/contrato_reason_codes_doc.py
+- **estado final**: BLOCKED
+- **archivos tocados**:
+  - `scripts/quality_gate_components/contrato_reason_codes_doc.py`
+  - `docs/roadmap_codex.md`
+  - `docs/bitacora_codex.md`
+- **decisiones**:
+  - Se aplico unicamente el ajuste de formato que Ruff exigia en `scripts/quality_gate_components/contrato_reason_codes_doc.py`, limitado a colapsar una excepcion corta y a partir dos `raise ErrorContratoReasonCodesDoc(...)` largos en `_extraer_lineas_entre_marcadores`.
+  - Se reutilizaron sin cambios `tests/test_gate_reason_codes_docs_sync.py` y `tests/test_quality_gate_reason_codes_doc_check.py` como cobertura especifica del parser documental y del check reutilizable de `reason_code`.
+  - Se mantuvo el cierre en `BLOCKED` porque el contrato exige checks obligatorios en verde y `python -m scripts.gate_pr` sigue fallando por un bloqueo real posterior.
+  - Se materializo `RCDX-034` como siguiente `TODO` atomica al confirmarse que el nuevo bloqueo queda acotado a `scripts/quality_gate_components/ejecucion_canonica.py`.
+- **checks ejecutados**:
+  - `.\.venv\Scripts\python.exe -m ruff format --check scripts/quality_gate_components/contrato_reason_codes_doc.py`
+  - `.\.venv\Scripts\python.exe -m pytest -q tests/test_gate_reason_codes_docs_sync.py tests/test_quality_gate_reason_codes_doc_check.py`
+  - `python -m scripts.gate_rapido`
+  - `python -m scripts.gate_pr`
+  - `.\.venv\Scripts\python.exe -m ruff format --check scripts/quality_gate_components/ejecucion_canonica.py`
+  - `.\.venv\Scripts\python.exe -m pytest -q tests/test_ejecucion_canonica.py tests/test_gate_rapido.py tests/test_gate_operational_contract_smoke.py`
+- **resultado**:
+  - `.\.venv\Scripts\python.exe -m ruff format --check scripts/quality_gate_components/contrato_reason_codes_doc.py` queda en verde (`1 file already formatted`).
+  - `.\.venv\Scripts\python.exe -m pytest -q tests/test_gate_reason_codes_docs_sync.py tests/test_quality_gate_reason_codes_doc_check.py` pasa (`......... [100%]`).
+  - `python -m scripts.gate_rapido` devuelve `rc=0`.
+  - `python -m scripts.gate_pr` avanza mas alla del archivo objetivo y revela la siguiente deuda real de formato en `scripts/quality_gate_components/ejecucion_canonica.py`.
+  - `.\.venv\Scripts\python.exe -m ruff format --check scripts/quality_gate_components/ejecucion_canonica.py` confirma la nueva deuda (`1 file would be reformatted`) y el diff de Ruff del gate completo la acota a eliminar lineas en blanco sobrantes y partir la firma de `reejecutar_en_python_objetivo(...)`.
+  - `.\.venv\Scripts\python.exe -m pytest -q tests/test_ejecucion_canonica.py tests/test_gate_rapido.py tests/test_gate_operational_contract_smoke.py` pasa (`.............. [100%]`).
+- **riesgo detectado**:
+  - Riesgo operativo residual: mientras `scripts/quality_gate_components/ejecucion_canonica.py` siga sin formatear, `python -m scripts.gate_pr` seguira bloqueando el cierre en `DONE`.
+- **metadata de validacion/PR**:
+  - `N/A: python -m scripts.gate_pr fallo por deuda real de formateo en scripts/quality_gate_components/ejecucion_canonica.py; no abrir PR.`
+- **bloqueo o siguiente paso exacto**:
+  - Ejecutar `RCDX-034` corrigiendo solo `scripts/quality_gate_components/ejecucion_canonica.py`; despues reintentar `.\.venv\Scripts\python.exe -m ruff format --check scripts/quality_gate_components/ejecucion_canonica.py`, `.\.venv\Scripts\python.exe -m pytest -q tests/test_ejecucion_canonica.py tests/test_gate_rapido.py tests/test_gate_operational_contract_smoke.py`, `python -m scripts.gate_rapido` y `python -m scripts.gate_pr`.
+
+## Entrada
+- **fecha/hora**: 2026-03-27 15:34:14Z
+- **tarea**: RCDX-034 - Corregir el formateo Ruff pendiente en scripts/quality_gate_components/ejecucion_canonica.py
+- **estado final**: BLOCKED
+- **archivos tocados**:
+  - `scripts/quality_gate_components/ejecucion_canonica.py`
+  - `docs/roadmap_codex.md`
+  - `docs/bitacora_codex.md`
+- **decisiones**:
+  - Se aplico unicamente el ajuste de formato que Ruff exigia en `scripts/quality_gate_components/ejecucion_canonica.py`, limitado a eliminar lineas en blanco sobrantes y a partir la firma de `reejecutar_en_python_objetivo(...)`.
+  - Se reutilizaron sin cambios `tests/test_ejecucion_canonica.py`, `tests/test_gate_rapido.py` y `tests/test_gate_operational_contract_smoke.py` como cobertura especifica del helper canonico de reejecucion/bloqueo.
+  - Se mantuvo el cierre en `BLOCKED` porque el contrato exige checks obligatorios en verde y `python -m scripts.gate_pr` sigue fallando por un bloqueo real posterior.
+  - La prioridad real cambio antes de retomar el siguiente lote de Ruff: `tests/test_toolchain_diagnostico.py` sigue desalineado del helper canonico por plataforma, por lo que se materializo `RCDX-035`.
+- **checks ejecutados**:
+  - `.\.venv\Scripts\python.exe -m ruff format scripts/quality_gate_components/ejecucion_canonica.py`
+  - `.\.venv\Scripts\python.exe -m ruff format --check scripts/quality_gate_components/ejecucion_canonica.py`
+  - `.\.venv\Scripts\python.exe -m pytest -q tests/test_ejecucion_canonica.py tests/test_gate_rapido.py tests/test_gate_operational_contract_smoke.py`
+  - `python -m scripts.gate_rapido`
+  - `python -m scripts.gate_pr`
+  - `.\.venv\Scripts\python.exe -m ruff format --check scripts/quality_gate_components/ruff_checks.py`
+  - `.\.venv\Scripts\python.exe -m ruff format --check scripts/quality_gate_components/toolchain.py`
+  - `.\.venv\Scripts\python.exe -m pytest -q tests/test_quality_gate_ruff.py tests/test_quality_gate_ruff_batching.py tests/test_toolchain_diagnostico.py tests/test_entorno_python.py tests/test_gate_pr.py`
+- **resultado**:
+  - `.\.venv\Scripts\python.exe -m ruff format --check scripts/quality_gate_components/ejecucion_canonica.py` queda en verde (`1 file already formatted`).
+  - `.\.venv\Scripts\python.exe -m pytest -q tests/test_ejecucion_canonica.py tests/test_gate_rapido.py tests/test_gate_operational_contract_smoke.py` pasa (`.............. [100%]`).
+  - `python -m scripts.gate_rapido` devuelve `rc=0`.
+  - `python -m scripts.gate_pr` avanza mas alla del archivo objetivo y revela deuda real de formato en `scripts/quality_gate_components/ruff_checks.py` y `scripts/quality_gate_components/toolchain.py`.
+  - `.\.venv\Scripts\python.exe -m ruff format --check scripts/quality_gate_components/ruff_checks.py` y `.\.venv\Scripts\python.exe -m ruff format --check scripts/quality_gate_components/toolchain.py` confirman `1 file would be reformatted` en cada archivo.
+  - `.\.venv\Scripts\python.exe -m pytest -q tests/test_quality_gate_ruff.py tests/test_quality_gate_ruff_batching.py tests/test_toolchain_diagnostico.py tests/test_entorno_python.py tests/test_gate_pr.py` falla en `test_cargar_toolchain_esperado_lee_versiones_desde_lock`.
+  - La inspeccion estatica de `tests/test_toolchain_diagnostico.py` y `scripts/quality_gate_components/toolchain.py` acota la regresion a la suite: la prueba espera `.venv/bin/python` mientras `_python_repo()` resuelve `.venv/Scripts/python.exe` en Windows.
+- **riesgo detectado**:
+  - Riesgo operativo y de gobernanza: mientras `tests/test_toolchain_diagnostico.py` siga desalineado del helper canonico por plataforma y permanezcan las deudas de Ruff en `ruff_checks.py` y `toolchain.py`, `python -m scripts.gate_pr` seguira bloqueando el cierre en `DONE`.
+- **metadata de validacion/PR**:
+  - `N/A: python -m scripts.gate_pr fallo por deuda real de formateo en scripts/quality_gate_components/ruff_checks.py y scripts/quality_gate_components/toolchain.py, y .\.venv\Scripts\python.exe -m pytest -q tests/test_quality_gate_ruff.py tests/test_quality_gate_ruff_batching.py tests/test_toolchain_diagnostico.py tests/test_entorno_python.py tests/test_gate_pr.py fallo en test_cargar_toolchain_esperado_lee_versiones_desde_lock; no abrir PR.`
+- **bloqueo o siguiente paso exacto**:
+  - Ejecutar `RCDX-035` ajustando solo `tests/test_toolchain_diagnostico.py`; despues reintentar `.\.venv\Scripts\python.exe -m pytest -q tests/test_toolchain_diagnostico.py`, `.\.venv\Scripts\python.exe -m pytest -q tests/test_entorno_python.py tests/test_gate_pr.py`, `python -m scripts.gate_rapido` y `python -m scripts.gate_pr`.
+
+## Entrada
+- **fecha/hora**: 2026-03-27 15:53:14Z
+- **tarea**: RCDX-035 - Alinear tests/test_toolchain_diagnostico.py con el interprete esperado por plataforma
+- **estado final**: BLOCKED
+- **archivos tocados**:
+  - `tests/test_toolchain_diagnostico.py`
+  - `docs/roadmap_codex.md`
+  - `docs/bitacora_codex.md`
+- **decisiones**:
+  - Se ajusto unicamente `tests/test_toolchain_diagnostico.py` para validar la ruta de `python_repo` segun plataforma en lugar de hardcodear `.venv/bin/python`.
+  - Se mantuvo intacta la logica productiva de `scripts/quality_gate_components/toolchain.py` porque la evidencia confirmo que el helper canonico ya resolvia correctamente `.venv/Scripts/python.exe` en Windows.
+  - Se reutilizaron `tests/test_entorno_python.py`, `tests/test_gate_pr.py`, `tests/test_quality_gate_ruff.py` y `tests/test_quality_gate_ruff_batching.py` como cobertura complementaria del area antes de retomar la deuda de formato siguiente.
+  - Se mantuvo el cierre en `BLOCKED` porque el contrato exige checks obligatorios en verde y `python -m scripts.gate_pr` sigue fallando por un bloqueo real posterior.
+  - Se materializo `RCDX-036` como siguiente `TODO` atomica al confirmarse que el nuevo bloqueo queda acotado a `scripts/quality_gate_components/ruff_checks.py` y `scripts/quality_gate_components/toolchain.py`.
+- **checks ejecutados**:
+  - `.\.venv\Scripts\python.exe -m pytest -q tests/test_toolchain_diagnostico.py`
+  - `.\.venv\Scripts\python.exe -m pytest -q tests/test_entorno_python.py tests/test_gate_pr.py`
+  - `.\.venv\Scripts\python.exe -m pytest -q tests/test_quality_gate_ruff.py tests/test_quality_gate_ruff_batching.py tests/test_toolchain_diagnostico.py tests/test_entorno_python.py tests/test_gate_pr.py`
+  - `python -m scripts.gate_rapido`
+  - `python -m scripts.gate_pr`
+  - `.\.venv\Scripts\python.exe -m ruff format --check scripts/quality_gate_components/ruff_checks.py`
+  - `.\.venv\Scripts\python.exe -m ruff format --check scripts/quality_gate_components/toolchain.py`
+  - `.\.venv\Scripts\python.exe -m pytest -q tests/test_quality_gate_ruff.py tests/test_quality_gate_ruff_batching.py`
+- **resultado**:
+  - `.\.venv\Scripts\python.exe -m pytest -q tests/test_toolchain_diagnostico.py` pasa (`...... [100%]`).
+  - `.\.venv\Scripts\python.exe -m pytest -q tests/test_entorno_python.py tests/test_gate_pr.py` pasa (`....... [100%]`).
+  - `.\.venv\Scripts\python.exe -m pytest -q tests/test_quality_gate_ruff.py tests/test_quality_gate_ruff_batching.py tests/test_toolchain_diagnostico.py tests/test_entorno_python.py tests/test_gate_pr.py` pasa (`............................... [100%]`).
+  - `python -m scripts.gate_rapido` devuelve `rc=0`.
+  - `python -m scripts.gate_pr` avanza mas alla de la suite corregida y revela deuda real de formato en `scripts/quality_gate_components/ruff_checks.py` y `scripts/quality_gate_components/toolchain.py`.
+  - `.\.venv\Scripts\python.exe -m ruff format --check scripts/quality_gate_components/ruff_checks.py` y `.\.venv\Scripts\python.exe -m ruff format --check scripts/quality_gate_components/toolchain.py` confirman `1 file would be reformatted` en cada archivo.
+  - `.\.venv\Scripts\python.exe -m pytest -q tests/test_quality_gate_ruff.py tests/test_quality_gate_ruff_batching.py` pasa (`.................. [100%]`).
+- **riesgo detectado**:
+  - Riesgo operativo residual: mientras `scripts/quality_gate_components/ruff_checks.py` y `scripts/quality_gate_components/toolchain.py` sigan sin formatear, `python -m scripts.gate_pr` seguira bloqueando el cierre en `DONE`.
+- **metadata de validacion/PR**:
+  - `N/A: python -m scripts.gate_pr fallo por deuda real de formateo en scripts/quality_gate_components/ruff_checks.py y scripts/quality_gate_components/toolchain.py; no abrir PR.`
+- **bloqueo o siguiente paso exacto**:
+  - Ejecutar `RCDX-036` corrigiendo solo `scripts/quality_gate_components/ruff_checks.py`; despues reintentar `.\.venv\Scripts\python.exe -m ruff format --check scripts/quality_gate_components/ruff_checks.py`, `.\.venv\Scripts\python.exe -m pytest -q tests/test_quality_gate_ruff.py tests/test_quality_gate_ruff_batching.py`, `python -m scripts.gate_rapido` y `python -m scripts.gate_pr`.
+
+## Entrada
+- **fecha/hora**: 2026-03-27 16:13:42Z
+- **tarea**: RCDX-036 - Corregir el formateo Ruff pendiente en scripts/quality_gate_components/ruff_checks.py
+- **estado final**: BLOCKED
+- **archivos tocados**:
+  - `scripts/quality_gate_components/ruff_checks.py`
+  - `docs/roadmap_codex.md`
+  - `docs/bitacora_codex.md`
+  - `docs/ruff_format_diff.txt`
+- **decisiones**:
+  - Se aplico unicamente el ajuste de formato que Ruff exigia en `scripts/quality_gate_components/ruff_checks.py`, limitado a eliminar lineas en blanco sobrantes y a compactar la llamada a `agrupar_targets_para_comando(...)`.
+  - Se reutilizaron sin cambios `tests/test_quality_gate_ruff.py` y `tests/test_quality_gate_ruff_batching.py` como cobertura especifica del quality gate de Ruff.
+  - Se mantuvo el cierre en `BLOCKED` porque el contrato exige checks obligatorios en verde y `python -m scripts.gate_pr` sigue fallando por un bloqueo real posterior.
+  - Se materializo `RCDX-037` como siguiente `TODO` atomica al confirmarse que el nuevo bloqueo queda acotado a `scripts/quality_gate_components/toolchain.py`.
+- **checks ejecutados**:
+  - `.\.venv\Scripts\python.exe -m ruff format scripts/quality_gate_components/ruff_checks.py`
+  - `.\.venv\Scripts\python.exe -m ruff format --check scripts/quality_gate_components/ruff_checks.py`
+  - `.\.venv\Scripts\python.exe -m pytest -q tests/test_quality_gate_ruff.py tests/test_quality_gate_ruff_batching.py`
+  - `python -m scripts.gate_rapido`
+  - `python -m scripts.gate_pr`
+  - `.\.venv\Scripts\python.exe -m ruff format --check scripts/quality_gate_components/toolchain.py`
+  - `.\.venv\Scripts\python.exe -m pytest -q tests/test_toolchain_diagnostico.py tests/test_entorno_python.py tests/test_gate_pr.py`
+- **resultado**:
+  - `.\.venv\Scripts\python.exe -m ruff format --check scripts/quality_gate_components/ruff_checks.py` queda en verde (`1 file already formatted`).
+  - `.\.venv\Scripts\python.exe -m pytest -q tests/test_quality_gate_ruff.py tests/test_quality_gate_ruff_batching.py` pasa (`18 passed`).
+  - `python -m scripts.gate_rapido` devuelve `rc=0`.
+  - `python -m scripts.gate_pr` avanza mas alla del archivo objetivo y revela deuda real de formato en `scripts/quality_gate_components/toolchain.py`.
+  - `.\.venv\Scripts\python.exe -m ruff format --check scripts/quality_gate_components/toolchain.py` confirma la nueva deuda (`1 file would be reformatted`) y `.\.venv\Scripts\python.exe -m pytest -q tests/test_toolchain_diagnostico.py tests/test_entorno_python.py tests/test_gate_pr.py` pasa (`13 passed`).
+  - `docs/ruff_format_diff.txt` queda actualizado con el diff actual de `scripts/quality_gate_components/toolchain.py`.
+- **riesgo detectado**:
+  - Riesgo operativo residual: mientras `scripts/quality_gate_components/toolchain.py` siga sin formatear, `python -m scripts.gate_pr` seguira bloqueando el cierre en `DONE`.
+- **metadata de validacion/PR**:
+  - `N/A: python -m scripts.gate_pr fallo por deuda real de formateo en scripts/quality_gate_components/toolchain.py; no abrir PR.`
+- **bloqueo o siguiente paso exacto**:
+  - Ejecutar `RCDX-037` corrigiendo solo `scripts/quality_gate_components/toolchain.py`; despues reintentar `.\.venv\Scripts\python.exe -m ruff format --check scripts/quality_gate_components/toolchain.py`, `.\.venv\Scripts\python.exe -m pytest -q tests/test_toolchain_diagnostico.py tests/test_entorno_python.py tests/test_gate_pr.py`, `python -m scripts.gate_rapido` y `python -m scripts.gate_pr`.
+
+## Entrada
+- **fecha/hora**: 2026-03-27 16:34:47Z
+- **tarea**: RCDX-037 - Corregir el formateo Ruff pendiente en scripts/quality_gate_components/toolchain.py
+- **estado final**: BLOCKED
+- **archivos tocados**:
+  - `scripts/quality_gate_components/toolchain.py`
+  - `docs/roadmap_codex.md`
+  - `docs/bitacora_codex.md`
+  - `docs/ruff_format_diff.txt`
+- **decisiones**:
+  - Se aplico unicamente el ajuste de formato que Ruff exigia en `scripts/quality_gate_components/toolchain.py`, limitado a partir la comprension de `faltantes` dentro de `_leer_versiones_lock(...)`.
+  - Se reutilizaron sin cambios `tests/test_toolchain_diagnostico.py`, `tests/test_entorno_python.py` y `tests/test_gate_pr.py` como cobertura especifica del helper de toolchain.
+  - Se mantuvo el cierre en `BLOCKED` porque el contrato exige checks obligatorios en verde y `python -m scripts.gate_pr` sigue fallando por un bloqueo real posterior.
+  - La prioridad real cambio antes de retomar la nueva deuda de Ruff: `tests/test_prediccion_ausencias_page_entrenamiento_handlers.py` falla por una inicializacion insegura con `object.__new__(PagePrediccionAusencias)`, por lo que se materializo `RCDX-038` antes de reformatear `tests/guardrails/test_prediccion_ausencias_page_entrenamiento_job_manager_ast.py`.
+- **checks ejecutados**:
+  - `.\.venv\Scripts\python.exe -m ruff format scripts/quality_gate_components/toolchain.py`
+  - `.\.venv\Scripts\python.exe -m ruff format --check scripts/quality_gate_components/toolchain.py`
+  - `.\.venv\Scripts\python.exe -m pytest -q tests/test_toolchain_diagnostico.py tests/test_entorno_python.py tests/test_gate_pr.py`
+  - `python -m scripts.gate_rapido`
+  - `python -m scripts.gate_pr`
+  - `.\.venv\Scripts\python.exe -m ruff format --check tests/guardrails/test_prediccion_ausencias_page_entrenamiento_job_manager_ast.py`
+  - `.\.venv\Scripts\python.exe -m pytest -q tests/guardrails/test_prediccion_ausencias_page_entrenamiento_job_manager_ast.py tests/test_prediccion_ausencias_page_entrenamiento_handlers.py tests/ui/test_prediccion_ausencias_coordinador_entrenamiento.py`
+  - `.\.venv\Scripts\python.exe -m pytest -q tests/test_prediccion_ausencias_page_entrenamiento_handlers.py`
+  - `.\.venv\Scripts\python.exe -m pytest -q tests/guardrails/test_prediccion_ausencias_page_entrenamiento_job_manager_ast.py`
+  - `.\.venv\Scripts\python.exe -m pytest -q tests/ui/test_prediccion_ausencias_coordinador_entrenamiento.py`
+  - `python -m scripts.gate_rapido`
+- **resultado**:
+  - `.\.venv\Scripts\python.exe -m ruff format --check scripts/quality_gate_components/toolchain.py` queda en verde (`1 file already formatted`).
+  - `.\.venv\Scripts\python.exe -m pytest -q tests/test_toolchain_diagnostico.py tests/test_entorno_python.py tests/test_gate_pr.py` pasa (`13 passed`).
+  - `python -m scripts.gate_rapido` devuelve `rc=0`.
+  - `python -m scripts.gate_pr` avanza mas alla del archivo objetivo y revela deuda real de formato en `tests/guardrails/test_prediccion_ausencias_page_entrenamiento_job_manager_ast.py`.
+  - `.\.venv\Scripts\python.exe -m ruff format --check tests/guardrails/test_prediccion_ausencias_page_entrenamiento_job_manager_ast.py` confirma la nueva deuda (`1 file would be reformatted`) y `docs/ruff_format_diff.txt` queda actualizado con ese diff.
+  - `.\.venv\Scripts\python.exe -m pytest -q tests/test_prediccion_ausencias_page_entrenamiento_handlers.py` falla en tres tests por `TypeError: object.__new__(PagePrediccionAusencias) is not safe, use PagePrediccionAusencias.__new__()`.
+  - `.\.venv\Scripts\python.exe -m pytest -q tests/guardrails/test_prediccion_ausencias_page_entrenamiento_job_manager_ast.py` pasa (`3 passed`) y `.\.venv\Scripts\python.exe -m pytest -q tests/ui/test_prediccion_ausencias_coordinador_entrenamiento.py` pasa (`4 passed`).
+  - La revalidacion final con `python -m scripts.gate_rapido` tras actualizar roadmap y bitacora vuelve a `rc=0`.
+- **riesgo detectado**:
+  - Riesgo operativo y de gobernanza: mientras la suite de handlers siga rota y quede pendiente el formateo del guardrail AST, `python -m scripts.gate_pr` seguira bloqueando el cierre en `DONE`.
+- **metadata de validacion/PR**:
+  - `N/A: python -m scripts.gate_pr fallo por deuda real de formateo en tests/guardrails/test_prediccion_ausencias_page_entrenamiento_job_manager_ast.py y .\.venv\Scripts\python.exe -m pytest -q tests/test_prediccion_ausencias_page_entrenamiento_handlers.py fallo por inicializacion insegura de PagePrediccionAusencias; no abrir PR.`
+- **bloqueo o siguiente paso exacto**:
+  - Ejecutar `RCDX-038` ajustando solo `tests/test_prediccion_ausencias_page_entrenamiento_handlers.py`; despues reintentar `.\.venv\Scripts\python.exe -m pytest -q tests/test_prediccion_ausencias_page_entrenamiento_handlers.py`, `.\.venv\Scripts\python.exe -m pytest -q tests/guardrails/test_prediccion_ausencias_page_entrenamiento_job_manager_ast.py`, `.\.venv\Scripts\python.exe -m pytest -q tests/ui/test_prediccion_ausencias_coordinador_entrenamiento.py`, `python -m scripts.gate_rapido` y `python -m scripts.gate_pr`.
+
+## Entrada
+- **fecha/hora**: 2026-03-27 16:55:29Z
+- **tarea**: RCDX-039 - Restablecer la apertura de MainWindow tras login valido
+- **estado final**: BLOCKED
+- **archivos tocados**:
+  - `clinicdesk/app/ui/main_window.py`
+  - `tests/test_main_window_csv_refresh.py`
+  - `tests/test_main_post_login_window_open.py`
+  - `tests/test_producto_final_sin_demo.py`
+  - `docs/roadmap_codex.md`
+  - `docs/bitacora_codex.md`
+- **decisiones**:
+  - Se restauro en `MainWindow` el callback `_on_csv_imported(...)` con el mapeo historico entidad -> pagina y con refresco limitado a paginas ya instanciadas, para corregir el `AttributeError` sin alterar autenticacion ni servicios CSV.
+  - Se añadieron regresiones focalizadas para congelar el refresco post-importacion y el flujo real de `transicionar_post_login(...)` con una `MainWindow` autentica y paginas minimales.
+  - Se aislo `tests/test_producto_final_sin_demo.py` con un `get_pages(...)` minimo para validar el contrato del producto final sin abrir el grafo completo de paginas ni dejar conexiones SQLite secundarias bloqueando el teardown.
+  - Se mantuvo el cierre en `BLOCKED` porque el contrato exige `python -m scripts.gate_pr` en verde y el gate completo queda bloqueado por un artefacto local ajeno al fix.
+- **checks ejecutados**:
+  - `.\.venv\Scripts\python.exe -m pytest -q tests/test_producto_final_sin_demo.py tests/test_main_window_csv_refresh.py tests/test_main_post_login_window_open.py`
+  - `python -m scripts.gate_rapido`
+  - `python -m scripts.gate_pr`
+- **resultado**:
+  - Una reproduccion controlada con `QT_QPA_PLATFORM=offscreen`, `bootstrap_database(...)`, `build_container(...)` y `MainWindow(...)` ya construye la ventana principal sin excepciones y confirma que el `AttributeError` de `_on_csv_imported` queda resuelto.
+  - `.\.venv\Scripts\python.exe -m pytest -q tests/test_producto_final_sin_demo.py tests/test_main_window_csv_refresh.py tests/test_main_post_login_window_open.py` pasa (`........ [100%]`, `8 passed`).
+  - `python -m scripts.gate_rapido` devuelve `rc=0`.
+  - `python -m scripts.gate_pr` falla en `scripts.quality_gate_components.basic_repo_checks.check_forbidden_artifacts` porque detecta el artefacto local `data\clinicdesk.db`.
+- **riesgo detectado**:
+  - Riesgo operativo residual: mientras `data\clinicdesk.db` permanezca dentro del arbol del repo, `python -m scripts.gate_pr` seguira bloqueando cualquier cierre en `DONE`, aunque el fix funcional del login ya este validado con tests focalizados.
+- **metadata de validacion/PR**:
+  - `N/A por bloqueo operativo: python -m scripts.gate_pr falla por artefacto prohibido data\clinicdesk.db; no abrir PR.`
+- **bloqueo o siguiente paso exacto**:
+  - Retirar temporalmente `data\clinicdesk.db` del arbol del repo o ejecutar `python -m scripts.gate_pr` en un workspace limpio equivalente, reintentar ese gate completo y, una vez despejado el bloqueo operativo, retomar `RCDX-038`.
+
+## Entrada
+- **fecha/hora**: 2026-03-27 17:43:41Z
+- **tarea**: RCDX-040 - Corregir layout critico desktop y recuperar modulos operativos bloqueados
+- **estado final**: BLOCKED
+- **archivos tocados**:
+  - `clinicdesk/app/ui/main_window.py`
+  - `clinicdesk/app/ui/widgets/estado_pantalla_widget.py`
+  - `clinicdesk/app/pages/citas/page.py`
+  - `clinicdesk/app/pages/citas/coordinadores/coordinador_refresh_citas.py`
+  - `clinicdesk/app/pages/medicos/dialogs/medico_form.py`
+  - `clinicdesk/app/pages/personal/dialogs/personal_form.py`
+  - `clinicdesk/app/pages/pacientes/render_pacientes.py`
+  - `clinicdesk/app/queries/citas_queries.py`
+  - `clinicdesk/app/container.py`
+  - `tests/conftest.py`
+  - `tests/test_bootstrap_ui_resiliencia.py`
+  - `tests/test_citas_listado_queries.py`
+  - `tests/test_main_window_scroll_layout.py`
+  - `tests/ui/test_estado_pantalla_widget_qt.py`
+  - `tests/ui/test_citas_coordinadores.py`
+  - `tests/ui/test_ruta_critica_desktop_smoke.py`
+  - `docs/roadmap_codex.md`
+  - `docs/bitacora_codex.md`
+- **decisiones**:
+  - Se envolvio el `QStackedWidget` principal de `MainWindow` en un `QScrollArea` sincronizado con el `sizeHint` de la pagina activa para recuperar scroll vertical sin romper el contrato historico de `window.stack`.
+  - Se recoloco `EstadoPantallaWidget` para renderizar contenido arriba en vez de empujarlo al fondo, se reajustaron columnas de `Pacientes`, y `PageCitas` paso a una composicion vertical con calendario compacto arriba y lista abajo conservando intents y contexto mediante un selector interno compatible con el contrato previo de pestañas.
+  - Se eliminaron los imports incompatibles de `QPointer` en `Médicos` y `Personal`, y `CitasQueries` paso a resolver `riesgo_ausencia` segun el esquema real para tolerar bases que todavia no exponen `citas.riesgo_ausencia`.
+  - Se cerraron las conexiones SQLite por hilo de prediccion/recordatorios desde `AppContainer.close()` y el fixture `container` para evitar bloqueos de teardown; ademas se alineo el smoke de `Predicción operativa` con el toggle real `chk_mostrar_agenda`.
+  - `Seguro clínica` no se amplio en esta ronda y queda explicitamente materializado como `RCDX-041`.
+- **checks ejecutados**:
+  - `.\.venv\Scripts\python.exe -m pytest -q tests/test_citas_listado_queries.py`
+  - `.\.venv\Scripts\python.exe -m pytest -q tests/ui/test_ruta_critica_desktop_smoke.py::test_smoke_desktop_citas_crear_y_consultar`
+  - `.\.venv\Scripts\python.exe -m pytest -q tests/ui/test_ruta_critica_desktop_smoke.py`
+  - `.\.venv\Scripts\python.exe -m pytest -q tests/test_bootstrap_ui_resiliencia.py tests/test_citas_listado_queries.py tests/test_estado_pantalla_widget.py tests/test_main_window_scroll_layout.py tests/ui/test_estado_pantalla_widget_qt.py tests/ui/test_citas_coordinadores.py tests/ui/test_citas_security_ui.py tests/ui/test_ruta_critica_desktop_smoke.py`
+  - `python -m scripts.gate_rapido`
+  - `python -m scripts.gate_pr`
+- **resultado**:
+  - `.\.venv\Scripts\python.exe -m pytest -q tests/test_bootstrap_ui_resiliencia.py tests/test_citas_listado_queries.py tests/test_estado_pantalla_widget.py tests/test_main_window_scroll_layout.py tests/ui/test_estado_pantalla_widget_qt.py tests/ui/test_citas_coordinadores.py tests/ui/test_citas_security_ui.py tests/ui/test_ruta_critica_desktop_smoke.py` pasa (`32 passed`).
+  - `python -m scripts.gate_rapido` devuelve `rc=0`.
+  - La revalidacion final con `python -m scripts.gate_rapido` tras actualizar roadmap y bitacora vuelve a `rc=0`.
+  - `python -m scripts.gate_pr` falla en `scripts.quality_gate_components.basic_repo_checks.check_forbidden_artifacts` porque detecta `data\clinicdesk.db` y `data\clinicdesk.sqlite`.
+- **riesgo detectado**:
+  - Riesgo operativo residual: mientras esos SQLite permanezcan dentro del arbol del repo, el cierre contractual en `DONE` seguira bloqueado aunque los fixes de UI y de teardown ya esten validados.
+  - Riesgo funcional pendiente: `Seguro clínica` sigue sin una salida usable/honesta cerrada en producto y queda diferido a `RCDX-041`.
+- **metadata de validacion/PR**:
+  - `N/A por bloqueo operativo: python -m scripts.gate_pr falla por artefactos prohibidos data\clinicdesk.db y data\clinicdesk.sqlite; no abrir PR.`
+- **bloqueo o siguiente paso exacto**:
+  - Retirar temporalmente `data\clinicdesk.db` y `data\clinicdesk.sqlite` del arbol del repo o ejecutar `python -m scripts.gate_pr` en un workspace limpio equivalente, reintentar el gate completo y, cuando quede libre el bloqueo operativo, continuar con la siguiente tarea seleccionable manteniendo `RCDX-041` como backlog explicito de `Seguro clínica`.
+
+## Entrada
+- **fecha/hora**: 2026-03-27 20:14:48Z
+- **tarea**: RCDX-038 - Alinear tests/test_prediccion_ausencias_page_entrenamiento_handlers.py con la inicializacion segura de PagePrediccionAusencias
+- **estado final**: BLOCKED
+- **archivos tocados**:
+  - `tests/test_prediccion_ausencias_page_entrenamiento_handlers.py`
+  - `docs/roadmap_codex.md`
+  - `docs/bitacora_codex.md`
+- **decisiones**:
+  - Se ajusto unicamente `tests/test_prediccion_ausencias_page_entrenamiento_handlers.py` para construir `PagePrediccionAusencias` con una via segura compatible con `QWidget`, reutilizando `QApplication` minima y `PagePrediccionAusencias.__new__(PagePrediccionAusencias)` sin tocar codigo de producto.
+  - Se alineo `test_on_entrenar_ok_refresca_componentes_clave` con el contrato actual del handler, que tambien refresca `_actualizar_resumen_modelo()` y consume un resultado con metricas (`accuracy`, `recall_no_show`) usadas por el logging.
+  - Se mantuvo intacto `clinicdesk/app/pages/prediccion_ausencias/page.py`; no aparecio evidencia nueva de defecto productivo en el modulo.
+  - Se mantuvo el cierre en `BLOCKED` porque el contrato exige `python -m scripts.gate_pr` en verde y el gate completo sigue bloqueado por artefactos binarios locales fuera de alcance.
+- **checks ejecutados**:
+  - `.\.venv\Scripts\python.exe -m pytest -q tests/test_prediccion_ausencias_page_entrenamiento_handlers.py`
+  - `.\.venv\Scripts\python.exe -m pytest -q tests/guardrails/test_prediccion_ausencias_page_entrenamiento_job_manager_ast.py`
+  - `.\.venv\Scripts\python.exe -m pytest -q tests/ui/test_prediccion_ausencias_coordinador_entrenamiento.py`
+  - `python -m scripts.gate_rapido`
+  - `python -m scripts.gate_pr`
+- **resultado**:
+  - `.\.venv\Scripts\python.exe -m pytest -q tests/test_prediccion_ausencias_page_entrenamiento_handlers.py` pasa (`... [100%]`, `3 passed`).
+  - `.\.venv\Scripts\python.exe -m pytest -q tests/guardrails/test_prediccion_ausencias_page_entrenamiento_job_manager_ast.py` pasa (`... [100%]`, `3 passed`).
+  - `.\.venv\Scripts\python.exe -m pytest -q tests/ui/test_prediccion_ausencias_coordinador_entrenamiento.py` pasa (`.... [100%]`, `4 passed`).
+  - `python -m scripts.gate_rapido` devuelve `rc=0`.
+  - `python -m scripts.gate_pr` falla en `scripts.quality_gate_components.basic_repo_checks.check_forbidden_artifacts` porque detecta `data\clinicdesk.db` y `data\clinicdesk.sqlite`.
+- **riesgo detectado**:
+  - Riesgo operativo residual: mientras esos SQLite permanezcan dentro del arbol del repo, `python -m scripts.gate_pr` seguira bloqueando cualquier cierre en `DONE`, aunque la suite de handlers ya haya quedado corregida.
+- **metadata de validaciÃ³n/PR**:
+  - `N/A por bloqueo operativo: python -m scripts.gate_pr falla por artefactos prohibidos data\clinicdesk.db y data\clinicdesk.sqlite; no abrir PR.`
+- **bloqueo o siguiente paso exacto**:
+  - Retirar temporalmente `data\clinicdesk.db` y `data\clinicdesk.sqlite` del arbol del repo o ejecutar `python -m scripts.gate_pr` en un workspace limpio equivalente, reintentar el gate completo sobre `RCDX-038` y, cuando quede libre el bloqueo operativo, continuar con `RCDX-041`.
+
+## Entrada
+- **fecha/hora**: 2026-03-27 20:42:53Z
+- **tarea**: RCDX-042 - Hacer verosimil el seed demo para poblar BBDD util en pantallas y ML
+- **estado final**: BLOCKED
+- **archivos tocados**:
+  - `clinicdesk/app/infrastructure/sqlite/demo_seed/operational_history.py`
+  - `clinicdesk/app/infrastructure/sqlite/demo_seed/orchestration.py`
+  - `tests/test_demo_data_generator.py`
+  - `tests/test_demo_data_seeder_sqlite.py`
+  - `tests/test_seed_demo_empty_modules.py`
+  - `tests/test_ml_cli_smoke.py`
+  - `docs/roadmap_codex.md`
+  - `docs/bitacora_codex.md`
+- **decisiones**:
+  - Se dejo intacto `clinicdesk/app/application/demo_data/generator.py` porque el generador base del repo ya producia emails, direcciones, motivos y notas suficientemente verosimiles; en esta ejecucion se congelo ese contrato con `tests/test_demo_data_generator.py` para evitar regresiones a placeholders visibles.
+  - Se incorporo `clinicdesk/app/infrastructure/sqlite/demo_seed/operational_history.py` y se engancho desde `clinicdesk/app/infrastructure/sqlite/demo_seed/orchestration.py` para sembrar `recordatorios_citas`, `predicciones_ausencias_log` y `ml_acciones_operativas` a partir de las citas ya persistidas, manteniendo la composicion en infraestructura y sin tocar UI ni logica de negocio fuera del seed.
+  - Se ampliaron `tests/test_demo_data_seeder_sqlite.py`, `tests/test_seed_demo_empty_modules.py` y `tests/test_ml_cli_smoke.py` para verificar que el seed deja esas tablas con contenido util y que las consultas consumidoras de confirmaciones, dashboard y resultados de prediccion ya no quedan vacias por falta de historico.
+  - Se mantuvo el cierre en `BLOCKED` porque el contrato exige `python -m scripts.gate_pr` en verde y el gate completo sigue bloqueado por artefactos binarios locales fuera de alcance.
+- **checks ejecutados**:
+  - `.\.venv\Scripts\python.exe -m pytest -q tests/test_demo_data_generator.py tests/test_demo_data_seeder_sqlite.py tests/test_seed_demo_empty_modules.py`
+  - `.\.venv\Scripts\python.exe -m pytest -q tests/test_ml_cli_smoke.py`
+  - `python -m scripts.gate_rapido`
+  - `python -m scripts.gate_pr`
+- **resultado**:
+  - `.\.venv\Scripts\python.exe -m pytest -q tests/test_demo_data_generator.py tests/test_demo_data_seeder_sqlite.py tests/test_seed_demo_empty_modules.py` pasa (`....... [100%]`, `7 passed`).
+  - `.\.venv\Scripts\python.exe -m pytest -q tests/test_ml_cli_smoke.py` pasa (`..... [100%]`, `5 passed`).
+  - `python -m scripts.gate_rapido` devuelve `rc=0`.
+  - `python -m scripts.gate_pr` falla en `scripts.quality_gate_components.basic_repo_checks.check_forbidden_artifacts` porque detecta `data\clinicdesk.db` y `data\clinicdesk.sqlite`.
+  - La revalidacion final con `python -m scripts.gate_rapido` tras actualizar roadmap y bitacora vuelve a `rc=0`.
+- **riesgo detectado**:
+  - Riesgo operativo residual: mientras esos SQLite permanezcan dentro del arbol del repo, `python -m scripts.gate_pr` seguira bloqueando cualquier cierre en `DONE`, aunque el seed demo ya deje contenido util para recordatorios, prediccion y seguimiento ML.
+- **metadata de validacion/PR**:
+  - `N/A por bloqueo operativo: python -m scripts.gate_pr falla por artefactos prohibidos data\clinicdesk.db y data\clinicdesk.sqlite; no abrir PR.`
+- **bloqueo o siguiente paso exacto**:
+  - Retirar temporalmente `data\clinicdesk.db` y `data\clinicdesk.sqlite` del arbol del repo o ejecutar `python -m scripts.gate_pr` en un workspace limpio equivalente, reintentar el gate completo sobre `RCDX-042` y, cuando quede libre el bloqueo operativo, continuar con `RCDX-041`.
+
+## Entrada
+- **fecha/hora**: 2026-03-27 20:14:14Z
+- **tarea**: RCDX-005 - Registrar backlog sin tarea seleccionable
+- **estado final**: BLOCKED
+- **archivos tocados**:
+  - `docs/roadmap_codex.md`
+  - `docs/bitacora_codex.md`
+- **decisiones**:
+  - Se reutiliza `RCDX-005` como tarea documental vigente porque el roadmap actual no contiene ninguna entrada `TODO` ni `WIP` elegible y el contrato prohibe inventar trabajo funcional nuevo.
+  - No se toco codigo de producto ni los SQLite locales: `python -m scripts.gate_rapido` queda en verde y el unico bloqueo vigente para reactivar el backlog es operativo, localizado en `python -m scripts.gate_pr`.
+  - Se deja trazabilidad explicita de que `data\clinicdesk.db` y `data\clinicdesk.sqlite` no estan versionados (`git ls-files data` y `git status --short data` vacios), pero aun asi bloquean el gate completo por la politica de artefactos prohibidos.
+- **checks ejecutados**:
+  - `git branch --show-current`
+  - `git ls-files data`
+  - `git status --short data`
+  - `Get-ChildItem data | Select-Object Name,Length,LastWriteTime`
+  - `python -m scripts.gate_rapido`
+  - `python -m scripts.gate_pr`
+- **resultado**:
+  - La ejecucion sigue en la rama aislada `codex/radar-inspector-20260326`.
+  - El roadmap operativo queda sin ninguna tarea `TODO` ni `WIP` elegible; todas las entradas seleccionables permanecen en `BLOCKED`.
+  - `python -m scripts.gate_rapido` devuelve `rc=0`.
+  - `python -m scripts.gate_pr` falla en `scripts.quality_gate_components.basic_repo_checks.check_forbidden_artifacts` porque detecta `data\clinicdesk.db` y `data\clinicdesk.sqlite`.
+  - `git ls-files data` y `git status --short data` no listan esos SQLite, por lo que el bloqueo actual proviene de artefactos locales ignorados del worktree y no de archivos versionados.
+- **riesgo detectado**:
+  - Riesgo operativo y de gobernanza: mientras el gate completo siga bloqueado por SQLite locales y no exista una `TODO` rematerializada tras limpiar el entorno, la automatizacion no puede seleccionar trabajo valido sin violar el contrato.
+- **metadata de validacion/PR**:
+  - `N/A por bloqueo operativo: python -m scripts.gate_pr falla por artefactos prohibidos data\clinicdesk.db y data\clinicdesk.sqlite; no abrir PR.`
+- **bloqueo o siguiente paso exacto**:
+  - Cerrar cualquier proceso que regenere la base local, ejecutar `python -m scripts.gate_pr` en un workspace limpio equivalente sin `data\clinicdesk.db` ni `data\clinicdesk.sqlite`, y solo entonces rematerializar la primera `TODO` real del roadmap.
+
+## Entrada
+- **fecha/hora**: 2026-03-27 20:58:07Z
+- **tarea**: RCDX-041 - Aterrizar una implementacion usable y honesta de Seguro clínica
+- **estado final**: BLOCKED
+- **archivos tocados**:
+  - `clinicdesk/app/pages/seguros/page.py`
+  - `clinicdesk/app/pages/seguros/page_actions_comercial.py`
+  - `clinicdesk/app/pages/seguros/workspace_navegacion.py`
+  - `clinicdesk/app/i18n_catalogos/core.py`
+  - `tests/application/seguros/test_workspace_navegacion.py`
+  - `tests/test_bootstrap_ui_resiliencia.py`
+  - `docs/roadmap_codex.md`
+  - `docs/bitacora_codex.md`
+- **decisiones**:
+  - La auditoria del modulo confirma que `Seguro clínica` ya era operable en aplicacion, pero la UX de arranque lo hacia parecer incompleto porque abria en `preventa` y dejaba bloques clave en `"-"` sin hidratar.
+  - Se eligio completar una salida usable en lugar de degradar a placeholder: `EstadoWorkspaceSeguros` arranca ahora en `cartera`, `PageSeguros` ejecuta `refrescar_cartera()` durante `_retranslate()` y el panel comercial rellena `estado_comercial` y `renovaciones` con datos reales o un mensaje i18n honesto cuando no hay oportunidad activa.
+  - Se agrego una regresion Qt con SQLite temporal en `tests/test_bootstrap_ui_resiliencia.py` para congelar que `PageSeguros` arranca en `cartera` con labels hidratados, y se amplio `tests/application/seguros/test_workspace_navegacion.py` para fijar el nuevo default de navegacion.
+  - El cierre permanece en `BLOCKED` porque el contrato exige `python -m scripts.gate_pr` en verde y el gate completo sigue bloqueado por artefactos binarios locales ajenos a esta tarea.
+- **checks ejecutados**:
+  - `.\.venv\Scripts\python.exe -m pytest -q tests/application/seguros`
+  - `.\.venv\Scripts\python.exe -m pytest -q tests/test_bootstrap_ui_resiliencia.py`
+  - `python -m scripts.gate_rapido`
+  - `python -m scripts.gate_pr`
+- **resultado**:
+  - `.\.venv\Scripts\python.exe -m pytest -q tests/application/seguros` pasa (`55 passed`).
+  - `.\.venv\Scripts\python.exe -m pytest -q tests/test_bootstrap_ui_resiliencia.py` pasa (`7 passed`).
+  - `python -m scripts.gate_rapido` devuelve `rc=0`.
+  - `python -m scripts.gate_pr` falla en `scripts.quality_gate_components.basic_repo_checks.check_forbidden_artifacts` porque detecta `data\clinicdesk.db` y `data\clinicdesk.sqlite`.
+  - La revalidacion final con `python -m scripts.gate_rapido` tras sincronizar roadmap y bitacora vuelve a `rc=0`, mientras `python -m scripts.gate_pr` repite el mismo bloqueo por artefactos prohibidos.
+  - Una instanciacion real con `QT_QPA_PLATFORM=offscreen` ya abre `PageSeguros` en `cartera` y muestra `Estado comercial: OFERTA_PREPARADA | Motor: DESFAVORABLE | Fit: BAJO`, `Renovaciones pendientes: 0` y `Sin campañas ejecutables disponibles.` en lugar de placeholders vacios.
+- **riesgo detectado**:
+  - Riesgo operativo residual: mientras `data\clinicdesk.db` y `data\clinicdesk.sqlite` sigan dentro del arbol del repo, `python -m scripts.gate_pr` seguira bloqueando cualquier cierre en `DONE` aunque el workspace de `seguros` ya arranque de forma usable.
+- **metadata de validacion/PR**:
+  - `N/A por bloqueo operativo: python -m scripts.gate_pr falla por artefactos prohibidos data\clinicdesk.db y data\clinicdesk.sqlite; no abrir PR.`
+- **bloqueo o siguiente paso exacto**:
+  - Retirar temporalmente `data\clinicdesk.db` y `data\clinicdesk.sqlite` del arbol del repo o ejecutar `python -m scripts.gate_pr` en un workspace limpio equivalente, reintentar el gate completo sobre `RCDX-041` y, cuando quede libre el bloqueo operativo, continuar con la siguiente `TODO` real.
+
+## Entrada
+- **fecha/hora**: 2026-03-27 20:52:57Z
+- **tarea**: RCDX-042 - Hacer verosimil el seed demo para poblar BBDD util en pantallas y ML
+- **estado final**: BLOCKED
+- **archivos tocados**:
+  - `clinicdesk/app/application/demo_data/catalogos.py`
+  - `clinicdesk/app/application/demo_data/generator.py`
+  - `clinicdesk/app/infrastructure/sqlite/demo_data_seeder.py`
+  - `clinicdesk/app/infrastructure/sqlite/demo_seed/contexto_agenda_ml.py`
+  - `clinicdesk/app/infrastructure/sqlite/demo_seed/operational_history.py`
+  - `clinicdesk/app/infrastructure/sqlite/demo_seed/orchestration.py`
+  - `scripts/ml_cli.py`
+  - `seed_demo_data.py`
+  - `tests/test_demo_data_generator.py`
+  - `tests/test_demo_data_seeder_sqlite.py`
+  - `tests/test_seed_demo_empty_modules.py`
+  - `tests/test_ml_cli_smoke.py`
+  - `docs/roadmap_codex.md`
+  - `docs/bitacora_codex.md`
+- **decisiones**:
+  - Se consolidaron catalogos y reglas deterministas mas naturales para personas, direcciones, emails, motivos, notas e incidencias del seed demo, manteniendo reproducibilidad sin recurrir a datos visiblemente sintéticos.
+  - Se separo el enriquecimiento de citas en `clinicdesk/app/infrastructure/sqlite/demo_seed/contexto_agenda_ml.py` para poblar `tipo_cita`, `canal_reserva`, `override_fecha_hora` y trazas asistenciales (`check_in_at`, `consulta_*`, `check_out_at`) utiles para pantallas operativas y para el calculo de antelacion en ML.
+  - `clinicdesk/app/infrastructure/sqlite/demo_seed/operational_history.py` ahora genera `recordatorios_citas`, `predicciones_ausencias_log` y `ml_acciones_operativas` coherentes con el contexto de cada cita y respetando los enums consumidos por los repositorios de seguimiento.
+  - `scripts/ml_cli.py` y `seed_demo_data.py` pasan a sembrar por defecto una ventana relativa a la fecha actual y el wrapper ya propaga `--confirm-reset`, con lo que se puede regenerar una SQLite demo util sin depender de rangos caducados.
+  - Para no incumplir la prohibicion de binarios en el diff, la resembra real se ejecuto fuera del arbol del repo en `C:\Users\arcas\AppData\Local\ClinicDesk\clinicdesk_demo.sqlite`.
+  - El cierre permanece en `BLOCKED` porque el contrato exige `python -m scripts.gate_pr` en verde y el gate completo sigue bloqueado por artefactos binarios locales ajenos a esta tarea.
+- **checks ejecutados**:
+  - `.\.venv\Scripts\python.exe -m pytest -q tests/test_demo_data_generator.py tests/test_demo_data_seeder_sqlite.py tests/test_seed_demo_empty_modules.py tests/test_ml_cli_smoke.py`
+  - `python -m scripts.gate_rapido`
+  - `python -m scripts.gate_pr`
+  - `.\.venv\Scripts\python.exe seed_demo_data.py --sqlite-path C:\Users\arcas\AppData\Local\ClinicDesk\clinicdesk_demo.sqlite --reset --confirm-reset RESET-DEMO`
+- **resultado**:
+  - `.\.venv\Scripts\python.exe -m pytest -q tests/test_demo_data_generator.py tests/test_demo_data_seeder_sqlite.py tests/test_seed_demo_empty_modules.py tests/test_ml_cli_smoke.py` pasa (`............. [100%]`, `13 passed`).
+  - `python -m scripts.gate_rapido` devuelve `rc=0`.
+  - `python -m scripts.gate_pr` falla en `scripts.quality_gate_components.basic_repo_checks.check_forbidden_artifacts` porque detecta `data\clinicdesk.db` y `data\clinicdesk.sqlite`.
+  - `.\.venv\Scripts\python.exe seed_demo_data.py --sqlite-path C:\Users\arcas\AppData\Local\ClinicDesk\clinicdesk_demo.sqlite --reset --confirm-reset RESET-DEMO` devuelve `rc=0` y deja una base demo externa con `25` medicos, `500` pacientes, `12` personas de staff, `5000` citas, `732` incidencias, `7711` recordatorios, `5000` predicciones, `2601` acciones ML y `5000` citas enriquecidas con contexto operativo.
+- **riesgo detectado**:
+  - Riesgo operativo residual: mientras `data\clinicdesk.db` y `data\clinicdesk.sqlite` sigan dentro del arbol del repo, `python -m scripts.gate_pr` seguira bloqueando cualquier cierre en `DONE` aunque el seed demo ya haya quedado util para pantallas y ML.
+  - Riesgo de uso: la app desktop seguira apuntando por defecto a `data\clinicdesk.db` si no se lanza con `CLINICDESK_DB_PATH=C:\Users\arcas\AppData\Local\ClinicDesk\clinicdesk_demo.sqlite`.
+- **metadata de validacion/PR**:
+  - `N/A por bloqueo operativo: python -m scripts.gate_pr falla por artefactos prohibidos data\clinicdesk.db y data\clinicdesk.sqlite; no abrir PR.`
+- **bloqueo o siguiente paso exacto**:
+  - Retirar temporalmente `data\clinicdesk.db` y `data\clinicdesk.sqlite` del arbol del repo o ejecutar `python -m scripts.gate_pr` en un workspace limpio equivalente, reintentar el gate completo sobre `RCDX-042` y, cuando quede libre el bloqueo operativo, continuar con `RCDX-041`.
+
+## Entrada
+- **fecha/hora**: 2026-03-27 20:33:36Z
+- **tarea**: RCDX-005 - Registrar backlog sin tarea seleccionable
+- **estado final**: BLOCKED
+- **archivos tocados**:
+  - `docs/roadmap_codex.md`
+  - `docs/bitacora_codex.md`
+- **decisiones**:
+  - Se revalido que el roadmap sigue sin ninguna tarea `TODO` ni `WIP` elegible y no aparecio evidencia nueva de bug critico, test roto o error de ejecucion que justifique abrir prioridad fuera de backlog.
+  - Se mantuvo el alcance estrictamente documental; no se toco codigo de producto ni los SQLite locales porque el contrato prohibe tocar binarios en esta ejecucion.
+  - Se anadio evidencia explicita de que `data\clinicdesk.db` y `data\clinicdesk.sqlite` estan ignoradas por `.gitignore` y aun asi bloquean el gate completo.
+- **checks ejecutados**:
+  - `git branch --show-current`
+  - `git ls-files data`
+  - `git status --short data`
+  - `git check-ignore -v data/clinicdesk.db data/clinicdesk.sqlite`
+  - `Get-ChildItem data | Select-Object Name,Length,LastWriteTime`
+  - `python -m scripts.gate_rapido`
+  - `python -m scripts.gate_pr`
+- **resultado**:
+  - La ejecucion sigue en la rama aislada `codex/radar-inspector-20260326`.
+  - El roadmap operativo sigue sin ninguna tarea `TODO` ni `WIP` elegible; todas las entradas seleccionables permanecen en `BLOCKED`.
+  - `git ls-files data` y `git status --short data` siguen vacios, mientras `git check-ignore -v data/clinicdesk.db data/clinicdesk.sqlite` apunta a `.gitignore:8:data/`, confirmando que ambos SQLite son artefactos locales ignorados del worktree.
+  - `Get-ChildItem data` sigue mostrando `clinicdesk.db` y `clinicdesk.sqlite` presentes en el arbol local.
+  - `python -m scripts.gate_rapido` devuelve `rc=0`.
+  - `python -m scripts.gate_pr` falla en `scripts.quality_gate_components.basic_repo_checks.check_forbidden_artifacts` porque detecta `data\clinicdesk.db` y `data\clinicdesk.sqlite`.
+- **riesgo detectado**:
+  - Riesgo operativo y de gobernanza: mientras `python -m scripts.gate_pr` siga bloqueado por SQLite locales ignorados y no exista una `TODO` rematerializada, la automatizacion no puede seleccionar trabajo valido sin violar el contrato.
+- **metadata de validacion/PR**:
+  - `N/A por bloqueo operativo: python -m scripts.gate_pr falla por artefactos prohibidos data\clinicdesk.db y data\clinicdesk.sqlite; no abrir PR.`
+- **bloqueo o siguiente paso exacto**:
+  - Cerrar cualquier proceso que regenere esas SQLite y ejecutar `python -m scripts.gate_pr` en un workspace limpio equivalente sin `data\clinicdesk.db` ni `data\clinicdesk.sqlite`; solo entonces rematerializar la primera `TODO` real del roadmap.

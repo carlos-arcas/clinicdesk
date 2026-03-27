@@ -4,7 +4,7 @@ from __future__ import annotations
 class CoordinadorRefreshCitas:
     def __init__(self) -> None:
         self._token_vigente = 0
-        self._pagina_visible = True
+        self._pagina_visible = False
 
     def activar_pagina(self) -> None:
         self._pagina_visible = True

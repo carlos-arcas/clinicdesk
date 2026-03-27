@@ -6,13 +6,21 @@ from pathlib import Path
 import pytest
 
 from clinicdesk.app.i18n import I18nManager
+from clinicdesk.app.pages.page_def import PageDef
 from clinicdesk.app.ui import bootstrap_ui
+from clinicdesk.app.ui import main_window as main_window_module
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 try:
+    from PySide6.QtWidgets import QWidget
+
     from clinicdesk.app.ui.main_window import MainWindow
 except ImportError as exc:  # pragma: no cover
     pytest.skip(f"PySide6 no disponible: {exc}", allow_module_level=True)
+
+
+class _PaginaMinima(QWidget):
+    pass
 
 
 def test_bootstrap_producto_final_no_registra_demo() -> None:
@@ -22,8 +30,14 @@ def test_bootstrap_producto_final_no_registra_demo() -> None:
     assert all("demo_ml" not in spec.modulo_registro for spec in specs)
 
 
-def test_main_window_no_expone_accion_seed_demo(container) -> None:
+def test_main_window_no_expone_accion_seed_demo(monkeypatch: pytest.MonkeyPatch, qtbot, container) -> None:
+    monkeypatch.setattr(
+        main_window_module,
+        "get_pages",
+        lambda *_args: [PageDef(key="pacientes", title="Pacientes", factory=_PaginaMinima)],
+    )
     window = MainWindow(container, I18nManager("es"), on_logout=lambda: None)
+    qtbot.addWidget(window)
 
     assert not hasattr(window, "action_seed_demo_reset")
     assert "demo_ml" not in window._factory_by_key
