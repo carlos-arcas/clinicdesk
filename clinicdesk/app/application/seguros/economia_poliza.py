@@ -128,7 +128,8 @@ def construir_resumen_economico_poliza(
     cuotas_vencidas = sum(
         1
         for item in cuotas_ordenadas
-        if item.fecha_pago is None and item.estado in {EstadoCuotaPolizaSeguro.VENCIDA, EstadoCuotaPolizaSeguro.IMPAGADA}
+        if item.fecha_pago is None
+        and item.estado in {EstadoCuotaPolizaSeguro.VENCIDA, EstadoCuotaPolizaSeguro.IMPAGADA}
     )
     total_emitido = float(sum(item.importe for item in cuotas_ordenadas))
     total_pagado = float(sum(item.importe for item in cuotas_ordenadas if item.fecha_pago is not None))

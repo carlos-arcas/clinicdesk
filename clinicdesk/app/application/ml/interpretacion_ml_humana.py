@@ -81,9 +81,7 @@ def interpretar_entrenamiento(accuracy: float, precision: float, recall: float) 
 def interpretar_evaluacion(accuracy: float, precision: float, recall: float) -> InterpretacionHumana:
     return InterpretacionHumana(
         titulo="Resumen de evaluación",
-        significado=(
-            f"Evaluación offline: accuracy {accuracy:.2f}, precision {precision:.2f}, recall {recall:.2f}."
-        ),
+        significado=(f"Evaluación offline: accuracy {accuracy:.2f}, precision {precision:.2f}, recall {recall:.2f}."),
         recomendacion="Si no cumple umbral operativo, mejora datos o recalibra antes de desplegar decisiones automáticas.",
         utilidad_practica="Sirve para aprobar o frenar el paso a uso operativo.",
         cuando_revisar="Después de entrenar, antes de activar scoring recurrente.",

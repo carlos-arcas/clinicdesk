@@ -49,6 +49,7 @@ def _pip_audit_command(report_path: Path) -> list[str]:
         sys.executable,
         "-m",
         "pip_audit",
+        "--local",
         "--progress-spinner",
         "off",
         *_pip_audit_offline_flag(),
@@ -66,8 +67,9 @@ def _append_process_output(report_path: Path, completed: subprocess.CompletedPro
         blocks.append(f"STDOUT:\n{completed.stdout}")
     if completed.stderr:
         blocks.append(f"STDERR:\n{completed.stderr}")
-    report_path.write_text("\n\n".join(block for block in blocks if block.strip()) + "\n", encoding="utf-8")
-    return f"{completed.stdout or ''}\n{completed.stderr or ''}"
+    combined_output = "\n\n".join(block for block in blocks if block.strip()) + "\n"
+    report_path.write_text(combined_output, encoding="utf-8")
+    return combined_output
 
 
 def _missing_module_output(output: str) -> bool:

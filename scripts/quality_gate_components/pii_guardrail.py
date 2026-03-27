@@ -68,12 +68,16 @@ def extract_string_literals(node: ast.AST) -> list[str]:
     return literals
 
 
+def _is_excluded_path(rel_path: Path) -> bool:
+    if any(part in config.SCAN_EXCLUDE_DIRS for part in rel_path.parts):
+        return True
+    return bool(rel_path.parts and rel_path.parts[0] in config.PII_GUARDRAIL_EXCLUDED_ROOTS)
+
+
 def _iter_python_files(repo_root: Path):
     for file_path in repo_root.rglob("*.py"):
         rel = file_path.relative_to(repo_root)
-        if rel.parts and rel.parts[0] in config.PII_GUARDRAIL_EXCLUDED_ROOTS:
-            continue
-        if "__pycache__" in rel.parts:
+        if _is_excluded_path(rel):
             continue
         yield file_path, rel
 
