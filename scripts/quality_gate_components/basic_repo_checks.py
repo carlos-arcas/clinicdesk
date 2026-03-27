@@ -30,7 +30,9 @@ def is_print_allowlisted(file_path: Path, repo_root: Path | None = None) -> bool
 def check_no_print_calls(repo_root: Path | None = None) -> int:
     root = repo_root or config.REPO_ROOT
     offenders: list[Path] = []
-    for file_path in root.rglob("*.py"):
+    for file_path in iter_repo_files(repo_root=root):
+        if file_path.suffix != ".py":
+            continue
         if is_print_allowlisted(file_path, repo_root=root):
             continue
         tree = ast.parse(file_path.read_text(encoding="utf-8"))

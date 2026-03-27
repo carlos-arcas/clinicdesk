@@ -478,3 +478,434 @@ Usar esta plantilla para cada nueva entrada agregada al final del archivo. Si un
   - `N/A por bloqueo operativo`
 - **bloqueo o siguiente paso exacto**:
   - Ejecutar `RCDX-007` corrigiendo o retirando `launch.bat`; después reintentar `python -m scripts.gate_rapido`.
+## Entrada
+- **fecha/hora**: 2026-03-26 22:03:45Z
+- **tarea**: RCDX-007 - Retirar o alinear launcher Windows legado
+- **estado final**: BLOCKED
+- **archivos tocados**:
+  - `docs/roadmap_codex.md`
+  - `launch.bat`
+  - `tests/guardrails/test_saneamiento_legacy_repo.py`
+  - `docs/bitacora_codex.md`
+- **decisiones**:
+  - Se mantuvo `launch.bat` como wrapper de compatibilidad para no romper dobles clics existentes, pero ahora delega al launcher soportado `launcher.bat`.
+  - Se elimino del launcher root-level toda referencia a `main.py` y al branding ajeno `Horas Sindicales`.
+  - Se anadio un guardarrail explicito en `tests/guardrails/test_saneamiento_legacy_repo.py` para congelar que `launch.bat` no reintroduzca el launcher legado roto.
+- **checks ejecutados**:
+  - `git -c safe.directory=C:/Users/arcas/.codex/worktrees/80e1/clinicdesk branch --show-current`
+  - `git -c safe.directory=C:/Users/arcas/.codex/worktrees/80e1/clinicdesk status --short --untracked-files=no`
+  - `pytest -q tests/guardrails/test_saneamiento_legacy_repo.py tests/test_build_release.py`
+  - `python -m scripts.gate_rapido`
+  - `git -c safe.directory=C:/Users/arcas/.codex/worktrees/80e1/clinicdesk diff --numstat -- docs/roadmap_codex.md launch.bat tests/guardrails/test_saneamiento_legacy_repo.py`
+- **resultado**:
+  - La ejecucion se mantuvo en la rama aislada `codex/radar-inspector-20260326`, no sobre `main`.
+  - `launch.bat` ahora delega a `launcher.bat` y ya no contiene ni `main.py` ni `Launcher Horas Sindicales iniciado`.
+  - `tests/guardrails/test_saneamiento_legacy_repo.py` incorpora una verificacion dedicada para impedir que reaparezcan el branding legado, la llamada a `main.py` o la ausencia de delegacion al launcher soportado.
+  - `pytest -q tests/guardrails/test_saneamiento_legacy_repo.py tests/test_build_release.py` no pudo ejecutarse porque `pytest` no esta disponible en PATH (`CommandNotFoundException`).
+  - `python -m scripts.gate_rapido` aborta con `rc=20` y `reason_code=DEPENDENCIAS_FALTANTES`; faltan `ruff`, `pytest`, `mypy` y `pip-audit` en `.venv`, por lo que no hubo validacion funcional del repositorio.
+  - La verificacion manual del diff queda acotada a `docs/roadmap_codex.md`, `launch.bat` y `tests/guardrails/test_saneamiento_legacy_repo.py`; no se tocaron binarios ni compilados versionados.
+- **riesgo detectado**:
+  - Riesgo operativo residual: hasta restaurar el toolchain local no puede demostrarse por ejecucion real que el wrapper y el guardarrail pasan los checks canonicos.
+- **metadata de validacion/PR**:
+  - `N/A por bloqueo operativo`
+- **bloqueo o siguiente paso exacto**:
+  - Ejecutar `python -m pip install -r requirements-dev.txt` para restaurar `ruff`, `pytest`, `mypy` y `pip-audit`; despues reintentar `pytest -q tests/guardrails/test_saneamiento_legacy_repo.py tests/test_build_release.py` y `python -m scripts.gate_rapido` antes de promover `RCDX-007` a `DONE`.
+
+## Entrada
+- **fecha/hora**: 2026-03-26 22:03:54Z
+- **tarea**: RCDX-005 — Registrar backlog sin tarea seleccionable
+- **estado final**: BLOCKED
+- **archivos tocados**:
+  - `docs/roadmap_codex.md`
+  - `docs/bitacora_codex.md`
+- **decisiones**:
+  - Se corrigio el estado seleccionable del roadmap: la nota `WIP` residual de `RCDX-007` queda superada porque la tarea ya esta `BLOCKED`.
+  - No se tocaron `launch.bat` ni `tests/guardrails/test_saneamiento_legacy_repo.py`; los cambios funcionales previos de `RCDX-007` se preservan y esta ejecucion se limita a documentacion canonica.
+  - Se dejo explicito que, mientras `RCDX-007` siga bloqueada por toolchain, el backlog vuelve a quedar sin ninguna `TODO` elegible.
+- **checks ejecutados**:
+  - `git -c safe.directory=C:/Users/arcas/.codex/worktrees/80e1/clinicdesk branch --show-current`
+  - `git -c safe.directory=C:/Users/arcas/.codex/worktrees/80e1/clinicdesk status --short --untracked-files=no`
+  - `.\.venv\Scripts\python.exe --version`
+  - `.\.venv\Scripts\python.exe -m pytest --version`
+  - `python -m scripts.gate_rapido`
+  - `git -c safe.directory=C:/Users/arcas/.codex/worktrees/80e1/clinicdesk diff --numstat -- docs/roadmap_codex.md docs/bitacora_codex.md`
+- **resultado**:
+  - La ejecucion sigue en la rama aislada `codex/radar-inspector-20260326`, no sobre `main`.
+  - `launch.bat` ya delega a `launcher.bat` y el guardarrail correspondiente sigue presente, pero `RCDX-007` no puede promoverse porque `.\.venv\Scripts\python.exe -m pytest --version` falla con `No module named pytest`.
+  - `python -m scripts.gate_rapido` vuelve a abortar con `rc=20`/`reason_code=DEPENDENCIAS_FALTANTES`; faltan `ruff`, `pytest`, `mypy` y `pip-audit` en `.venv`.
+  - El roadmap operativo vuelve a quedar sin ninguna `TODO` seleccionable.
+  - La verificacion manual del diff queda limitada a `docs/roadmap_codex.md` y `docs/bitacora_codex.md`; no se tocaron binarios ni compilados versionados.
+- **riesgo detectado**:
+  - Riesgo operativo y de gobernanza: existen cambios funcionales pendientes de `RCDX-007` en el worktree, pero sin toolchain no pueden validarse ni liberarse y el selector vuelve a quedarse sin tarea `TODO`.
+- **metadata de validacion/PR**:
+  - `N/A por bloqueo operativo`
+- **bloqueo o siguiente paso exacto**:
+  - Ejecutar `python -m pip install -r requirements-dev.txt`; despues reintentar `pytest -q tests/guardrails/test_saneamiento_legacy_repo.py tests/test_build_release.py` y `python -m scripts.gate_rapido` para reevaluar `RCDX-007` antes de abrir una nueva `TODO`.
+
+## Entrada
+- **fecha/hora**: 2026-03-26 23:06:20Z
+- **tarea**: RCDX-007 — Retirar o alinear launcher Windows legado
+- **estado final**: BLOCKED
+- **archivos tocados**:
+  - `docs/roadmap_codex.md`
+  - `docs/bitacora_codex.md`
+- **decisiones**:
+  - Se reabrió `RCDX-007` porque el bloqueo previo de entorno dejó de ser concluyente en este worktree: `ensurepip` volvió a instalar `pip` y la sonda de `tempfile` en `.tmp` completó con `ok`.
+  - No se tocaron de nuevo `launch.bat` ni `tests/guardrails/test_saneamiento_legacy_repo.py`; los cambios funcionales previos quedaron preservados y se intentó cerrarlos solo por validación real.
+  - Se materializó `RCDX-008 — Excluir .venv del check no-print del gate completo` como siguiente `TODO` porque el bloqueo actual ya no es del launcher sino de un bug del quality gate.
+- **checks ejecutados**:
+  - `.\.venv\Scripts\python.exe -m ensurepip --upgrade --default-pip`
+  - `python -c "import tempfile, pathlib; d=tempfile.TemporaryDirectory(dir='.tmp'); p=pathlib.Path(d.name)/'probe.txt'; p.write_text('ok', encoding='utf-8'); print(p.read_text(encoding='utf-8')); d.cleanup()"`
+  - `.\.venv\Scripts\python.exe -m pip install -r requirements-dev.txt`
+  - `.\.venv\Scripts\python.exe -m pytest -q tests/guardrails/test_saneamiento_legacy_repo.py tests/test_build_release.py`
+  - `python -m scripts.gate_rapido`
+  - `python -m scripts.gate_pr`
+  - `git -c safe.directory=C:/Users/arcas/.codex/worktrees/80e1/clinicdesk status --short --untracked-files=no`
+- **resultado**:
+  - La ejecución siguió en la rama aislada `codex/radar-inspector-20260326`, no sobre `main`.
+  - `.\.venv\Scripts\python.exe -m ensurepip --upgrade --default-pip` volvió a instalar `pip` y `.\.venv\Scripts\python.exe -m pip install -r requirements-dev.txt` restauró `ruff`, `pytest`, `mypy`, `pip-audit`, `PySide6` y el resto del lock dev.
+  - `.\.venv\Scripts\python.exe -m pytest -q tests/guardrails/test_saneamiento_legacy_repo.py tests/test_build_release.py` quedó en verde y `python -m scripts.gate_rapido` devolvió `rc=0`.
+  - `python -m scripts.gate_pr` falla por un bug del gate completo: `scripts.quality_gate_components.basic_repo_checks.check_no_print_calls(...)` recorre `.\.venv\Lib\site-packages\*.py` y reporta `print` de dependencias instaladas, por lo que `RCDX-007` no puede promoverse a `DONE`.
+- **riesgo detectado**:
+  - Riesgo de validación transversal: cualquier tarea que necesite `python -m scripts.gate_pr` puede quedar bloqueada mientras el guardarraíl `no print` siga inspeccionando `.venv`.
+- **metadata de validación/PR**:
+  - `N/A: python -m scripts.gate_pr falló por un bug del quality gate; no abrir PR.`
+- **bloqueo o siguiente paso exacto**:
+  - Ejecutar `RCDX-008` corrigiendo `scripts/quality_gate_components/basic_repo_checks.py` para que `check_no_print_calls(...)` respete `SCAN_EXCLUDE_DIRS` y añadir la regresión mínima en tests; después reintentar `.\.venv\Scripts\python.exe -m pytest -q tests/test_quality_gate_security.py tests/test_gate_pr.py`, `python -m scripts.gate_pr` y reevaluar el cierre de `RCDX-007`.
+
+## Entrada
+- **fecha/hora**: 2026-03-27 00:03:38Z
+- **tarea**: RCDX-008 — Excluir `.venv` del check no-print del gate completo
+- **estado final**: BLOCKED
+- **archivos tocados**:
+  - `docs/roadmap_codex.md`
+  - `scripts/quality_gate_components/basic_repo_checks.py`
+  - `tests/test_quality_gate_security.py`
+  - `docs/pip_audit_report.txt`
+  - `docs/bitacora_codex.md`
+- **decisiones**:
+  - Se reutilizó `iter_repo_files(...)` dentro de `check_no_print_calls(...)` para aplicar el mismo filtrado por `SCAN_EXCLUDE_DIRS` ya usado por otros checks del gate.
+  - Se añadió una regresión mínima para congelar que `.venv` no se escanea, pero un `print(...)` en código propio sigue bloqueando el guardarraíl y no se registra la dependencia excluida como falso positivo.
+  - No se relajó la política `no print`; el cierre quedó bloqueado por el siguiente guardarraíl real detectado por `python -m scripts.gate_pr`, y se materializó `RCDX-009` como siguiente `TODO`.
+- **checks ejecutados**:
+  - `.\.venv\Scripts\python.exe -m pytest -q tests/test_quality_gate_security.py tests/test_gate_pr.py`
+  - `python -m scripts.gate_rapido`
+  - `python -m scripts.gate_pr`
+  - `Get-Content -Raw docs/pip_audit_report.txt`
+  - `Get-Content -Raw docs/pip_audit_allowlist.json`
+  - `git branch --show-current`
+  - `git status --short --untracked-files=no`
+  - `git diff --numstat -- docs/roadmap_codex.md docs/bitacora_codex.md scripts/quality_gate_components/basic_repo_checks.py tests/test_quality_gate_security.py`
+- **resultado**:
+  - La ejecución se mantuvo en la rama aislada `codex/radar-inspector-20260326`, no sobre `main`.
+  - `.\.venv\Scripts\python.exe -m pytest -q tests/test_quality_gate_security.py tests/test_gate_pr.py` quedó en verde y cubre la regresión de `.venv` excluida y la detección de `print(...)` en código propio.
+  - `python -m scripts.gate_rapido` devolvió `rc=0`.
+  - `python -m scripts.gate_pr` ya no falla por `print` en `.\.venv\Lib\site-packages\...`; avanzó hasta `pip-audit` y abortó por vulnerabilidades no allowlisted registradas en `docs/pip_audit_report.txt`: `GHSA-6vgw-5pg2-w6jp` sobre `pip 25.3` y `GHSA-5239-wwwm-4pmq` sobre `pygments 2.19.2`.
+  - Revalidación final 2026-03-27 00:06:40Z: tras actualizar roadmap y bitácora, `python -m scripts.gate_rapido` siguió en `rc=0` y `python -m scripts.gate_pr` repitió `rc=6` por el mismo bloqueo de `pip-audit`.
+  - `docs/pip_audit_allowlist.json` sigue vacío, por lo que el bloqueo del gate completo pasa a ser el siguiente guardarraíl real y no el falso positivo corregido.
+- **riesgo detectado**:
+  - Riesgo de validación transversal: mientras `pip-audit` siga encontrando vulnerabilidades no allowlisted, cualquier tarea que exija `python -m scripts.gate_pr` seguirá sin poder cerrarse en `DONE`.
+- **metadata de validación/PR**:
+  - `N/A: python -m scripts.gate_pr falló por vulnerabilidades no allowlisted de pip-audit; no abrir PR.`
+- **bloqueo o siguiente paso exacto**:
+  - Ejecutar `RCDX-009` resolviendo o justificando de forma acotada `GHSA-6vgw-5pg2-w6jp` y `GHSA-5239-wwwm-4pmq`; después reintentar `python -m scripts.gate_pr` y reevaluar el cierre de `RCDX-008`.
+
+## Entrada
+- **fecha/hora**: 2026-03-27 01:09:18Z
+- **tarea**: RCDX-009 — Resolver hallazgos activos de `pip-audit` en el gate completo
+- **estado final**: BLOCKED
+- **archivos tocados**:
+  - `docs/roadmap_codex.md`
+  - `requirements-dev.in`
+  - `requirements-dev.txt`
+  - `docs/pip_audit_allowlist.json`
+  - `scripts/quality_gate_components/pip_audit_check.py`
+  - `tests/test_quality_gate_security.py`
+  - `docs/pip_audit_report.txt`
+  - `docs/bitacora_codex.md`
+- **decisiones**:
+  - Se fijo `pip==26.0.1` en el lock dev para eliminar el hallazgo con fix disponible y mantener la remediacion reproducible en el entorno canonico.
+  - `scripts/quality_gate_components/pip_audit_check.py` pasa a auditar el entorno local del repo (`--local`) y ahora parsea tambien el contenido del reporte generado, porque `pip-audit` deja los IDs en archivo y no siempre en `stdout/stderr`.
+  - Se anadio una allowlist temporal solo para `GHSA-5239-wwwm-4pmq`, justificada porque `pygments 2.19.2` sigue siendo la ultima version publicada y `pip-audit` no informa fix disponible.
+  - `python -m scripts.lock_deps` no pudo regenerar el lock por un fallo del wrapper (`No se encontro pip-tools` pese a estar instalado); para no abrir otra tarea se actualizo `requirements-dev.txt` manualmente con el mismo pin minimo.
+- **checks ejecutados**:
+  - `.\.venv\Scripts\python.exe -m pip index versions pip`
+  - `.\.venv\Scripts\python.exe -m pip index versions pygments`
+  - `python -m scripts.lock_deps`
+  - `.\.venv\Scripts\python.exe -m pip install --upgrade pip==26.0.1`
+  - `.\.venv\Scripts\python.exe -m pip install -r requirements-dev.txt`
+  - `.\.venv\Scripts\python.exe -m pytest -q tests/test_quality_gate_security.py tests/test_gate_pr.py`
+  - `python -m scripts.gate_rapido`
+  - `python -m scripts.gate_pr`
+- **resultado**:
+  - `.\.venv\Scripts\python.exe -m pip index versions pip` confirma fix disponible (`26.0.1`), mientras `.\.venv\Scripts\python.exe -m pip index versions pygments` confirma que `2.19.2` sigue siendo la ultima version publicada.
+  - `.\.venv\Scripts\python.exe -m pytest -q tests/test_quality_gate_security.py tests/test_gate_pr.py` queda en verde y cubre tanto el modo local de `pip-audit` como la regresion del parser de reporte allowlisted.
+  - `python -m scripts.gate_rapido` devuelve `rc=0`.
+  - `python -m scripts.gate_pr` ya supera el paso `pip-audit` y registra `pip-audit solo reporto vulnerabilidades allowlisted`; `docs/pip_audit_report.txt` queda reducido a `pygments 2.19.2  GHSA-5239-wwwm-4pmq`.
+  - El gate completo no queda en verde: falla despues en `scripts.quality_gate_components.pii_guardrail` por falsos positivos dentro de `.\.venv\Lib\site-packages\setuptools\...` (`nif`), por lo que `RCDX-009` no puede promoverse a `DONE`.
+- **riesgo detectado**:
+  - Riesgo de validacion transversal: otro guardarrail del gate completo sigue escaneando `.venv`, de modo que el desbloqueo de `pip-audit` no basta todavia para cerrar tareas dependientes de `python -m scripts.gate_pr`.
+- **metadata de validación/PR**:
+  - `N/A: python -m scripts.gate_pr fallo despues de pip-audit por el guardarrail PII/logging escaneando .venv; no abrir PR.`
+- **bloqueo o siguiente paso exacto**:
+  - Ejecutar `RCDX-010` corrigiendo `scripts/quality_gate_components/pii_guardrail.py` para excluir `.venv` y añadiendo la regresion minima correspondiente; despues reintentar `.\.venv\Scripts\python.exe -m pytest -q tests/test_quality_gate_security.py tests/test_gate_pr.py`, `python -m scripts.gate_pr` y reevaluar el cierre de `RCDX-009`.
+
+## Entrada
+- **fecha/hora**: 2026-03-27 02:03:43Z
+- **tarea**: RCDX-010 — Excluir `.venv` del guardarrail PII/logging del gate completo
+- **estado final**: BLOCKED
+- **archivos tocados**:
+  - `docs/roadmap_codex.md`
+  - `scripts/quality_gate_components/pii_guardrail.py`
+  - `tests/test_quality_gate_security.py`
+  - `docs/bitacora_codex.md`
+- **decisiones**:
+  - Se unifico el filtrado de `_iter_python_files(...)` para que el guardarrail PII/logging respete tanto `SCAN_EXCLUDE_DIRS` como `PII_GUARDRAIL_EXCLUDED_ROOTS`.
+  - Se añadieron regresiones minimas para congelar que `.venv` no se escanea y que el guardarrail sigue reportando codigo propio sensible aunque exista una dependencia excluida.
+  - No se abrio una segunda implementacion tras la validacion fallida del gate completo: el nuevo bloqueo de Ruff se registro como tarea separada para mantener la disciplina de una sola incidencia por ejecucion.
+- **checks ejecutados**:
+  - `.\.venv\Scripts\python.exe -m pytest -q tests/test_quality_gate_security.py tests/test_gate_pr.py`
+  - `python -m scripts.gate_rapido`
+  - `python -m scripts.gate_pr`
+- **resultado**:
+  - `.\.venv\Scripts\python.exe -m pytest -q tests/test_quality_gate_security.py tests/test_gate_pr.py` queda en verde y cubre la exclusion de `.venv` y la deteccion de PII en codigo propio.
+  - `python -m scripts.gate_rapido` devuelve `rc=0`.
+  - `python -m scripts.gate_pr` ya supera `scripts.quality_gate_components.pii_guardrail`, `pip-audit` y `secrets_scan`, por lo que el falso positivo sobre `.\.venv\Lib\site-packages\**\*.py` queda corregido.
+  - El gate completo no queda en verde: falla despues en `scripts.quality_gate_components.ruff_checks` con `FileNotFoundError: [WinError 206] El nombre del archivo o la extension es demasiado largo` al lanzar `ruff check` con todos los targets Python versionados.
+- **riesgo detectado**:
+  - Riesgo de validacion transversal: mientras Ruff siga construyendo una linea de comando demasiado larga en Windows, cualquier tarea que requiera `python -m scripts.gate_pr` seguira bloqueada aunque los guardarrailes previos esten en verde.
+- **metadata de validación/PR**:
+  - `N/A: python -m scripts.gate_pr fallo en Ruff por WinError 206; no abrir PR.`
+- **bloqueo o siguiente paso exacto**:
+  - Ejecutar `RCDX-011` ajustando `scripts/quality_gate_components/ruff_checks.py` y, si hace falta, `scripts/_ruff_targets.py` para que la invocacion de Ruff no exceda el limite de Windows; despues reintentar `.\.venv\Scripts\python.exe -m pytest -q tests/test_quality_gate_ruff.py tests/test_gate_pr.py`, `python -m scripts.gate_rapido` y `python -m scripts.gate_pr`.
+
+## Entrada
+- **fecha/hora**: 2026-03-27 04:08:47Z
+- **tarea**: RCDX-011 — Acotar la invocacion de Ruff del gate completo en Windows
+- **estado final**: BLOCKED
+- **archivos tocados**:
+  - `docs/roadmap_codex.md`
+  - `scripts/_ruff_targets.py`
+  - `scripts/quality_gate_components/ruff_checks.py`
+  - `tests/test_ruff_targets.py`
+  - `tests/test_quality_gate_ruff.py`
+  - `docs/bitacora_codex.md`
+- **decisiones**:
+  - Se introdujo `agrupar_targets_para_comando(...)` en `scripts/_ruff_targets.py` usando `subprocess.list2cmdline(...)` y un limite estable de `30000` caracteres para dividir targets Python sin perder el conjunto versionado del repo.
+  - `scripts/quality_gate_components/ruff_checks.py` ahora ejecuta `ruff check` y `ruff format --check` por lotes explicitamente construidos, manteniendo targets explicitos para no perder cobertura sobre `clinicdesk` y `tests` pese al `extend-exclude` de `pyproject.toml`.
+  - No se abordo el formateo real que Ruff detecta despues del fix porque el primer lote fallido contiene `14` archivos versionados y excede el limite operativo de `10` archivos modificados por ejecucion; se materializo `RCDX-012` como siguiente tarea atomica.
+- **checks ejecutados**:
+  - `.\.venv\Scripts\python.exe -m pytest -q tests/test_ruff_targets.py tests/test_quality_gate_ruff.py tests/test_gate_pr.py`
+  - `python -m scripts.gate_rapido`
+  - `python -m scripts.gate_pr`
+- **resultado**:
+  - `.\.venv\Scripts\python.exe -m pytest -q tests/test_ruff_targets.py tests/test_quality_gate_ruff.py tests/test_gate_pr.py` queda en verde y congela tanto la agrupacion por longitud como la ejecucion loteada de Ruff.
+  - `python -m scripts.gate_rapido` devuelve `rc=0`.
+  - `python -m scripts.gate_pr` ya no falla con `FileNotFoundError: [WinError 206]`; Ruff se ejecuta por lotes y el siguiente bloqueo real pasa a ser `ruff format --check`, que reporta `14 files would be reformatted` en el primer lote.
+  - Revalidacion final 2026-03-27 04:13:09Z: tras actualizar roadmap y bitacora, `python -m scripts.gate_rapido` se mantiene en `rc=0` y `python -m scripts.gate_pr` repite el mismo bloqueo de formato en `14` archivos.
+  - La verificacion manual del diff queda acotada a archivos de texto/codigo; no se tocaron binarios ni compilados versionados.
+- **riesgo detectado**:
+  - Riesgo operativo de atomizacion: mientras el primer lote fallido de `ruff format --check` siga agrupando `14` archivos, una limpieza directa de formato rompería el limite de `10` archivos modificados por run.
+- **metadata de validación/PR**:
+  - `N/A: python -m scripts.gate_pr fallo en Ruff format por deuda real de formateo; no abrir PR.`
+- **bloqueo o siguiente paso exacto**:
+  - Ejecutar `RCDX-012` ajustando el loteo de `ruff format --check` para que el primer bloqueo de formato quede acotado a `10` archivos o menos; despues reintentar `.\.venv\Scripts\python.exe -m pytest -q tests/test_ruff_targets.py tests/test_quality_gate_ruff.py tests/test_gate_pr.py`, `python -m scripts.gate_rapido` y `python -m scripts.gate_pr`.
+
+## Entrada
+- **fecha/hora**: 2026-03-27 04:04:35Z
+- **tarea**: RCDX-012 â€” Acotar los lotes de Ruff format-check al limite operativo
+- **estado final**: BLOCKED
+- **archivos tocados**:
+  - `docs/roadmap_codex.md`
+  - `scripts/_ruff_targets.py`
+  - `scripts/quality_gate_components/ruff_checks.py`
+  - `tests/test_ruff_targets.py`
+  - `tests/test_quality_gate_ruff.py`
+  - `tests/test_quality_gate_ruff_batching.py`
+  - `docs/bitacora_codex.md`
+- **decisiones**:
+  - Se extendio `agrupar_targets_para_comando(...)` con `max_targets_por_lote` para reutilizar el mismo loteo estable por longitud y sumar un limite explicito de archivos solo donde haga falta.
+  - `scripts/quality_gate_components/ruff_checks.py` mantiene `ruff check` loteado solo por longitud, pero ahora fuerza `ruff format --check` a lotes maximos de `10` archivos para alinear el fallo operativo con el limite contractual por ejecucion.
+  - La regresion nueva del batching de `format --check` se movio a `tests/test_quality_gate_ruff_batching.py` para no dejar `tests/test_quality_gate_ruff.py` por encima del limite de `300` lineas del contrato.
+- **checks ejecutados**:
+  - `.\.venv\Scripts\python.exe -m pytest -q tests/test_ruff_targets.py tests/test_quality_gate_ruff.py tests/test_quality_gate_ruff_batching.py tests/test_gate_pr.py`
+  - `python -m scripts.gate_rapido`
+  - `python -m scripts.gate_pr`
+- **resultado**:
+  - `.\.venv\Scripts\python.exe -m pytest -q tests/test_ruff_targets.py tests/test_quality_gate_ruff.py tests/test_quality_gate_ruff_batching.py tests/test_gate_pr.py` queda en verde y congela tanto el loteo por longitud como el maximo de `10` archivos para `ruff format --check`.
+  - `python -m scripts.gate_rapido` devuelve `rc=0`.
+  - `python -m scripts.gate_pr` mantiene corregido el `WinError 206`, ejecuta `ruff format --check` en lotes de `10` archivos y ya no bloquea por `14 files would be reformatted`.
+  - El gate completo no queda en verde: ahora falla por deuda real de formato en un unico archivo, `clinicdesk/app/application/ml/interpretacion_ml_humana.py`, y `docs/ruff_format_diff.txt` refleja solo ese diff acotado.
+- **riesgo detectado**:
+  - Riesgo operativo residual: mientras `clinicdesk/app/application/ml/interpretacion_ml_humana.py` siga sin formatear, `python -m scripts.gate_pr` seguira bloqueando el cierre en `DONE` aunque el batching ya este corregido.
+- **metadata de validaciÃ³n/PR**:
+  - `N/A: python -m scripts.gate_pr fallo por deuda real de formateo en clinicdesk/app/application/ml/interpretacion_ml_humana.py; no abrir PR.`
+- **bloqueo o siguiente paso exacto**:
+  - Ejecutar `RCDX-013` corrigiendo solo `clinicdesk/app/application/ml/interpretacion_ml_humana.py`; despues reintentar `.\.venv\Scripts\python.exe -m ruff format --check clinicdesk/app/application/ml/interpretacion_ml_humana.py`, `python -m scripts.gate_rapido` y `python -m scripts.gate_pr`.
+
+## Entrada
+- **fecha/hora**: 2026-03-27 05:04:14Z
+- **tarea**: RCDX-013 â€” Corregir el formateo Ruff pendiente en interpretacion_ml_humana.py
+- **estado final**: BLOCKED
+- **archivos tocados**:
+  - `clinicdesk/app/application/ml/interpretacion_ml_humana.py`
+  - `docs/roadmap_codex.md`
+  - `docs/bitacora_codex.md`
+- **decisiones**:
+  - Se aplico unicamente el ajuste de formato que Ruff exigia en `clinicdesk/app/application/ml/interpretacion_ml_humana.py`, sin cambios funcionales ni ampliacion de alcance.
+  - Se mantuvo el cierre en `BLOCKED` porque el contrato exige que los checks obligatorios terminen en verde para promover la tarea a `DONE`, y `python -m scripts.gate_pr` sigue fallando por un bloqueo real posterior.
+  - Se materializo `RCDX-014` como siguiente `TODO` atomica al confirmarse que el nuevo bloqueo queda acotado a `clinicdesk/app/application/seguros/__init__.py`.
+- **checks ejecutados**:
+  - `.\.venv\Scripts\python.exe -m ruff format --check clinicdesk/app/application/ml/interpretacion_ml_humana.py`
+  - `python -m scripts.gate_rapido`
+  - `python -m scripts.gate_pr`
+  - `.\.venv\Scripts\python.exe -m ruff format --check clinicdesk/app/application/seguros/__init__.py`
+- **resultado**:
+  - `.\.venv\Scripts\python.exe -m ruff format --check clinicdesk/app/application/ml/interpretacion_ml_humana.py` queda en verde (`1 file already formatted`).
+  - `python -m scripts.gate_rapido` devuelve `rc=0`.
+  - `python -m scripts.gate_pr` avanza mas alla del archivo objetivo y revela el siguiente bloqueo real de formato en `clinicdesk/app/application/seguros/__init__.py`.
+  - `.\.venv\Scripts\python.exe -m ruff format --check clinicdesk/app/application/seguros/__init__.py` confirma la nueva deuda (`1 file would be reformatted`); el diff de Ruff elimina solo una linea en blanco sobrante de la lista exportada.
+  - La verificacion manual del diff sobre `clinicdesk/app/application/ml/interpretacion_ml_humana.py` queda limitada a una compactacion de cadena multilinea sin cambios de semantica.
+  - Revalidacion final 2026-03-27 05:06:12Z: tras sincronizar `docs/roadmap_codex.md` y `docs/bitacora_codex.md`, `python -m scripts.gate_rapido` se mantiene en `rc=0`.
+- **riesgo detectado**:
+  - Riesgo operativo residual: mientras `clinicdesk/app/application/seguros/__init__.py` siga sin formatear, `python -m scripts.gate_pr` seguira bloqueando el cierre en `DONE`.
+- **metadata de validaciÃ³n/PR**:
+  - `N/A: python -m scripts.gate_pr fallo por deuda real de formateo en clinicdesk/app/application/seguros/__init__.py; no abrir PR.`
+- **bloqueo o siguiente paso exacto**:
+  - Ejecutar `RCDX-014` corrigiendo solo `clinicdesk/app/application/seguros/__init__.py`; despues reintentar `.\.venv\Scripts\python.exe -m ruff format --check clinicdesk/app/application/seguros/__init__.py`, `python -m scripts.gate_rapido` y `python -m scripts.gate_pr`.
+
+## Entrada
+- **fecha/hora**: 2026-03-27 06:02:40Z
+- **tarea**: RCDX-014 - Corregir el formateo Ruff pendiente en clinicdesk/app/application/seguros/__init__.py
+- **estado final**: BLOCKED
+- **archivos tocados**:
+  - `clinicdesk/app/application/seguros/__init__.py`
+  - `docs/roadmap_codex.md`
+  - `docs/bitacora_codex.md`
+- **decisiones**:
+  - Se aplico unicamente el ajuste de formato que Ruff exigia en `clinicdesk/app/application/seguros/__init__.py`, sin cambios funcionales ni ampliacion de alcance.
+  - Se mantuvo el cierre en `BLOCKED` porque el contrato exige que los checks obligatorios terminen en verde para promover la tarea a `DONE`, y `python -m scripts.gate_pr` sigue fallando por un bloqueo real posterior.
+  - Se materializo `RCDX-015` como siguiente `TODO` atomica al confirmarse que el nuevo bloqueo queda acotado a `clinicdesk/app/application/seguros/economia_poliza.py`.
+- **checks ejecutados**:
+  - `.\.venv\Scripts\python.exe -m ruff format clinicdesk/app/application/seguros/__init__.py`
+  - `.\.venv\Scripts\python.exe -m ruff format --check clinicdesk/app/application/seguros/__init__.py`
+  - `python -m scripts.gate_rapido`
+  - `python -m scripts.gate_pr`
+  - `.\.venv\Scripts\python.exe -m ruff format --check clinicdesk/app/application/seguros/economia_poliza.py`
+- **resultado**:
+  - `.\.venv\Scripts\python.exe -m ruff format --check clinicdesk/app/application/seguros/__init__.py` queda en verde (`1 file already formatted`).
+  - `python -m scripts.gate_rapido` devuelve `rc=0`.
+  - `python -m scripts.gate_pr` avanza mas alla del archivo objetivo y revela el siguiente bloqueo real de formato en `clinicdesk/app/application/seguros/economia_poliza.py`.
+  - `.\.venv\Scripts\python.exe -m ruff format --check clinicdesk/app/application/seguros/economia_poliza.py` confirma la nueva deuda (`1 file would be reformatted`); el diff de Ruff acota el cambio a partir en dos lineas una condicion `if` larga en el calculo de cuotas vencidas.
+  - La verificacion manual del diff sobre `clinicdesk/app/application/seguros/__init__.py` queda limitada a eliminar una linea en blanco sobrante dentro de `__all__`.
+- **riesgo detectado**:
+  - Riesgo operativo residual: mientras `clinicdesk/app/application/seguros/economia_poliza.py` siga sin formatear, `python -m scripts.gate_pr` seguira bloqueando el cierre en `DONE`.
+- **metadata de validación/PR**:
+  - `N/A: python -m scripts.gate_pr fallo por deuda real de formateo en clinicdesk/app/application/seguros/economia_poliza.py; no abrir PR.`
+- **bloqueo o siguiente paso exacto**:
+  - Ejecutar `RCDX-015` corrigiendo solo `clinicdesk/app/application/seguros/economia_poliza.py`; despues reintentar `.\.venv\Scripts\python.exe -m ruff format --check clinicdesk/app/application/seguros/economia_poliza.py`, `python -m scripts.gate_rapido` y `python -m scripts.gate_pr`.
+
+## Entrada
+- **fecha/hora**: 2026-03-27 07:03:21Z
+- **tarea**: RCDX-015 - Corregir el formateo Ruff pendiente en clinicdesk/app/application/seguros/economia_poliza.py
+- **estado final**: BLOCKED
+- **archivos tocados**:
+  - `clinicdesk/app/application/seguros/economia_poliza.py`
+  - `docs/roadmap_codex.md`
+  - `docs/bitacora_codex.md`
+- **decisiones**:
+  - Se aplico unicamente el ajuste de formato que Ruff exigia en `clinicdesk/app/application/seguros/economia_poliza.py`, sin cambios funcionales ni ampliacion de alcance.
+  - Se ejecuto la suite mas especifica del area (`tests/application/seguros/test_economia_poliza_service.py`) para confirmar que el cambio no altera el comportamiento del servicio.
+  - Se mantuvo el cierre en `BLOCKED` porque el contrato exige que los checks obligatorios terminen en verde para promover la tarea a `DONE`, y `python -m scripts.gate_pr` sigue fallando por un bloqueo real posterior.
+  - Se materializo `RCDX-016` como siguiente `TODO` atomica al confirmarse que el nuevo bloqueo queda acotado a `clinicdesk/app/application/services/demo_ml_facade.py`.
+- **checks ejecutados**:
+  - `.\.venv\Scripts\python.exe -m ruff format --check clinicdesk/app/application/seguros/economia_poliza.py`
+  - `.\.venv\Scripts\python.exe -m pytest -q tests/application/seguros/test_economia_poliza_service.py`
+  - `python -m scripts.gate_rapido`
+  - `python -m scripts.gate_pr`
+  - `.\.venv\Scripts\python.exe -m ruff format --check clinicdesk/app/application/services/demo_ml_facade.py`
+- **resultado**:
+  - `.\.venv\Scripts\python.exe -m ruff format --check clinicdesk/app/application/seguros/economia_poliza.py` queda en verde (`1 file already formatted`).
+  - `.\.venv\Scripts\python.exe -m pytest -q tests/application/seguros/test_economia_poliza_service.py` pasa (`2 passed`).
+  - `python -m scripts.gate_rapido` devuelve `rc=0`.
+  - `python -m scripts.gate_pr` avanza mas alla del archivo objetivo y revela el siguiente bloqueo real de formato en `clinicdesk/app/application/services/demo_ml_facade.py`.
+  - `.\.venv\Scripts\python.exe -m ruff format --check clinicdesk/app/application/services/demo_ml_facade.py` confirma la nueva deuda (`1 file would be reformatted`); el diff de Ruff acota el cambio a eliminar una linea en blanco sobrante antes de `list_dataset_versions`.
+  - La verificacion manual del diff sobre `clinicdesk/app/application/seguros/economia_poliza.py` queda limitada a partir en dos lineas una condicion `if` larga dentro del calculo de cuotas vencidas.
+- **riesgo detectado**:
+  - Riesgo operativo residual: mientras `clinicdesk/app/application/services/demo_ml_facade.py` siga sin formatear, `python -m scripts.gate_pr` seguira bloqueando el cierre en `DONE`.
+- **metadata de validaciÃ³n/PR**:
+  - `N/A: python -m scripts.gate_pr fallo por deuda real de formateo en clinicdesk/app/application/services/demo_ml_facade.py; no abrir PR.`
+- **bloqueo o siguiente paso exacto**:
+  - Ejecutar `RCDX-016` corrigiendo solo `clinicdesk/app/application/services/demo_ml_facade.py`; despues reintentar `.\.venv\Scripts\python.exe -m ruff format --check clinicdesk/app/application/services/demo_ml_facade.py`, `.\.venv\Scripts\python.exe -m pytest -q tests/test_demo_ml_facade.py`, `python -m scripts.gate_rapido` y `python -m scripts.gate_pr`.
+
+## Entrada
+- **fecha/hora**: 2026-03-27 08:03:17Z
+- **tarea**: RCDX-016 - Corregir el formateo Ruff pendiente en clinicdesk/app/application/services/demo_ml_facade.py
+- **estado final**: BLOCKED
+- **archivos tocados**:
+  - `clinicdesk/app/application/services/demo_ml_facade.py`
+  - `docs/roadmap_codex.md`
+  - `docs/bitacora_codex.md`
+- **decisiones**:
+  - Se aplico unicamente el ajuste de formato que Ruff exigia en `clinicdesk/app/application/services/demo_ml_facade.py`, sin cambios funcionales ni ampliacion de alcance.
+  - Se ejecuto la suite mas especifica del area (`tests/test_demo_ml_facade.py`) para confirmar que el cambio no altera el comportamiento del facade.
+  - Se mantuvo el cierre en `BLOCKED` porque el contrato exige que los checks obligatorios terminen en verde para promover la tarea a `DONE`, y `python -m scripts.gate_pr` sigue fallando por un bloqueo real posterior.
+  - Se materializo `RCDX-017` como siguiente `TODO` atomica al confirmarse que el nuevo bloqueo queda acotado primero a `clinicdesk/app/application/services/ml_centro_guiado_service.py` dentro del lote fallido.
+- **checks ejecutados**:
+  - `.\.venv\Scripts\python.exe -m ruff format --check clinicdesk/app/application/services/demo_ml_facade.py`
+  - `.\.venv\Scripts\python.exe -m pytest -q tests/test_demo_ml_facade.py`
+  - `python -m scripts.gate_rapido`
+  - `python -m scripts.gate_pr`
+  - `.\.venv\Scripts\python.exe -m ruff format --check clinicdesk/app/application/services/ml_centro_guiado_service.py`
+  - `.\.venv\Scripts\python.exe -m ruff format --check clinicdesk/app/application/services/ml_playbooks_service.py`
+- **resultado**:
+  - `.\.venv\Scripts\python.exe -m ruff format --check clinicdesk/app/application/services/demo_ml_facade.py` queda en verde (`1 file already formatted`).
+  - `.\.venv\Scripts\python.exe -m pytest -q tests/test_demo_ml_facade.py` pasa.
+  - `python -m scripts.gate_rapido` devuelve `rc=0`.
+  - `python -m scripts.gate_pr` avanza mas alla del archivo objetivo y revela el siguiente bloqueo real de formato en un lote que incluye `clinicdesk/app/application/services/ml_centro_guiado_service.py` y `clinicdesk/app/application/services/ml_playbooks_service.py`.
+  - `.\.venv\Scripts\python.exe -m ruff format --check clinicdesk/app/application/services/ml_centro_guiado_service.py` confirma la nueva deuda (`1 file would be reformatted`).
+  - `.\.venv\Scripts\python.exe -m ruff format --check clinicdesk/app/application/services/ml_playbooks_service.py` confirma deuda residual inmediata (`1 file would be reformatted`).
+  - La verificacion manual del diff sobre `clinicdesk/app/application/services/demo_ml_facade.py` queda limitada a eliminar una linea en blanco sobrante antes de `list_dataset_versions`.
+  - Revalidacion final 2026-03-27 08:05:04Z: tras sincronizar `docs/roadmap_codex.md` y `docs/bitacora_codex.md`, `python -m scripts.gate_rapido` se mantiene en `rc=0` y `python -m scripts.gate_pr` repite el mismo bloqueo de formato en esos dos archivos.
+- **riesgo detectado**:
+  - Riesgo operativo residual: mientras `clinicdesk/app/application/services/ml_centro_guiado_service.py` y `clinicdesk/app/application/services/ml_playbooks_service.py` sigan sin formatear, `python -m scripts.gate_pr` seguira bloqueando el cierre en `DONE`.
+- **metadata de validaciÃ³n/PR**:
+  - `N/A: python -m scripts.gate_pr fallo por deuda real de formateo en clinicdesk/app/application/services/ml_centro_guiado_service.py y clinicdesk/app/application/services/ml_playbooks_service.py; no abrir PR.`
+- **bloqueo o siguiente paso exacto**:
+  - Ejecutar `RCDX-017` corrigiendo solo `clinicdesk/app/application/services/ml_centro_guiado_service.py`; despues reintentar `.\.venv\Scripts\python.exe -m ruff format --check clinicdesk/app/application/services/ml_centro_guiado_service.py`, `.\.venv\Scripts\python.exe -m pytest -q tests/test_ml_centro_guiado_service.py`, `python -m scripts.gate_rapido` y `python -m scripts.gate_pr`.
+
+## Entrada
+- **fecha/hora**: 2026-03-27 09:02:33Z
+- **tarea**: RCDX-017 - Corregir el formateo Ruff pendiente en clinicdesk/app/application/services/ml_centro_guiado_service.py
+- **estado final**: BLOCKED
+- **archivos tocados**:
+  - `clinicdesk/app/application/services/ml_centro_guiado_service.py`
+  - `docs/roadmap_codex.md`
+  - `docs/bitacora_codex.md`
+- **decisiones**:
+  - Se aplico unicamente el ajuste de formato que Ruff exigia en `clinicdesk/app/application/services/ml_centro_guiado_service.py`, sin cambios funcionales ni ampliacion de alcance.
+  - Se ejecuto la suite mas especifica del area (`tests/test_ml_centro_guiado_service.py`) para confirmar que el cambio no altera el comportamiento del servicio.
+  - Se mantuvo el cierre en `BLOCKED` porque el contrato exige que los checks obligatorios terminen en verde para promover la tarea a `DONE`, y `python -m scripts.gate_pr` sigue fallando por un bloqueo real posterior.
+  - Se materializo `RCDX-018` como siguiente `TODO` atomica al confirmarse que el nuevo bloqueo queda acotado a `clinicdesk/app/application/services/ml_playbooks_service.py`.
+- **checks ejecutados**:
+  - `.\.venv\Scripts\python.exe -m ruff format --diff clinicdesk/app/application/services/ml_centro_guiado_service.py`
+  - `.\.venv\Scripts\python.exe -m ruff format --check clinicdesk/app/application/services/ml_centro_guiado_service.py`
+  - `.\.venv\Scripts\python.exe -m pytest -q tests/test_ml_centro_guiado_service.py`
+  - `python -m scripts.gate_rapido`
+  - `python -m scripts.gate_pr`
+  - `.\.venv\Scripts\python.exe -m ruff format --check clinicdesk/app/application/services/ml_playbooks_service.py`
+  - `.\.venv\Scripts\python.exe -m ruff format --diff clinicdesk/app/application/services/ml_playbooks_service.py`
+- **resultado**:
+  - `.\.venv\Scripts\python.exe -m ruff format --check clinicdesk/app/application/services/ml_centro_guiado_service.py` queda en verde (`1 file already formatted`).
+  - `.\.venv\Scripts\python.exe -m pytest -q tests/test_ml_centro_guiado_service.py` pasa (`5 passed`).
+  - `python -m scripts.gate_rapido` devuelve `rc=0`.
+  - `python -m scripts.gate_pr` avanza mas alla del archivo objetivo y revela el siguiente bloqueo real de formato en `clinicdesk/app/application/services/ml_playbooks_service.py`.
+  - `.\.venv\Scripts\python.exe -m ruff format --check clinicdesk/app/application/services/ml_playbooks_service.py` confirma la nueva deuda (`1 file would be reformatted`).
+  - `.\.venv\Scripts\python.exe -m ruff format --diff clinicdesk/app/application/services/ml_playbooks_service.py` acota el cambio a partir la firma larga de `_pasos_playbook(...)`.
+  - La verificacion manual del diff sobre `clinicdesk/app/application/services/ml_centro_guiado_service.py` queda limitada a partir en varias lineas el ternario largo de `motivo_bloqueo`.
+- **riesgo detectado**:
+  - Riesgo operativo residual: mientras `clinicdesk/app/application/services/ml_playbooks_service.py` siga sin formatear, `python -m scripts.gate_pr` seguira bloqueando el cierre en `DONE`.
+- **metadata de validaciÃƒÂ³n/PR**:
+  - `N/A: python -m scripts.gate_pr fallo por deuda real de formateo en clinicdesk/app/application/services/ml_playbooks_service.py; no abrir PR.`
+- **bloqueo o siguiente paso exacto**:
+  - Ejecutar `RCDX-018` corrigiendo solo `clinicdesk/app/application/services/ml_playbooks_service.py`; despues reintentar `.\.venv\Scripts\python.exe -m ruff format --check clinicdesk/app/application/services/ml_playbooks_service.py`, `.\.venv\Scripts\python.exe -m pytest -q tests/test_ml_playbooks_service.py`, `python -m scripts.gate_rapido` y `python -m scripts.gate_pr`.

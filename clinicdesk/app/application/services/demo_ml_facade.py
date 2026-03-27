@@ -248,7 +248,6 @@ class DemoMLFacade:
         )
         return self._export_kpis.execute(request)
 
-
     def list_dataset_versions(self) -> list[str]:
         return self._feature_store_service.list_citas_versions()
 

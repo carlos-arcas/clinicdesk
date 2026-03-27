@@ -1,3 +1,8 @@
 {
-  "vulnerabilidades_permitidas": []
+  "vulnerabilidades_permitidas": [
+    {
+      "id": "GHSA-5239-wwwm-4pmq",
+      "motivo": "Allowlist temporal: pygments 2.19.2 sigue siendo la ultima version publicada y pip-audit no reporta fix disponible; reevaluar al publicar release corregida."
+    }
+  ]
 }

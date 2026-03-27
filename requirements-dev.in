@@ -1,6 +1,7 @@
 -r requirements.in
 # Fuente editable del tooling dev; las versiones efectivas del gate viven en requirements-dev.txt.
 coverage==7.6.10
+pip==26.0.1
 
 ruff
 pytest

@@ -56,7 +56,7 @@ RUTAS_LEGACY_PROHIBIDAS = (
 MARCADORES_PLACEHOLDER = (
     "[placeholder]",
     "lorem ipsum",
-    "plantilla vacía",
+    "plantilla vacÃ­a",
     "template vacio",
 )
 ARCHIVOS_DOC = (".md", ".txt", ".rst")
@@ -115,4 +115,17 @@ def test_no_reaparecen_rutas_legacy_ni_docs_placeholder() -> None:
 def test_entrypoints_canonicos_siguen_presentes() -> None:
     repo_root = Path(__file__).resolve().parents[2]
     faltantes = [str(ruta) for ruta in ENTRYPOINTS_CANONICOS if not (repo_root / ruta).exists()]
-    assert not faltantes, f"Faltan entrypoints canónicos: {faltantes}"
+    assert not faltantes, f"Faltan entrypoints canÃ³nicos: {faltantes}"
+
+
+def test_launch_bat_no_reintroduce_launcher_legacy_roto() -> None:
+    repo_root = Path(__file__).resolve().parents[2]
+    launch_bat = repo_root / "launch.bat"
+    if not launch_bat.exists():
+        return
+
+    contenido = launch_bat.read_text(encoding="utf-8", errors="ignore").lower()
+
+    assert "horas sindicales" not in contenido
+    assert "main.py" not in contenido
+    assert 'call "launcher.bat"' in contenido

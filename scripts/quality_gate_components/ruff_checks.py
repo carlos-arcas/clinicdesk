@@ -7,7 +7,7 @@ import sys
 from pathlib import Path
 from typing import Sequence
 
-from scripts._ruff_targets import obtener_targets_python
+from scripts._ruff_targets import agrupar_targets_para_comando, obtener_targets_python
 
 from . import config
 from .toolchain import COMANDO_DOCTOR, COMANDO_SETUP, version_paquete_desde_lock
@@ -20,6 +20,7 @@ MAX_LINEAS_DIFF_HEAD = 200
 MAX_LINEAS_DIFF_TAIL = 50
 PATRON_VERSION_RUFF = re.compile(r"ruff\s+(?P<version>\S+)")
 PATRON_WOULD_REFORMAT = re.compile(r"^Would reformat:\s+(?P<ruta>.+)$")
+MAX_ARCHIVOS_FORMAT_CHECK_POR_LOTE = 10
 
 
 def _loggear_version_ruff(root: Path) -> tuple[int, str]:
@@ -92,6 +93,26 @@ def _ejecutar_comando_ruff(root: Path, comando: Sequence[str]) -> int:
 def _ejecutar_comando_ruff_con_salida(root: Path, comando: Sequence[str]) -> subprocess.CompletedProcess[str]:
     _LOGGER.info("[quality-gate] Ejecutando: %s", " ".join(comando))
     return subprocess.run(comando, cwd=root, check=False, capture_output=True, text=True)
+
+
+def _construir_comandos_ruff_loteados(
+    subcomando: Sequence[str], python_targets: Sequence[str], max_targets_por_lote: int | None = None
+) -> list[list[str]]:
+    comando_base = [sys.executable, "-m", "ruff", *subcomando]
+    lotes = agrupar_targets_para_comando(
+        comando_base, python_targets, max_targets_por_lote=max_targets_por_lote
+    )
+    if len(lotes) > 1 or max_targets_por_lote is not None:
+        _LOGGER.info(
+            "ruff_targets_loteados",
+            extra={
+                "subcomando": " ".join(subcomando),
+                "targets": len(python_targets),
+                "lotes": len(lotes),
+                "max_targets_por_lote": max_targets_por_lote,
+            },
+        )
+    return [[*comando_base, *lote] for lote in lotes]
 
 
 def _persistir_diff_ruff(root: Path, contenido: str) -> None:
@@ -238,15 +259,17 @@ def run_required_ruff_checks(repo_root: Path | None = None) -> int:
         return version_match_rc
 
     python_targets = obtener_targets_python(root)
-    check_command = [sys.executable, "-m", "ruff", "check", *python_targets]
-    check_rc = _ejecutar_comando_ruff(root, check_command)
-    if check_rc != 0:
-        return check_rc
+    for check_command in _construir_comandos_ruff_loteados(("check",), python_targets):
+        check_rc = _ejecutar_comando_ruff(root, check_command)
+        if check_rc != 0:
+            return check_rc
 
-    format_command = [sys.executable, "-m", "ruff", "format", "--check", *python_targets]
-    resultado_format_check = _ejecutar_comando_ruff_con_salida(root, format_command)
-    if resultado_format_check.returncode != 0:
-        _LOGGER.error("ruff_format_check_fallo", extra={"returncode": resultado_format_check.returncode})
-        _diagnosticar_fallo_formato(root, resultado_format_check.stdout, resultado_format_check.stderr)
-        return resultado_format_check.returncode
+    for format_command in _construir_comandos_ruff_loteados(
+        ("format", "--check"), python_targets, max_targets_por_lote=MAX_ARCHIVOS_FORMAT_CHECK_POR_LOTE
+    ):
+        resultado_format_check = _ejecutar_comando_ruff_con_salida(root, format_command)
+        if resultado_format_check.returncode != 0:
+            _LOGGER.error("ruff_format_check_fallo", extra={"returncode": resultado_format_check.returncode})
+            _diagnosticar_fallo_formato(root, resultado_format_check.stdout, resultado_format_check.stderr)
+            return resultado_format_check.returncode
     return 0

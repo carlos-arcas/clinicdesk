@@ -251,7 +251,9 @@ class CentroMLGuiadoService:
                 descripcion="Genera CSV para reporting, auditoría y seguimiento externo.",
                 estado="completado" if export_disponible else "pendiente",
                 habilitado=score_disponible,
-                motivo_bloqueo="Primero ejecuta scoring para exportar resultados útiles." if not score_disponible else "",
+                motivo_bloqueo="Primero ejecuta scoring para exportar resultados útiles."
+                if not score_disponible
+                else "",
             ),
         )
 

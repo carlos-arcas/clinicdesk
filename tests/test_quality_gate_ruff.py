@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+import subprocess
 import sys
 from pathlib import Path
 
 import pytest
 
+from scripts import _ruff_targets
 from scripts.quality_gate_components import ruff_checks
 
 
@@ -39,6 +41,38 @@ def test_run_required_ruff_checks_invoca_ruff_con_targets(monkeypatch: pytest.Mo
         [sys.executable, "-m", "ruff", "check", "scripts/a.py", "tests/b.py"],
         [sys.executable, "-m", "ruff", "format", "--check", "scripts/a.py", "tests/b.py"],
     ]
+
+
+def test_run_required_ruff_checks_lotea_comandos_largos(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    (tmp_path / "pyproject.toml").write_text("[tool.ruff]\n", encoding="utf-8")
+    (tmp_path / "requirements-dev.txt").write_text("ruff==0.12.0\n", encoding="utf-8")
+    targets = [f"clinicdesk/modulo_{indice}_{'a' * 40}.py" for indice in range(6)]
+    comandos: list[list[str]] = []
+
+    monkeypatch.setattr(ruff_checks, "obtener_targets_python", lambda _: targets)
+    monkeypatch.setattr(_ruff_targets, "LIMITE_COMANDO_RUFF_CHARS", 170)
+
+    def fake_run(command, **kwargs):
+        comandos.append(list(command))
+        if command[:4] == [sys.executable, "-m", "ruff", "--version"]:
+            return _Resultado(returncode=0, stdout="ruff 0.12.0")
+        return _Resultado(returncode=0)
+
+    monkeypatch.setattr(ruff_checks.subprocess, "run", fake_run)
+
+    assert ruff_checks.run_required_ruff_checks(tmp_path) == 0
+
+    comandos_check = [comando for comando in comandos if comando[3] == "check"]
+    comandos_format = [comando for comando in comandos if comando[3:5] == ["format", "--check"]]
+    assert len(comandos_check) > 1
+    assert len(comandos_format) == len(comandos_check)
+    assert [ruta for comando in comandos_check for ruta in comando[4:]] == targets
+    assert all(
+        len(subprocess.list2cmdline(comando)) <= _ruff_targets.LIMITE_COMANDO_RUFF_CHARS
+        for comando in [*comandos_check, *comandos_format]
+    )
 
 
 def test_run_required_ruff_checks_retorna_error_si_falla_version(

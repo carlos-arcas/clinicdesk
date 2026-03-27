@@ -38,6 +38,35 @@ def test_secret_pattern_check_reports_file_without_printing_match(tmp_path: Path
     assert basic_repo_checks.check_secret_patterns() == 5
 
 
+def test_no_print_calls_ignores_excluded_dirs(tmp_path: Path, monkeypatch) -> None:
+    dependency_file = tmp_path / ".venv" / "Lib" / "site-packages" / "dependency.py"
+    dependency_file.parent.mkdir(parents=True, exist_ok=True)
+    dependency_file.write_text('print("dependency")\n', encoding="utf-8")
+
+    monkeypatch.setattr(basic_repo_checks.config, "REPO_ROOT", tmp_path)
+
+    assert basic_repo_checks.check_no_print_calls() == 0
+
+
+def test_no_print_calls_detects_repo_file_and_not_excluded_dependency(
+    tmp_path: Path, monkeypatch, caplog
+) -> None:
+    dependency_file = tmp_path / ".venv" / "Lib" / "site-packages" / "dependency.py"
+    dependency_file.parent.mkdir(parents=True, exist_ok=True)
+    dependency_file.write_text('print("dependency")\n', encoding="utf-8")
+
+    repo_file = tmp_path / "module.py"
+    repo_file.write_text('print("repo")\n', encoding="utf-8")
+
+    monkeypatch.setattr(basic_repo_checks.config, "REPO_ROOT", tmp_path)
+
+    with caplog.at_level(logging.ERROR):
+        assert basic_repo_checks.check_no_print_calls() == 3
+
+    assert "module.py" in caplog.text
+    assert ".venv" not in caplog.text
+
+
 def test_run_pip_audit_applies_allowlist_ids(tmp_path: Path, monkeypatch) -> None:
     report_path = tmp_path / "pip_audit_report.txt"
     allowlist_path = tmp_path / "pip_audit_allowlist.json"
@@ -63,6 +92,45 @@ def test_run_pip_audit_applies_allowlist_ids(tmp_path: Path, monkeypatch) -> Non
     monkeypatch.setattr(pip_audit_check.subprocess, "run", fake_run)
 
     assert pip_audit_check.run_pip_audit() == 0
+
+
+def test_run_pip_audit_applies_allowlist_ids_from_report_file(tmp_path: Path, monkeypatch) -> None:
+    report_path = tmp_path / "pip_audit_report.txt"
+    allowlist_path = tmp_path / "pip_audit_allowlist.json"
+    allowlist_path.write_text(
+        json.dumps({"vulnerabilidades_permitidas": [{"id": "GHSA-5239-wwwm-4pmq", "motivo": "temporal"}]}),
+        encoding="utf-8",
+    )
+
+    def fake_run(command, **kwargs):
+        report_path.write_text(
+            "Name     Version ID                  Fix Versions\n"
+            "-------- ------- ------------------- ------------\n"
+            "pygments 2.19.2  GHSA-5239-wwwm-4pmq\n",
+            encoding="utf-8",
+        )
+        return subprocess.CompletedProcess(command, 1, "", "Found 1 known vulnerability in 1 package")
+
+    monkeypatch.setattr(pip_audit_check.config, "PIP_AUDIT_REPORT_PATH", report_path)
+    monkeypatch.setattr(pip_audit_check.config, "PIP_AUDIT_ALLOWLIST_PATH", allowlist_path)
+    monkeypatch.setattr(pip_audit_check.subprocess, "run", fake_run)
+
+    assert pip_audit_check.run_pip_audit() == 0
+
+
+def test_run_pip_audit_uses_local_environment(tmp_path: Path, monkeypatch) -> None:
+    report_path = tmp_path / "pip_audit_report.txt"
+    observed_command: list[str] = []
+
+    def fake_run(command, **kwargs):
+        observed_command[:] = command
+        return subprocess.CompletedProcess(command, 0, "", "")
+
+    monkeypatch.setattr(pip_audit_check.config, "PIP_AUDIT_REPORT_PATH", report_path)
+    monkeypatch.setattr(pip_audit_check.subprocess, "run", fake_run)
+
+    assert pip_audit_check.run_pip_audit() == 0
+    assert "--local" in observed_command
 
 
 def test_run_pip_audit_missing_module_writes_report_and_fails(tmp_path: Path, monkeypatch) -> None:
@@ -150,6 +218,37 @@ def test_pii_logging_guardrail_ignores_tests_folder(tmp_path: Path, monkeypatch)
     monkeypatch.setattr(pii_guardrail.config, "PII_LOGGING_ALLOWLIST_PATH", tmp_path / "allowlist.json")
 
     assert pii_guardrail.check_pii_logging_guardrail() == 0
+
+
+def test_pii_logging_guardrail_ignores_excluded_dirs(tmp_path: Path, monkeypatch) -> None:
+    dependency_file = tmp_path / ".venv" / "Lib" / "site-packages" / "dependency.py"
+    dependency_file.parent.mkdir(parents=True, exist_ok=True)
+    dependency_file.write_text('logger.info("mensaje con nif paciente")\n', encoding="utf-8")
+
+    monkeypatch.setattr(pii_guardrail.config, "REPO_ROOT", tmp_path)
+    monkeypatch.setattr(pii_guardrail.config, "PII_LOGGING_ALLOWLIST_PATH", tmp_path / "allowlist.json")
+
+    assert pii_guardrail.check_pii_logging_guardrail() == 0
+
+
+def test_pii_logging_guardrail_detects_repo_file_and_not_excluded_dependency(
+    tmp_path: Path, monkeypatch, caplog
+) -> None:
+    dependency_file = tmp_path / ".venv" / "Lib" / "site-packages" / "dependency.py"
+    dependency_file.parent.mkdir(parents=True, exist_ok=True)
+    dependency_file.write_text('logger.info("mensaje con nif paciente")\n', encoding="utf-8")
+
+    source_file = tmp_path / "module.py"
+    source_file.write_text('logger.info("error con email del paciente")\n', encoding="utf-8")
+
+    monkeypatch.setattr(pii_guardrail.config, "REPO_ROOT", tmp_path)
+    monkeypatch.setattr(pii_guardrail.config, "PII_LOGGING_ALLOWLIST_PATH", tmp_path / "allowlist.json")
+
+    with caplog.at_level(logging.ERROR):
+        assert pii_guardrail.check_pii_logging_guardrail() == 8
+
+    assert "module.py" in caplog.text
+    assert ".venv" not in caplog.text
 
 
 def test_pii_logging_guardrail_detects_sensitive_message_in_keyword_argument(tmp_path: Path, monkeypatch) -> None:
