@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib.util
+import sqlite3
 from pathlib import Path
 
 
@@ -162,10 +163,21 @@ def test_seed_demo_command(tmp_path: Path) -> None:
             "0.2",
             "--sqlite-path",
             str(sqlite_path),
+            "--reset",
+            "--confirm-reset",
+            "RESET-DEMO",
         ]
     )
     assert rc == 0
     assert sqlite_path.exists()
+    connection = sqlite3.connect(sqlite_path)
+    try:
+        assert connection.execute("SELECT COUNT(*) FROM citas").fetchone()[0] == 20
+        assert connection.execute("SELECT COUNT(*) FROM recordatorios_citas").fetchone()[0] > 0
+        assert connection.execute("SELECT COUNT(*) FROM predicciones_ausencias_log").fetchone()[0] > 0
+        assert connection.execute("SELECT COUNT(*) FROM ml_acciones_operativas").fetchone()[0] > 0
+    finally:
+        connection.close()
 
 
 def test_export_summary_from_trained_model(tmp_path: Path) -> None:

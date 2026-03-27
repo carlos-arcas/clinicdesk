@@ -22,6 +22,11 @@ def test_estado_workspace_mantiene_seccion_valida() -> None:
     assert estado.seleccionar("agenda") == "agenda"
 
 
+def test_estado_workspace_arranca_en_cartera_para_mostrar_contexto_util() -> None:
+    estado = EstadoWorkspaceSeguros()
+    assert estado.seccion_activa == "cartera"
+
+
 def test_restaurar_seccion_respeta_disponibles() -> None:
     estado = EstadoWorkspaceSeguros(seccion_activa="economia")
     assert restaurar_seccion_preferida(estado, {"preventa", "economia"}) == "economia"

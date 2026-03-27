@@ -43,13 +43,12 @@ def _obtener_version_ruff_pinneada(root: Path) -> str | None:
         return None
 
 
-
-
 def _extraer_version_ruff_pinneada_desde_linea(linea: str) -> str | None:
     contenido = linea.split("#", maxsplit=1)[0].strip().replace(" ", "")
     if not contenido.startswith("ruff=="):
         return None
     return contenido.split("==", maxsplit=1)[1] or None
+
 
 def _extraer_version_ruff_instalada(salida_version: str) -> str | None:
     match = PATRON_VERSION_RUFF.search(salida_version)
@@ -99,9 +98,7 @@ def _construir_comandos_ruff_loteados(
     subcomando: Sequence[str], python_targets: Sequence[str], max_targets_por_lote: int | None = None
 ) -> list[list[str]]:
     comando_base = [sys.executable, "-m", "ruff", *subcomando]
-    lotes = agrupar_targets_para_comando(
-        comando_base, python_targets, max_targets_por_lote=max_targets_por_lote
-    )
+    lotes = agrupar_targets_para_comando(comando_base, python_targets, max_targets_por_lote=max_targets_por_lote)
     if len(lotes) > 1 or max_targets_por_lote is not None:
         _LOGGER.info(
             "ruff_targets_loteados",

@@ -6,6 +6,7 @@ from clinicdesk.app.application.demo_data.generator import (
     generate_doctors,
     generate_incidences,
     generate_patients,
+    generate_personal,
 )
 
 
@@ -54,6 +55,42 @@ def test_incidence_rate_is_approximate() -> None:
     total_incidences = sum(len(items) for items in incidence_map.values())
     observed_rate = total_incidences / len(appointments)
     assert 0.14 <= observed_rate <= 0.26
+
+
+def test_generated_entities_avoid_obvious_demo_placeholders() -> None:
+    doctors = generate_doctors(4, 12)
+    patients = generate_patients(8, 12)
+    staff = generate_personal(3, 12)
+    appointments = generate_appointments(
+        patients,
+        doctors,
+        AppointmentGenerationConfig(n_appointments=40, from_date=_d("2026-01-01"), to_date=_d("2026-02-28")),
+        12,
+    )
+    emails = [item.email for item in [*doctors, *patients, *staff] if item.email]
+    assert all(".demo" not in email for email in emails)
+    assert all("Calle Salud" not in item.address for item in [*doctors, *patients, *staff])
+    assert all("Detalle." not in appt.notes for appt in appointments if appt.notes)
+    assert len({appt.reason for appt in appointments}) >= 5
+
+
+def test_appointments_cover_open_and_closed_statuses_with_reference_date() -> None:
+    doctors = generate_doctors(4, 99)
+    patients = generate_patients(14, 99)
+    appointments = generate_appointments(
+        patients,
+        doctors,
+        AppointmentGenerationConfig(
+            n_appointments=240,
+            from_date=_d("2026-01-01"),
+            to_date=_d("2026-02-28"),
+            reference_date=_d("2026-01-31"),
+        ),
+        99,
+    )
+    statuses = {appt.status for appt in appointments}
+    assert statuses & {"REALIZADA", "NO_PRESENTADO", "CANCELADA"}
+    assert statuses & {"PROGRAMADA", "CONFIRMADA", "EN_CURSO"}
 
 
 def _d(raw: str):

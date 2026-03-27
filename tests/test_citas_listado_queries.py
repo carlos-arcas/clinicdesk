@@ -7,6 +7,7 @@ from clinicdesk.app.application.usecases.crear_cita import CrearCitaRequest, Cre
 from clinicdesk.app.domain.enums import EstadoCita
 from clinicdesk.app.pages.citas.estado_cita_presentacion import etiqueta_estado_cita
 from clinicdesk.app.pages.citas.riesgo_ausencia_ui import construir_dtos_desde_listado
+from clinicdesk.app.pages.citas.widgets.tooltip_citas import CLAVES_TOOLTIP_POR_DEFECTO
 from clinicdesk.app.queries.citas_queries import CitasQueries
 
 
@@ -95,6 +96,29 @@ def test_citas_listado_incluye_ids_para_prediccion(container, seed_data) -> None
     dtos = construir_dtos_desde_listado(rows, hoy=datetime(2024, 5, 20, 8, 0, 0))
     assert dtos[0].id == cita_id
     assert dtos[0].paciente_id == seed_data["paciente_activo_id"]
+
+
+def test_buscar_citas_calendario_tolera_schema_sin_riesgo_ausencia(container, seed_data) -> None:
+    _crear_cita(
+        container,
+        seed_data,
+        inicio="2024-05-20 09:00:00",
+        fin="2024-05-20 09:30:00",
+        estado=EstadoCita.PROGRAMADA.value,
+        motivo="Control con tooltip",
+    )
+
+    rows = CitasQueries(container).buscar_citas_calendario(
+        FiltrosCitasDTO(
+            rango_preset="PERSONALIZADO",
+            desde=datetime(2024, 5, 20, 0, 0, 0),
+            hasta=datetime(2024, 5, 20, 23, 59, 59),
+        ),
+        CLAVES_TOOLTIP_POR_DEFECTO,
+    )
+
+    assert len(rows) == 1
+    assert rows[0]["riesgo_ausencia"] == "NO_DISPONIBLE"
 
 
 def test_buscar_citas_listado_filtra_por_calidad_datos(container, seed_data) -> None:

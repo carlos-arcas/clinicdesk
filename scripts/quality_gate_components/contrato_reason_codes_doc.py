@@ -88,9 +88,7 @@ def extraer_snippets_semantica_bloqueo_operativo(texto_doc: str) -> tuple[str, .
             continue
         snippets.append(linea_normalizada[3:-1])
     if not snippets:
-        raise ErrorContratoReasonCodesDoc(
-            "Bloque de semántica mínima de bloqueo operativo sin snippets parseables."
-        )
+        raise ErrorContratoReasonCodesDoc("Bloque de semántica mínima de bloqueo operativo sin snippets parseables.")
     return tuple(snippets)
 
 
@@ -115,11 +113,15 @@ def _extraer_lineas_entre_marcadores(
     try:
         inicio = lineas_normalizadas.index(marcador_inicio)
     except ValueError as exc:
-        raise ErrorContratoReasonCodesDoc(f"No se encontró marcador de inicio de {nombre_bloque}: {marcador_inicio}") from exc
+        raise ErrorContratoReasonCodesDoc(
+            f"No se encontró marcador de inicio de {nombre_bloque}: {marcador_inicio}"
+        ) from exc
     try:
         fin = lineas_normalizadas.index(marcador_fin)
     except ValueError as exc:
-        raise ErrorContratoReasonCodesDoc(f"No se encontró marcador de cierre de {nombre_bloque}: {marcador_fin}") from exc
+        raise ErrorContratoReasonCodesDoc(
+            f"No se encontró marcador de cierre de {nombre_bloque}: {marcador_fin}"
+        ) from exc
     if fin <= inicio + 1:
         raise ErrorContratoReasonCodesDoc(
             f"Bloque de {nombre_bloque} vacío o delimitación inválida entre marcadores START/END."

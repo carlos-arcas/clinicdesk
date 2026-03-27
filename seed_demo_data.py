@@ -4,7 +4,7 @@ import argparse
 import sqlite3
 import sys
 import uuid
-from datetime import date
+from datetime import date, timedelta
 from pathlib import Path
 
 from scripts.ml_cli import run_cli
@@ -12,9 +12,15 @@ from clinicdesk.app.bootstrap import bootstrap_database, resolve_db_path
 from clinicdesk.app.bootstrap_logging import configure_logging, get_logger, log_soft_exception, set_run_context
 from clinicdesk.app.crash_handler import install_global_exception_hook
 
-_DEFAULT_FROM_DATE = "2025-01-01"
-_DEFAULT_TO_DATE = "2026-02-28"
 _LOGGER = get_logger(__name__)
+
+
+def _default_from_date() -> str:
+    return (date.today() - timedelta(days=210)).isoformat()
+
+
+def _default_to_date() -> str:
+    return (date.today() + timedelta(days=45)).isoformat()
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -23,12 +29,13 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--doctors", type=int, default=25)
     parser.add_argument("--patients", type=int, default=500)
     parser.add_argument("--appointments", type=int, default=5000)
-    parser.add_argument("--from", dest="from_date", type=str, default=_DEFAULT_FROM_DATE)
-    parser.add_argument("--to", dest="to_date", type=str, default=_DEFAULT_TO_DATE)
+    parser.add_argument("--from", dest="from_date", type=str, default=_default_from_date())
+    parser.add_argument("--to", dest="to_date", type=str, default=_default_to_date())
     parser.add_argument("--incidence-rate", type=float, default=0.15)
     parser.add_argument("--sqlite-path", type=str, default=None)
     parser.add_argument("--reset", dest="reset", action="store_true", default=None)
     parser.add_argument("--no-reset", dest="reset", action="store_false")
+    parser.add_argument("--confirm-reset", type=str, default=None)
     parser.add_argument("--turbo", dest="turbo", action="store_true", default=True)
     parser.add_argument("--no-turbo", dest="turbo", action="store_false")
     return parser
@@ -64,6 +71,8 @@ def main(argv: list[str] | None = None) -> int:
         ]
         if args.reset is not None:
             cli_args.append("--reset" if args.reset else "--no-reset")
+        if args.confirm_reset:
+            cli_args.extend(["--confirm-reset", args.confirm_reset])
         cli_args.append("--turbo" if args.turbo else "--no-turbo")
         rc = run_cli(cli_args)
         if rc != 0:

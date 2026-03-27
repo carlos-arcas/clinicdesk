@@ -65,6 +65,7 @@ class AppContainer:
     user_context: UserContext
     autorizador_acciones: AutorizadorAcciones
     preferencias_service: PreferenciasService
+    proveedores_sqlite_por_hilo: tuple[Any, ...]
 
     @property
     def demo_ml_facade(self) -> DemoMLFacade:
@@ -73,9 +74,15 @@ class AppContainer:
 
     def close(self) -> None:
         try:
-            self.connection.close()
-        except Exception:
-            pass
+            for proveedor in self.proveedores_sqlite_por_hilo:
+                cerrar = getattr(proveedor, "cerrar_conexion_del_hilo_actual", None)
+                if callable(cerrar):
+                    cerrar()
+        finally:
+            try:
+                self.connection.close()
+            except Exception:
+                pass
 
 
 def build_container(connection: sqlite3.Connection) -> AppContainer:
@@ -83,6 +90,7 @@ def build_container(connection: sqlite3.Connection) -> AppContainer:
     repos = build_repositorios_sqlite(connection)
     proveedor_prediccion = build_proveedor_conexion_sqlite_por_hilo(connection)
     proveedor_recordatorios = build_proveedor_conexion_sqlite_por_hilo(connection)
+    proveedores_sqlite_por_hilo = (proveedor_prediccion, proveedor_recordatorios)
     user_context = build_user_context()
     autorizador_acciones = AutorizadorAcciones()
     return AppContainer(
@@ -122,6 +130,7 @@ def build_container(connection: sqlite3.Connection) -> AppContainer:
         user_context=user_context,
         autorizador_acciones=autorizador_acciones,
         preferencias_service=PreferenciasService(RepositorioPreferenciasJson()),
+        proveedores_sqlite_por_hilo=proveedores_sqlite_por_hilo,
     )
 
 

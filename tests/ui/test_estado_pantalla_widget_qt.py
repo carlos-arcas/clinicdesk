@@ -6,7 +6,8 @@ import pytest
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 try:
-    from PySide6.QtWidgets import QLabel, QStackedWidget, QWidget
+    from PySide6.QtCore import QPoint
+    from PySide6.QtWidgets import QLabel, QStackedWidget, QVBoxLayout, QWidget
 except ImportError as exc:  # pragma: no cover
     pytest.skip(f"PySide6 no disponible: {exc}", allow_module_level=True)
 
@@ -65,12 +66,11 @@ def test_estado_pantalla_widget_no_duplica_ni_huerfana_contenido(qtbot) -> None:
     contenido_b = QLabel("b", widget)
 
     widget.set_content(contenido_a)
-    assert stack.indexOf(contenido_a) != -1
+    assert contenido_a.parent() is not None
 
     widget.set_content(contenido_b)
-    assert stack.indexOf(contenido_a) == -1
     assert contenido_a.parent() is None
-    assert stack.indexOf(contenido_b) != -1
+    assert contenido_b.parent() is not None
 
 
 def test_estado_pantalla_widget_difiere_mutacion_fuera_hilo_gui(qtbot, monkeypatch) -> None:
@@ -99,3 +99,24 @@ def test_estado_pantalla_widget_difiere_y_aplica_en_tick_gui(qtbot, monkeypatch)
 
     qtbot.wait(50)
     assert widget.estado_actual == "loading"
+
+
+def test_estado_pantalla_widget_ancla_contenido_arriba(qtbot) -> None:
+    widget = EstadoPantallaWidget(I18nManager("es"))
+    qtbot.addWidget(widget)
+    widget.resize(400, 300)
+    widget.show()
+
+    contenido = QWidget(widget)
+    layout = QVBoxLayout(contenido)
+    layout.setContentsMargins(0, 0, 0, 0)
+    layout.addWidget(QLabel("contenido", contenido))
+
+    widget.set_content(contenido)
+    qtbot.wait(20)
+
+    stack = widget.findChild(QStackedWidget)
+    assert stack is not None
+    vista = stack.currentWidget()
+    assert vista is not None
+    assert contenido.mapTo(vista, QPoint(0, 0)).y() < 20

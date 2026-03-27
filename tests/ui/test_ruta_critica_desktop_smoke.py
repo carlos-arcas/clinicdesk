@@ -10,7 +10,7 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 try:
     from PySide6.QtCore import QDate, Qt
-    from PySide6.QtWidgets import QDialog, QMessageBox, QPushButton
+    from PySide6.QtWidgets import QDialog, QMessageBox, QPushButton, QTabWidget
 except ImportError as exc:  # pragma: no cover
     pytest.skip(f"PySide6 no disponible: {exc}", allow_module_level=True)
 
@@ -67,6 +67,7 @@ def test_smoke_navegacion_minima_modulos_ruta_critica(qtbot, container) -> None:
 
     assert page_citas.findChild(type(page_citas.btn_new), "citas_btn_nueva") is not None
     assert page_citas.findChild(type(page_citas.table_lista), "citas_tabla_lista") is not None
+    assert page_citas.findChild(QTabWidget, "citas_tabs") is None
     assert (
         page_prediccion.findChild(type(page_prediccion.chk_mostrar_agenda), "prediccion_operativa_chk_mostrar_agenda")
         is not None
@@ -90,6 +91,7 @@ def test_smoke_arranque_controlado_pyside(monkeypatch: pytest.MonkeyPatch) -> No
 def test_smoke_desktop_citas_crear_y_consultar(qtbot, container, seed_data, monkeypatch: pytest.MonkeyPatch) -> None:
     page = PageCitas(container, I18nManager("es"))
     qtbot.addWidget(page)
+    page.on_show()
 
     fecha_base = FECHA_BASE_CITAS
     page.calendar.setSelectedDate(QDate(2024, 5, 20))
@@ -140,6 +142,7 @@ def test_smoke_desktop_prediccion_operativa_entrena_y_previsualiza(qtbot, contai
     )
     qtbot.addWidget(page)
     page.on_show()
+    page.chk_mostrar_agenda.setChecked(True)
 
     bloque = page._bloque("duracion")
     assert "60" in bloque.lbl_datos.text()

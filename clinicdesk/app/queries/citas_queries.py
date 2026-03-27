@@ -55,7 +55,6 @@ _CAMPO_SQL_POR_ATRIBUTO: dict[str, str] = {
     "medico": "(m.nombre || ' ' || m.apellidos) AS medico",
     "sala": "s.nombre AS sala",
     "estado": "c.estado AS estado",
-    "riesgo_ausencia": "coalesce(c.riesgo_ausencia, 'NO_DISPONIBLE') AS riesgo_ausencia",
     "recordatorio_estado": "coalesce(r.estado_global, 'SIN_PREPARAR') AS recordatorio_estado",
     "notas_len": "length(coalesce(c.notas, '')) AS notas_len",
     "incidencias": "CASE WHEN i.cita_id IS NULL THEN 0 ELSE 1 END AS tiene_incidencias",
@@ -67,6 +66,8 @@ class CitasQueries:
 
     def __init__(self, container: AppContainer) -> None:
         self._c = container
+        self._columnas_citas = _obtener_columnas_tabla(self._c.connection, "citas")
+        self._tiene_riesgo_ausencia = "riesgo_ausencia" in self._columnas_citas
 
     def buscar_citas_listado(
         self,
@@ -76,7 +77,7 @@ class CitasQueries:
         offset: int,
     ) -> tuple[list[dict[str, object]], int]:
         where_sql, params = self._build_common_filters(filtros_norm)
-        campos = _resolver_select_fields(campos_requeridos)
+        campos = self._resolver_select_fields(campos_requeridos)
         sql = _sql_lista(where_sql, campos)
         rows = self._c.connection.execute(sql, (*params, limit, offset)).fetchall()
         total = int(self._c.connection.execute(_sql_count(where_sql), params).fetchone()["total"])
@@ -88,7 +89,7 @@ class CitasQueries:
         campos_requeridos_tooltip: tuple[str, ...],
     ) -> list[dict[str, object]]:
         where_sql, params = self._build_common_filters(filtros_norm)
-        campos = _resolver_select_fields(campos_requeridos_tooltip)
+        campos = self._resolver_select_fields(campos_requeridos_tooltip)
         sql = _sql_calendario(where_sql, campos)
         rows = self._c.connection.execute(sql, params).fetchall()
         return [dict(row) for row in rows]
@@ -153,6 +154,23 @@ class CitasQueries:
 
         return " AND ".join(clauses), tuple(params)
 
+    def _resolver_select_fields(self, columnas: tuple[str, ...]) -> tuple[str, ...]:
+        campos = ["c.id AS cita_id"]
+        campo_riesgo_ausencia = (
+            "coalesce(c.riesgo_ausencia, 'NO_DISPONIBLE') AS riesgo_ausencia"
+            if self._tiene_riesgo_ausencia
+            else "'NO_DISPONIBLE' AS riesgo_ausencia"
+        )
+        for columna in columnas:
+            campo = (
+                campo_riesgo_ausencia
+                if columna == "riesgo_ausencia"
+                else _CAMPO_SQL_POR_ATRIBUTO.get(columna)
+            )
+            if campo and campo not in campos:
+                campos.append(campo)
+        return tuple(campos)
+
 
 def _sql_filtro_calidad(filtro_calidad: str) -> str:
     filtros = {
@@ -197,13 +215,8 @@ def _agregar_filtro_calidad(clauses: list[str], filtro_calidad: str | None) -> N
     clauses.append(_sql_filtro_calidad(filtro_calidad))
 
 
-def _resolver_select_fields(columnas: tuple[str, ...]) -> tuple[str, ...]:
-    campos = ["c.id AS cita_id"]
-    for columna in columnas:
-        campo = _CAMPO_SQL_POR_ATRIBUTO.get(columna)
-        if campo and campo not in campos:
-            campos.append(campo)
-    return tuple(campos)
+def _obtener_columnas_tabla(connection, table: str) -> set[str]:
+    return {str(row["name"]) for row in connection.execute(f"PRAGMA table_info({table})").fetchall()}
 
 
 def _sql_by_date() -> str:

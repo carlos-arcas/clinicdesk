@@ -157,9 +157,9 @@ class DemoDataSeeder:
         if rooms:
             return [room.id for room in rooms if room.id is not None]
         defaults = [
-            Sala(nombre="Consulta Demo 1", tipo=TipoSala.CONSULTA, ubicacion="Planta 1", activa=True),
-            Sala(nombre="Consulta Demo 2", tipo=TipoSala.CONSULTA, ubicacion="Planta 1", activa=True),
-            Sala(nombre="Box Demo", tipo=TipoSala.FISIOTERAPIA, ubicacion="Planta 2", activa=True),
+            Sala(nombre="Consulta Norte 1", tipo=TipoSala.CONSULTA, ubicacion="Planta baja", activa=True),
+            Sala(nombre="Consulta Norte 2", tipo=TipoSala.CONSULTA, ubicacion="Planta baja", activa=True),
+            Sala(nombre="Sala de curas", tipo=TipoSala.FISIOTERAPIA, ubicacion="Primera planta", activa=True),
         ]
         return [self._salas_repo.create(room) for room in defaults]
 

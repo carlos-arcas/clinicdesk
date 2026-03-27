@@ -4,7 +4,12 @@ from typing import TYPE_CHECKING
 
 from PySide6.QtCore import Qt
 
-from clinicdesk.app.ui.ux.contexto_tabla import ContextoTablaListado, FilaTabla, construir_contexto_tabla, resolver_fila_a_restaurar
+from clinicdesk.app.ui.ux.contexto_tabla import (
+    ContextoTablaListado,
+    FilaTabla,
+    construir_contexto_tabla,
+    resolver_fila_a_restaurar,
+)
 
 if TYPE_CHECKING:
     from PySide6.QtWidgets import QTableWidget

@@ -4,6 +4,7 @@ import argparse
 import sqlite3
 import uuid
 from collections import Counter
+from datetime import date, timedelta
 from pathlib import Path
 from typing import Sequence
 
@@ -49,6 +50,14 @@ _DEFAULT_FEATURE_STORE_PATH = "./data/feature_store"
 _DEFAULT_MODEL_STORE_PATH = "./data/model_store"
 _DEFAULT_MODEL_NAME = "citas_nb_v1"
 _LOGGER = get_logger(__name__)
+
+
+def _default_seed_from_date() -> str:
+    return (date.today() - timedelta(days=210)).isoformat()
+
+
+def _default_seed_to_date() -> str:
+    return (date.today() + timedelta(days=45)).isoformat()
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -106,8 +115,8 @@ def _add_seed_demo_parser(subparsers: argparse._SubParsersAction) -> None:
     parser.add_argument("--doctors", type=int, default=10)
     parser.add_argument("--patients", type=int, default=80)
     parser.add_argument("--appointments", type=int, default=300)
-    parser.add_argument("--from", dest="from_date", type=str, default=None)
-    parser.add_argument("--to", dest="to_date", type=str, default=None)
+    parser.add_argument("--from", dest="from_date", type=str, default=_default_seed_from_date())
+    parser.add_argument("--to", dest="to_date", type=str, default=_default_seed_to_date())
     parser.add_argument("--incidence-rate", type=float, default=0.15)
     parser.add_argument("--sqlite-path", type=str, default=None)
     parser.add_argument("--batch-size", type=int, default=500)

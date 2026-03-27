@@ -18,6 +18,8 @@ from clinicdesk.app.infrastructure.sqlite.demo_data_seed_helpers import (
     seed_recetas_dispensaciones,
     seed_turnos_y_calendario,
 )
+from clinicdesk.app.infrastructure.sqlite.demo_seed.contexto_agenda_ml import enriquecer_citas_agenda_ml
+from clinicdesk.app.infrastructure.sqlite.demo_seed.operational_history import seed_historial_operativo
 
 
 @dataclass(slots=True, frozen=True)
@@ -241,6 +243,8 @@ def persist_demo_data(
         incidences_by_appointment,
         batch_size=safe_batch_size,
     )
+    contextos = enriquecer_citas_agenda_ml(seeder._connection, seed=seed, batch_size=safe_batch_size)
+    seed_historial_operativo(seeder._connection, contextos, batch_size=safe_batch_size)
     config_seed = ConfigSeedClinico(
         n_medicamentos=n_medicamentos,
         n_materiales=n_materiales,

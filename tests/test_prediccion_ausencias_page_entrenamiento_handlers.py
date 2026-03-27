@@ -5,13 +5,19 @@ from types import SimpleNamespace
 import pytest
 
 try:
+    from PySide6.QtWidgets import QApplication
     from clinicdesk.app.pages.prediccion_ausencias.page import PagePrediccionAusencias
 except ImportError as exc:  # pragma: no cover
     pytest.skip(f"PySide6 no disponible: {exc}", allow_module_level=True)
 
 
+def _app() -> QApplication:
+    return QApplication.instance() or QApplication([])
+
+
 def _page_minima() -> PagePrediccionAusencias:
-    return object.__new__(PagePrediccionAusencias)
+    _app()
+    return PagePrediccionAusencias.__new__(PagePrediccionAusencias)
 
 
 def test_on_entrenar_click_no_duplica_arranque_si_running() -> None:
@@ -31,13 +37,21 @@ def test_on_entrenar_ok_refresca_componentes_clave() -> None:
     page._limpiar_recordatorio_por_entrenamiento = lambda: llamadas.append("recordatorio")
     page._actualizar_salud = lambda: llamadas.append("salud")
     page._actualizar_resultados_recientes = lambda: llamadas.append("resultados")
+    page._actualizar_resumen_modelo = lambda: llamadas.append("resumen")
     page._cargar_previsualizacion = lambda: llamadas.append("preview")
     page._registrar_telemetria = lambda _evento, _resultado: llamadas.append("telemetria")
     page._set_estado_error = lambda _reason: llamadas.append("estado_error")
 
-    page._on_entrenar_ok(SimpleNamespace(citas_usadas=12, fecha_entrenamiento="2026-03-25"))
+    page._on_entrenar_ok(
+        SimpleNamespace(
+            citas_usadas=12,
+            fecha_entrenamiento="2026-03-25",
+            accuracy=0.72,
+            recall_no_show=0.5,
+        )
+    )
 
-    assert llamadas == ["estado_ok", "recordatorio", "salud", "resultados", "preview", "telemetria"]
+    assert llamadas == ["estado_ok", "recordatorio", "salud", "resultados", "resumen", "preview", "telemetria"]
 
 
 def test_on_entrenar_fail_normaliza_reason_code() -> None:
